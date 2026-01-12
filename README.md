@@ -17,7 +17,7 @@ ZERO_DAWN/
 │   └── demeter/        # Utilities
 ├── projects/           # Individual analysis projects
 └── data/               # Shared reference data
-'''
+````
 ## GAIA Modules
 Inspired by Horizon Zero Dawn, GAIA is the central system orchestrating specialized modules, each named after the game's subordinate functions.
 ### Hades - Quality Control & Filtering
