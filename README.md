@@ -1,6 +1,6 @@
 # ZERO_DAWN
 
-A multi-omics integration toolkit for analyzing CUT&TAG, ATAC-seq, and RNA-seq data.
+A private multi-omics integration toolkit
 
 ## Project Structure
 ```bash
@@ -38,3 +38,7 @@ Named for the pure upper air breathed by gods, Aether clarifies and illuminates 
 The cradle facility that brought new life into the world, Eleuthia handles the birth and delivery of data - importing raw inputs and delivering polished final reports.
 ### Demeter - Utilities
 Goddess of agriculture and harvest, Demeter cultivates the foundation - providing the essential tools and helper functions that nourish all other modules.
+
+
+## Current implementations
+### sCCA - Integrating multi-OMICS data through sparse canonical correlation analysis for the prediction of complex traits: a comparison study (doi: 10.1093/bioinformatics/btaa530)

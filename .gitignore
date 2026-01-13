@@ -1,4 +1,10 @@
 #This is the .gitignore file
 
+CLAUDE.md
+
+to_process/
+icons/
 data/
 projects/
+
+
