@@ -37,9 +37,52 @@ HEPHAESTUS_updateZ <- function(x, old){
 #' @keywords internal
 #' @export
 HEPHAESTUS_relPMDCCA_algo <- function(X_1, X_2, lambda, tauW_1, tauW_2, initW_1 = NULL, initW_2 = NULL, a = 3.7, sd.mu = sqrt(2), nIter = 100, penalty = "LASSO", element_wise = TRUE, tau_EN = NULL){
+    n.samples <- nrow(X_1)
+
+    # Check for NAs before scaling
+    if (any(is.na(X_1))){
+        stop("Dataset X_1 contains NA values before scaling. ",
+             "Please remove/replace any missing data before implementing sCCA.")
+    }
+    if (any(is.na(X_2))){
+        stop("Dataset X_2 contains NA values before scaling. ",
+             "Please remove/replace any missing data before implementing sCCA.")
+    }
+
     # We use X notation for X_1 and Y for X_2
     X <- scale(X_1)
     Y <- scale(X_2)
+
+    # Check for NAs after scaling (caused by zero-variance features)
+    if (any(is.na(X))){
+        na_cols <- which(apply(X, 2, function(col) any(is.na(col))))
+        n_na_features <- length(na_cols)
+        stop("Dataset X_1 contains ", n_na_features, " features with NaN after scaling.\n",
+             "This occurs when features have zero variance (identical values across samples).\n",
+             "With only ", n.samples, " samples, this is common when sample pairs have identical values.\n\n",
+             "Solutions:\n",
+             "  1. Use POSEIDON_filter_zero_variance() to remove zero-variance features\n",
+             "  2. Use POSEIDON_filter_pairwise_identical() for small-sample CV scenarios\n",
+             "  3. Increase sample size if possible\n\n",
+             "First few problematic feature indices: ",
+             paste(head(na_cols, 10), collapse = ", "),
+             if (n_na_features > 10) paste0(", ... (", n_na_features - 10, " more)") else "")
+    }
+    if (any(is.na(Y))){
+        na_cols <- which(apply(Y, 2, function(col) any(is.na(col))))
+        n_na_features <- length(na_cols)
+        stop("Dataset X_2 contains ", n_na_features, " features with NaN after scaling.\n",
+             "This occurs when features have zero variance (identical values across samples).\n",
+             "With only ", n.samples, " samples, this is common when sample pairs have identical values.\n\n",
+             "Solutions:\n",
+             "  1. Use POSEIDON_filter_zero_variance() to remove zero-variance features\n",
+             "  2. Use POSEIDON_filter_pairwise_identical() for small-sample CV scenarios\n",
+             "  3. Increase sample size if possible\n\n",
+             "First few problematic feature indices: ",
+             paste(head(na_cols, 10), collapse = ", "),
+             if (n_na_features > 10) paste0(", ... (", n_na_features - 10, " more)") else "")
+    }
+
     # mu must satisfy: 0 < mu <= lambda/norm(X)^2
     ## Each data-set has its own mu (and lambda) values - we fix lambda and have separate mu
     mu.x <- rnorm(1, mean = 0, sd = sd.mu)
@@ -172,10 +215,32 @@ HEPHAESTUS_multi_relPMDCCA_algo <- function(X, lambda, tau, a = 3.7, sd.mu = sqr
     length.list <- length(X)
     n.samples = nrow(X[[1]])
     for (i in 1:length.list){
-        X[[i]] <- scale(X[[i]])
+        # Check for NAs before scaling
         if (any(is.na(X[[i]]))){
-            stop("Please remove/replace any missing data before implementing sCCA.")
+            stop("Dataset ", i, " contains NA values before scaling. ",
+                 "Please remove/replace any missing data before implementing sCCA.")
         }
+
+        X[[i]] <- scale(X[[i]])
+
+        # Check for NAs after scaling (caused by zero-variance features)
+        if (any(is.na(X[[i]]))){
+            # Identify problematic features
+            na_cols <- which(apply(X[[i]], 2, function(col) any(is.na(col))))
+            n_na_features <- length(na_cols)
+
+            stop("Dataset ", i, " contains ", n_na_features, " features with NaN after scaling.\n",
+                 "This occurs when features have zero variance (identical values across samples).\n",
+                 "With only ", n.samples, " samples, this is common when sample pairs have identical values.\n\n",
+                 "Solutions:\n",
+                 "  1. Use POSEIDON_filter_zero_variance() to remove zero-variance features\n",
+                 "  2. Use POSEIDON_filter_pairwise_identical() for small-sample CV scenarios\n",
+                 "  3. Increase sample size if possible\n\n",
+                 "First few problematic feature indices: ",
+                 paste(head(na_cols, 10), collapse = ", "),
+                 if (n_na_features > 10) paste0(", ... (", n_na_features - 10, " more)") else "")
+        }
+
         if (nrow(X[[i]]) != n.samples){
             stop("Please make sure that all datasets in list X have the same number of samples")
         }

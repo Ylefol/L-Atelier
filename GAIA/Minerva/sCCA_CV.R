@@ -109,12 +109,18 @@ MINERVA_scca_fit <- function(X = NULL, X_1 = NULL, X_2 = NULL,
 #'
 #' @param X_list List of datasets (test data)
 #' @param W_list List of canonical vectors
-#' @param metric Metric to compute: "correlation" (default), "sparsity", or "both"
+#' @param metric Metric to compute: "correlation" (default) or "both"
+#'   (both computes correlation and sparsity metrics)
 #'
 #' @return Named list of metrics
 #'
 #' @export
 MINERVA_evaluate_scca <- function(X_list, W_list, metric = "correlation") {
+
+  # Validate metric parameter
+  if (!metric %in% c("correlation", "both")) {
+    stop("metric must be either 'correlation' or 'both'")
+  }
 
   n_datasets <- length(X_list)
 
@@ -138,8 +144,8 @@ MINERVA_evaluate_scca <- function(X_list, W_list, metric = "correlation") {
     results$correlations_all <- cors
   }
 
-  # Sparsity metrics
-  if (metric %in% c("sparsity", "both")) {
+  # Sparsity metrics (only when metric="both")
+  if (metric == "both") {
     sparsity <- sapply(W_list, function(w) {
       sum(abs(w) > 1e-6) / length(w)  # Proportion of non-zero features
     })
@@ -166,7 +172,8 @@ MINERVA_evaluate_scca <- function(X_list, W_list, metric = "correlation") {
 #' @param k Number of CV folds (default = 5)
 #' @param nIter Maximum iterations for each fit
 #' @param penalty Penalty function: "LASSO" (default) or "SCAD"
-#' @param metric Metric to optimize: "correlation" (default) or "sparsity"
+#' @param metric Metric to use: "correlation" (default, optimizes for correlation)
+#'   or "both" (computes both correlation and sparsity, optimizes for correlation)
 #' @param seed Random seed for reproducibility
 #' @param verbose Print progress (default = TRUE)
 #'
@@ -190,6 +197,11 @@ MINERVA_cv_scca <- function(X = NULL, X_1 = NULL, X_2 = NULL,
 
   method <- match.arg(method)
 
+  # Validate metric parameter
+  if (!metric %in% c("correlation", "both")) {
+    stop("metric must be either 'correlation' or 'both'")
+  }
+
   # Determine dataset structure
   is_multi <- !is.null(X)
   n_datasets <- if (is_multi) length(X) else 2
@@ -203,15 +215,44 @@ MINERVA_cv_scca <- function(X = NULL, X_1 = NULL, X_2 = NULL,
   # Create CV folds
   folds <- MINERVA_create_folds(n_samples, k = k, seed = seed)
 
+  # Calculate minimum training set size and warn if problematic
+  min_train_size <- n_samples - max(sapply(folds, length))
+
+  if (min_train_size <= 2) {
+    warning(
+      "\n",
+      "=======================================================================\n",
+      "SMALL SAMPLE WARNING\n",
+      "=======================================================================\n",
+      sprintf("With %d samples and %d-fold CV, training sets will have only %d samples.\n",
+              n_samples, k, min_train_size),
+      "\n",
+      "This can cause issues:\
+",
+      "  1. Insufficient statistical power for reliable correlation estimates\n",
+      "  2. Features with identical values across training samples will produce\n",
+      "     NaN after scaling, causing CCA to fail\n",
+      "  3. Results may be highly unstable and not generalizable\n",
+      "\n",
+      "Consider:\n",
+      "  - Using fewer folds (if not already LOOCV)\n",
+      "  - Acquiring more samples\n",
+      "  - Pre-filtering features with low variance across all samples\n",
+      "=======================================================================\n",
+      immediate. = TRUE
+    )
+  }
+
   if (verbose) {
     cat(sprintf("Running %d-fold CV for %s with %d tau combinations\n",
                 k, method, nrow(tau_grid)))
+    cat(sprintf("Training samples per fold: %d\n", min_train_size))
     cat(sprintf("Total fits: %d\n\n", k * nrow(tau_grid)))
   }
 
   # Storage for results
   cv_scores <- matrix(NA, nrow = nrow(tau_grid), ncol = k)
-
+  
   # Grid search over tau combinations
   for (i in 1:nrow(tau_grid)) {
     # Extract tau combination
@@ -260,7 +301,10 @@ MINERVA_cv_scca <- function(X = NULL, X_1 = NULL, X_2 = NULL,
           eval_result <- MINERVA_evaluate_scca(list(X_1_test, X_2_test), fit$W, metric = metric)
         }
 
-        cv_scores[i, fold_idx] <- eval_result[[metric]]
+        # Extract score for CV optimization
+        # When metric="both", still optimize based on correlation
+        cv_metric <- if (metric == "both") "correlation" else metric
+        cv_scores[i, fold_idx] <- eval_result[[cv_metric]]
 
       }, error = function(e) {
         if (verbose) {

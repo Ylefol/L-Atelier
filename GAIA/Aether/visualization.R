@@ -265,6 +265,9 @@ AETHER_plot_multi_feature_weights <- function(weights_list,
 #' @param param_names Optional character vector of parameter names for axis labels.
 #'   If NULL, uses "tau1", "tau2", etc. (default = NULL)
 #' @param metric_name Character string for y-axis label (default = "CV Score")
+#' @param x_axis_type Character string controlling x-axis range. Options:
+#'   "full" = fixed 0-1 range showing complete parameter space (default),
+#'   "auto" = zoom to data range (fine grid region)
 #'
 #' @return ggplot2 object with faceted panels showing marginal CV performance
 #'   curves for coarse and fine grids.
@@ -297,19 +300,33 @@ AETHER_plot_multi_feature_weights <- function(weights_list,
 #'
 #' @examples
 #' # After running coarse and fine CV
-#' p <- AETHER_plot_cv_comparison(
+#'
+#' # Full view showing complete 0-1 parameter space
+#' p_full <- AETHER_plot_cv_comparison(
 #'   coarse_cv_results = coarse_cv$cv_results,
 #'   fine_cv_results = fine_cv$cv_results,
 #'   n_datasets = 3,
-#'   param_names = c("RNA-seq tau", "ATAC-seq tau", "CUT&TAG tau")
+#'   param_names = c("RNA-seq tau", "ATAC-seq tau", "CUT&TAG tau"),
+#'   x_axis_type = "full"
 #' )
-#' print(p)
+#' print(p_full)
+#'
+#' # Zoomed view focusing on fine grid region
+#' p_zoom <- AETHER_plot_cv_comparison(
+#'   coarse_cv_results = coarse_cv$cv_results,
+#'   fine_cv_results = fine_cv$cv_results,
+#'   n_datasets = 3,
+#'   param_names = c("RNA-seq tau", "ATAC-seq tau", "CUT&TAG tau"),
+#'   x_axis_type = "auto"
+#' )
+#' print(p_zoom)
 #'
 AETHER_plot_cv_comparison <- function(coarse_cv_results,
                                        fine_cv_results,
                                        n_datasets,
                                        param_names = NULL,
-                                       metric_name = "CV Score") {
+                                       metric_name = "CV Score",
+                                       x_axis_type = "full") {
 
   # Input validation
   if (!is.data.frame(coarse_cv_results) || !is.data.frame(fine_cv_results)) {
@@ -318,6 +335,10 @@ AETHER_plot_cv_comparison <- function(coarse_cv_results,
 
   if (!is.numeric(n_datasets) || n_datasets < 1) {
     stop("n_datasets must be a positive integer")
+  }
+
+  if (!x_axis_type %in% c("full", "auto")) {
+    stop("x_axis_type must be either 'full' or 'auto'")
   }
 
   # Generate parameter names if not provided
@@ -344,21 +365,21 @@ AETHER_plot_cv_comparison <- function(coarse_cv_results,
   for (i in 1:n_datasets) {
     param_col <- paste0("param", i)
 
-    # Coarse marginals: group by param_i, average score
+    # Coarse marginals: group by param_i, average score (excluding NAs)
     coarse_marginal <- aggregate(
       mean_score ~ get(param_col),
       data = coarse_cv_results,
-      FUN = mean
+      FUN = function(x) mean(x, na.rm = TRUE)
     )
     colnames(coarse_marginal) <- c("param_value", "cv_score")
     coarse_marginal$grid_type <- "Coarse"
     coarse_marginal$parameter <- param_names[i]
 
-    # Fine marginals: group by param_i, average score
+    # Fine marginals: group by param_i, average score (excluding NAs)
     fine_marginal <- aggregate(
       mean_score ~ get(param_col),
       data = fine_cv_results,
-      FUN = mean
+      FUN = function(x) mean(x, na.rm = TRUE)
     )
     colnames(fine_marginal) <- c("param_value", "cv_score")
     fine_marginal$grid_type <- "Fine"
@@ -427,8 +448,16 @@ AETHER_plot_cv_comparison <- function(coarse_cv_results,
       values = c("Coarse" = "dashed", "Fine" = "solid"),
       name = "Grid Type"
     ) +
-    # Facet by parameter
-    facet_wrap(~parameter, ncol = n_datasets, scales = "free_x") +
+    # Conditional x-axis scaling based on x_axis_type
+    {if (x_axis_type == "full") {
+      scale_x_continuous(
+        limits = c(0, 1),
+        breaks = seq(0, 1, by = 0.1)
+      )
+    }} +
+    # Facet by parameter with conditional scales
+    facet_wrap(~parameter, ncol = n_datasets,
+               scales = if (x_axis_type == "full") "free_y" else "free") +
     # Labels and theme
     labs(
       title = "Cross-Validation Performance: Coarse vs Fine Grid",
