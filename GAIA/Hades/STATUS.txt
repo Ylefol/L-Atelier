@@ -1,0 +1,38 @@
+================================================================================
+HADES MODULE STATUS - Quality Control & Filtering
+================================================================================
+Last Updated: 2026-01-19
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+None yet.
+
+================================================================================
+IN PROGRESS
+================================================================================
+None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Quality metrics calculation
+- Sample filtering based on QC thresholds
+- Read quality assessment
+- Outlier detection
+- QC report generation
+- Fragment size distribution analysis (ATAC-seq)
+- FRiP score calculation (ChIP-seq)
+
+================================================================================
+DEPENDENCIES
+================================================================================
+- Will likely use: Demeter (utilities), Eleuthia (data loading)
+- External: possibly ATACseqQC, ChIPQC
+
+================================================================================
+NOTES
+================================================================================
+- Module not yet started
+- Will handle QC separate from preprocessing (Poseidon)
+- Focus on assessment and filtering, not correction

@@ -1,0 +1,83 @@
+================================================================================
+MINERVA MODULE STATUS - Machine Learning & Validation
+================================================================================
+Last Updated: 2026-01-19
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+penalty_functions.R:
+--------------------
+MINERVA_soft_threshold_lasso(x, tau)
+  - Soft thresholding for LASSO penalty
+  - sign(x) * max(|x| - tau, 0)
+
+MINERVA_soft_threshold_scad(x, tau, a)
+  - Soft thresholding for SCAD penalty
+  - Non-convex penalty with better variable selection
+
+MINERVA_proximal_lasso(omega, mu, c, tau, old)
+  - Proximal operator for LASSO
+  - Used in optimization algorithms
+
+MINERVA_proximal_scad(omega, mu, c, tau, a, old)
+  - Proximal operator for SCAD
+  - Used in optimization algorithms
+
+MINERVA_proximal_elastic_net(omega, mu, c, tau, tau_EN, old)
+  - Proximal operator for Elastic Net
+  - Combines L1 and L2 penalties
+
+sCCA_CV.R:
+----------
+MINERVA_create_folds(n_samples, k, seed)
+  - Create k-fold cross-validation indices
+  - Reproducible with seed
+
+MINERVA_scca_fit(X, X_1, X_2, method, tau, tau1, tau2, ...)
+  - Unified interface for fitting sCCA methods
+  - Supports ConvCCA, relPMDCCA (2-dataset and multi-dataset)
+
+MINERVA_evaluate_scca(X_list, W_list, metric)
+  - Evaluate sCCA fit quality
+  - Metrics: correlation, variance_explained
+
+MINERVA_cv_scca(X, X_1, X_2, method, tau_grid, tau1_grid, tau2_grid,
+                k_folds, metric, seed, verbose, ...)
+  - Cross-validation for sCCA hyperparameter tuning
+  - Supports 2-dataset and multi-dataset cases
+  - Returns best parameters and full CV results
+
+MINERVA_sparsity_quality(sparsity, target_low, target_high, type)
+  - Evaluate sparsity level quality
+  - Helper for parameter selection
+
+MINERVA_pilot_compare_methods(X, X_1, X_2, methods, tau_values, seed,
+                               verbose, ...)
+  - Quick comparison of multiple sCCA methods
+  - Useful for method selection before full CV
+
+MINERVA_cv_convCCA(...)
+  - Convenience wrapper for CV with ConvCCA method
+
+MINERVA_cv_relPMDCCA(...)
+  - Convenience wrapper for CV with relPMDCCA method
+
+================================================================================
+IN PROGRESS
+================================================================================
+None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Model evaluation metrics
+- Hyperparameter tuning utilities
+- Additional validation strategies
+- Permutation testing for significance
+
+================================================================================
+DEPENDENCIES
+================================================================================
+- Uses: Demeter (matrix_utils), Hephaestus (sCCA methods)

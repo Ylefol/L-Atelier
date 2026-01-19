@@ -1,0 +1,52 @@
+================================================================================
+APOLLO MODULE STATUS - Annotation & Enrichment
+================================================================================
+Last Updated: 2026-01-19
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+annotation.R:
+-------------
+APOLLO_get_chr_mapping(genome)
+  - Get chromosome name mapping for specific genome
+  - Currently supports: "T2T" (T2T-CHM13v2.0)
+  - Returns named vector: NCBI accession -> UCSC name
+
+APOLLO_get_chromosome_sizes(annotation_path, chromosomes, name_mapping,
+                             verbose)
+  - Extract chromosome sizes from GTF/GFF annotation
+  - Supports gzipped files
+  - Uses ##sequence-region pragmas if available (GFF3)
+  - Returns data.frame: chr, size
+
+APOLLO_chr_sizes_to_seqinfo(chr_sizes, genome)
+  - Convert chr_sizes data.frame to Seqinfo object
+  - For compatibility with GenomicRanges/Bioconductor
+
+================================================================================
+IN PROGRESS
+================================================================================
+None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Peak-to-gene linking
+- Transcription factor binding motif identification
+- Pathway enrichment analysis (GO, KEGG)
+- ChIPseeker integration for peak annotation
+- Additional genome mappings (hg38, mm10, etc.)
+
+================================================================================
+DEPENDENCIES
+================================================================================
+- Uses: None (standalone)
+- External: GenomeInfoDb (for Seqinfo)
+
+================================================================================
+NOTES
+================================================================================
+- First APOLLO function was created for circos plot support
+- Module will expand significantly for annotation/enrichment features

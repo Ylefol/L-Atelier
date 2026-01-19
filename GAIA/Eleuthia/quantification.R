@@ -1,15 +1,21 @@
 #' Eleuthia - Quantification Functions
 #'
-#' @description Functions for quantifying reads from BAM files against
-#' genomic features (peaks, genes, etc.) using Rsubread.
+#' @description Functions for quantifying reads against genomic features.
+#' Includes both BAM-based (featureCounts) and BED-based quantification.
 
 
-#' Quantify Reads in Peak Regions
+#' Quantify Reads in Peak Regions (BAM-based)
 #'
 #' @description Counts reads from BAM files in consensus peak regions using
 #' Rsubread::featureCounts().
 #'
+#' @note This function requires BAM files and a sample sheet with a bam_loc column.
+#' For most use cases, consider using ELEUTHIA_quantify_bed() instead, which
+#' quantifies directly from BED fragment files and is more lightweight.
+#'
 #' @param sample_sheet A validated sample sheet data.frame with bam_loc column.
+#'   Note: The standard sample sheet uses bed_loc; you may need to add bam_loc
+#'   manually if using this function.
 #' @param consensus_peaks A consensus peak data.frame from
 #'   ELEUTHIA_create_consensus_peaks().
 #' @param omics Character string. Omics type to quantify ("ATACseq" or "CHIPseq").
@@ -64,10 +70,17 @@ ELEUTHIA_quantify_peaks <- function(sample_sheet,
                                      verbose = TRUE) {
 
   # Check if Rsubread is available
-
   if (!requireNamespace("Rsubread", quietly = TRUE)) {
     stop("Package 'Rsubread' is required for quantification. ",
          "Install with: BiocManager::install('Rsubread')")
+  }
+
+  # Check for bam_loc column
+  if (!"bam_loc" %in% colnames(sample_sheet)) {
+    stop("sample_sheet must have a 'bam_loc' column for BAM-based quantification.\n",
+         "Note: The standard sample sheet uses 'bed_loc' for BED fragment files.\n",
+         "Consider using ELEUTHIA_quantify_bed() instead, which works with BED files.\n",
+         "If you need BAM-based quantification, add a 'bam_loc' column to your sample sheet.")
   }
 
   # Get subset for this omics type
@@ -138,46 +151,85 @@ ELEUTHIA_quantify_peaks <- function(sample_sheet,
 
 #' Summarize Quantification Statistics
 #'
-#' @description Prints a summary of featureCounts statistics including
-#' assignment rates per sample.
+#' @description Prints a summary of quantification results. Works with both
+#' BAM-based (featureCounts) and BED-based quantification outputs.
 #'
-#' @param quant_result Result from ELEUTHIA_quantify_peaks().
+#' @param quant_result Result from ELEUTHIA_quantify_peaks() or ELEUTHIA_quantify_bed().
 #'
-#' @return Invisibly returns a summary data.frame.
+#' @return Invisibly returns a summary data.frame with per-sample statistics.
 #'
 #' @export
 #'
 ELEUTHIA_summarize_quantification <- function(quant_result) {
 
-  stat <- quant_result$stat
-
   cat("================================================================================\n")
   cat("QUANTIFICATION SUMMARY\n")
   cat("================================================================================\n\n")
 
-  # Get assigned and total reads per sample
-  assigned_row <- which(stat$Status == "Assigned")
+  counts <- quant_result$counts
+  n_regions <- nrow(counts)
+  n_samples <- ncol(counts)
+  sample_names <- colnames(counts)
 
-  if (length(assigned_row) > 0) {
-    assigned <- as.numeric(stat[assigned_row, -1])
-    total <- colSums(stat[, -1, drop = FALSE])
-    pct_assigned <- round(100 * assigned / total, 1)
+  # Check if this is featureCounts output (has stat element)
+  if (!is.null(quant_result$stat)) {
+    stat <- quant_result$stat
+    assigned_row <- which(stat$Status == "Assigned")
 
-    cat("Assignment rates:\n")
-    sample_names <- colnames(stat)[-1]
+    if (length(assigned_row) > 0) {
+      assigned <- as.numeric(stat[assigned_row, -1])
+      total <- colSums(stat[, -1, drop = FALSE])
+      pct_assigned <- round(100 * assigned / total, 1)
+
+      cat("Assignment rates (featureCounts):\n")
+      fc_sample_names <- colnames(stat)[-1]
+      for (i in seq_along(fc_sample_names)) {
+        cat(sprintf("  %-30s: %s assigned (%.1f%%)\n",
+                    fc_sample_names[i],
+                    format(assigned[i], big.mark = ","),
+                    pct_assigned[i]))
+      }
+
+      cat("\nOverall:\n")
+      cat("  Mean assignment rate:", round(mean(pct_assigned), 1), "%\n")
+      cat("  Total assigned reads:", format(sum(assigned), big.mark = ","), "\n")
+    }
+  } else {
+    # BED-based quantification - summarize from counts matrix
+    cat("Regions:", format(n_regions, big.mark = ","), "\n")
+    cat("Samples:", n_samples, "\n\n")
+
+    cat("Per-sample fragment counts:\n")
+    sample_totals <- colSums(counts)
+    sample_means <- colMeans(counts)
+    sample_nonzero <- apply(counts, 2, function(x) sum(x > 0))
+
     for (i in seq_along(sample_names)) {
-      cat(sprintf("  %-30s: %s assigned (%.1f%%)\n",
+      cat(sprintf("  %-30s: %10s total | %6.1f mean | %s regions with signal\n",
                   sample_names[i],
-                  format(assigned[i], big.mark = ","),
-                  pct_assigned[i]))
+                  format(sample_totals[i], big.mark = ","),
+                  sample_means[i],
+                  format(sample_nonzero[i], big.mark = ",")))
     }
 
     cat("\nOverall:\n")
-    cat("  Mean assignment rate:", round(mean(pct_assigned), 1), "%\n")
-    cat("  Total assigned reads:", format(sum(assigned), big.mark = ","), "\n")
+    cat("  Total fragments counted:", format(sum(counts), big.mark = ","), "\n")
+    cat("  Mean fragments per region:", round(mean(rowSums(counts)), 1), "\n")
+    cat("  Median fragments per region:", round(median(rowSums(counts)), 1), "\n")
+    cat("  Regions with zero counts:", format(sum(rowSums(counts) == 0), big.mark = ","),
+        sprintf("(%.1f%%)\n", 100 * sum(rowSums(counts) == 0) / n_regions))
   }
 
   cat("\n================================================================================\n")
 
-  invisible(stat)
+  # Create summary data.frame
+  summary_df <- data.frame(
+    sample = sample_names,
+    total_counts = colSums(counts),
+    mean_per_region = colMeans(counts),
+    regions_with_signal = apply(counts, 2, function(x) sum(x > 0)),
+    row.names = NULL
+  )
+
+  invisible(summary_df)
 }

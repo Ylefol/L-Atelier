@@ -1,0 +1,145 @@
+================================================================================
+ELEUTHIA MODULE STATUS - Import, Export & Reporting
+================================================================================
+Last Updated: 2026-01-19
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+sample_sheet.R:
+---------------
+ELEUTHIA_validate_sample_sheet(sample_sheet, check_files, check_beds, verbose)
+  - Validate sample sheet structure and values
+  - Checks required columns, format values, file existence
+  - Generates unique sample_id for each row
+  - omics column accepts any string (free-form label)
+
+ELEUTHIA_get_omics_subset(sample_sheet, omics)
+  - Extract samples of specific omics type
+  - Accepts any omics string
+
+ELEUTHIA_summarize_sample_sheet(sample_sheet)
+  - Print summary of sample sheet structure
+  - Cross-tabulation of omics x group
+
+ELEUTHIA_load_quant_beds(sample_sheet, omics, verbose)
+  - Load fragment BED files from bed_loc column
+  - Returns named list of BED data.frames
+
+peak_loading.R:
+---------------
+ELEUTHIA_load_narrowpeak(file_path, min_score, verbose)
+  - Load narrowPeak format file
+  - Optional score filtering
+
+ELEUTHIA_load_peaks_from_sheet(sample_sheet, omics, min_score, verbose)
+  - Load peaks for all samples of an omics type
+  - Returns named list
+
+ELEUTHIA_load_bed(file_path)
+  - Load generic BED file (3-6 columns)
+
+ELEUTHIA_load_bed_from_sheet(sample_sheet, omics, verbose)
+  - Load BED files for all samples of an omics type
+
+ELEUTHIA_create_consensus_peaks(peak_list, method, min_overlap, verbose)
+  - Create consensus peak set from multiple samples
+  - Methods: union, intersect, merge
+
+ELEUTHIA_call_regions_from_fragments(bed_files, method, merge_distance,
+                                       min_fragments, verbose)
+  - Call regions directly from fragment BED files
+  - For ChIP-like data without peak calling
+
+ELEUTHIA_peaks_to_saf(consensus_peaks)
+  - Convert peaks to SAF format for featureCounts
+
+ELEUTHIA_quantify_bed(sample_sheet, regions, omics, verbose)
+  - Quantify fragments in regions from BED files
+  - Memory-efficient: processes one file at a time
+  - Returns quant_result object
+
+quantification.R:
+-----------------
+ELEUTHIA_quantify_peaks(sample_sheet, consensus_peaks, omics,
+                         use_score_weights, verbose)
+  - Quantify peaks using fragment overlaps
+  - Wrapper with additional options
+
+ELEUTHIA_summarize_quantification(quant_result)
+  - Print summary of quantification result
+
+rnaseq_loading.R:
+-----------------
+ELEUTHIA_load_count_file(file_path, sample_name, gene_col, count_col)
+  - Load single count file
+
+ELEUTHIA_load_rnaseq_from_sheet(sample_sheet, gene_col, count_col, verbose)
+  - Load RNA-seq counts from sample sheet
+  - Combines into count matrix
+
+ELEUTHIA_filter_low_expression(rna_data, min_count, min_samples, verbose)
+  - Filter low-expression genes
+
+data_import.R:
+--------------
+ELEUTHIA_load_counts_from_dir(count_path, pattern, gene_col, count_col,
+                               sample_names, verbose)
+  - Load count files from directory
+
+ELEUTHIA_load_multi_counts(count_paths, ...)
+  - Load multiple count files
+
+save_results.R:
+---------------
+ELEUTHIA_save_scca_results(output_dir, scca_result, cv_results, method_name,
+                            dataset_names, prefix, save_plots, verbose)
+  - Save sCCA results to files
+  - Weights, scores, CV results, plots
+
+ELEUTHIA_generate_scca_summary(coarse_cv_results, fine_cv_results,
+                                best_params, n_datasets, param_names)
+  - Generate text summary of sCCA CV results
+
+logging.R:
+----------
+ELEUTHIA_generate_log_filename(log_dir, prefix, include_date, include_time)
+  - Generate timestamped log filename
+
+ELEUTHIA_start_log(log_file, append)
+  - Start logging console output to file
+
+ELEUTHIA_stop_log()
+  - Stop logging
+
+ELEUTHIA_is_logging()
+  - Check if logging is active
+
+ELEUTHIA_get_log_file()
+  - Get current log file path
+
+================================================================================
+IN PROGRESS
+================================================================================
+None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- BigWig export/import
+- BAM file handling
+- Report generation (HTML/PDF)
+- Additional file format support
+
+================================================================================
+DEPENDENCIES
+================================================================================
+- Uses: None (standalone)
+- External: data.table (for fast I/O), GenomicRanges
+
+================================================================================
+NOTES
+================================================================================
+- Largest module by function count
+- Central to data flow in/out of GAIA

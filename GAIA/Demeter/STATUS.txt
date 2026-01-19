@@ -1,0 +1,60 @@
+================================================================================
+DEMETER MODULE STATUS - Utilities
+================================================================================
+Last Updated: 2026-01-19
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+matrix_utils.R:
+---------------
+DEMETER_matrix_power(x, n)
+  - Compute matrix power using eigendecomposition
+  - Used for covariance matrix operations (e.g., Sigma^(-0.5))
+
+DEMETER_gettingInverse(X, tolerance)
+  - Compute pseudoinverse with tolerance for near-zero eigenvalues
+  - Handles singular/near-singular matrices
+
+%^% operator
+  - Infix operator for matrix power (Sigma %^% (-0.5))
+
+grid_utils.R:
+-------------
+DEMETER_create_coarse_grid(n_params, values)
+  - Create coarse grid for initial hyperparameter search
+  - Returns all combinations of specified values
+
+DEMETER_create_fine_grid(ranges, n_points)
+  - Create fine grid within specified ranges
+  - For refined search after coarse grid identifies promising region
+
+DEMETER_create_ranges_around_values(best_values, coarse_values, width_factor)
+  - Generate ranges around best values from coarse search
+  - Helper for two-stage grid search workflow
+
+simulate_data.R:
+----------------
+DEMETER_generate_multi_datasets(n_datasets, n_samples, n_features,
+                                 signal_samples, signal_features, seed)
+  - Generate synthetic multi-omics data for testing sCCA methods
+  - Creates correlated signal regions across datasets
+
+================================================================================
+IN PROGRESS
+================================================================================
+None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Configuration management utilities
+- Common data structure helpers
+- Additional simulation scenarios
+
+================================================================================
+NOTES
+================================================================================
+- Demeter has no dependencies on other GAIA modules
+- All other modules may depend on Demeter

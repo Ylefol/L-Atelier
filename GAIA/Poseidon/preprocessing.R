@@ -117,6 +117,261 @@ POSEIDON_filter_shared_variance <- function(X_list, by_row = TRUE,
     return(filtered_list)
 }
 
+
+#' Filter Top Variable Features
+#'
+#' @description Selects the top N most variable features from each dataset.
+#' Essential for reducing dimensionality before methods like sCCA that don't
+#' scale well with very high feature counts (>10k features).
+#'
+#' Works with any numeric data: counts, normalized values, log-transformed, etc.
+#'
+#' @param X Data matrix (samples x features) or a named list of data matrices.
+#'   For sCCA input, this should be the transposed format (samples in rows).
+#' @param n_top Integer. Number of top variable features to keep per dataset.
+#'   If a single value, applied to all datasets. Can also be a named list
+#'   matching dataset names for dataset-specific values (default = 5000).
+#' @param verbose Logical. Print filtering summary (default = TRUE).
+#'
+#' @return Filtered data in same format as input (matrix or list of matrices).
+#'   Column names are preserved to track which features were retained.
+#'
+#' @details
+#' Variance is calculated per feature (column) using \code{var()}.
+#' Features are ranked by variance and the top N are retained.
+#'
+#' For multi-omics sCCA, typical values:
+#' \itemize{
+#'   \item ATAC-seq: 5,000 - 10,000 peaks
+#'   \item ChIP-seq: 1,000 - 5,000 regions (often fewer to start)
+#'   \item RNA-seq: 5,000 - 10,000 genes
+#' }
+#'
+#' If n_top exceeds the number of features in a dataset, all features are kept
+#' with a warning.
+#'
+#' @export
+#'
+#' @examples
+#' # Single matrix
+#' X_reduced <- POSEIDON_filter_top_variable(X, n_top = 5000)
+#'
+#' # List of matrices (for sCCA)
+#' scca_data <- list(ATAC = atac_matrix, ChIP = chip_matrix, RNA = rna_matrix)
+#' scca_reduced <- POSEIDON_filter_top_variable(scca_data, n_top = 5000)
+#'
+#' # Different n_top per dataset
+#' scca_reduced <- POSEIDON_filter_top_variable(
+#'   scca_data,
+#'   n_top = list(ATAC = 10000, ChIP = 2000, RNA = 5000)
+#' )
+#'
+POSEIDON_filter_top_variable <- function(X, n_top = 5000, verbose = TRUE) {
+
+  # Helper function for single matrix
+  filter_matrix <- function(mat, n, name = NULL) {
+    n_features <- ncol(mat)
+
+    # Check if n_top exceeds available features
+    if (n >= n_features) {
+      if (verbose) {
+        prefix <- if (!is.null(name)) paste0(name, ": ") else ""
+        warning(prefix, "n_top (", n, ") >= number of features (", n_features,
+                "). Keeping all features.")
+      }
+      return(mat)
+    }
+
+    # Calculate variance per feature
+    vars <- apply(mat, 2, var, na.rm = TRUE)
+
+    # Handle any NA variances (shouldn't happen but be safe)
+    vars[is.na(vars)] <- 0
+
+    # Get indices of top N by variance
+    top_idx <- order(vars, decreasing = TRUE)[1:n]
+
+    # Sort indices to preserve original order
+    top_idx <- sort(top_idx)
+
+    if (verbose) {
+      prefix <- if (!is.null(name)) paste0("  ", name, ": ") else ""
+      cat(sprintf("%s%d -> %d features (top %.1f%% by variance)\n",
+                  prefix, n_features, n, 100 * n / n_features))
+      cat(sprintf("%s  Variance range kept: %.2e to %.2e\n",
+                  prefix, min(vars[top_idx]), max(vars[top_idx])))
+    }
+
+    return(mat[, top_idx, drop = FALSE])
+  }
+
+  # Handle single matrix
+  if (!is.list(X)) {
+    if (verbose) {
+      cat("Filtering to top", n_top, "variable features...\n")
+    }
+    return(filter_matrix(X, n_top))
+  }
+
+  # Handle list of matrices
+  if (verbose) {
+    cat("Filtering to top variable features per dataset...\n")
+  }
+
+  dataset_names <- names(X)
+  n_datasets <- length(X)
+
+  # Handle n_top as list or single value
+  if (is.list(n_top)) {
+    # Ensure n_top has entries for all datasets
+    if (!all(dataset_names %in% names(n_top))) {
+      missing <- setdiff(dataset_names, names(n_top))
+      stop("n_top list missing entries for: ", paste(missing, collapse = ", "))
+    }
+    n_top_vec <- unlist(n_top[dataset_names])
+  } else {
+    # Single value applied to all
+    n_top_vec <- rep(n_top, n_datasets)
+    names(n_top_vec) <- dataset_names
+  }
+
+  # Filter each dataset
+  filtered_X <- list()
+  for (i in seq_along(X)) {
+    name <- dataset_names[i]
+    filtered_X[[name]] <- filter_matrix(X[[i]], n_top_vec[i], name)
+  }
+
+  if (verbose) {
+    cat("Done.\n")
+  }
+
+  return(filtered_X)
+}
+
+
+#' Remove Low Variance Features
+#'
+#' @description Removes the bottom percentage of features by variance.
+#' A conservative noise-removal approach that doesn't bias toward high-variance
+#' features - it simply removes features that are clearly uninformative.
+#'
+#' Preferred over \code{POSEIDON_filter_top_variable()} for methods like sCCA
+#' where you want to preserve cross-dataset correlations, not just variance.
+#'
+#' @param X Data matrix (samples x features) or a named list of data matrices.
+#' @param bottom_pct Numeric. Percentage of lowest-variance features to remove
+#'   (default = 0.5, removes bottom 50%). Value between 0 and 1.
+#' @param verbose Logical. Print filtering summary (default = TRUE).
+#'
+#' @return Filtered data in same format as input (matrix or list of matrices).
+#'   Column names are preserved to track which features were retained.
+#'
+#' @details
+#' Unlike \code{POSEIDON_filter_top_variable()} which selects features based on
+#' high variance (potentially biasing results), this function only removes
+#' features that are clearly uninformative (very low variance).
+#'
+#' This is more appropriate for integration methods like sCCA where the goal
+#' is to find cross-dataset correlations, not necessarily high-variance features.
+#' A feature with moderate variance but strong cross-dataset correlation is
+#' valuable and should be retained.
+#'
+#' Suggested values:
+#' \itemize{
+#'   \item 0.25 - Conservative, removes only bottom 25%
+#'   \item 0.50 - Moderate, removes bottom half (default)
+#'   \item 0.75 - Aggressive, keeps only top 25%
+#' }
+#'
+#' @export
+#'
+#' @examples
+#' # Remove bottom 50% of features by variance
+#' X_filtered <- POSEIDON_filter_low_variance(X, bottom_pct = 0.5)
+#'
+#' # For sCCA with multiple datasets
+#' scca_data <- list(ATAC = atac_matrix, ChIP = chip_matrix, RNA = rna_matrix)
+#' scca_filtered <- POSEIDON_filter_low_variance(scca_data, bottom_pct = 0.5)
+#'
+POSEIDON_filter_low_variance <- function(X, bottom_pct = 0.5, verbose = TRUE) {
+
+  # Validate bottom_pct
+
+  if (bottom_pct <= 0 || bottom_pct >= 1) {
+    stop("bottom_pct must be between 0 and 1 (exclusive)")
+  }
+
+  # Helper function for single matrix
+  filter_matrix <- function(mat, pct, name = NULL) {
+    n_features <- ncol(mat)
+    n_remove <- floor(n_features * pct)
+    n_keep <- n_features - n_remove
+
+    if (n_keep < 2) {
+      warning("bottom_pct too high - would remove all but ", n_keep, " features. ",
+              "Keeping at least 2 features.")
+      n_keep <- max(2, n_keep)
+      n_remove <- n_features - n_keep
+    }
+
+    # Calculate variance per feature
+    vars <- apply(mat, 2, var, na.rm = TRUE)
+
+    # Handle any NA variances
+    vars[is.na(vars)] <- 0
+
+    # Get indices to KEEP (everything except bottom n_remove)
+    keep_idx <- order(vars, decreasing = TRUE)[1:n_keep]
+
+    # Sort indices to preserve original order
+    keep_idx <- sort(keep_idx)
+
+    # Get variance threshold (the cutoff point)
+    var_threshold <- vars[order(vars, decreasing = TRUE)[n_keep]]
+
+    if (verbose) {
+      prefix <- if (!is.null(name)) paste0("  ", name, ": ") else ""
+      cat(sprintf("%s%d -> %d features (removed bottom %.0f%%)\n",
+                  prefix, n_features, n_keep, pct * 100))
+      cat(sprintf("%s  Variance threshold: %.2e (features below this removed)\n",
+                  prefix, var_threshold))
+    }
+
+    return(mat[, keep_idx, drop = FALSE])
+  }
+
+  # Handle single matrix
+  if (!is.list(X)) {
+    if (verbose) {
+      cat(sprintf("Removing bottom %.0f%% of features by variance...\n", bottom_pct * 100))
+    }
+    return(filter_matrix(X, bottom_pct))
+  }
+
+  # Handle list of matrices
+  if (verbose) {
+    cat(sprintf("Removing bottom %.0f%% of features by variance per dataset...\n",
+                bottom_pct * 100))
+  }
+
+  dataset_names <- names(X)
+
+  # Filter each dataset
+  filtered_X <- list()
+  for (i in seq_along(X)) {
+    name <- dataset_names[i]
+    filtered_X[[name]] <- filter_matrix(X[[i]], bottom_pct, name)
+  }
+
+  if (verbose) {
+    cat("Done.\n")
+  }
+
+  return(filtered_X)
+}
+
+
 #' Validate Multi-Dataset Structure
 #'
 #' @description Checks that all datasets in a list have:

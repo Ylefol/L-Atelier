@@ -1,0 +1,104 @@
+================================================================================
+AETHER MODULE STATUS - Visualization
+================================================================================
+Last Updated: 2026-01-19
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+colors.R:
+---------
+AETHER_generate_gradient(base_color, n, direction)
+  - Generate n shades from dark base to light (or reverse)
+  - Uses HSL color space for perceptually uniform gradients
+
+AETHER_default_palette(type)
+  - Default colors for omics types and experimental groups
+  - type="omics": ATACseq, CHIPseq, RNAseq, CUTnTAG, etc.
+  - type="groups": WT, KO, Control, Treatment, etc.
+
+circos.R:
+---------
+AETHER_prepare_circos_data(sample_sheet, chr_sizes, omics, bin_size,
+                            aggregate, cap_outliers, verbose)
+  - Prepare data for circos plots from sample_sheet
+  - Memory-efficient: loads BED files one at a time
+  - Bins fragments into genomic tiles
+  - Caps outliers at mean + 3*SD
+  - Returns: bins, signal matrix, sample_info, chr_sizes
+
+AETHER_create_circos(circos_data, genome, output, split_by, color_by,
+                      invert_gradient, colors, track_height, track_margin,
+                      line_width, title, ...)
+  - Create circos plot from prepared data
+  - split_by: "omics", "group", "batch" (combinable)
+  - color_by: "track", "group", "omics_group"
+  - invert_gradient: control dark=high or dark=low signal
+  - line_width: configurable line thickness (default 1.0)
+  - Independent y-axis scaling per track
+  - Output format inferred from extension (.png, .pdf)
+
+.AETHER_assign_circos_colors(sample_info, sample_ids)
+  - Internal helper for color assignment
+
+scca_plots.R:
+-------------
+AETHER_plot_feature_weights(weights, method_name, true_features, threshold)
+  - Stem plot of canonical weights
+  - Highlights non-zero features
+  - Optional true signal region overlay
+
+AETHER_plot_multi_feature_weights(weights_list, method_name, dataset_names,
+                                   true_features_list, threshold)
+  - Faceted stem plots for multi-dataset sCCA
+  - One panel per dataset
+
+AETHER_plot_cv_comparison(coarse_cv_results, fine_cv_results, n_datasets,
+                           param_names, metric_name, x_axis_type)
+  - Compare coarse vs fine grid CV performance
+  - Marginal plots for each parameter
+
+AETHER_plot_best_cv_scores(coarse_cv_results, fine_cv_results, metric_name)
+  - Simple bar chart comparing best CV scores
+  - Shows improvement from fine-tuning
+
+================================================================================
+FILE ORGANIZATION
+================================================================================
+colors.R      - Shared color utilities (gradients, palettes)
+circos.R      - Circos plot functions (sources colors.R)
+scca_plots.R  - sCCA/integration result visualization
+
+================================================================================
+IN PROGRESS
+================================================================================
+None
+
+================================================================================
+PLANNED / TODO (from circos_implementation_notes.txt)
+================================================================================
+Phase 2+:
+- Peak highlighting track (rectangles/markers)
+- Heatmap track support
+- Chord connections (peak-to-gene links)
+- Custom track colors parameter
+- Track label customization
+- Configurable legend position
+
+Other:
+- Genome browser track plots
+- Heatmaps for multi-omics data
+- Correlation plots
+
+================================================================================
+DEPENDENCIES
+================================================================================
+- Uses: None (standalone)
+- External: ggplot2, circlize
+
+================================================================================
+NOTES
+================================================================================
+- See to_process/circos_implementation_notes.txt for detailed circos design
+- circos.R sources colors.R for color utilities

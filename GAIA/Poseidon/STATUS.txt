@@ -1,0 +1,85 @@
+================================================================================
+POSEIDON MODULE STATUS - Preprocessing & Normalization
+================================================================================
+Last Updated: 2026-01-19
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+preprocessing.R:
+----------------
+POSEIDON_scale_data(X, center, scale)
+  - Center and/or scale data matrix
+  - Standard preprocessing for sCCA input
+
+POSEIDON_filter_zero_variance(X, variance_threshold, verbose)
+  - Remove features with zero or near-zero variance
+  - Prevents numerical issues in downstream analysis
+
+POSEIDON_filter_shared_variance(X_list, by_row, variance_threshold)
+  - Filter to features with non-zero variance across all datasets
+  - Ensures compatibility for multi-omics integration
+
+POSEIDON_filter_top_variable(X, n_top, verbose)
+  - Keep top N most variable features
+  - Dimension reduction by variance
+
+POSEIDON_filter_low_variance(X, bottom_pct, verbose)
+  - Remove bottom X% of features by variance
+  - Alternative to top-N filtering
+
+POSEIDON_validate_multi_dataset(X_list, sample_names)
+  - Validate that multiple datasets are compatible
+  - Checks sample alignment, dimensions
+
+POSEIDON_filter_low_counts(quant_result, min_count, min_samples_pct,
+                            group_specific, verbose)
+  - Filter low-count regions from quantification results
+  - Supports group-specific filtering
+
+POSEIDON_correct_batch(quant_result, method, covariates, verbose)
+  - Batch effect correction using ComBat or limma
+  - Operates on quant_result objects
+
+POSEIDON_plot_batch_pca(quant_result, color_by, shape_by, title)
+  - PCA visualization colored by batch/group
+  - For assessing batch effects
+
+POSEIDON_filter_by_group(quant_result, groups, keep, verbose)
+  - Subset quant_result to specific groups
+  - Keep or exclude specified groups
+
+POSEIDON_filter_by_metadata(quant_result, column, values, keep, verbose)
+  - Subset by arbitrary metadata column
+  - More flexible than filter_by_group
+
+POSEIDON_match_samples(data_list, sample_names, verbose)
+  - Match samples across multiple datasets
+  - Align samples for multi-omics integration
+
+POSEIDON_average_tech_reps(quant_result, verbose)
+  - Average technical replicates
+  - Reduces data to biological replicates only
+
+POSEIDON_filter_pairwise_identical(X, tolerance, verbose)
+  - Remove features with identical values across samples
+  - Handles edge case of constant features
+
+================================================================================
+IN PROGRESS
+================================================================================
+None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Normalization methods (CPM, TPM, RPKM, TMM)
+- Quantile normalization
+- Additional batch correction methods
+
+================================================================================
+DEPENDENCIES
+================================================================================
+- Uses: Demeter (potentially)
+- External: sva (ComBat), limma

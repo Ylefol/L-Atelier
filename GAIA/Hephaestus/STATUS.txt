@@ -1,0 +1,86 @@
+================================================================================
+HEPHAESTUS MODULE STATUS - Integration Methods
+================================================================================
+Last Updated: 2026-01-19
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+ConvCCA.R:
+----------
+HEPHAESTUS_convCCA(X_1, X_2, tauW_1, tauW_2, initW_1, initW_2, nIter,
+                   penalty, R)
+  - Convex sparse CCA for two datasets
+  - Main user-facing function
+  - Supports LASSO penalty, multiple components (R)
+
+HEPHAESTUS_multi_convCCA(X, tau, nIter, penalty, initW, R)
+  - Convex sparse CCA for 3+ datasets
+  - Multi-view extension of convCCA
+
+HEPHAESTUS_convCCA_algo(X_1, X_2, tauW_1, tauW_2, initW_1, initW_2,
+                         nIter, penalty)
+  - Core algorithm for two-dataset convCCA
+  - Single component extraction
+
+HEPHAESTUS_multi_convCCA_algo(X, tau, nIter, penalty, initW)
+  - Core algorithm for multi-dataset convCCA
+  - Single component extraction
+
+HEPHAESTUS_updateW_convCCA(K, v, tau, penalty)
+  - Weight update step for two-dataset case
+  - Internal function
+
+HEPHAESTUS_updateWmulti_convCCA(K, w, whichDSet, tau, penalty)
+  - Weight update step for multi-dataset case
+  - Internal function
+
+RelPMDCCA.R:
+------------
+HEPHAESTUS_relPMDCCA(X_1, X_2, lambda, tauW_1, tauW_2, initW_1, initW_2,
+                      a, sd.mu, nIter, penalty, element_wise, tau_EN, R)
+  - Relaxed PMD-CCA for two datasets
+  - Main user-facing function
+  - Supports LASSO, SCAD, Elastic Net penalties
+
+HEPHAESTUS_multi_relPMDCCA(X, lambda, tau, a, sd.mu, nIter, penalty,
+                            element_wise, tau_EN, R)
+  - Relaxed PMD-CCA for 3+ datasets
+  - Multi-view extension
+
+HEPHAESTUS_relPMDCCA_algo(X_1, X_2, lambda, tauW_1, tauW_2, ...)
+  - Core algorithm for two-dataset relPMDCCA
+  - Single component extraction
+
+HEPHAESTUS_multi_relPMDCCA_algo(X, lambda, tau, ...)
+  - Core algorithm for multi-dataset relPMDCCA
+  - Single component extraction
+
+HEPHAESTUS_updateZ(x, old)
+  - Z variable update step
+  - Internal function
+
+================================================================================
+LEGACY FILES (to be removed/archived)
+================================================================================
+- ConvCCA_old.R
+- RelPMDCCA_old.R
+
+================================================================================
+IN PROGRESS
+================================================================================
+None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- MOFA/MOFA2
+- Additional integration methods
+- Weighted combination methods
+- Multi-view learning approaches
+
+================================================================================
+DEPENDENCIES
+================================================================================
+- Uses: Demeter (matrix_utils), Minerva (penalty_functions)

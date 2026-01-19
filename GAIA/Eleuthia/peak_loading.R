@@ -351,13 +351,7 @@ ELEUTHIA_create_consensus_peaks <- function(peak_list,
 
   if (verbose) {
     cat("  Final consensus peaks:", nrow(consensus), "\n")
-    cat("  Peaks per chromosome:\n")
-    chr_counts <- table(consensus$chr)
-    # Show top 5 chromosomes
-    top_chrs <- head(sort(chr_counts, decreasing = TRUE), 5)
-    for (ch in names(top_chrs)) {
-      cat("    ", ch, ":", top_chrs[ch], "\n")
-    }
+    cat("  Chromosomes with peaks:", length(unique(consensus$chr)), "\n")
   }
 
   return(consensus)
@@ -655,4 +649,205 @@ ELEUTHIA_peaks_to_saf <- function(consensus_peaks) {
   )
 
   return(saf)
+}
+
+
+#' Quantify BED Fragments Against Regions
+#'
+#' @description Counts the number of BED file fragments overlapping each region.
+#' Memory-efficient: loads one BED file at a time from the sample sheet.
+#' Works for any omics type (ATACseq, CHIPseq, etc.).
+#'
+#' @param sample_sheet A validated sample sheet data.frame with bed_loc column.
+#' @param regions A regions data.frame with chr, start, end, and peak_id columns
+#'   (from ELEUTHIA_call_regions_from_fragments or ELEUTHIA_create_consensus_peaks).
+#' @param omics Character string. Omics type to quantify ("ATACseq", "CHIPseq", etc.).
+#' @param min_overlap Integer. Minimum bp overlap required to count a fragment
+#'   (default = 1, any overlap counts).
+#' @param verbose Logical. Print progress messages (default = TRUE).
+#'
+#' @return A list containing:
+#' \describe{
+#'   \item{counts}{Matrix of fragment counts (regions x samples)}
+#'   \item{annotation}{Data.frame with region annotations}
+#'   \item{targets}{Data.frame with sample metadata}
+#' }
+#'
+#' @details
+#' This function quantifies fragment overlaps with genomic regions using BED
+#' files specified in the sample sheet's bed_loc column. It is memory-efficient
+#' because it loads and processes one BED file at a time, discarding each before
+#' loading the next.
+#'
+#' A fragment is counted if it overlaps the region by at least \code{min_overlap}
+#' base pairs. Each fragment is counted at most once per region.
+#'
+#' This function works for any omics type - it simply filters the sample sheet
+#' by the specified omics value and loads BED files from bed_loc.
+#'
+#' @export
+#'
+#' @examples
+#' # ATAC-seq: quantify against consensus peaks
+#' atac_peaks <- ELEUTHIA_load_peaks_from_sheet(sample_sheet, "ATACseq")
+#' consensus <- ELEUTHIA_create_consensus_peaks(atac_peaks, min_overlap = 2)
+#' atac_counts <- ELEUTHIA_quantify_bed(sample_sheet, consensus, "ATACseq")
+#'
+#' # ChIP-seq: quantify against called regions
+#' chip_beds <- ELEUTHIA_load_bed_from_sheet(sample_sheet, "CHIPseq")
+#' chip_regions <- ELEUTHIA_call_regions_from_fragments(chip_beds, min_fragments = 10)
+#' chip_counts <- ELEUTHIA_quantify_bed(sample_sheet, chip_regions, "CHIPseq")
+#'
+ELEUTHIA_quantify_bed <- function(sample_sheet,
+                                   regions,
+                                   omics,
+                                   min_overlap = 1,
+                                   verbose = TRUE) {
+
+  # Check for data.table
+  if (!requireNamespace("data.table", quietly = TRUE)) {
+    stop("Package 'data.table' is required for fast interval overlaps. ",
+         "Install with: install.packages('data.table')")
+  }
+
+  # Validate inputs
+  if (!"bed_loc" %in% colnames(sample_sheet)) {
+    stop("sample_sheet must have a 'bed_loc' column")
+  }
+
+  if (nrow(regions) == 0) {
+    stop("regions data.frame is empty")
+  }
+
+  # Ensure regions have required columns
+  required_cols <- c("chr", "start", "end", "peak_id")
+  missing_cols <- setdiff(required_cols, colnames(regions))
+  if (length(missing_cols) > 0) {
+    stop("regions missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+
+  # Get subset for this omics type
+  subset_df <- sample_sheet[sample_sheet$omics == omics, , drop = FALSE]
+
+  if (nrow(subset_df) == 0) {
+    stop("No samples found for omics type: ", omics)
+  }
+
+  # Filter to rows with valid bed_loc
+  valid_bed <- !is.na(subset_df$bed_loc) & subset_df$bed_loc != "NA" &
+               trimws(subset_df$bed_loc) != ""
+
+  if (sum(valid_bed) == 0) {
+    stop("No valid bed_loc paths found for omics type: ", omics)
+  }
+
+  subset_df <- subset_df[valid_bed, , drop = FALSE]
+
+  sample_names <- subset_df$sample_id
+  n_samples <- length(sample_names)
+  n_regions <- nrow(regions)
+
+  if (verbose) {
+    cat("Quantifying", n_samples, omics, "samples against", n_regions, "regions...\n")
+    cat("(Memory-efficient mode with fast interval overlaps)\n\n")
+  }
+
+  # Initialize count matrix
+  counts <- matrix(0L, nrow = n_regions, ncol = n_samples)
+  rownames(counts) <- regions$peak_id
+  colnames(counts) <- sample_names
+
+  # Prepare regions as data.table for foverlaps
+  # foverlaps requires: key columns, and start <= end
+  regions_dt <- data.table::data.table(
+    chr = regions$chr,
+    start = as.integer(regions$start),
+    end = as.integer(regions$end),
+    region_idx = seq_len(n_regions)
+  )
+  data.table::setkey(regions_dt, chr, start, end)
+
+  # Process each sample one at a time
+  for (s in seq_len(n_samples)) {
+    sample_id <- sample_names[s]
+    bed_path <- subset_df$bed_loc[s]
+
+    if (verbose) {
+      cat("  [", s, "/", n_samples, "] ", sample_id, ": ", sep = "")
+    }
+
+    # Check file exists
+    if (!file.exists(bed_path)) {
+      stop("BED file not found: ", bed_path)
+    }
+
+    # Load BED file using data.table::fread (much faster than read.table)
+    bed_dt <- data.table::fread(
+      bed_path,
+      header = FALSE,
+      sep = "\t",
+      select = 1:3,  # Only read first 3 columns
+      col.names = c("chr", "start", "end"),
+      showProgress = FALSE
+    )
+
+    if (verbose) {
+      cat(format(nrow(bed_dt), big.mark = ","), "fragments ... ")
+    }
+
+    # Ensure integer types for overlap calculation
+    bed_dt[, `:=`(start = as.integer(start), end = as.integer(end))]
+
+    # Set key for foverlaps (requires start, end naming)
+    data.table::setkey(bed_dt, chr, start, end)
+
+    # Find all overlaps using foverlaps (very fast interval join)
+    # type="any" finds any overlap, nomatch=NULL excludes non-matches
+    overlaps <- data.table::foverlaps(
+      bed_dt,
+      regions_dt,
+      type = "any",
+      nomatch = NULL
+    )
+
+    if (nrow(overlaps) > 0) {
+      # Apply minimum overlap filter if needed
+      if (min_overlap > 1) {
+        # Calculate actual overlap bp
+        overlaps[, overlap_bp := pmin(end, i.end) - pmax(start, i.start)]
+        overlaps <- overlaps[overlap_bp >= min_overlap]
+      }
+
+      # Count fragments per region
+      if (nrow(overlaps) > 0) {
+        overlap_counts <- overlaps[, .N, by = region_idx]
+        counts[overlap_counts$region_idx, s] <- overlap_counts$N
+      }
+    }
+
+    if (verbose) {
+      cat("done\n")
+    }
+
+    # Clean up
+    rm(bed_dt, overlaps)
+  }
+
+  # Create targets data.frame
+  targets <- subset_df[, c("sample_id", "group", "bio_rep", "tech_rep", "batch")]
+  rownames(targets) <- targets$sample_id
+
+  if (verbose) {
+    cat("\nQuantification complete:\n")
+    cat("  Count matrix:", n_regions, "regions x", n_samples, "samples\n")
+    cat("  Total counts:", format(sum(counts), big.mark = ","), "\n")
+    cat("  Mean counts per region:", round(mean(rowSums(counts)), 1), "\n")
+    cat("  Regions with zero counts:", sum(rowSums(counts) == 0), "\n")
+  }
+
+  return(list(
+    counts = counts,
+    annotation = regions,
+    targets = targets
+  ))
 }

@@ -14,8 +14,8 @@
 #'   a character string path to a CSV file.
 #' @param check_files Logical. If TRUE, verifies that data files exist at
 #'   specified paths (default = TRUE).
-#' @param check_bams Logical. If TRUE, verifies that BAM files exist where
-#'   required by format (peaks, bed). Only checked if check_files = TRUE
+#' @param check_beds Logical. If TRUE, verifies that BED files for quantification
+#'   exist where required by format (peaks, bed). Only checked if check_files = TRUE
 #'   (default = TRUE).
 #' @param verbose Logical. If TRUE, prints validation progress and warnings
 #'   (default = TRUE).
@@ -38,21 +38,26 @@
 #'   \item bio_rep: Biological replicate number
 #'   \item tech_rep: Technical replicate identifier
 #'   \item batch: Batch number
-#'   \item omics: Type of omics data ("ATACseq", "CHIPseq", "RNAseq")
+#'   \item omics: Type of omics data (free-form label, e.g., "ATACseq", "CHIPseq",
+#'     "RNAseq", "5hmu", "CUT&RUN", etc.)
 #'   \item format: File format ("peaks", "bed", "counts")
-#'   \item bam_loc: Path to BAM file (required for peaks and bed formats)
+#'   \item bed_loc: Path to fragment BED file for quantification (required for
+#'     peaks and bed formats). Typically created with bedtools bamtobed.
 #' }
 #'
 #' The function performs the following validations:
 #' \enumerate{
 #'   \item Checks all required columns are present
 #'   \item Removes empty rows
-#'   \item Validates omics values against allowed types
 #'   \item Validates format values against allowed types
 #'   \item Checks data files exist (if check_files = TRUE)
-#'   \item Checks BAM files exist for peak/bed formats (if check_bams = TRUE)
+#'   \item Checks quantification BED files exist for peak/bed formats (if check_beds = TRUE)
 #'   \item Generates unique sample_id for each row
 #' }
+#'
+#' Note: The omics column accepts any string value. This allows flexibility for
+#' custom omics types (e.g., "5hmu", "CUT&RUN", "MeDIP") that may be processed
+#' similarly to standard types. The format column determines how data is loaded.
 #'
 #' Sample IDs are generated in the format:
 #' {omics}_{group}_{bio_rep}{tech_rep}_b{batch}
@@ -78,7 +83,7 @@
 #'
 ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
                                             check_files = TRUE,
-                                            check_bams = TRUE,
+                                            check_beds = TRUE,
                                             verbose = TRUE) {
 
   errors <- character(0)
@@ -113,7 +118,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   # Check required columns
   # ---------------------------------------------------------------------------
   required_cols <- c("file_loc", "file_name", "group", "bio_rep",
-                     "tech_rep", "batch", "omics", "format", "bam_loc")
+                     "tech_rep", "batch", "omics", "format", "bed_loc")
 
   missing_cols <- setdiff(required_cols, colnames(sample_sheet))
   if (length(missing_cols) > 0) {
@@ -157,18 +162,6 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   rownames(sample_sheet) <- NULL
 
   # ---------------------------------------------------------------------------
-  # Validate omics values
-  # ---------------------------------------------------------------------------
-  valid_omics <- c("ATACseq", "CHIPseq", "RNAseq")
-  invalid_omics <- unique(sample_sheet$omics[!sample_sheet$omics %in% valid_omics])
-
-  if (length(invalid_omics) > 0) {
-    errors <- c(errors, paste("Invalid omics values:",
-                              paste(invalid_omics, collapse = ", "),
-                              "\nAllowed values:", paste(valid_omics, collapse = ", ")))
-  }
-
-  # ---------------------------------------------------------------------------
   # Validate format values
   # ---------------------------------------------------------------------------
   valid_formats <- c("peaks", "bed", "counts")
@@ -191,14 +184,14 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
     }
   }
 
-  # bam_loc can be NA for counts format
-  needs_bam <- sample_sheet$format %in% c("peaks", "bed")
-  bam_missing <- needs_bam & (is.na(sample_sheet$bam_loc) |
-                               trimws(sample_sheet$bam_loc) == "" |
-                               sample_sheet$bam_loc == "NA")
-  if (any(bam_missing)) {
-    errors <- c(errors, paste("bam_loc is required for peaks/bed formats but missing for",
-                              sum(bam_missing), "row(s)"))
+  # bed_loc can be NA for counts format
+  needs_bed <- sample_sheet$format %in% c("peaks", "bed")
+  bed_missing <- needs_bed & (is.na(sample_sheet$bed_loc) |
+                               trimws(sample_sheet$bed_loc) == "" |
+                               sample_sheet$bed_loc == "NA")
+  if (any(bed_missing)) {
+    errors <- c(errors, paste("bed_loc is required for peaks/bed formats but missing for",
+                              sum(bed_missing), "row(s)"))
   }
 
   # ---------------------------------------------------------------------------
@@ -220,28 +213,28 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   }
 
   # ---------------------------------------------------------------------------
-  # Check BAM file existence
+  # Check quantification BED file existence
   # ---------------------------------------------------------------------------
-  if (check_files && check_bams && length(errors) == 0) {
-    if (verbose) cat("Checking BAM file paths...\n")
+  if (check_files && check_beds && length(errors) == 0) {
+    if (verbose) cat("Checking quantification BED file paths...\n")
 
-    bam_rows <- which(sample_sheet$format %in% c("peaks", "bed"))
-    bam_missing_files <- character(0)
+    bed_rows <- which(sample_sheet$format %in% c("peaks", "bed"))
+    bed_missing_files <- character(0)
 
-    for (i in bam_rows) {
-      bam_path <- sample_sheet$bam_loc[i]
-      if (!is.na(bam_path) && bam_path != "NA" && !file.exists(bam_path)) {
-        bam_missing_files <- c(bam_missing_files, bam_path)
+    for (i in bed_rows) {
+      bed_path <- sample_sheet$bed_loc[i]
+      if (!is.na(bed_path) && bed_path != "NA" && !file.exists(bed_path)) {
+        bed_missing_files <- c(bed_missing_files, bed_path)
       }
     }
 
-    if (length(bam_missing_files) > 0) {
-      # Unique BAM paths that are missing
-      unique_missing <- unique(bam_missing_files)
-      warnings <- c(warnings, paste("BAM file not found:",
+    if (length(bed_missing_files) > 0) {
+      # Unique BED paths that are missing
+      unique_missing <- unique(bed_missing_files)
+      warnings <- c(warnings, paste("Quantification BED file not found:",
                                     paste(unique_missing, collapse = "\n  ")))
       if (verbose) {
-        cat("Warning:", length(unique_missing), "unique BAM file(s) not found.\n")
+        cat("Warning:", length(unique_missing), "unique quantification BED file(s) not found.\n")
       }
     }
   }
@@ -307,26 +300,27 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
 #' sample sheet.
 #'
 #' @param sample_sheet A validated sample sheet data.frame (with sample_id column).
-#' @param omics Character string. The omics type to extract
-#'   ("ATACseq", "CHIPseq", or "RNAseq").
+#' @param omics Character string. The omics type to extract (e.g., "ATACseq",
+#'   "CHIPseq", "RNAseq", "5hmu", or any custom omics label).
 #'
 #' @return A data.frame containing only rows matching the specified omics type.
+#'   Returns empty data.frame if no matches found.
 #'
 #' @export
 #'
 #' @examples
 #' result <- ELEUTHIA_validate_sample_sheet("sample_sheet.csv")
 #' atac_samples <- ELEUTHIA_get_omics_subset(result$sample_sheet, "ATACseq")
+#' custom_samples <- ELEUTHIA_get_omics_subset(result$sample_sheet, "5hmu")
 #'
 ELEUTHIA_get_omics_subset <- function(sample_sheet, omics) {
 
-  valid_omics <- c("ATACseq", "CHIPseq", "RNAseq")
-  if (!omics %in% valid_omics) {
-    stop(paste("omics must be one of:", paste(valid_omics, collapse = ", ")))
-  }
-
   subset_df <- sample_sheet[sample_sheet$omics == omics, , drop = FALSE]
   rownames(subset_df) <- NULL
+
+  if (nrow(subset_df) == 0) {
+    warning("No samples found for omics type: ", omics)
+  }
 
   return(subset_df)
 }
@@ -406,4 +400,108 @@ ELEUTHIA_summarize_sample_sheet <- function(sample_sheet) {
     by_group = as.list(group_table),
     by_batch = as.list(batch_table)
   ))
+}
+
+
+#' Load Quantification BED Files from Sample Sheet
+#'
+#' @description Loads fragment BED files for quantification from the bed_loc
+#' column of a validated sample sheet.
+#'
+#' @param sample_sheet A validated sample sheet data.frame with bed_loc column.
+#' @param omics Character string. Omics type to load ("ATACseq" or "CHIPseq").
+#' @param verbose Logical. Print progress messages (default = TRUE).
+#'
+#' @return A named list of BED data.frames, with names corresponding to sample_id.
+#'
+#' @details
+#' This function reads fragment BED files (typically created with bedtools bamtobed)
+#' for use with ELEUTHIA_quantify_bed(). It uses the bed_loc column from the
+#' sample sheet rather than file_loc/file_name.
+#'
+#' @export
+#'
+#' @examples
+#' result <- ELEUTHIA_validate_sample_sheet("sample_sheet.csv")
+#' atac_frags <- ELEUTHIA_load_quant_beds(result$sample_sheet, "ATACseq")
+#' chip_frags <- ELEUTHIA_load_quant_beds(result$sample_sheet, "CHIPseq")
+#'
+ELEUTHIA_load_quant_beds <- function(sample_sheet,
+                                      omics,
+                                      verbose = TRUE) {
+
+  # Check bed_loc column exists
+  if (!"bed_loc" %in% colnames(sample_sheet)) {
+    stop("sample_sheet must have a 'bed_loc' column")
+  }
+
+  # Get subset for this omics type
+  subset_df <- sample_sheet[sample_sheet$omics == omics, , drop = FALSE]
+
+  if (nrow(subset_df) == 0) {
+    stop("No samples found for omics type: ", omics)
+  }
+
+  # Filter to rows with valid bed_loc
+  valid_bed <- !is.na(subset_df$bed_loc) & subset_df$bed_loc != "NA" &
+               trimws(subset_df$bed_loc) != ""
+
+  if (sum(valid_bed) == 0) {
+    stop("No valid bed_loc paths found for omics type: ", omics)
+  }
+
+  subset_df <- subset_df[valid_bed, , drop = FALSE]
+
+  if (verbose) {
+    cat("Loading", nrow(subset_df), omics, "quantification BED files...\n")
+  }
+
+  bed_list <- list()
+
+  for (i in seq_len(nrow(subset_df))) {
+    sample_id <- subset_df$sample_id[i]
+    bed_path <- subset_df$bed_loc[i]
+
+    if (verbose) {
+      cat("  Loading:", sample_id, "\n")
+    }
+
+    if (!file.exists(bed_path)) {
+      stop("BED file not found: ", bed_path)
+    }
+
+    # Load BED file (simple 3-column minimum)
+    bed <- read.table(
+      bed_path,
+      header = FALSE,
+      sep = "\t",
+      stringsAsFactors = FALSE,
+      comment.char = "#"
+    )
+
+    # Assign column names
+    ncols <- ncol(bed)
+    if (ncols >= 3) {
+      colnames(bed)[1:3] <- c("chr", "start", "end")
+    }
+    if (ncols >= 4) {
+      colnames(bed)[4] <- "name"
+    }
+    if (ncols >= 5) {
+      colnames(bed)[5] <- "score"
+    }
+    if (ncols >= 6) {
+      colnames(bed)[6] <- "strand"
+    }
+
+    bed_list[[sample_id]] <- bed
+  }
+
+  if (verbose) {
+    total_frags <- sum(sapply(bed_list, nrow))
+    cat("Loaded", length(bed_list), "BED files.\n")
+    cat("Total fragments:", format(total_frags, big.mark = ","), "\n")
+  }
+
+  return(bed_list)
 }
