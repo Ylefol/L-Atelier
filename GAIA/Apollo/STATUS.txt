@@ -1,7 +1,7 @@
 ================================================================================
 APOLLO MODULE STATUS - Annotation & Enrichment
 ================================================================================
-Last Updated: 2026-01-19
+Last Updated: 2026-01-21
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -25,6 +25,34 @@ APOLLO_chr_sizes_to_seqinfo(chr_sizes, genome)
   - Convert chr_sizes data.frame to Seqinfo object
   - For compatibility with GenomicRanges/Bioconductor
 
+peak_annotation.R:
+------------------
+APOLLO_make_txdb(gtf_path, cache_dir, cache_name, chr_mapping, organism,
+                  force, verbose)
+  - Create TxDb from GTF/GFF annotation file
+  - Automatic caching to ZERO_DAWN/data/ as SQLite (uses AnnotationDbi::saveDb)
+  - chr_mapping: "T2T" for built-in NCBI->UCSC renaming, or custom named vector
+  - Useful for non-standard genomes like T2T-CHM13
+  - One-time slow creation, fast subsequent loads
+
+APOLLO_annotate_peaks(regions, txdb, tss_region, level, verbose)
+  - Annotate peaks with genomic features using ChIPseeker
+  - Returns: annotation (Promoter/Exon/Intron/etc.), gene_id, distance_to_tss
+  - Simplified annotation categories for easy filtering
+  - Works with any TxDb (including custom T2T)
+
+APOLLO_enrich_go(annotated_peaks, org_db, ont, gene_id_type, pval_cutoff,
+                  qval_cutoff, min_gs_size, max_gs_size, verbose)
+  - GO enrichment analysis using clusterProfiler
+  - Supports BP, MF, CC, or ALL ontologies
+  - Auto-converts gene IDs (SYMBOL, ENSEMBL) to ENTREZID
+  - Returns enrichResult object (dotplot, barplot, cnetplot methods)
+
+APOLLO_enrich_kegg(annotated_peaks, org_db, organism, gene_id_type,
+                    pval_cutoff, qval_cutoff, verbose)
+  - KEGG pathway enrichment analysis
+  - Same interface as APOLLO_enrich_go
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -33,20 +61,27 @@ None
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- Peak-to-gene linking
-- Transcription factor binding motif identification
-- Pathway enrichment analysis (GO, KEGG)
-- ChIPseeker integration for peak annotation
+- Transcription factor binding motif identification (HOMER/motifmatchr)
 - Additional genome mappings (hg38, mm10, etc.)
+- Reactome pathway enrichment
+- Disease ontology enrichment
 
 ================================================================================
 DEPENDENCIES
 ================================================================================
-- Uses: None (standalone)
-- External: GenomeInfoDb (for Seqinfo)
+- Uses: APOLLO_get_chr_mapping (for chromosome renaming in make_txdb)
+- External:
+  - GenomeInfoDb (for Seqinfo, chromosome renaming)
+  - txdbmaker (for makeTxDbFromGFF - modern replacement for GenomicFeatures)
+  - AnnotationDbi (for saveDb/loadDb of TxDb objects)
+  - GenomicFeatures (for genes/transcripts queries)
+  - ChIPseeker (for peak annotation)
+  - clusterProfiler (for GO/KEGG enrichment)
+  - org.Hs.eg.db (human gene annotation, or other org.Db)
 
 ================================================================================
 NOTES
 ================================================================================
 - First APOLLO function was created for circos plot support
-- Module will expand significantly for annotation/enrichment features
+- T2T-CHM13 support: use APOLLO_make_txdb() to create TxDb from GTF
+- Gene symbols are consistent between T2T and hg38, so org.Hs.eg.db works

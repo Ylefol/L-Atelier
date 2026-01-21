@@ -1,7 +1,7 @@
 ================================================================================
 AETHER MODULE STATUS - Visualization
 ================================================================================
-Last Updated: 2026-01-19
+Last Updated: 2026-01-20
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -63,12 +63,54 @@ AETHER_plot_best_cv_scores(coarse_cv_results, fine_cv_results, metric_name)
   - Simple bar chart comparing best CV scores
   - Shows improvement from fine-tuning
 
+differential_plots.R:
+---------------------
+AETHER_plot_waterfall(shift_result, n_label, fc_threshold, title, colors)
+  - Waterfall plot of ranked fold changes
+  - Bars sorted from most decreased to most increased
+  - Colors: blue (down), gray (neutral), red (up)
+  - Labels extreme regions on each end (angled text, no clipping)
+
+AETHER_plot_fc_vs_signal(shift_result, fc_threshold, n_label, title)
+  - Fold change vs mean signal strength plot
+  - Identifies if high/low signal regions behave differently
+  - Labels most extreme points
+
+enrichment_plots.R:
+-------------------
+AETHER_plot_enrichment_dotplot(enrich_result, show_category, color_by,
+                                size_by, order_by, title, ...)
+  - Dotplot for GO/KEGG enrichment results
+  - color_by: "p.adjust", "pvalue", or "odds_ratio" (effect size!)
+  - size_by: "Count" or "GeneRatio"
+  - Odds ratio = (k/(n-k)) / ((M-k)/(N-M-n+k)) - strength of association
+  - Truncates long term descriptions for readability
+
+AETHER_plot_enrichment_bar(enrich_result, show_category, x_var, fill_by,
+                            order_by, title)
+  - Horizontal bar plot alternative to dotplot
+  - x_var: "Count", "odds_ratio", or "GeneRatio"
+  - Simpler visualization for presentations
+
+AETHER_plot_annotation_bar(annotated_list, use_simple, show_percentage,
+                            colors, title, bar_height, show_labels, min_label_pct)
+  - Stacked horizontal bar plot of genomic feature distribution
+  - Accepts named list for comparing multiple datasets (e.g., ATAC vs ChIP)
+  - Shows Promoter/Exon/Intron/Intergenic/etc. proportions
+  - Labels percentages on bars (configurable threshold)
+  - ChIPseeker-inspired color scheme
+
+.calculate_odds_ratio(gene_ratio, bg_ratio)
+  - Internal helper to compute odds ratio from GeneRatio/BgRatio strings
+
 ================================================================================
 FILE ORGANIZATION
 ================================================================================
-colors.R      - Shared color utilities (gradients, palettes)
-circos.R      - Circos plot functions (sources colors.R)
-scca_plots.R  - sCCA/integration result visualization
+colors.R           - Shared color utilities (gradients, palettes)
+circos.R           - Circos plot functions (sources colors.R)
+scca_plots.R       - sCCA/integration result visualization
+differential_plots.R - Fold-change visualizations (waterfall, FC vs signal)
+enrichment_plots.R - GO/KEGG enrichment visualizations (dotplot, barplot)
 
 ================================================================================
 IN PROGRESS

@@ -358,67 +358,66 @@ ELEUTHIA_create_consensus_peaks <- function(peak_list,
 }
 
 
-#' Call Regions from Fragment BED Files (Sparse Data)
+#' Merge Fragments into Candidate Regions
 #'
-#' @description Identifies enriched regions from fragment BED files when
-#' traditional peak callers fail due to low binding event counts.
-#' Designed for factors with sparse binding (e.g., ~100-500 expected sites).
+#' @description Pools and merges fragments from BED files into candidate regions
+#' with a baseline noise filter. This is the first step of a two-step workflow
+#' where you can then examine the distribution and choose a final threshold.
 #'
 #' @param bed_files Character vector of paths to BED files, or a named list
 #'   of loaded BED data.frames.
 #' @param merge_distance Integer. Maximum distance (bp) between fragments to
 #'   merge into a single region (default = 150).
-#' @param min_fragments Integer. Minimum number of fragments required in a
-#'   region to call it as a "peak" (default = 5).
+#' @param min_fragments Integer. Minimum fragments to retain a candidate region
+#'   (default = 10). This is a noise filter - regions below this are discarded
+#'   during merging. Set to 1 to keep all regions.
 #' @param extend Integer. Extend each fragment by this many bp on each side
 #'   before merging (default = 75). Helps connect nearby fragments.
-#' @param pool_samples Logical. If TRUE, pool all samples before calling
-#'   regions (recommended for sparse data). If FALSE, call per-sample and
-#'   take union (default = TRUE).
+#' @param pool_samples Logical. If TRUE, pool all samples before merging
+#'   (recommended for sparse data). If FALSE, not yet implemented.
 #' @param verbose Logical. Print progress messages (default = TRUE).
 #'
-#' @return A data.frame with columns: chr, start, end, peak_id, n_fragments,
-#'   width. Each row represents a called region.
+#' @return A data.frame with columns: chr, start, end, n_fragments, width.
+#'   Contains candidate regions passing the min_fragments noise filter.
+#'   Use ELEUTHIA_select_regions() for further quantile-based filtering.
 #'
 #' @details
-#' This function provides a simple alternative to statistical peak callers
-#' for scenarios where:
-#' \itemize{
-#'   \item The factor has few binding sites (< 500 expected)
-#'   \item Traditional peak callers cannot build reliable background models
-#'   \item Visual inspection confirms signal at expected locations
-#' }
-#'
-#' The algorithm:
+#' This function performs the merging step with a baseline noise filter:
 #' \enumerate{
-#'   \item Optionally pools fragments from all samples
+#'   \item Pools fragments from all samples (if pool_samples = TRUE)
 #'   \item Extends each fragment by \code{extend} bp on each side
 #'   \item Merges overlapping/nearby extended fragments (within \code{merge_distance})
-#'   \item Counts original fragments falling within each merged region
-#'   \item Filters regions by \code{min_fragments} threshold
+#'   \item Counts fragments in each merged region
+#'   \item Discards regions with fewer than \code{min_fragments} (noise filter)
 #' }
 #'
-#' For CUT&TAG/ChIP-seq data with sparse binding, pooling samples is
-#' recommended as it increases power to detect true binding sites.
+#' The min_fragments parameter removes obvious noise (regions with very few
+#' fragments) to make the quantile distribution more meaningful. This is
+#' different from the final selection threshold in ELEUTHIA_select_regions().
+#'
+#' @seealso \code{\link{ELEUTHIA_select_regions}} for quantile-based filtering,
+#'   \code{\link{ELEUTHIA_plot_region_distribution}} for visualization,
+#'   \code{\link{ELEUTHIA_call_regions_from_fragments}} for one-step workflow
 #'
 #' @export
 #'
 #' @examples
-#' # Call regions from multiple BED files
-#' bed_files <- c("sample1.bed", "sample2.bed", "sample3.bed")
-#' regions <- ELEUTHIA_call_regions_from_fragments(bed_files, min_fragments = 5)
+#' # Two-step workflow:
+#' # 1. Merge fragments into candidate regions (with noise filter)
+#' candidates <- ELEUTHIA_merge_fragments(bed_files, min_fragments = 10)
 #'
-#' # More stringent calling
-#' regions <- ELEUTHIA_call_regions_from_fragments(bed_files,
-#'                                                  merge_distance = 100,
-#'                                                  min_fragments = 10)
+#' # 2. Examine distribution of candidates
+#' ELEUTHIA_plot_region_distribution(candidates)
 #'
-ELEUTHIA_call_regions_from_fragments <- function(bed_files,
-                                                   merge_distance = 150,
-                                                   min_fragments = 5,
-                                                   extend = 75,
-                                                   pool_samples = TRUE,
-                                                   verbose = TRUE) {
+#' # 3. Select top regions based on distribution
+#' regions <- ELEUTHIA_select_regions(candidates, quantile_threshold = 0.90)
+#'
+ELEUTHIA_merge_fragments <- function(bed_files,
+                                      merge_distance = 150,
+                                      min_fragments = 10,
+                                      extend = 75,
+                                      pool_samples = TRUE,
+                                      verbose = TRUE) {
 
   # Load BED files if paths provided
   if (is.character(bed_files)) {
@@ -435,8 +434,8 @@ ELEUTHIA_call_regions_from_fragments <- function(bed_files,
     stop("bed_files must be a character vector of paths or a list of data.frames")
   }
 
+  total_frags <- sum(sapply(bed_list, nrow))
   if (verbose) {
-    total_frags <- sum(sapply(bed_list, nrow))
     cat("  Total fragments:", format(total_frags, big.mark = ","), "\n")
   }
 
@@ -448,13 +447,12 @@ ELEUTHIA_call_regions_from_fragments <- function(bed_files,
       df[, c("chr", "start", "end")]
     }))
   } else {
-    # For non-pooled, we'd call per sample and merge - implement if needed
     stop("Non-pooled calling not yet implemented. Use pool_samples = TRUE")
   }
 
   if (verbose) {
-    cat("Calling regions (merge_distance =", merge_distance,
-        ", min_fragments =", min_fragments, ")...\n")
+    cat("Merging regions (merge_distance =", merge_distance,
+        ", extend =", extend, ", min_fragments =", min_fragments, ")...\n")
   }
 
   # Extend fragments
@@ -465,6 +463,7 @@ ELEUTHIA_call_regions_from_fragments <- function(bed_files,
   all_frags <- all_frags[order(all_frags$chr, all_frags$start_ext), ]
 
   # Merge overlapping extended regions per chromosome
+  # Use list accumulation instead of rbind in loop for performance
   chromosomes <- unique(all_frags$chr)
   regions_list <- list()
 
@@ -473,14 +472,12 @@ ELEUTHIA_call_regions_from_fragments <- function(bed_files,
 
     if (nrow(chr_frags) == 0) next
 
-    # Initialize
-    merged <- data.frame(
-      chr = character(),
-      start = integer(),
-      end = integer(),
-      n_fragments = integer(),
-      stringsAsFactors = FALSE
-    )
+    # Pre-allocate vectors (upper bound is number of fragments)
+    n_max <- nrow(chr_frags)
+    starts <- integer(n_max)
+    ends <- integer(n_max)
+    counts <- integer(n_max)
+    region_idx <- 0
 
     current_start <- chr_frags$start_ext[1]
     current_end <- chr_frags$end_ext[1]
@@ -496,15 +493,12 @@ ELEUTHIA_call_regions_from_fragments <- function(bed_files,
         current_end <- max(current_end, frag_end)
         current_count <- current_count + 1
       } else {
-        # Save current region if it meets threshold
+        # Save current region if it passes noise filter
         if (current_count >= min_fragments) {
-          merged <- rbind(merged, data.frame(
-            chr = chrom,
-            start = current_start,
-            end = current_end,
-            n_fragments = current_count,
-            stringsAsFactors = FALSE
-          ))
+          region_idx <- region_idx + 1
+          starts[region_idx] <- current_start
+          ends[region_idx] <- current_end
+          counts[region_idx] <- current_count
         }
 
         # Start new region
@@ -514,18 +508,24 @@ ELEUTHIA_call_regions_from_fragments <- function(bed_files,
       }
     }
 
-    # Don't forget last region
+    # Don't forget last region (with filter)
     if (current_count >= min_fragments) {
-      merged <- rbind(merged, data.frame(
-        chr = chrom,
-        start = current_start,
-        end = current_end,
-        n_fragments = current_count,
-        stringsAsFactors = FALSE
-      ))
+      region_idx <- region_idx + 1
+      starts[region_idx] <- current_start
+      ends[region_idx] <- current_end
+      counts[region_idx] <- current_count
     }
 
-    regions_list[[chrom]] <- merged
+    # Create data.frame from pre-allocated vectors (single allocation)
+    if (region_idx > 0) {
+      regions_list[[chrom]] <- data.frame(
+        chr = rep(chrom, region_idx),
+        start = starts[1:region_idx],
+        end = ends[1:region_idx],
+        n_fragments = counts[1:region_idx],
+        stringsAsFactors = FALSE
+      )
+    }
   }
 
   # Combine all chromosomes
@@ -533,8 +533,111 @@ ELEUTHIA_call_regions_from_fragments <- function(bed_files,
   rownames(regions) <- NULL
 
   if (nrow(regions) == 0) {
-    warning("No regions found meeting the criteria. ",
-            "Try lowering min_fragments or increasing extend/merge_distance.")
+    warning("No regions created. Check input data.")
+    return(data.frame(
+      chr = character(),
+      start = integer(),
+      end = integer(),
+      n_fragments = integer(),
+      width = integer()
+    ))
+  }
+
+  # Add width
+  regions$width <- regions$end - regions$start
+
+  if (verbose) {
+    cat("\nMerging complete:\n")
+    cat("  Candidate regions:", nrow(regions), "\n")
+    cat("  Mean width:", round(mean(regions$width)), "bp\n")
+    cat("  Fragment count range:", min(regions$n_fragments), "-",
+        max(regions$n_fragments), "\n")
+    cat("  Median fragments:", median(regions$n_fragments), "\n")
+    cat("  Total fragments in regions:",
+        format(sum(regions$n_fragments), big.mark = ","),
+        sprintf("(%.1f%% of input)\n", 100 * sum(regions$n_fragments) / total_frags))
+  }
+
+  return(regions)
+}
+
+
+#' Select Regions Based on Fragment Count Threshold
+#'
+#' @description Filters candidate regions from ELEUTHIA_merge_fragments() based
+#' on either an absolute fragment count threshold or a quantile threshold.
+#'
+#' @param candidate_regions Data.frame from ELEUTHIA_merge_fragments() with
+#'   columns: chr, start, end, n_fragments.
+#' @param min_fragments Integer or NULL. Absolute minimum fragment count to keep
+#'   a region. If NULL, only quantile_threshold is used.
+#' @param quantile_threshold Numeric between 0 and 1, or NULL. Keep regions
+#'   with fragment count above this quantile. E.g., 0.90 keeps the top 10%
+#'   of regions by fragment count. If NULL, only min_fragments is used.
+#' @param verbose Logical. Print selection summary (default = TRUE).
+#'
+#' @return A data.frame with columns: chr, start, end, peak_id, n_fragments,
+#'   width. Only regions passing the threshold(s) are included.
+#'
+#' @details
+#' If both min_fragments and quantile_threshold are provided, the function
+#' uses whichever is MORE stringent (results in fewer regions).
+#'
+#' The quantile approach is useful when:
+#' \itemize{
+#'   \item You don't know what absolute threshold to use
+#'   \item You want a consistent "top X%" approach across datasets
+#'   \item Sequencing depth varies between experiments
+#' }
+#'
+#' @seealso \code{\link{ELEUTHIA_merge_fragments}} for the merging step,
+#'   \code{\link{ELEUTHIA_plot_region_distribution}} to visualize before selecting
+#'
+#' @export
+#'
+#' @examples
+#' # Merge first
+#' candidates <- ELEUTHIA_merge_fragments(bed_files)
+#'
+#' # Select by absolute threshold
+#' regions <- ELEUTHIA_select_regions(candidates, min_fragments = 100)
+#'
+#' # Select top 5% by fragment count
+#' regions <- ELEUTHIA_select_regions(candidates, quantile_threshold = 0.95)
+#'
+#' # Use both (takes more stringent)
+#' regions <- ELEUTHIA_select_regions(candidates,
+#'                                     min_fragments = 50,
+#'                                     quantile_threshold = 0.90)
+#'
+ELEUTHIA_select_regions <- function(candidate_regions,
+                                     min_fragments = NULL,
+                                     quantile_threshold = NULL,
+                                     verbose = TRUE) {
+
+  # Validate inputs
+  if (!is.data.frame(candidate_regions)) {
+    stop("candidate_regions must be a data.frame")
+  }
+
+  if (!"n_fragments" %in% colnames(candidate_regions)) {
+    stop("candidate_regions must have 'n_fragments' column")
+  }
+
+  if (is.null(min_fragments) && is.null(quantile_threshold)) {
+    stop("At least one of min_fragments or quantile_threshold must be provided")
+  }
+
+  if (!is.null(quantile_threshold)) {
+    if (quantile_threshold < 0 || quantile_threshold > 1) {
+      stop("quantile_threshold must be between 0 and 1")
+    }
+  }
+
+  n_candidates <- nrow(candidate_regions)
+
+  if (n_candidates == 0) {
+    warning("No candidate regions provided")
     return(data.frame(
       chr = character(),
       start = integer(),
@@ -545,21 +648,291 @@ ELEUTHIA_call_regions_from_fragments <- function(bed_files,
     ))
   }
 
-  # Add peak IDs and width
+  # Calculate thresholds
+  abs_threshold <- if (!is.null(min_fragments)) min_fragments else 0
+  quant_threshold <- if (!is.null(quantile_threshold)) {
+    quantile(candidate_regions$n_fragments, probs = quantile_threshold)
+  } else {
+    0
+  }
+
+  # Use the more stringent threshold
+ effective_threshold <- max(abs_threshold, quant_threshold)
+
+  if (verbose) {
+    cat("Region selection:\n")
+    cat("  Candidate regions:", n_candidates, "\n")
+    if (!is.null(min_fragments)) {
+      cat("  Absolute threshold:", min_fragments, "fragments\n")
+    }
+    if (!is.null(quantile_threshold)) {
+      cat("  Quantile threshold:", quantile_threshold,
+          "(=", round(quant_threshold, 1), "fragments)\n")
+    }
+    cat("  Effective threshold:", round(effective_threshold, 1), "fragments\n")
+  }
+
+  # Filter regions
+  regions <- candidate_regions[candidate_regions$n_fragments >= effective_threshold, ]
+  rownames(regions) <- NULL
+
+  if (nrow(regions) == 0) {
+    warning("No regions passed the threshold. Consider lowering threshold.")
+    return(data.frame(
+      chr = character(),
+      start = integer(),
+      end = integer(),
+      peak_id = character(),
+      n_fragments = integer(),
+      width = integer()
+    ))
+  }
+
+  # Add peak IDs
   regions$peak_id <- paste0("region_", seq_len(nrow(regions)))
-  regions$width <- regions$end - regions$start
+
+  # Ensure width column exists
+  if (!"width" %in% colnames(regions)) {
+    regions$width <- regions$end - regions$start
+  }
 
   # Reorder columns
   regions <- regions[, c("chr", "start", "end", "peak_id", "n_fragments", "width")]
 
   if (verbose) {
-    cat("\nRegion calling complete:\n")
-    cat("  Regions found:", nrow(regions), "\n")
+    cat("\nSelection complete:\n")
+    cat("  Regions selected:", nrow(regions),
+        sprintf("(%.1f%% of candidates)\n", 100 * nrow(regions) / n_candidates))
     cat("  Mean width:", round(mean(regions$width)), "bp\n")
-    cat("  Median fragments per region:", median(regions$n_fragments), "\n")
-    cat("  Total fragments in regions:",
-        format(sum(regions$n_fragments), big.mark = ","), "\n")
+    cat("  Fragment count range:", min(regions$n_fragments), "-",
+        max(regions$n_fragments), "\n")
   }
+
+  return(regions)
+}
+
+
+#' Plot Distribution of Fragment Counts in Candidate Regions
+#'
+#' @description Visualizes the distribution of fragment counts across candidate
+#' regions to help choose an appropriate selection threshold.
+#'
+#' @param candidate_regions Data.frame from ELEUTHIA_merge_fragments() with
+#'   n_fragments column.
+#' @param show_quantiles Numeric vector of quantiles to mark on the plot
+#'   (default = c(0.50, 0.75, 0.90, 0.95, 0.99)).
+#' @param log_scale Logical. Use log10 scale for x-axis (default = TRUE).
+#'   Useful when fragment counts span several orders of magnitude.
+#' @param title Character. Plot title.
+#'
+#' @return A ggplot object. Also prints quantile summary to console.
+#'
+#' @details
+#' The plot shows:
+#' \itemize{
+#'   \item Histogram of fragment counts across all candidate regions
+#'   \item Vertical lines marking key quantiles
+#'   \item A table showing how many regions would be kept at each quantile
+#' }
+#'
+#' Use this to decide on a threshold before calling ELEUTHIA_select_regions().
+#'
+#' @export
+#'
+#' @examples
+#' candidates <- ELEUTHIA_merge_fragments(bed_files)
+#' p <- ELEUTHIA_plot_region_distribution(candidates)
+#' print(p)
+#'
+#' # Then select based on what you see
+#' regions <- ELEUTHIA_select_regions(candidates, quantile_threshold = 0.90)
+#'
+ELEUTHIA_plot_region_distribution <- function(candidate_regions,
+                                               show_quantiles = c(0.50, 0.75, 0.90, 0.95, 0.99),
+                                               log_scale = TRUE,
+                                               title = "Distribution of Fragment Counts") {
+
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required for plotting")
+  }
+
+  if (!"n_fragments" %in% colnames(candidate_regions)) {
+    stop("candidate_regions must have 'n_fragments' column")
+  }
+
+  n_total <- nrow(candidate_regions)
+  frags <- candidate_regions$n_fragments
+
+  # Calculate quantiles
+  quant_values <- quantile(frags, probs = show_quantiles)
+  quant_df <- data.frame(
+    quantile = show_quantiles,
+    threshold = quant_values,
+    n_above = sapply(quant_values, function(q) sum(frags >= q)),
+    stringsAsFactors = FALSE
+  )
+  quant_df$pct_above <- round(100 * quant_df$n_above / n_total, 1)
+
+  # Print summary
+  cat("Fragment count distribution:\n")
+  cat("  Total candidate regions:", n_total, "\n")
+  cat("  Range:", min(frags), "-", max(frags), "\n")
+  cat("  Mean:", round(mean(frags), 1), "\n")
+  cat("  Median:", median(frags), "\n\n")
+
+  cat("Quantile thresholds:\n")
+  for (i in seq_len(nrow(quant_df))) {
+    cat(sprintf("  %5.1f%% quantile: >= %6.0f fragments -> %5d regions (%5.1f%%)\n",
+                100 * quant_df$quantile[i],
+                quant_df$threshold[i],
+                quant_df$n_above[i],
+                quant_df$pct_above[i]))
+  }
+
+  # Build density plot (cleaner than histogram, naturally bounded to data range)
+  df <- data.frame(n_fragments = frags)
+
+  # Use log-transformed data for density if log_scale requested
+  if (log_scale && max(frags) > 10 * min(frags[frags > 0])) {
+    df$x_plot <- log10(frags)
+    quant_x <- log10(quant_values)
+    x_label <- "Fragment count per region (log10 scale)"
+    use_log <- TRUE
+  } else {
+    df$x_plot <- frags
+    quant_x <- quant_values
+    x_label <- "Fragment count per region"
+    use_log <- FALSE
+  }
+
+  # Calculate density to get y-values for label positioning and x-axis cutoff
+  dens <- density(df$x_plot)
+  max_density <- max(dens$y)
+
+  # Find x-axis cutoff where density drops below 1% of peak
+  density_threshold <- max_density * 0.01
+  cutoff_idx <- max(which(dens$y >= density_threshold))
+  x_max <- dens$x[cutoff_idx]
+
+  # Ensure we include at least the 99th quantile
+  x_max <- max(x_max, max(quant_x) * 1.05)
+  x_min <- min(df$x_plot) * 0.95
+
+  # Set up x-axis breaks and labels
+  if (use_log) {
+    possible_breaks <- log10(c(10, 20, 50, 100, 200, 500, 1000, 2000, 5000))
+    x_breaks <- possible_breaks[possible_breaks >= x_min & possible_breaks <= x_max]
+    x_labels <- as.character(round(10^x_breaks))
+  } else {
+    x_breaks <- ggplot2::waiver()
+    x_labels <- ggplot2::waiver()
+  }
+
+  p <- ggplot2::ggplot(df, ggplot2::aes(x = x_plot)) +
+    ggplot2::geom_density(fill = "steelblue", alpha = 0.5, color = "steelblue4") +
+    ggplot2::geom_vline(xintercept = quant_x,
+                        linetype = "dashed", color = "red", linewidth = 0.6) +
+    ggplot2::coord_cartesian(xlim = c(x_min, x_max)) +
+    ggplot2::labs(
+      title = title,
+      subtitle = paste0("n = ", format(n_total, big.mark = ","), " candidate regions"),
+      x = x_label,
+      y = "Density"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "bold")
+    )
+
+  # Add custom x-axis breaks/labels
+  if (use_log) {
+    p <- p + ggplot2::scale_x_continuous(breaks = x_breaks, labels = x_labels)
+  }
+
+  # Add quantile labels at top of plot
+  for (i in seq_len(nrow(quant_df))) {
+    p <- p + ggplot2::annotate(
+      "text",
+      x = quant_x[i],
+      y = max_density * (1.0 - 0.07 * (i - 1)),
+      label = paste0("Q", quant_df$quantile[i] * 100),
+      color = "red",
+      size = 3,
+      hjust = -0.1
+    )
+  }
+
+  return(p)
+}
+
+
+#' Call Regions from Fragment BED Files (Sparse Data)
+#'
+#' @description Convenience wrapper that combines ELEUTHIA_merge_fragments()
+#' and ELEUTHIA_select_regions() into a single call. For more control, use
+#' the two-step workflow with those functions directly.
+#'
+#' @param bed_files Character vector of paths to BED files, or a named list
+#'   of loaded BED data.frames.
+#' @param merge_distance Integer. Maximum distance (bp) between fragments to
+#'   merge into a single region (default = 150).
+#' @param min_fragments Integer. Minimum number of fragments required in a
+#'   region to call it as a "peak" (default = 5).
+#' @param extend Integer. Extend each fragment by this many bp on each side
+#'   before merging (default = 75). Helps connect nearby fragments.
+#' @param pool_samples Logical. If TRUE, pool all samples before calling
+#'   regions (recommended for sparse data). (default = TRUE).
+#' @param verbose Logical. Print progress messages (default = TRUE).
+#'
+#' @return A data.frame with columns: chr, start, end, peak_id, n_fragments,
+#'   width. Each row represents a called region.
+#'
+#' @details
+#' This is a convenience function that wraps the two-step workflow:
+#' \enumerate{
+#'   \item ELEUTHIA_merge_fragments() - merge fragments into candidate regions
+#'   \item ELEUTHIA_select_regions() - filter by min_fragments threshold
+#' }
+#'
+#' For more control (e.g., quantile-based selection, examining distribution),
+#' use the two-step workflow directly.
+#'
+#' @seealso \code{\link{ELEUTHIA_merge_fragments}}, \code{\link{ELEUTHIA_select_regions}},
+#'   \code{\link{ELEUTHIA_plot_region_distribution}}
+#'
+#' @export
+#'
+#' @examples
+#' # One-step workflow (quick)
+#' regions <- ELEUTHIA_call_regions_from_fragments(bed_files, min_fragments = 100)
+#'
+#' # Two-step workflow (more control)
+#' candidates <- ELEUTHIA_merge_fragments(bed_files)
+#' ELEUTHIA_plot_region_distribution(candidates)  # examine distribution
+#' regions <- ELEUTHIA_select_regions(candidates, quantile_threshold = 0.90)
+#'
+ELEUTHIA_call_regions_from_fragments <- function(bed_files,
+                                                   merge_distance = 150,
+                                                   min_fragments = 5,
+                                                   extend = 75,
+                                                   pool_samples = TRUE,
+                                                   verbose = TRUE) {
+
+  # Step 1: Merge fragments
+  candidates <- ELEUTHIA_merge_fragments(
+    bed_files = bed_files,
+    merge_distance = merge_distance,
+    extend = extend,
+    pool_samples = pool_samples,
+    verbose = verbose
+  )
+
+  # Step 2: Select regions
+  regions <- ELEUTHIA_select_regions(
+    candidate_regions = candidates,
+    min_fragments = min_fragments,
+    verbose = verbose
+  )
 
   return(regions)
 }
@@ -649,6 +1022,159 @@ ELEUTHIA_peaks_to_saf <- function(consensus_peaks) {
   )
 
   return(saf)
+}
+
+
+#' Expand Genomic Regions by a Window Size
+#'
+#' @description Symmetrically expands genomic regions by a specified window size.
+#' Handles chromosome boundaries by clamping start to 0 and optionally clamping
+#' end to chromosome length if sizes are provided.
+#'
+#' @param regions A data.frame with at minimum columns: chr, start, end.
+#'   Typically from ELEUTHIA_create_consensus_peaks() or
+#'   ELEUTHIA_call_regions_from_fragments().
+#' @param window_size Integer. Number of base pairs to extend on each side
+#'   (default = 0, no expansion). Must be >= 0.
+#' @param chrom_sizes Optional. Either:
+#'   \itemize{
+#'     \item A named numeric vector where names are chromosome names and values
+#'       are chromosome lengths
+#'     \item A data.frame with columns 'chr' and 'size'
+#'     \item NULL (default) - end coordinates are not clamped to chromosome length
+#'   }
+#' @param verbose Logical. Print summary messages (default = TRUE).
+#'
+#' @return A data.frame with the same structure as input, but with start and end
+#'   coordinates expanded by window_size (respecting chromosome boundaries).
+#'   An additional column 'original_width' is added showing the pre-expansion width,
+#'   and 'window_size' records the expansion used.
+#'
+#' @details
+#' For each region:
+#' \itemize{
+#'   \item new_start = max(0, start - window_size)
+#'   \item new_end = end + window_size (or min(end + window_size, chrom_length) if sizes provided)
+#' }
+#'
+#' If window_size = 0, the function returns the regions unchanged (with added
+#' metadata columns). This allows consistent usage in pipelines that test
+#' multiple window sizes including zero.
+#'
+#' @export
+#'
+#' @examples
+#' # No expansion (window_size = 0)
+#' regions_0 <- ELEUTHIA_expand_regions(chip_regions, window_size = 0)
+#'
+#' # Expand by 500bp on each side
+#' regions_500 <- ELEUTHIA_expand_regions(chip_regions, window_size = 500)
+#'
+#' # With chromosome size clamping
+#' chrom_sizes <- c(chr1 = 248956422, chr2 = 242193529, chr3 = 198295559)
+#' regions_500 <- ELEUTHIA_expand_regions(chip_regions, window_size = 500,
+#'                                         chrom_sizes = chrom_sizes)
+#'
+#' # Use in anchored analysis workflow
+#' expanded <- ELEUTHIA_expand_regions(chip_regions, window_size = 250)
+#' atac_at_anchors <- ELEUTHIA_quantify_bed(sample_sheet, expanded, "ATACseq")
+#'
+ELEUTHIA_expand_regions <- function(regions,
+                                     window_size = 0,
+                                     chrom_sizes = NULL,
+                                     verbose = TRUE) {
+
+  # Validate inputs
+  if (!is.data.frame(regions)) {
+    stop("regions must be a data.frame")
+  }
+
+  required_cols <- c("chr", "start", "end")
+  missing_cols <- setdiff(required_cols, colnames(regions))
+  if (length(missing_cols) > 0) {
+    stop("regions missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+
+  if (!is.numeric(window_size) || length(window_size) != 1 || window_size < 0) {
+    stop("window_size must be a single non-negative number")
+  }
+
+  window_size <- as.integer(window_size)
+  n_regions <- nrow(regions)
+
+  if (n_regions == 0) {
+    warning("regions data.frame is empty, returning as-is")
+    return(regions)
+  }
+
+  # Process chromosome sizes if provided
+  chrom_size_vec <- NULL
+  if (!is.null(chrom_sizes)) {
+    if (is.data.frame(chrom_sizes)) {
+      if (!all(c("chr", "size") %in% colnames(chrom_sizes))) {
+        stop("chrom_sizes data.frame must have 'chr' and 'size' columns")
+      }
+      chrom_size_vec <- setNames(chrom_sizes$size, chrom_sizes$chr)
+    } else if (is.numeric(chrom_sizes) && !is.null(names(chrom_sizes))) {
+      chrom_size_vec <- chrom_sizes
+    } else {
+      stop("chrom_sizes must be a named numeric vector or data.frame with 'chr' and 'size' columns")
+    }
+  }
+
+  # Make a copy to avoid modifying input
+  expanded <- regions
+
+  # Store original width
+  expanded$original_width <- expanded$end - expanded$start
+
+  # Expand coordinates
+  expanded$start <- pmax(0L, as.integer(expanded$start) - window_size)
+  expanded$end <- as.integer(expanded$end) + window_size
+
+  # Clamp end to chromosome sizes if provided
+  if (!is.null(chrom_size_vec)) {
+    for (i in seq_len(n_regions)) {
+      chr <- expanded$chr[i]
+      if (chr %in% names(chrom_size_vec)) {
+        expanded$end[i] <- min(expanded$end[i], chrom_size_vec[chr])
+      }
+    }
+  }
+
+  # Record window size used
+  expanded$window_size <- window_size
+
+  if (verbose) {
+    new_widths <- expanded$end - expanded$start
+    cat("Region expansion complete:\n")
+    cat("  Regions:", n_regions, "\n")
+    cat("  Window size: +/-", window_size, "bp\n")
+    cat("  Original mean width:", round(mean(expanded$original_width)), "bp\n")
+    cat("  Expanded mean width:", round(mean(new_widths)), "bp\n")
+
+    # Report any regions that hit chromosome start boundary
+    n_clamped_start <- sum(regions$start - window_size < 0)
+    if (n_clamped_start > 0) {
+      cat("  Regions clamped at chromosome start:", n_clamped_start, "\n")
+    }
+
+    if (!is.null(chrom_size_vec)) {
+      # Count end-clamped regions
+      n_clamped_end <- sum(mapply(function(chr, end_orig, end_new) {
+        if (chr %in% names(chrom_size_vec)) {
+          return(end_orig + window_size > chrom_size_vec[chr])
+        }
+        return(FALSE)
+      }, regions$chr, regions$end, expanded$end))
+
+      if (n_clamped_end > 0) {
+        cat("  Regions clamped at chromosome end:", n_clamped_end, "\n")
+      }
+    }
+  }
+
+  return(expanded)
 }
 
 

@@ -1,7 +1,7 @@
 ================================================================================
 ELEUTHIA MODULE STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-01-19
+Last Updated: 2026-01-20
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -47,13 +47,36 @@ ELEUTHIA_create_consensus_peaks(peak_list, method, min_overlap, verbose)
   - Create consensus peak set from multiple samples
   - Methods: union, intersect, merge
 
-ELEUTHIA_call_regions_from_fragments(bed_files, method, merge_distance,
-                                       min_fragments, verbose)
-  - Call regions directly from fragment BED files
-  - For ChIP-like data without peak calling
+ELEUTHIA_merge_fragments(bed_files, merge_distance, min_fragments, extend,
+                          pool_samples, verbose)
+  - Merge fragments into candidate regions with noise filter
+  - min_fragments (default=10) removes obvious noise during merge
+  - First step of two-step workflow for quantile-based selection
+
+ELEUTHIA_select_regions(candidate_regions, min_fragments, quantile_threshold, verbose)
+  - Filter candidate regions by threshold
+  - Supports absolute threshold (min_fragments) or quantile-based (quantile_threshold)
+  - If both provided, uses more stringent
+
+ELEUTHIA_plot_region_distribution(candidate_regions, show_quantiles, log_scale, title)
+  - Visualize fragment count distribution across candidate regions
+  - Shows quantile thresholds to help choose selection criteria
+  - Prints quantile table to console
+
+ELEUTHIA_call_regions_from_fragments(bed_files, merge_distance, min_fragments,
+                                       extend, pool_samples, verbose)
+  - Convenience wrapper combining merge + select
+  - For quick one-step workflow
+  - Use two-step workflow for quantile-based selection
 
 ELEUTHIA_peaks_to_saf(consensus_peaks)
   - Convert peaks to SAF format for featureCounts
+
+ELEUTHIA_expand_regions(regions, window_size, chrom_sizes, verbose)
+  - Symmetrically expand genomic regions by window_size bp
+  - Clamps start to 0, optionally clamps end to chromosome size
+  - Works with window_size = 0 (returns unchanged with metadata)
+  - Adds original_width and window_size columns to output
 
 ELEUTHIA_quantify_bed(sample_sheet, regions, omics, verbose)
   - Quantify fragments in regions from BED files

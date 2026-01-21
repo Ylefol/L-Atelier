@@ -1,12 +1,46 @@
 ================================================================================
 ARTEMIS MODULE STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-01-19
+Last Updated: 2026-01-21
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
-None yet.
+
+anchor_analysis.R:
+------------------
+ARTEMIS_global_shift_test(quant_result, group_col, group_a, group_b,
+                           summary_method, test, pseudocount, verbose)
+  - Test for systematic signal shift at anchor regions between conditions
+  - Paired Wilcoxon or t-test across all regions
+  - Returns per-region log2FC and global p-value
+  - Answers: "Is there an overall effect at these sites?"
+
+ARTEMIS_plot_global_shift(shift_result, plot_type, highlight_threshold, title)
+  - Visualize global shift results
+  - Density plot of log2FC distribution
+  - Paired dot plot showing per-region changes
+  - Returns ggplot object(s)
+
+differential_analysis.R:
+------------------------
+ARTEMIS_differential_counts(quant_result, reference, experiment,
+                             group_col, batch_col, alpha, verbose)
+  - General-purpose differential analysis using DESeq2
+  - Works with any count data: RNA-seq, ATAC-seq, CUT&TAG, ChIP-seq
+  - Strict two-group comparison (reference vs experiment)
+  - Optional batch correction via design formula (~ batch + group)
+  - Validates: exactly 2 groups, minimum 2 replicates each, integer counts
+  - Returns: per-feature stats (log2FC, pvalue, padj), DESeqDataSet, summary
+
+utils.R:
+--------
+ARTEMIS_distance_to_nearest(query_regions, subject_regions,
+                             query_id_col, subject_id_col, verbose)
+  - Calculate distance from each query region to nearest subject region
+  - Wraps GenomicRanges::distanceToNearest() with data.frame interface
+  - Returns: distance, overlap status, and nearest feature ID per query
+  - Useful for checking peak overlap (e.g., ChIP anchors at ATAC peaks)
 
 ================================================================================
 IN PROGRESS
@@ -16,20 +50,20 @@ None
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- Differential analysis
-- Statistical testing
-- Correlation analysis
-- Multiple testing correction
+- Correlation analysis (ChIP strength vs effect magnitude)
+- Multiple testing correction utilities
 - Effect size calculations
+- Volcano plot for differential results
 
 ================================================================================
 DEPENDENCIES
 ================================================================================
-- Will likely use: Demeter (utilities)
-- External: likely limma, DESeq2, or similar
+- Uses: None (standalone)
+- External: ggplot2 (for plotting), DESeq2 (for differential analysis),
+            GenomicRanges/IRanges (for distance calculations)
 
 ================================================================================
 NOTES
 ================================================================================
-- Module not yet started
+- First functions added: anchor-based analysis for ChIP-anchored workflows
 - Will handle statistical inference separate from ML validation (Minerva)
