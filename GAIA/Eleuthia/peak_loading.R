@@ -373,6 +373,15 @@ ELEUTHIA_create_consensus_peaks <- function(peak_list,
 #'   during merging. Set to 1 to keep all regions.
 #' @param extend Integer. Extend each fragment by this many bp on each side
 #'   before merging (default = 75). Helps connect nearby fragments.
+#' @param chrom_sizes Optional. Chromosome sizes for clamping extended coordinates.
+#'   Prevents regions from extending beyond chromosome boundaries. Can be:
+#'   \itemize{
+#'     \item A named numeric vector where names are chromosome names and values
+#'       are chromosome lengths
+#'     \item A data.frame with columns 'chr' and 'size'
+#'     \item NULL (default) - no clamping, extended coordinates may exceed
+#'       chromosome length
+#'   }
 #' @param pool_samples Logical. If TRUE, pool all samples before merging
 #'   (recommended for sparse data). If FALSE, not yet implemented.
 #' @param verbose Logical. Print progress messages (default = TRUE).
@@ -416,6 +425,7 @@ ELEUTHIA_merge_fragments <- function(bed_files,
                                       merge_distance = 150,
                                       min_fragments = 10,
                                       extend = 75,
+                                      chrom_sizes = NULL,
                                       pool_samples = TRUE,
                                       verbose = TRUE) {
 
@@ -455,9 +465,43 @@ ELEUTHIA_merge_fragments <- function(bed_files,
         ", extend =", extend, ", min_fragments =", min_fragments, ")...\n")
   }
 
+
+  # Process chromosome sizes if provided
+  chrom_size_vec <- NULL
+  if (!is.null(chrom_sizes)) {
+    if (is.data.frame(chrom_sizes)) {
+      if (!all(c("chr", "size") %in% colnames(chrom_sizes))) {
+        stop("chrom_sizes data.frame must have 'chr' and 'size' columns")
+      }
+      chrom_size_vec <- setNames(chrom_sizes$size, chrom_sizes$chr)
+    } else if (is.numeric(chrom_sizes) && !is.null(names(chrom_sizes))) {
+      chrom_size_vec <- chrom_sizes
+    } else {
+      stop("chrom_sizes must be a named numeric vector or data.frame with 'chr' and 'size' columns")
+    }
+    if (verbose) {
+      cat("  Chromosome sizes provided for", length(chrom_size_vec), "chromosomes\n")
+    }
+  }
+
   # Extend fragments
   all_frags$start_ext <- pmax(0, all_frags$start - extend)
   all_frags$end_ext <- all_frags$end + extend
+
+  # Clamp end coordinates to chromosome sizes if provided
+  if (!is.null(chrom_size_vec)) {
+    for (chr_name in unique(all_frags$chr)) {
+      if (chr_name %in% names(chrom_size_vec)) {
+        chr_idx <- all_frags$chr == chr_name
+        chr_len <- chrom_size_vec[chr_name]
+        all_frags$end_ext[chr_idx] <- pmin(all_frags$end_ext[chr_idx], chr_len)
+      }
+    }
+    n_clamped <- sum(all_frags$end_ext < (all_frags$end + extend))
+    if (verbose && n_clamped > 0) {
+      cat("  Fragments clamped at chromosome boundaries:", n_clamped, "\n")
+    }
+  }
 
   # Sort by chromosome and position
   all_frags <- all_frags[order(all_frags$chr, all_frags$start_ext), ]
@@ -915,6 +959,7 @@ ELEUTHIA_call_regions_from_fragments <- function(bed_files,
                                                    merge_distance = 150,
                                                    min_fragments = 5,
                                                    extend = 75,
+                                                   chrom_sizes = NULL,
                                                    pool_samples = TRUE,
                                                    verbose = TRUE) {
 
@@ -923,6 +968,7 @@ ELEUTHIA_call_regions_from_fragments <- function(bed_files,
     bed_files = bed_files,
     merge_distance = merge_distance,
     extend = extend,
+    chrom_sizes = chrom_sizes,
     pool_samples = pool_samples,
     verbose = verbose
   )

@@ -68,6 +68,7 @@ APOLLO_get_chr_mapping <- function(genome) {
 #' @description Extracts chromosome names and sizes from a GTF or GFF annotation
 #' file. Useful for circos plots and other visualizations that need chromosome
 #' dimensions, especially for non-standard genomes (e.g., T2T instead of hg38).
+#' Supports caching to avoid re-parsing large annotation files.
 #'
 #' @param annotation_path Character string. Path to GTF or GFF file.
 #'   Supports gzipped files (.gz extension).
@@ -83,6 +84,12 @@ APOLLO_get_chr_mapping <- function(genome) {
 #'   }
 #' @param add_chr_prefix Logical. If TRUE and chromosome names don't start with
 #'   "chr", adds the prefix. Applied AFTER name_mapping (default = FALSE).
+#' @param cache_dir Character string. Directory to store cached chromosome sizes.
+#'   Default is "data/" relative to ZERO_DAWN root. Set to NULL to disable caching.
+#' @param cache_name Character string or NULL. Name for the cached RDS file
+#'   (without .rds extension). If NULL, derives from annotation filename.
+#' @param force Logical. If TRUE, re-extract sizes even if cache exists
+#'   (default = FALSE).
 #' @param verbose Logical. Print progress messages (default = TRUE).
 #'
 #' @return A data.frame with columns:
@@ -99,10 +106,14 @@ APOLLO_get_chr_mapping <- function(genome) {
 #' For GFF3 files with ##sequence-region pragmas, those values are used directly
 #' as they provide exact chromosome lengths.
 #'
+#' **Caching**: Results are cached as RDS files in cache_dir. The cache filename
+#' includes the name_mapping used, so different mapping configurations get
+#' separate cache files. Use force=TRUE to regenerate the cache.
+#'
 #' @export
 #'
 #' @examples
-#' # Get all chromosome sizes
+#' # Get all chromosome sizes (first run slow, subsequent runs fast)
 #' chr_sizes <- APOLLO_get_chromosome_sizes("annotation.gtf.gz")
 #'
 #' # Filter to standard human chromosomes
@@ -116,20 +127,101 @@ APOLLO_get_chr_mapping <- function(genome) {
 #'   chromosomes = c(paste0("chr", 1:22), "chrX", "chrY")
 #' )
 #'
-#' # Custom mapping
-#' my_mapping <- c("NC_000001.11" = "chr1", "NC_000002.12" = "chr2")
-#' chr_sizes <- APOLLO_get_chromosome_sizes("annotation.gtf", name_mapping = my_mapping)
+#' # Force regeneration of cache
+#' chr_sizes <- APOLLO_get_chromosome_sizes("annotation.gtf", force = TRUE)
 #'
 APOLLO_get_chromosome_sizes <- function(annotation_path,
                                          chromosomes = NULL,
                                          name_mapping = NULL,
                                          add_chr_prefix = FALSE,
+                                         cache_dir = NULL,
+                                         cache_name = NULL,
+                                         force = FALSE,
                                          verbose = TRUE) {
 
   if (!file.exists(annotation_path)) {
     stop("Annotation file not found: ", annotation_path)
   }
 
+  # ---------------------------------------------------------------------------
+  # Set up caching
+  # ---------------------------------------------------------------------------
+  use_cache <- !is.null(cache_dir) || is.null(cache_dir)  # Default to using cache
+
+  if (use_cache) {
+    # Set default cache directory (ZERO_DAWN/data/)
+    if (is.null(cache_dir)) {
+      script_dir <- getwd()
+      if (dir.exists(file.path(script_dir, "GAIA"))) {
+        cache_dir <- file.path(script_dir, "data")
+      } else if (dir.exists(file.path(dirname(script_dir), "GAIA"))) {
+        cache_dir <- file.path(dirname(script_dir), "data")
+      } else if (dir.exists(file.path(dirname(dirname(script_dir)), "GAIA"))) {
+        cache_dir <- file.path(dirname(dirname(script_dir)), "data")
+      } else {
+        cache_dir <- file.path(script_dir, "data")
+      }
+    }
+
+    # Create cache directory if needed
+    if (!dir.exists(cache_dir)) {
+      if (verbose) cat("Creating cache directory:", cache_dir, "\n")
+      dir.create(cache_dir, recursive = TRUE)
+    }
+
+    # Determine cache filename
+    if (is.null(cache_name)) {
+      cache_name <- gsub("\\.(gtf|gff|gff3)(\\.gz)?$", "", basename(annotation_path),
+                         ignore.case = TRUE)
+      cache_name <- paste0(cache_name, "_chrom_sizes")
+    }
+
+    # Include name_mapping in cache filename
+    if (!is.null(name_mapping)) {
+      if (is.character(name_mapping) && length(name_mapping) == 1 &&
+          (is.null(names(name_mapping)) || names(name_mapping)[1] == "")) {
+        mapping_suffix <- paste0("_", toupper(name_mapping))
+      } else {
+        mapping_suffix <- "_chrMapped"
+      }
+      cache_name <- paste0(cache_name, mapping_suffix)
+    }
+
+    cache_path <- file.path(cache_dir, paste0(cache_name, ".rds"))
+
+    # Check for existing cache
+    if (file.exists(cache_path) && !force) {
+      if (verbose) {
+        cat("Loading cached chromosome sizes from:", basename(cache_path), "\n")
+      }
+
+      result <- tryCatch({
+        readRDS(cache_path)
+      }, error = function(e) {
+        warning("Failed to load cached sizes: ", e$message, "\nRecreating...")
+        NULL
+      })
+
+      if (!is.null(result) && is.data.frame(result)) {
+        # Apply chromosome filter (not cached since user may want different subsets)
+        if (!is.null(chromosomes)) {
+          result <- result[result$chr %in% chromosomes, , drop = FALSE]
+          if (nrow(result) > 0) {
+            result <- result[match(chromosomes[chromosomes %in% result$chr], result$chr), ]
+          }
+        }
+
+        if (verbose) {
+          cat("  Loaded", nrow(result), "chromosomes.\n")
+        }
+        return(result)
+      }
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # Extract chromosome sizes from annotation file
+  # ---------------------------------------------------------------------------
   if (verbose) {
     cat("Extracting chromosome sizes from:", basename(annotation_path), "\n")
   }
@@ -268,6 +360,16 @@ APOLLO_get_chromosome_sizes <- function(annotation_path,
   if (add_chr_prefix) {
     needs_prefix <- !grepl("^chr", result$chr, ignore.case = TRUE)
     result$chr[needs_prefix] <- paste0("chr", result$chr[needs_prefix])
+  }
+
+  # ---------------------------------------------------------------------------
+  # Save to cache (before chromosome filtering, so full set is cached)
+  # ---------------------------------------------------------------------------
+  if (use_cache) {
+    if (verbose) {
+      cat("  Saving chromosome sizes to cache:", basename(cache_path), "\n")
+    }
+    saveRDS(result, cache_path)
   }
 
   # Filter to requested chromosomes

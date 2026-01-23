@@ -1,7 +1,7 @@
 ================================================================================
 ELEUTHIA MODULE STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-01-20
+Last Updated: 2026-01-22
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -48,9 +48,10 @@ ELEUTHIA_create_consensus_peaks(peak_list, method, min_overlap, verbose)
   - Methods: union, intersect, merge
 
 ELEUTHIA_merge_fragments(bed_files, merge_distance, min_fragments, extend,
-                          pool_samples, verbose)
+                          chrom_sizes, pool_samples, verbose)
   - Merge fragments into candidate regions with noise filter
   - min_fragments (default=10) removes obvious noise during merge
+  - chrom_sizes: optional, clamps extended ends to chromosome boundaries
   - First step of two-step workflow for quantile-based selection
 
 ELEUTHIA_select_regions(candidate_regions, min_fragments, quantile_threshold, verbose)
@@ -64,9 +65,10 @@ ELEUTHIA_plot_region_distribution(candidate_regions, show_quantiles, log_scale, 
   - Prints quantile table to console
 
 ELEUTHIA_call_regions_from_fragments(bed_files, merge_distance, min_fragments,
-                                       extend, pool_samples, verbose)
+                                       extend, chrom_sizes, pool_samples, verbose)
   - Convenience wrapper combining merge + select
   - For quick one-step workflow
+  - chrom_sizes passed through to merge_fragments
   - Use two-step workflow for quantile-based selection
 
 ELEUTHIA_peaks_to_saf(consensus_peaks)

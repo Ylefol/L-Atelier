@@ -589,20 +589,9 @@ AETHER_plot_annotation_bar <- function(annotated_list,
   }
 
   # ---------------------------------------------------------------------------
-  # Calculate positions for labels
+  # Create label text (positioning handled by position_stack)
   # ---------------------------------------------------------------------------
   if (show_labels) {
-    # Calculate cumulative percentages for label positioning
-    combined_df <- combined_df[order(combined_df$Dataset, combined_df$Feature), ]
-
-    combined_df <- do.call(rbind, lapply(split(combined_df, combined_df$Dataset), function(d) {
-      d <- d[order(d$Feature), ]
-      d$cumsum <- cumsum(d$Percentage)
-      d$label_pos <- d$cumsum - d$Percentage / 2
-      return(d)
-    }))
-
-    # Create label text
     combined_df$label_text <- ifelse(
       combined_df$Percentage >= min_label_pct,
       sprintf("%.1f%%", combined_df$Percentage),
@@ -636,13 +625,14 @@ AETHER_plot_annotation_bar <- function(annotated_list,
     ) +
     guides(fill = guide_legend(nrow = 1))
 
-  # Add percentage labels
+  # Add percentage labels using position_stack for automatic alignment
+  # IMPORTANT: Use full combined_df (not filtered) so position_stack sees all segments
+  # label_text is already "" for small segments, so they render as invisible
   if (show_labels && show_percentage) {
-    label_df <- combined_df[combined_df$label_text != "", ]
-
     p <- p + geom_text(
-      data = label_df,
-      aes(x = label_pos, label = label_text),
+      data = combined_df,
+      aes(label = label_text),
+      position = position_stack(vjust = 0.5),
       color = "white",
       fontface = "bold",
       size = 3
