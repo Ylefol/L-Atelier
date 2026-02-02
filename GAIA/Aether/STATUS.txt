@@ -1,7 +1,7 @@
 ================================================================================
 AETHER MODULE STATUS - Visualization
 ================================================================================
-Last Updated: 2026-01-20
+Last Updated: 2026-01-30
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -30,7 +30,9 @@ AETHER_prepare_circos_data(sample_sheet, chr_sizes, omics, bin_size,
 
 AETHER_create_circos(circos_data, genome, output, split_by, color_by,
                       invert_gradient, colors, track_height, track_margin,
-                      line_width, title, ...)
+                      line_width, title, highlights, highlight_padding,
+                      annotation_regions, annotation_colors, show_chords,
+                      chord_alpha, annotation_sector_size, ...)
   - Create circos plot from prepared data
   - split_by: "omics", "group", "batch" (combinable)
   - color_by: "track", "group", "omics_group"
@@ -38,6 +40,17 @@ AETHER_create_circos(circos_data, genome, output, split_by, color_by,
   - line_width: configurable line thickness (default 1.0)
   - Independent y-axis scaling per track
   - Output format inferred from extension (.png, .pdf)
+  - Phase 2A: highlights parameter for region highlighting on tracks
+    - Named list with regions (df), tracks ("all" or track names), color
+    - highlight_padding: fraction of chr length for padding (default 0.005)
+  - Phase 2B: annotation chords for peak-to-annotation connections
+    - annotation_regions: df with chr, start, end, annotation columns
+    - annotation_colors: named vector of colors per category
+    - show_chords: TRUE to draw chord connections
+    - chord_alpha: transparency for chords (0-1)
+    - annotation_sector_size: size of annotation pseudo-chromosome
+    - Proportional segment allocation based on annotation counts
+    - Custom cytoband with masked signal tracks in annotation sector
 
 .AETHER_assign_circos_colors(sample_info, sample_ids)
   - Internal helper for color assignment
@@ -103,6 +116,87 @@ AETHER_plot_annotation_bar(annotated_list, use_simple, show_percentage,
 .calculate_odds_ratio(gene_ratio, bg_ratio)
   - Internal helper to compute odds ratio from GeneRatio/BgRatio strings
 
+famd_plots.R:
+-------------
+AETHER_plot_famd_individuals(famd_result, dims, color_by, point_size, alpha,
+                              show_ellipse, ellipse_level, show_labels, colors, ...)
+  - Scatter plot of samples in FAMD space
+  - Color by categorical variable to visualize groupings
+  - Optional confidence ellipses per group
+  - Variance explained shown in axis labels
+
+AETHER_plot_famd_variables(famd_result, dims, var_type, aggregate_quali,
+                            color_by, show_labels, contrib_threshold, ...)
+  - Variable contribution plot
+  - Quantitative as arrows, qualitative as triangles
+  - Color by contribution or variable type
+  - Correlation circle for reference
+  - aggregate_quali: collapse category-level to variable-level (reduces clutter)
+
+AETHER_plot_famd_contrib(famd_result, n_dims, var_type, top_n, title)
+  - Contribution heatmap (cleaner than bar plots)
+  - Variables as rows, dimensions as columns
+  - Faceted by variable type (quanti/quali)
+
+AETHER_plot_famd_scree(famd_result, n_dims, show_cumulative, bar_fill,
+                        line_color, title)
+  - Variance explained per dimension
+  - Bar plot with cumulative line on secondary axis
+
+AETHER_plot_famd_variables_interactive(famd_result, dims, var_type, point_size,
+                                        show_arrows, title, save_html)
+  - Interactive plotly version of variables plot
+  - Hover to see variable/category names and contributions
+  - Zoom and pan for exploring high-cardinality variables
+  - Categories colored by parent variable for grouping
+  - save_html: export as standalone HTML file (shareable)
+
+cluster_plots.R:
+----------------
+AETHER_plot_silhouette(cluster_result, colors, show_avg, title)
+  - Silhouette plot for cluster quality assessment
+  - Shows silhouette width per sample, grouped by cluster
+  - Includes overall and per-cluster average lines
+  - Interpretation guide (Strong/Reasonable/Weak thresholds)
+  - Red dashed line = overall average
+
+AETHER_plot_cluster_radar(cluster_char, variables, data, clusters, normalize,
+                           colors, alpha, line_width, title)
+  - Radar/spider chart for cluster profiles
+  - Shows how clusters differ across multiple quantitative variables
+  - Each axis = variable, each polygon = cluster
+  - Normalizes to 0-1 by default for comparability
+  - Concentric grid circles for reference
+
+AETHER_plot_cluster_sankey(k_eval, colors, node_width, font_size, title, save_html)
+  - Sankey diagram showing sample flows between clusters across k values
+  - Input: artemis_k_evaluation object from ARTEMIS_evaluate_k_range()
+  - Columns = k values, nodes = clusters, flows = sample transitions
+  - Helps identify: natural substructure, artificial splits, stable cores
+  - Interactive plotly visualization with HTML export option
+
+AETHER_plot_k_selection(k_eval, highlight_optimal, show_sizes, title)
+  - Line plot of silhouette scores across k values
+  - Highlights optimal k with diamond marker
+  - Reference lines for interpretation (Strong/Reasonable/Weak)
+  - Companion to Sankey for determining optimal number of clusters
+
+coefficient_plots.R:
+--------------------
+AETHER_plot_coefficients(coef_table, null_line, log_scale, sort_by, colors,
+                          point_size, title, show_values, sig_level)
+  - Forest plot for regression coefficients/odds ratios
+  - Confidence intervals as horizontal lines
+  - Color by significance (p < threshold)
+  - Optional value annotations on right side
+  - Sortable by estimate, significance, or name
+
+AETHER_plot_lambda_path(cv_result, show_1se, title)
+  - Cross-validation error across lambda values
+  - Shows lambda.min and lambda.1se with annotations
+  - Error ribbon for uncertainty
+  - Companion to ARTEMIS_select_lambda()
+
 ================================================================================
 FILE ORGANIZATION
 ================================================================================
@@ -111,6 +205,9 @@ circos.R           - Circos plot functions (sources colors.R)
 scca_plots.R       - sCCA/integration result visualization
 differential_plots.R - Fold-change visualizations (waterfall, FC vs signal)
 enrichment_plots.R - GO/KEGG enrichment visualizations (dotplot, barplot)
+famd_plots.R       - FAMD visualization (individuals, variables, contrib, scree)
+cluster_plots.R    - Clustering visualization (silhouette, radar profiles)
+coefficient_plots.R - Regression coefficient visualization (forest plot, lambda path)
 
 ================================================================================
 IN PROGRESS
@@ -118,17 +215,15 @@ IN PROGRESS
 None
 
 ================================================================================
-PLANNED / TODO (from circos_implementation_notes.txt)
+PLANNED / TODO
 ================================================================================
-Phase 2+:
-- Peak highlighting track (rectangles/markers)
+Future circos enhancements:
 - Heatmap track support
-- Chord connections (peak-to-gene links)
-- Custom track colors parameter
+- Lines instead of chords option
+- Configurable legend for annotation colors
 - Track label customization
-- Configurable legend position
 
-Other:
+Other visualization:
 - Genome browser track plots
 - Heatmaps for multi-omics data
 - Correlation plots
@@ -137,7 +232,9 @@ Other:
 DEPENDENCIES
 ================================================================================
 - Uses: None (standalone)
-- External: ggplot2, circlize
+- External: ggplot2, circlize, scales (for color palettes),
+            plotly (for interactive plots), htmlwidgets (for HTML export),
+            RColorBrewer (for color palettes)
 
 ================================================================================
 NOTES

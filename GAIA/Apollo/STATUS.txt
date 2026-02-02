@@ -1,7 +1,7 @@
 ================================================================================
 APOLLO MODULE STATUS - Annotation & Enrichment
 ================================================================================
-Last Updated: 2026-01-22
+Last Updated: 2026-01-26
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -27,6 +27,18 @@ APOLLO_get_chromosome_sizes(annotation_path, chromosomes, name_mapping,
 APOLLO_chr_sizes_to_seqinfo(chr_sizes, genome)
   - Convert chr_sizes data.frame to Seqinfo object
   - For compatibility with GenomicRanges/Bioconductor
+
+APOLLO_sequence_composition(regions, fasta_path, chr_mapping, extend, min_width,
+                             include_repeats, include_sequence, verbose)
+  - Calculate GC/AT content for genomic regions
+  - Detects homopolymer runs (e.g., AAAA) and dinucleotide repeats (e.g., ATATAT)
+  - chr_mapping: "T2T" or custom vector to translate region chr names to FASTA names
+    (e.g., chr1 -> NC_060925.1 for T2T FASTA files)
+  - extend: bp to add on EACH side (consistent with ELEUTHIA_expand_regions)
+  - min_width: regions below threshold return NA (default 100bp)
+  - include_sequence: whether to include sequence column in output (default TRUE)
+  - Compatible with ELEUTHIA_select_regions output
+  - Returns: gc_percent, at_percent, n_count, repeat statistics, optionally sequence
 
 peak_annotation.R:
 ------------------
@@ -55,17 +67,6 @@ APOLLO_enrich_kegg(annotated_peaks, org_db, organism, gene_id_type,
                     pval_cutoff, qval_cutoff, verbose)
   - KEGG pathway enrichment analysis
   - Same interface as APOLLO_enrich_go
-
-APOLLO_sequence_composition(regions, fasta_path, chr_mapping, extend, min_width,
-                             include_repeats, verbose)
-  - Calculate GC/AT content for genomic regions
-  - Detects homopolymer runs (e.g., AAAA) and dinucleotide repeats (e.g., ATATAT)
-  - chr_mapping: "T2T" or custom vector to translate region chr names to FASTA names
-    (e.g., chr1 -> NC_060925.1 for T2T FASTA files)
-  - extend: bp to add on EACH side (consistent with ELEUTHIA_expand_regions)
-  - min_width: regions below threshold return NA (default 100bp)
-  - Compatible with ELEUTHIA_select_regions output
-  - Returns: gc_percent, at_percent, n_count, repeat statistics, sequence
 
 ================================================================================
 IN PROGRESS

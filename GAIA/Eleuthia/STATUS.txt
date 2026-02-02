@@ -1,7 +1,7 @@
 ================================================================================
 ELEUTHIA MODULE STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-01-22
+Last Updated: 2026-01-30
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -144,6 +144,44 @@ ELEUTHIA_is_logging()
 ELEUTHIA_get_log_file()
   - Get current log file path
 
+stratification_report.R:
+------------------------
+ELEUTHIA_stratification_report(cluster_result, stability_result, char_result,
+                                famd_result, comparison_result, qc_result,
+                                output_dir, prefix, save_tables, save_plots, ...)
+  - Comprehensive report for patient stratification pipeline
+  - Accepts all pipeline result objects (cluster, stability, char, FAMD, comparison, QC)
+  - Generates formatted text report with sections:
+    - Data overview, Clustering results, Stability, Variable importance,
+      FAMD summary, Variable refinement, Recommendations
+  - Exports tables as CSV (cluster assignments, variable importance, etc.)
+  - Generates and saves plots:
+    - Silhouette plot (always)
+    - K selection plot (when k="auto" was used)
+    - Cluster Sankey diagram as HTML (when k="auto" was used)
+    - FAMD plots (individuals, scree, variables) when famd_result provided
+    - Radar plot when char_result provided
+  - Returns report text, tables, and list of saved files
+
+ELEUTHIA_quick_summary(cluster_result, stability_result, char_result)
+  - Quick one-page console summary for interactive exploration
+  - Shows clustering stats, stability, top 5 variables
+
+discriminative_report.R:
+------------------------
+ELEUTHIA_discriminative_report(glasso_fit, cv_result, selected, final_model,
+                                coef_table, encoded, output_dir, prefix, ...)
+  - Comprehensive report for discriminative variable analysis pipeline
+  - Accepts: Group LASSO fit, CV results, selected variables, final model, coefficients
+  - Generates sections: Data overview, Variable selection, Final model, Coefficients
+  - Exports tables: selected_variables.csv, coefficients.csv
+  - Generates plots: forest_plot.png, lambda_path.png
+  - Includes interpretation guide for odds ratios
+
+ELEUTHIA_discriminative_quick_summary(glasso_fit, cv_result, selected)
+  - Quick one-page console summary for interactive exploration
+  - Shows data info, lambda selection, selected variables
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -154,7 +192,7 @@ PLANNED / TODO
 ================================================================================
 - BigWig export/import
 - BAM file handling
-- Report generation (HTML/PDF)
+- HTML/PDF report generation (rmarkdown-based)
 - Additional file format support
 
 ================================================================================

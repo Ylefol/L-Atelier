@@ -559,8 +559,17 @@ AETHER_plot_annotation_bar <- function(annotated_list,
 
   combined_df$Feature <- factor(combined_df$Feature, levels = feature_order)
 
-  # Set dataset order (preserve input order)
-  combined_df$Dataset <- factor(combined_df$Dataset, levels = rev(names(annotated_list)))
+  # Set dataset order (preserve input order) and add counts to labels
+  totals <- aggregate(Total ~ Dataset, combined_df, function(x) x[1])
+  dataset_labels <- setNames(
+    paste0(totals$Dataset, " (", format(totals$Total, big.mark = ","), ")"),
+    totals$Dataset
+  )
+  combined_df$Dataset_label <- dataset_labels[as.character(combined_df$Dataset)]
+  combined_df$Dataset_label <- factor(
+    combined_df$Dataset_label,
+    levels = rev(dataset_labels[names(annotated_list)])
+  )
 
   # ---------------------------------------------------------------------------
   # Set up colors
@@ -604,7 +613,7 @@ AETHER_plot_annotation_bar <- function(annotated_list,
   # ---------------------------------------------------------------------------
   y_var <- if (show_percentage) "Percentage" else "Count"
 
-  p <- ggplot(combined_df, aes(x = .data[[y_var]], y = Dataset, fill = Feature)) +
+  p <- ggplot(combined_df, aes(x = .data[[y_var]], y = Dataset_label, fill = Feature)) +
     geom_bar(stat = "identity", position = "stack", width = bar_height,
              color = "white", linewidth = 0.3) +
     scale_fill_manual(values = colors, name = "Genomic\nFeature") +
@@ -639,21 +648,9 @@ AETHER_plot_annotation_bar <- function(annotated_list,
     )
   }
 
-  # Add count annotations on right side
-  totals <- aggregate(Count ~ Dataset, combined_df, sum)
-  totals$label <- paste0("n=", format(totals$Count, big.mark = ","))
-
+  # Cap x-axis at 100 for percentage view
   if (show_percentage) {
-    p <- p +
-      geom_text(
-        data = totals,
-        aes(x = 102, y = Dataset, label = label),
-        inherit.aes = FALSE,
-        hjust = 0,
-        size = 3.5,
-        color = "gray30"
-      ) +
-      coord_cartesian(xlim = c(0, 115), clip = "off")
+    p <- p + coord_cartesian(xlim = c(0, 100))
   }
 
   return(p)

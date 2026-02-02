@@ -436,3 +436,479 @@ APOLLO_chr_sizes_to_seqinfo <- function(chr_sizes, genome = NA_character_) {
 
   return(seqinfo)
 }
+
+
+#' Calculate Sequence Composition for Genomic Regions
+#'
+#' @description Extracts DNA sequences for genomic regions and calculates
+#' composition metrics including GC/AT content and repeat patterns.
+#'
+#' @param regions A data.frame with columns: chr, start, end. Additional columns
+#'   are preserved. Coordinates should be 0-based (BED format).
+#' @param fasta_path Path to a FASTA file. Must have an accompanying .fai index
+#'   (create with `samtools faidx`).
+#' @param chr_mapping Either:
+#'   \itemize{
+#'     \item NULL (default) - no chromosome name translation
+#'     \item A genome name (e.g., "T2T") - uses built-in mapping
+#'     \item A named character vector mapping region chr names to FASTA chr names
+#'   }
+#' @param extend Integer. Extend regions by this many bp on each side before
+#'   extracting sequence (default = 0). Useful for standardizing region sizes.
+#' @param min_width Integer. Minimum region width (after extension) to calculate
+#'   composition (default = 100). Regions below this return NA values.
+#' @param include_repeats Logical. Calculate homopolymer and dinucleotide repeat
+#'   metrics (default = TRUE).
+#' @param include_sequence Logical. Include the extracted sequence in output
+#'   (default = TRUE). Set to FALSE to reduce memory usage for large datasets.
+#' @param verbose Logical. Print progress messages (default = TRUE).
+#'
+#' @return A data.frame with one row per input region containing:
+#' \describe{
+#'   \item{peak_id}{Region identifier (from input or generated)}
+#'   \item{width}{Final region width after extension}
+#'   \item{gc_percent}{Percentage of G+C bases}
+#'   \item{at_percent}{Percentage of A+T bases}
+#'   \item{n_Nbases}{Number of N (ambiguous) bases}
+#'   \item{longest_homopolymer}{Length of longest single-base repeat (if include_repeats)}
+#'   \item{homopolymer_base}{Base forming the longest homopolymer (if include_repeats)}
+#'   \item{longest_dinucleotide}{Length of longest dinucleotide repeat in bp (if include_repeats)}
+#'   \item{dinucleotide_motif}{Motif of longest dinucleotide repeat (if include_repeats)}
+#'   \item{sequence}{The actual nucleotide sequence extracted (if include_sequence)}
+#' }
+#'
+#' @details
+#' **Chromosome mapping**: When using genomes like T2T-CHM13 where your regions
+#' use UCSC-style names (chr1, chr2) but the FASTA uses NCBI accessions
+#' (NC_060925.1, NC_060926.1), use chr_mapping = "T2T" to automatically translate.
+#' The mapping is applied internally - your output will retain the original
+#' region chromosome names.
+#'
+#' **Extension behavior**: Consistent with ELEUTHIA_expand_regions(), the extend
+#' parameter adds the specified bp to EACH side. So extend = 50 adds 100bp total.
+#' Start coordinates are clamped at 0.
+#'
+#' **Minimum width threshold**: Regions smaller than min_width (after extension)
+#' return NA for composition values. This avoids unreliable percentages from very
+#' short sequences (e.g., 10bp regions where each base is 10%).
+#'
+#' **Repeat detection**:
+#' \itemize{
+#'   \item Homopolymers: Consecutive identical bases (e.g., AAAA, TTTTTT)
+#'   \item Dinucleotide repeats: Alternating two-base patterns (e.g., ATATAT, CGCGCG)
+#' }
+#'
+#' @export
+#'
+#' @examples
+#' # Basic usage with genomic regions
+#' comp <- APOLLO_sequence_composition(regions, "reference.fa")
+#'
+#' # With T2T genome (regions have chr1, FASTA has NC_060925.1)
+#' comp <- APOLLO_sequence_composition(regions, "T2T.fna", chr_mapping = "T2T")
+#'
+#' # With extension to standardize region size
+#' comp <- APOLLO_sequence_composition(regions, "reference.fa", extend = 100)
+#'
+#' # Without sequence column (saves memory)
+#' comp <- APOLLO_sequence_composition(regions, "ref.fa", include_sequence = FALSE)
+#'
+#' # Merge back to original data
+#' regions_with_comp <- cbind(regions, comp[, c("gc_percent", "at_percent")])
+#'
+APOLLO_sequence_composition <- function(regions,
+                                          fasta_path,
+                                          chr_mapping = NULL,
+                                          extend = 0,
+                                          min_width = 100,
+                                          include_repeats = TRUE,
+                                          include_sequence = TRUE,
+                                          verbose = TRUE) {
+
+  # ---------------------------------------------------------------------------
+  # Check for required packages
+  # ---------------------------------------------------------------------------
+  if (!requireNamespace("Rsamtools", quietly = TRUE)) {
+    stop("Package 'Rsamtools' is required. Install from Bioconductor:\n",
+         "  BiocManager::install('Rsamtools')")
+  }
+
+  if (!requireNamespace("Biostrings", quietly = TRUE)) {
+    stop("Package 'Biostrings' is required. Install from Bioconductor:\n",
+         "  BiocManager::install('Biostrings')")
+  }
+
+  if (!requireNamespace("GenomicRanges", quietly = TRUE)) {
+    stop("Package 'GenomicRanges' is required. Install from Bioconductor:\n",
+         "  BiocManager::install('GenomicRanges')")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Validate inputs
+  # ---------------------------------------------------------------------------
+  if (!is.data.frame(regions)) {
+    stop("regions must be a data.frame")
+  }
+
+  required_cols <- c("chr", "start", "end")
+  missing_cols <- setdiff(required_cols, colnames(regions))
+  if (length(missing_cols) > 0) {
+    stop("regions missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+
+  n_regions <- nrow(regions)
+  if (n_regions == 0) {
+    stop("regions data.frame is empty")
+  }
+
+  if (!file.exists(fasta_path)) {
+    stop("FASTA file not found: ", fasta_path)
+  }
+
+  # Check for index file
+  fai_path <- paste0(fasta_path, ".fai")
+  if (!file.exists(fai_path)) {
+    stop("FASTA index (.fai) not found: ", fai_path, "\n",
+         "  Create with: samtools faidx ", fasta_path)
+  }
+
+  if (!is.numeric(extend) || length(extend) != 1 || extend < 0) {
+    stop("extend must be a single non-negative number")
+  }
+  extend <- as.integer(extend)
+
+  if (!is.numeric(min_width) || length(min_width) != 1 || min_width < 1) {
+    stop("min_width must be a positive integer")
+  }
+  min_width <- as.integer(min_width)
+
+  # ---------------------------------------------------------------------------
+  # Determine peak ID column
+  # ---------------------------------------------------------------------------
+  id_cols <- c("peak_id", "region_id", "name", "id")
+  id_col <- intersect(id_cols, colnames(regions))[1]
+  if (is.na(id_col)) {
+    peak_ids <- paste0("region_", seq_len(n_regions))
+  } else {
+    peak_ids <- regions[[id_col]]
+  }
+
+  # ---------------------------------------------------------------------------
+  # Process chromosome mapping
+  # ---------------------------------------------------------------------------
+  # chr_mapping translates region chromosome names to FASTA chromosome names
+  # e.g., for T2T: chr1 -> NC_060925.1
+  chr_map_vec <- NULL
+
+  if (!is.null(chr_mapping)) {
+    if (is.character(chr_mapping) && length(chr_mapping) == 1 &&
+        (is.null(names(chr_mapping)) || names(chr_mapping)[1] == "")) {
+      # Built-in mapping name (e.g., "T2T")
+      # Get the NCBI -> UCSC mapping and reverse it to UCSC -> NCBI
+      ncbi_to_ucsc <- APOLLO_get_chr_mapping(chr_mapping)
+      chr_map_vec <- setNames(names(ncbi_to_ucsc), as.character(ncbi_to_ucsc))
+    } else if (is.character(chr_mapping) && !is.null(names(chr_mapping))) {
+      # Custom mapping provided directly (region_name -> fasta_name)
+      chr_map_vec <- chr_mapping
+    } else {
+      stop("chr_mapping must be a genome name (e.g., 'T2T') or a named character vector")
+    }
+  }
+
+  if (verbose) {
+    cat("Sequence composition analysis\n")
+    cat("  Regions:", n_regions, "\n")
+    cat("  FASTA:", basename(fasta_path), "\n")
+    if (!is.null(chr_map_vec)) {
+      cat("  Chromosome mapping: enabled (", length(chr_map_vec), " mappings)\n", sep = "")
+    }
+    if (extend > 0) {
+      cat("  Extension: +/-", extend, "bp (", extend * 2, "bp total)\n")
+    }
+    cat("  Min width threshold:", min_width, "bp\n")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Apply extension (consistent with ELEUTHIA_expand_regions)
+  # ---------------------------------------------------------------------------
+  start_ext <- pmax(0L, as.integer(regions$start) - extend)
+  end_ext <- as.integer(regions$end) + extend
+  widths <- end_ext - start_ext
+
+  # Identify regions below min_width threshold
+  below_threshold <- widths < min_width
+  n_below <- sum(below_threshold)
+
+  if (verbose && n_below > 0) {
+    cat("  Regions below min_width:", n_below, "(will return NA)\n")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Open FASTA file
+  # ---------------------------------------------------------------------------
+  fa <- Rsamtools::FaFile(fasta_path)
+  open(fa)
+  on.exit(close(fa), add = TRUE)
+
+  # Get available chromosomes in FASTA
+  fa_seqinfo <- Rsamtools::seqinfo(fa)
+  fa_chroms <- GenomeInfoDb::seqnames(fa_seqinfo)
+
+  # ---------------------------------------------------------------------------
+  # Translate chromosome names if mapping provided
+  # ---------------------------------------------------------------------------
+  # Create vector of FASTA-compatible chromosome names
+  if (!is.null(chr_map_vec)) {
+    # Translate region chr names to FASTA names where mapping exists
+    chr_for_fasta <- ifelse(
+      regions$chr %in% names(chr_map_vec),
+      chr_map_vec[regions$chr],
+      regions$chr  # Keep original if not in mapping
+    )
+  } else {
+    chr_for_fasta <- regions$chr
+  }
+
+  # ---------------------------------------------------------------------------
+  # Create GRanges for sequence extraction
+  # ---------------------------------------------------------------------------
+  # Only include regions that are above threshold and have valid chromosomes
+  valid_idx <- which(!below_threshold & chr_for_fasta %in% fa_chroms)
+  n_valid <- length(valid_idx)
+
+  if (verbose) {
+    n_missing_chr <- sum(!chr_for_fasta %in% fa_chroms & !below_threshold)
+    if (n_missing_chr > 0) {
+      cat("  Regions with missing chromosomes:", n_missing_chr, "\n")
+    }
+    cat("  Valid regions for extraction:", n_valid, "\n")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Initialize result vectors
+  # ---------------------------------------------------------------------------
+  gc_percent <- rep(NA_real_, n_regions)
+  at_percent <- rep(NA_real_, n_regions)
+  n_Nbases <- rep(NA_integer_, n_regions)
+
+  if (include_sequence) {
+    sequences <- rep(NA_character_, n_regions)
+  }
+
+  if (include_repeats) {
+    longest_homo <- rep(NA_integer_, n_regions)
+    homo_base <- rep(NA_character_, n_regions)
+    longest_di <- rep(NA_integer_, n_regions)
+    di_motif <- rep(NA_character_, n_regions)
+  }
+
+  # ---------------------------------------------------------------------------
+  # Extract sequences and calculate composition
+  # ---------------------------------------------------------------------------
+  if (n_valid > 0) {
+    if (verbose) cat("  Extracting sequences...\n")
+
+    # Create GRanges for valid regions (1-based for Bioconductor)
+    # Use translated chromosome names (chr_for_fasta) for FASTA lookup
+    gr <- GenomicRanges::GRanges(
+      seqnames = chr_for_fasta[valid_idx],
+      ranges = IRanges::IRanges(
+        start = start_ext[valid_idx] + 1,  # Convert to 1-based
+        end = end_ext[valid_idx]
+      )
+    )
+
+    # Extract sequences
+    seqs <- Biostrings::getSeq(fa, gr)
+
+    if (verbose) cat("  Calculating composition...\n")
+
+    # Process each sequence
+    for (i in seq_along(valid_idx)) {
+      idx <- valid_idx[i]
+      seq_str <- as.character(seqs[[i]])
+      seq_upper <- toupper(seq_str)
+      seq_len <- nchar(seq_upper)
+
+      # Store the sequence if requested
+      if (include_sequence) {
+        sequences[idx] <- seq_upper
+      }
+
+      # Count bases
+      a_count <- lengths(regmatches(seq_upper, gregexpr("A", seq_upper)))
+      t_count <- lengths(regmatches(seq_upper, gregexpr("T", seq_upper)))
+      g_count <- lengths(regmatches(seq_upper, gregexpr("G", seq_upper)))
+      c_count <- lengths(regmatches(seq_upper, gregexpr("C", seq_upper)))
+      n_Nbases[idx] <- lengths(regmatches(seq_upper, gregexpr("N", seq_upper)))
+
+      # Calculate percentages (excluding Ns from denominator)
+      effective_len <- seq_len - n_Nbases[idx]
+      if (effective_len > 0) {
+        gc_percent[idx] <- 100 * (g_count + c_count) / effective_len
+        at_percent[idx] <- 100 * (a_count + t_count) / effective_len
+      }
+
+      # Repeat detection
+      if (include_repeats) {
+        # Homopolymer detection
+        homo_result <- .find_longest_homopolymer(seq_upper)
+        longest_homo[idx] <- homo_result$length
+        homo_base[idx] <- homo_result$base
+
+        # Dinucleotide repeat detection
+        di_result <- .find_longest_dinucleotide(seq_upper)
+        longest_di[idx] <- di_result$length
+        di_motif[idx] <- di_result$motif
+      }
+
+      # Progress indicator for large datasets
+      if (verbose && i %% 1000 == 0) {
+        cat("    Processed", i, "of", n_valid, "regions\n")
+      }
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # Build result data.frame
+  # ---------------------------------------------------------------------------
+  result <- data.frame(
+    peak_id = peak_ids,
+    width = widths,
+    gc_percent = round(gc_percent, 2),
+    at_percent = round(at_percent, 2),
+    n_Nbases = n_Nbases,
+    stringsAsFactors = FALSE
+  )
+
+  if (include_repeats) {
+    result$longest_homopolymer <- longest_homo
+    result$homopolymer_base <- homo_base
+    result$longest_dinucleotide <- longest_di
+    result$dinucleotide_motif <- di_motif
+  }
+
+  # Add sequence column if requested (at the end since it can be long)
+  if (include_sequence) {
+    result$sequence <- sequences
+  }
+
+  if (verbose) {
+    valid_gc <- gc_percent[!is.na(gc_percent)]
+    if (length(valid_gc) > 0) {
+      cat("\nComposition summary (", length(valid_gc), " regions):\n", sep = "")
+      cat("  GC%: mean =", round(mean(valid_gc), 1),
+          ", median =", round(median(valid_gc), 1),
+          ", range =", round(min(valid_gc), 1), "-", round(max(valid_gc), 1), "\n")
+      cat("  AT%: mean =", round(mean(at_percent[!is.na(at_percent)]), 1), "\n")
+
+      if (include_repeats) {
+        valid_homo <- longest_homo[!is.na(longest_homo)]
+        if (length(valid_homo) > 0) {
+          cat("  Longest homopolymer: max =", max(valid_homo),
+              ", mean =", round(mean(valid_homo), 1), "\n")
+        }
+        valid_di <- longest_di[!is.na(longest_di)]
+        if (length(valid_di) > 0) {
+          cat("  Longest dinucleotide repeat: max =", max(valid_di),
+              "bp, mean =", round(mean(valid_di), 1), "bp\n")
+        }
+      }
+    }
+  }
+
+  return(result)
+}
+
+
+#' Find Longest Homopolymer Run
+#'
+#' @description Internal helper function to find the longest run of consecutive
+#' identical bases in a sequence.
+#'
+#' @param seq Character string. DNA sequence (uppercase).
+#'
+#' @return List with components:
+#' \describe{
+#'   \item{length}{Length of longest homopolymer}
+#'   \item{base}{The base forming the longest run (A, T, G, C, or N)}
+#' }
+#'
+#' @keywords internal
+#'
+.find_longest_homopolymer <- function(seq) {
+  # Find runs of each base
+  bases <- c("A", "T", "G", "C")
+  max_len <- 0
+  max_base <- NA_character_
+
+  for (base in bases) {
+    # Pattern for runs of this base
+    pattern <- paste0(base, "+")
+    matches <- regmatches(seq, gregexpr(pattern, seq))[[1]]
+
+    if (length(matches) > 0) {
+      longest <- max(nchar(matches))
+      if (longest > max_len) {
+        max_len <- longest
+        max_base <- base
+      }
+    }
+  }
+
+  return(list(length = as.integer(max_len), base = max_base))
+}
+
+
+#' Find Longest Dinucleotide Repeat
+#'
+#' @description Internal helper function to find the longest dinucleotide
+#' repeat in a sequence (e.g., ATATAT, CGCGCG).
+#'
+#' @param seq Character string. DNA sequence (uppercase).
+#'
+#' @return List with components:
+#' \describe{
+#'   \item{length}{Length in base pairs of the longest dinucleotide repeat}
+#'   \item{motif}{The two-base motif (e.g., "AT", "CG")}
+#' }
+#'
+#' @keywords internal
+#'
+.find_longest_dinucleotide <- function(seq) {
+  # All possible dinucleotide motifs (excluding same-base like AA, TT)
+  bases <- c("A", "T", "G", "C")
+  motifs <- character()
+  for (b1 in bases) {
+    for (b2 in bases) {
+      if (b1 != b2) {
+        motifs <- c(motifs, paste0(b1, b2))
+      }
+    }
+  }
+
+  max_len <- 0
+  max_motif <- NA_character_
+
+  for (motif in motifs) {
+    # Pattern: motif repeated 2+ times
+    # e.g., for "AT": (AT){2,}
+    pattern <- paste0("(", motif, "){2,}")
+    matches <- regmatches(seq, gregexpr(pattern, seq))[[1]]
+
+    if (length(matches) > 0) {
+      longest <- max(nchar(matches))
+      if (longest > max_len) {
+        max_len <- longest
+        max_motif <- motif
+      }
+    }
+  }
+
+  # Return 0 if no dinucleotide repeats found (need at least 2 repeats = 4bp)
+  if (max_len < 4) {
+    return(list(length = 0L, motif = NA_character_))
+  }
+
+  return(list(length = as.integer(max_len), motif = max_motif))
+}

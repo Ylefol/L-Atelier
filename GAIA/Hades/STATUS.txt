@@ -1,12 +1,64 @@
 ================================================================================
 HADES MODULE STATUS - Quality Control & Filtering
 ================================================================================
-Last Updated: 2026-01-19
+Last Updated: 2026-01-28
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
-None yet.
+
+qc_mixed_data.R:
+----------------
+HADES_qc_mixed_data(data, na_threshold, variance_threshold, dominance_threshold,
+                    correlation_threshold, check_correlations, check_samples,
+                    check_type_issues, na_strings, numeric_threshold,
+                    categorical_threshold, sample_id_col, verbose)
+  - QC assessment for mixed (quantitative + qualitative) data
+  - Reports and flags issues but does NOT auto-remove (user decides)
+  - Variable-level checks:
+    - Missing data proportion (flagged if > na_threshold)
+    - Near-zero variance for quantitative (flagged if < variance_threshold)
+    - Dominant level for qualitative (flagged if > dominance_threshold)
+  - Sample-level checks:
+    - Missing data proportion per sample
+    - Sample ID validation (when sample_id_col specified):
+      - Uniqueness check (detects duplicate IDs)
+      - Missing ID check (detects NA in ID column)
+      - Empty string check (detects "" or whitespace-only IDs)
+  - Correlation analysis:
+    - Identifies highly correlated quantitative variable pairs
+  - Type consistency checks:
+    - Detects NA-like strings not parsed as NA (e.g., "N/A", "None", "NULL", "")
+    - Flags columns with multiple different NA representations (inconsistent)
+    - Identifies character columns that look numeric (contaminated by string values)
+    - Identifies numeric columns that may be categorical (few unique values)
+    - Detects special characters in categorical values (spaces, underscores) that
+      may cause issues with FAMD category naming
+    - Comprehensive default na_strings list (50+ patterns including Excel errors)
+  - Returns: variables df, samples df, correlations df, type_issues list, summary, thresholds
+  - Class "hades_qc" with print method
+
+print.hades_qc(x, show_flagged_only, ...)
+  - Print method for QC results
+  - Shows flagged variables and samples with reasons
+  - Displays high correlation pairs
+
+HADES_convert_to_factor(data, qc_report, columns, ordered, exclude, verbose)
+  - Helper to convert potential categorical columns to factors
+  - Works with QC report (uses potential_categorical by default)
+  - Or specify columns directly
+  - ordered parameter for ordinal data (creates ordered factors)
+  - exclude parameter to skip specific columns after review
+  - Sorts factor levels numerically when appropriate
+
+HADES_drop_high_na_variables(data, na_threshold, protect, na_strings, verbose)
+  - Simple helper to remove columns exceeding NA threshold
+  - Standalone function (no QC report required)
+  - protect parameter to prevent removal of specific columns (e.g., ID column)
+  - na_strings parameter to treat common NA-like strings ("N/A", "None", etc.) as NA
+    - Converts matching strings to actual NA in output
+    - Counts them toward NA proportion for threshold calculation
+  - Reports removed columns sorted by NA proportion
 
 ================================================================================
 IN PROGRESS
@@ -16,23 +68,26 @@ None
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- Quality metrics calculation
+- Helper functions to filter data based on QC flags (future)
+- Quality metrics for sequencing data (FRiP, fragment size, etc.)
 - Sample filtering based on QC thresholds
 - Read quality assessment
-- Outlier detection
-- QC report generation
+- Outlier detection (multivariate)
+- QC report generation (HTML/PDF)
 - Fragment size distribution analysis (ATAC-seq)
 - FRiP score calculation (ChIP-seq)
 
 ================================================================================
 DEPENDENCIES
 ================================================================================
-- Will likely use: Demeter (utilities), Eleuthia (data loading)
-- External: possibly ATACseqQC, ChIPQC
+- Uses: None (standalone)
+- External: None (base R only)
 
 ================================================================================
 NOTES
 ================================================================================
-- Module not yet started
-- Will handle QC separate from preprocessing (Poseidon)
-- Focus on assessment and filtering, not correction
+- First function: HADES_qc_mixed_data for pre-FAMD assessment
+- Philosophy: Report and flag, don't auto-remove
+- User reviews QC report and makes filtering decisions
+- Part of patient stratification pipeline: QC -> FAMD -> Clustering
+

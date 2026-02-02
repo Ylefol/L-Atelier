@@ -1,7 +1,7 @@
 ================================================================================
 ARTEMIS MODULE STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-01-21
+Last Updated: 2026-01-30
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -42,10 +42,113 @@ ARTEMIS_distance_to_nearest(query_regions, subject_regions,
   - Returns: distance, overlap status, and nearest feature ID per query
   - Useful for checking peak overlap (e.g., ChIP anchors at ATAC peaks)
 
+famd.R:
+-------
+ARTEMIS_famd(data, na_action, na_threshold, ncp, sup_quanti, sup_quali,
+             ncp_impute, prefix_levels, verbose)
+  - Factor Analysis of Mixed Data (FAMD) for dimensionality reduction
+  - Handles datasets with both quantitative and qualitative variables
+  - NA handling: "fail" (strict), "omit" (drop rows), "impute" (missMDA)
+  - Automatic column dropping for high NA proportion (na_threshold)
+  - prefix_levels: auto-prefix factor levels with variable names (e.g., "0" -> "gender_0")
+    prevents ambiguity when multiple factors have overlapping numeric levels
+  - Returns: eigenvalues, individual coords/cos2/contrib, variable results, level_mapping
+  - Class "artemis_famd" with print method
+
+clustering.R:
+-------------
+ARTEMIS_cluster_mixed(data, k, k_range, method, hclust_method, stand, verbose)
+  - Clustering for mixed (quantitative + qualitative) data
+  - Uses Gower distance (handles mixed types natively)
+  - Methods: "pam" (partitioning around medoids) or "hierarchical"
+  - Auto-selection of k using silhouette scores
+  - When k="auto": returns k_evaluation with assignments at each k and transitions
+    for Sankey visualization (pass to AETHER_plot_cluster_sankey)
+  - Returns: cluster assignments, silhouette info, k_selection, k_evaluation, medoids
+  - Class "artemis_cluster" with print method
+
+ARTEMIS_cluster_stability(cluster_result, n_boot, verbose)
+  - Bootstrap-based stability assessment for clustering
+  - Measures how consistent cluster assignments are under resampling
+  - Returns: Jaccard similarity (overall and per-cluster), sample stability
+  - Interpretation guide for stability scores
+
+ARTEMIS_characterize_clusters(cluster_result, data, p_adjust, verbose)
+  - Determine which variables best discriminate between clusters
+  - Quantitative: Kruskal-Wallis test + eta-squared effect size
+  - Qualitative: Chi-square test + Cramér's V effect size
+  - Returns ranked table by effect size, cluster profiles for top variables
+  - Effect size interpretation (small/medium/large)
+
+ARTEMIS_compare_variable_importance(cluster_char, famd_result, n_dims,
+                                     low_threshold, verbose)
+  - Compare variable importance from clustering vs FAMD
+  - Combines effect sizes (from characterization) with FAMD contributions
+  - Computes percentile ranks for both metrics
+  - Flags variables low on BOTH as removal candidates
+  - Aggregates qualitative contributions from category to variable level
+  - Returns: comparison table, low_signal list, high_signal list
+  - For iterative variable refinement in Phase 3 of pipeline
+
+ARTEMIS_evaluate_k_range(data, k_range, method, hclust_method, stand, verbose)
+  - Standalone k evaluation (alternative to using cluster_mixed with k="auto")
+  - Use when: you have a pre-computed distance matrix, or want to evaluate
+    without committing to final clustering
+  - Returns: metrics (silhouette per k), assignments (samples x k), transitions
+  - transitions data feeds into AETHER_plot_cluster_sankey()
+  - Class "artemis_k_evaluation" with print method
+  - Note: ARTEMIS_cluster_mixed(k="auto") now includes k_evaluation in output
+
+.match_cluster_labels(clust1, clust2)
+  - Internal helper to handle label switching in bootstrap comparisons
+
+.test_quanti_cluster(x, clusters)
+  - Internal: Kruskal-Wallis + eta-squared for quantitative variables
+
+.test_quali_cluster(x, clusters)
+  - Internal: Chi-square + Cramér's V for qualitative variables
+
+discriminative_analysis.R:
+--------------------------
+ARTEMIS_fit_group_lasso(X, y, groups, family, penalty, nlambda, lambda,
+                         alpha, group_names, verbose)
+  - Fits Group LASSO for variable selection in mixed data
+  - Treats all dummy columns from one categorical as a group
+  - Penalties: grLasso (default), grMCP, grSCAD
+  - Families: binomial, multinomial, gaussian, poisson
+  - Returns fitted model with regularization path
+  - Requires: grpreg package
+
+ARTEMIS_select_lambda(glasso_fit, X, y, nfolds, seed, verbose)
+  - Cross-validation to select optimal lambda (regularization strength)
+  - Returns lambda.min (minimum CV error) and lambda.1se (parsimonious)
+  - Counts groups selected at each lambda
+  - Recommendation: use lambda.1se for variable selection
+
+ARTEMIS_extract_selected_variables(glasso_fit, lambda, verbose)
+  - Identifies which variable groups have non-zero coefficients
+  - Returns selected variable names and group numbers
+  - Shows coefficient info for quantitative, active levels for categorical
+  - Use with cv_result$lambda.1se or cv_result$lambda.min
+
+ARTEMIS_fit_final_model(data, target_var, selected_vars, family, verbose)
+  - Fits unpenalized regression on selected variables only
+  - Provides unbiased coefficients with valid p-values and CIs
+  - Uses original data.frame (not encoded matrix)
+  - Families: binomial, multinomial (via nnet), gaussian
+  - Returns glm/multinom object for standard R model inspection
+
+ARTEMIS_extract_coefficients(final_model, format, conf_level, digits, verbose)
+  - Extracts coefficients in publication-ready format
+  - Converts to odds ratios for logistic regression (default)
+  - Includes confidence intervals and significance stars
+  - Supports multinomial: outputs one row per variable-class combination
+  - Returns data.frame suitable for tables/export
+
 ================================================================================
 IN PROGRESS
 ================================================================================
-None
+Discriminative Variable Analysis pipeline (see to_process/discriminative_analysis_implementation.txt)
 
 ================================================================================
 PLANNED / TODO
@@ -60,7 +163,9 @@ DEPENDENCIES
 ================================================================================
 - Uses: None (standalone)
 - External: ggplot2 (for plotting), DESeq2 (for differential analysis),
-            GenomicRanges/IRanges (for distance calculations)
+            GenomicRanges/IRanges (for distance calculations),
+            FactoMineR (for FAMD), missMDA (optional, for FAMD imputation),
+            cluster (for Gower distance, PAM, silhouette)
 
 ================================================================================
 NOTES

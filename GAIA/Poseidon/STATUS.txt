@@ -1,7 +1,7 @@
 ================================================================================
 POSEIDON MODULE STATUS - Preprocessing & Normalization
 ================================================================================
-Last Updated: 2026-01-19
+Last Updated: 2026-01-30
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -66,10 +66,26 @@ POSEIDON_filter_pairwise_identical(X, tolerance, verbose)
   - Remove features with identical values across samples
   - Handles edge case of constant features
 
+POSEIDON_encode_for_regression(data, target_var, encoding, reference,
+                                ordinal_vars, ordinal_treatment, verbose)
+  - Encodes mixed data (categorical + quantitative) for regression
+  - Separates target variable from predictors
+  - Creates dummy/effect coding for categorical variables
+  - Handles ordinal variables (as categorical, continuous, or polynomial)
+  - Returns group mapping for Group LASSO (all levels of a variable = one group)
+  - Part of discriminative variable analysis workflow
+
+POSEIDON_scale_predictors(X, method, exclude_binary, var_mapping, verbose)
+  - Scales predictor matrix for penalized regression
+  - Methods: zscore (default), minmax, robust
+  - Optionally excludes binary (0/1) columns from scaling
+  - Returns scaling parameters for applying to new data
+  - Part of discriminative variable analysis workflow
+
 ================================================================================
 IN PROGRESS
 ================================================================================
-None
+Discriminative Variable Analysis pipeline (see to_process/discriminative_analysis_implementation.txt)
 
 ================================================================================
 PLANNED / TODO
