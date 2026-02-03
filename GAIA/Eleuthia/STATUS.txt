@@ -1,7 +1,7 @@
 ================================================================================
 ELEUTHIA MODULE STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-01-30
+Last Updated: 2026-02-03
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -181,6 +181,43 @@ ELEUTHIA_discriminative_report(glasso_fit, cv_result, selected, final_model,
 ELEUTHIA_discriminative_quick_summary(glasso_fit, cv_result, selected)
   - Quick one-page console summary for interactive exploration
   - Shows data info, lambda selection, selected variables
+
+wgcna_export.R:
+---------------
+ELEUTHIA_export_enrichment(enrichment, output_dir, prefix, by_source, by_module,
+                            save_plots, plot_top_n, plot_format, plot_width,
+                            plot_height_per_module, save_rds, verbose)
+  - Export gprofiler2 enrichment results (from APOLLO_enrich_gost)
+  - Creates: combined results CSV, summary CSV
+  - Optional split by source (GO:BP, KEGG, etc.) in subdirectory
+  - Optional split by module in subdirectory
+  - save_plots: generates multi-module dotplot per source (uses AETHER_plot_gost_dotplot)
+  - plot_format: "png", "pdf", or "both"
+  - Optional RDS export for full gost_enrichment object
+  - Standalone function for non-WGCNA enrichment use cases
+
+ELEUTHIA_export_wgcna_results(output_dir, modules, trait_cor, gene_sig, hubs,
+                               enrichment, power_result, cluster_result, wgcna_data,
+                               save_plots, plot_format, prefix, save_rds, verbose)
+  - Export WGCNA results to CSV files and plots
+  - Creates: gene-module assignments, module summary, eigengenes,
+    trait correlations, p-values, significant associations,
+    gene significance, hub genes
+  - Module-specific gene lists in subdirectory
+  - Optional enrichment: exports to {prefix}_enrichment/ with dotplots
+  - save_plots: generates plots to {prefix}_plots/:
+    - power_selection.png (if power_result provided)
+    - module_trait_heatmap.png (if trait_cor provided)
+    - sample_dendrogram.png (if cluster_result provided)
+  - plot_format: "png", "pdf", or "both"
+  - Optional RDS export for R objects
+
+ELEUTHIA_wgcna_report(output_dir, wgcna_data, power_result, modules, trait_cor,
+                       gene_sig, hubs, prefix, verbose)
+  - Generate formatted text report
+  - Sections: Data summary, Power selection, Module detection,
+    Trait correlations, Hub genes
+  - Includes top associations and hub gene lists
 
 ================================================================================
 IN PROGRESS

@@ -5,6 +5,322 @@ library(ggplot2)
 ###############################################################################
 
 
+#' Multi-Module Dotplot for gprofiler2 Enrichment Results
+#'
+#' @description Creates a dotplot showing top enriched terms across multiple
+#' modules/gene lists from gprofiler2 results. Modules are shown on the X-axis,
+#' terms on the Y-axis, with dot size representing odds ratio (default) or
+#' gene count, and color representing significance.
+#'
+#' @param gost_result A gost_enrichment object from APOLLO_enrich_gost(), or
+#'   a data.frame with the required columns (typically the $combined element).
+#' @param source Character. Which source to plot (e.g., "GO:BP", "KEGG", "REAC").
+#'   Required - only one source per plot for clarity.
+#' @param top_n Integer. Number of top terms to show per module (default = 10).
+#' @param modules Character vector. Specific modules to include. If NULL (default),
+#'   includes all modules.
+#' @param color_by Character. Variable for color scale: "p_value" (default),
+#'   "odds_ratio", "precision", or "recall".
+#' @param size_by Character. Variable for dot size: "odds_ratio" (default),
+#'   "intersection_size", "precision", or "recall".
+#' @param order_by Character. How to order terms on Y-axis: "p_value" (default),
+#'   "odds_ratio", "intersection_size", or "term_name".
+#' @param title Character. Plot title. If NULL, auto-generated from source.
+#' @param font_size Numeric. Base font size (default = 9).
+#' @param max_term_length Integer. Maximum characters for term names (default = 50).
+#' @param color_low Character. Color for low values (default = "#2166ac" blue).
+#' @param color_high Character. Color for high values (default = "#b2182b" red).
+#' @param dot_range Numeric vector of length 2. Min and max dot sizes (default = c(2, 8)).
+#'
+#' @return A ggplot object.
+#'
+#' @details
+#' The plot shows:
+#' - X-axis: Modules (gene lists)
+#' - Y-axis: Enriched terms (top N per module, union across modules)
+#' - Dot size: Odds ratio (default) - strength of association
+#' - Dot color: -log10(p-value) - significance
+#'
+#' Odds ratio is calculated as: (k/n) / (M/N) simplified, or more precisely
+#' using the 2x2 contingency table where OR > 1 indicates enrichment.
+#'
+#' Terms are selected as top N per module, then displayed as a union. A term
+#' may appear significant in one module but not another - dots only appear
+#' where the term was significant in that module.
+#'
+#' @export
+#'
+#' @examples
+#' # Plot GO:BP results for all modules
+#' p <- AETHER_plot_gost_dotplot(gost_results, source = "GO:BP")
+#'
+#' # KEGG pathways, top 5 per module, color by odds ratio
+#' p <- AETHER_plot_gost_dotplot(gost_results, source = "KEGG", top_n = 5,
+#'                                color_by = "odds_ratio")
+#'
+#' # Specific modules only
+#' p <- AETHER_plot_gost_dotplot(gost_results, source = "GO:BP",
+#'                                modules = c("blue", "turquoise", "brown"))
+#'
+AETHER_plot_gost_dotplot <- function(gost_result,
+                                      source,
+                                      top_n = 10,
+                                      modules = NULL,
+                                      color_by = "p_value",
+                                      size_by = "odds_ratio",
+                                      order_by = "p_value",
+                                      title = NULL,
+                                      font_size = 9,
+                                      max_term_length = 50,
+                                      color_low = "#2166ac",
+                                      color_high = "#b2182b",
+                                      dot_range = c(2, 8)) {
+
+  # ---------------------------------------------------------------------------
+  # Extract data
+  # ---------------------------------------------------------------------------
+  if (inherits(gost_result, "gost_enrichment")) {
+    df <- gost_result$combined
+  } else if (is.data.frame(gost_result)) {
+    df <- gost_result
+  } else {
+    stop("gost_result must be a gost_enrichment object or data.frame")
+  }
+
+  if (nrow(df) == 0) {
+    warning("No enrichment results to plot")
+    return(ggplot() + theme_void() +
+             labs(title = title %||% source, subtitle = "No significant terms found"))
+  }
+
+  # ---------------------------------------------------------------------------
+  # Filter by source
+  # ---------------------------------------------------------------------------
+  if (missing(source) || is.null(source)) {
+    stop("source parameter is required. Choose one of: ",
+         paste(unique(df$source), collapse = ", "))
+  }
+
+  df <- df[df$source == source, ]
+
+  if (nrow(df) == 0) {
+    warning("No results for source: ", source)
+    return(ggplot() + theme_void() +
+             labs(title = title %||% source,
+                  subtitle = paste("No significant terms for", source)))
+  }
+
+  # ---------------------------------------------------------------------------
+  # Filter by modules
+  # ---------------------------------------------------------------------------
+  if (!is.null(modules)) {
+    df <- df[df$module %in% modules, ]
+    if (nrow(df) == 0) {
+      stop("No results for specified modules")
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # Check required columns
+  # ---------------------------------------------------------------------------
+  required_cols <- c("term_name", "p_value", "intersection_size", "module")
+  missing_cols <- setdiff(required_cols, colnames(df))
+  if (length(missing_cols) > 0) {
+    stop("Missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+
+  # ---------------------------------------------------------------------------
+  # Calculate odds ratio
+  # ---------------------------------------------------------------------------
+  # OR = (k/n) / ((M-k)/(N-n)) where:
+  # k = intersection_size, n = query_size, M = term_size, N = effective_domain_size
+  if (all(c("query_size", "term_size", "effective_domain_size") %in% colnames(df))) {
+    k <- df$intersection_size
+    n <- df$query_size
+    M <- df$term_size
+    N <- df$effective_domain_size
+
+    # 2x2 table: a=k, b=n-k, c=M-k, d=N-M-n+k
+    a <- k
+    b <- n - k
+    c <- M - k
+    d <- N - M - n + k
+
+    # Add small constant to avoid division by zero
+    df$odds_ratio <- (a * d) / (b * c + 1e-10)
+  } else {
+    # Fallback: use precision/recall ratio as proxy
+    if (all(c("precision", "recall") %in% colnames(df))) {
+      df$odds_ratio <- df$precision / (df$recall + 1e-10)
+    } else {
+      df$odds_ratio <- df$intersection_size
+      warning("Could not calculate odds ratio - using intersection_size instead")
+    }
+  }
+
+  # Calculate precision and recall if not present
+  if (!"precision" %in% colnames(df) && "query_size" %in% colnames(df)) {
+    df$precision <- df$intersection_size / df$query_size
+  }
+  if (!"recall" %in% colnames(df) && "term_size" %in% colnames(df)) {
+    df$recall <- df$intersection_size / df$term_size
+  }
+
+  # ---------------------------------------------------------------------------
+  # Select top N per module
+  # ---------------------------------------------------------------------------
+  df <- df[order(df$p_value), ]
+  df <- do.call(rbind, lapply(split(df, df$module), function(x) {
+    head(x, top_n)
+  }))
+  rownames(df) <- NULL
+
+  if (nrow(df) == 0) {
+    warning("No terms remaining after filtering")
+    return(ggplot() + theme_void() + labs(title = title %||% source))
+  }
+
+  # ---------------------------------------------------------------------------
+  # Truncate term names
+  # ---------------------------------------------------------------------------
+  df$term_short <- ifelse(
+    nchar(df$term_name) > max_term_length,
+    paste0(substr(df$term_name, 1, max_term_length - 3), "..."),
+    df$term_name
+  )
+
+  # ---------------------------------------------------------------------------
+  # Create module labels with gene counts
+  # ---------------------------------------------------------------------------
+  if ("query_size" %in% colnames(df)) {
+    # Get unique module sizes (query_size = number of genes in module)
+    module_sizes <- aggregate(query_size ~ module, data = df, FUN = function(x) x[1])
+    # Format with commas and trim whitespace (format() adds padding)
+    formatted_sizes <- trimws(format(module_sizes$query_size, big.mark = ","))
+    module_labels <- setNames(
+      paste0(module_sizes$module, " (", formatted_sizes, ")"),
+      module_sizes$module
+    )
+    df$module_label <- module_labels[as.character(df$module)]
+    # Preserve module order
+    df$module_label <- factor(df$module_label, levels = module_labels[unique(df$module)])
+  } else {
+    df$module_label <- df$module
+  }
+
+  # ---------------------------------------------------------------------------
+  # Order terms for Y-axis
+  # ---------------------------------------------------------------------------
+  # Get unique terms and their best (minimum) p-value across modules
+  term_stats <- aggregate(
+    cbind(p_value, odds_ratio, intersection_size) ~ term_short,
+    data = df,
+    FUN = function(x) if (is.numeric(x)) min(x) else x[which.min(x)]
+  )
+
+  if (order_by == "p_value") {
+    term_order <- term_stats$term_short[order(term_stats$p_value, decreasing = TRUE)]
+  } else if (order_by == "odds_ratio") {
+    term_order <- term_stats$term_short[order(term_stats$odds_ratio)]
+  } else if (order_by == "intersection_size") {
+    term_order <- term_stats$term_short[order(term_stats$intersection_size)]
+  } else if (order_by == "term_name") {
+    term_order <- sort(unique(df$term_short), decreasing = TRUE)
+  } else {
+    term_order <- term_stats$term_short[order(term_stats$p_value, decreasing = TRUE)]
+  }
+
+  df$term_short <- factor(df$term_short, levels = term_order)
+
+  # ---------------------------------------------------------------------------
+  # Set up size variable
+  # ---------------------------------------------------------------------------
+  if (size_by == "intersection_size") {
+    df$size_var <- df$intersection_size
+    size_label <- "Gene Count"
+  } else if (size_by == "precision" && "precision" %in% colnames(df)) {
+    df$size_var <- df$precision
+    size_label <- "Precision"
+  } else if (size_by == "recall" && "recall" %in% colnames(df)) {
+    df$size_var <- df$recall
+    size_label <- "Recall"
+  } else {
+    # Default: odds_ratio
+    df$size_var <- df$odds_ratio
+    size_label <- "Odds Ratio"
+  }
+
+  # ---------------------------------------------------------------------------
+  # Set up color variable
+  # ---------------------------------------------------------------------------
+  if (color_by == "odds_ratio") {
+    df$color_var <- log2(df$odds_ratio)
+    color_label <- "log2(Odds Ratio)"
+    color_scale <- scale_color_gradient(low = color_low, high = color_high,
+                                         name = color_label)
+  } else if (color_by == "precision" && "precision" %in% colnames(df)) {
+    df$color_var <- df$precision
+    color_label <- "Precision"
+    color_scale <- scale_color_gradient(low = color_low, high = color_high,
+                                         name = color_label)
+  } else if (color_by == "recall" && "recall" %in% colnames(df)) {
+    df$color_var <- df$recall
+    color_label <- "Recall"
+    color_scale <- scale_color_gradient(low = color_low, high = color_high,
+                                         name = color_label)
+  } else {
+    # Default: p_value with -log10 transform
+    df$color_var <- -log10(df$p_value)
+    color_label <- "-log10(p-value)"
+    color_scale <- scale_color_gradient(low = color_low, high = color_high,
+                                         name = color_label)
+  }
+
+  # ---------------------------------------------------------------------------
+  # Build title
+  # ---------------------------------------------------------------------------
+  if (is.null(title)) {
+    source_names <- c(
+      "GO:BP" = "GO Biological Process",
+      "GO:MF" = "GO Molecular Function",
+      "GO:CC" = "GO Cellular Component",
+      "KEGG" = "KEGG Pathways",
+      "REAC" = "Reactome Pathways",
+      "WP" = "WikiPathways"
+    )
+    title <- source_names[source]
+    if (is.na(title)) title <- source
+  }
+
+  # ---------------------------------------------------------------------------
+  # Build plot - modules on X-axis, terms on Y-axis
+  # ---------------------------------------------------------------------------
+  p <- ggplot(df, aes(x = module_label, y = term_short)) +
+    geom_point(aes(size = size_var, color = color_var)) +
+    color_scale +
+    scale_size_continuous(range = dot_range, name = size_label) +
+    labs(
+      title = title,
+      subtitle = paste("Top", top_n, "terms per module"),
+      x = NULL,
+      y = NULL
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(face = "bold", size = font_size + 4),
+      plot.subtitle = element_text(size = font_size + 1, color = "gray40"),
+      axis.text.y = element_text(size = font_size),
+      axis.text.x = element_text(size = font_size + 1, angle = 45, hjust = 1,
+                                  face = "bold"),
+      legend.position = "right",
+      panel.grid.major = element_line(color = "gray90"),
+      panel.grid.minor = element_blank()
+    )
+
+  return(p)
+}
+
+
 #' Calculate Odds Ratio from Enrichment Results
 #'
 #' @description Helper function to calculate odds ratio from GeneRatio and

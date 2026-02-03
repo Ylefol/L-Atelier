@@ -1,7 +1,7 @@
 ================================================================================
 ARTEMIS MODULE STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-01-30
+Last Updated: 2026-02-03
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -145,9 +145,88 @@ ARTEMIS_extract_coefficients(final_model, format, conf_level, digits, verbose)
   - Supports multinomial: outputs one row per variable-class combination
   - Returns data.frame suitable for tables/export
 
+wgcna.R:
+--------
+ARTEMIS_wgcna_prepare(counts, traits, counts_format, sample_col, gene_col,
+                       transpose, remove_zero_variance, verbose)
+  - Prepare data for WGCNA analysis
+  - Accepts pre-loaded data (matrix/data.frame) OR file paths
+  - Integrates with ELEUTHIA loading functions
+  - Aligns samples between expression and traits
+  - Converts traits to numeric (categorical -> factor codes)
+  - Removes zero-variance genes
+  - Returns "wgcna_data" object with datExpr, datTraits, metadata
+
+ARTEMIS_wgcna_qc(wgcna_data, verbose)
+  - Quality control for WGCNA data
+  - Wraps WGCNA::goodSamplesGenes()
+  - Removes genes/samples with too many missing values or zero variance
+  - Updates wgcna_data object in place
+
+ARTEMIS_wgcna_cluster_samples(wgcna_data, method, cut_height, min_cluster_size,
+                               plot, verbose)
+  - Hierarchical clustering of samples
+  - Multiple clustering methods: "average", "complete", "ward.D2", etc.
+  - Optional outlier removal via cut_height parameter
+  - Generates dendrogram plot
+  - Returns "wgcna_cluster" object
+
+ARTEMIS_wgcna_pick_power(wgcna_data, powers, power_auto, r2_cutoff,
+                          mean_k_cutoff, network_type, plot, verbose)
+  - Soft threshold power selection for network construction
+  - AUTO-SELECTION: Automatically picks power using heuristics:
+    1. WGCNA's powerEstimate (if available and meets threshold)
+    2. First power where R² >= r2_cutoff (default 0.80)
+    3. Best available with warning if threshold not met
+  - Optional connectivity adjustment
+  - Generates diagnostic plots (scale independence + mean connectivity)
+  - Returns "wgcna_power" object with power, fit_indices, recommendation
+
+ARTEMIS_wgcna_detect_modules(wgcna_data, power, network_type, tom_type,
+                              min_module_size, merge_cut_height, reassign_threshold,
+                              max_block_size, n_threads, save_tom, tom_file_base, verbose)
+  - Core module detection using blockwiseModules
+  - Accepts power as number, wgcna_power object, or NULL (auto-select)
+  - Configurable: network/TOM type, module size, merge threshold, threads
+  - Auto-detects and fixes WGCNA cor() masking issue (e.g., from org.Hs.eg.db)
+  - Returns "wgcna_modules" object with:
+    - module_colors/labels: gene-to-module assignments
+    - module_eigengenes: MEs for each module
+    - module_summary: table of module sizes
+    - gene_module_df: convenient gene-module data.frame
+    - net: raw blockwiseModules output
+
+ARTEMIS_wgcna_module_traits(modules, traits, cor_method, p_adjust, verbose)
+  - Correlate module eigengenes with sample traits
+  - Pearson or Spearman correlation
+  - Multiple testing correction (default: BH)
+  - Returns "wgcna_trait_cor" object with:
+    - cor_matrix, pvalue_matrix, padj_matrix
+    - significant_associations table
+
+ARTEMIS_wgcna_gene_significance(modules, traits, trait_name, cor_method, verbose)
+  - Calculate gene significance (GS) and module membership (MM)
+  - GS: correlation of each gene with traits
+  - MM: correlation of each gene with module eigengene
+  - Returns "wgcna_gene_sig" object with:
+    - gene_info: full table with GS, MM, p-values
+    - by_module: gene lists organized by module
+    - top_genes_per_module: ranked gene lists
+
+ARTEMIS_wgcna_hub_genes(modules, gene_sig, trait_name, n_top, mm_threshold,
+                         gs_threshold, verbose)
+  - Identify hub genes (highly connected within module)
+  - Criteria: high module membership (MM >= 0.8 default)
+  - Optional: combine with gene significance for trait-relevant hubs
+  - Returns "wgcna_hubs" object with:
+    - hub_genes: all hub genes meeting criteria
+    - by_module: hub genes per module
+    - hub_summary: summary table
+
 ================================================================================
 IN PROGRESS
 ================================================================================
+WGCNA workflow implementation (see to_process/wgcna_implementation_notes.txt)
 Discriminative Variable Analysis pipeline (see to_process/discriminative_analysis_implementation.txt)
 
 ================================================================================
@@ -165,10 +244,15 @@ DEPENDENCIES
 - External: ggplot2 (for plotting), DESeq2 (for differential analysis),
             GenomicRanges/IRanges (for distance calculations),
             FactoMineR (for FAMD), missMDA (optional, for FAMD imputation),
-            cluster (for Gower distance, PAM, silhouette)
+            cluster (for Gower distance, PAM, silhouette),
+            WGCNA (for co-expression network analysis)
 
 ================================================================================
 NOTES
 ================================================================================
 - First functions added: anchor-based analysis for ChIP-anchored workflows
 - Will handle statistical inference separate from ML validation (Minerva)
+- WGCNA cor() masking: Packages like org.Hs.eg.db can mask WGCNA's custom cor()
+  function, causing "unused arguments (weights.x, weights.y, cosine)" errors.
+  ARTEMIS_wgcna_detect_modules auto-detects and fixes this by assigning
+  WGCNA::cor to the global environment.

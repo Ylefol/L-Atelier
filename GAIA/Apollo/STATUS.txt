@@ -1,7 +1,7 @@
 ================================================================================
 APOLLO MODULE STATUS - Annotation & Enrichment
 ================================================================================
-Last Updated: 2026-01-26
+Last Updated: 2026-02-03
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -68,6 +68,47 @@ APOLLO_enrich_kegg(annotated_peaks, org_db, organism, gene_id_type,
   - KEGG pathway enrichment analysis
   - Same interface as APOLLO_enrich_go
 
+gene_enrichment.R:
+------------------
+APOLLO_convert_genes(genes, org_db, from_type, to_type, strip_version, verbose)
+  - Convert gene IDs with fallback to original when conversion fails
+  - Ideal for count matrix rownames (preserves all genes)
+  - strip_version: removes Ensembl version suffixes (default TRUE)
+  - Unmapped genes keep their (stripped) original ID
+  - Handles duplicates by adding suffix (e.g., "TP53.1")
+  - Example: rownames(counts) <- APOLLO_convert_genes(rownames(counts), org.Hs.eg.db)
+
+APOLLO_prepare_genelist(genes, org_db, from_type, to_type, strip_version,
+                         drop_na, verbose)
+  - Convert gene symbols to ENTREZID (or other ID types)
+  - Works with single vector or named list (e.g., module gene lists)
+  - strip_version: removes Ensembl version suffixes (ENSG00000141510.16 -> ENSG00000141510)
+  - org_db can be NULL to just clean IDs without conversion
+  - Reports conversion statistics
+
+APOLLO_extract_module_genes(modules, modules_of_interest, exclude_grey,
+                             strip_version, org_db, from_type, to_type, verbose)
+  - Extract gene lists from wgcna_modules object
+  - strip_version: for Ensembl IDs with version numbers (e.g., for gprofiler)
+  - Optionally convert to ENTREZID if org_db provided
+  - from_type/to_type: control ID conversion (default ENSEMBL -> ENTREZID)
+  - Convenience wrapper for WGCNA workflows
+
+APOLLO_enrich_gost(gene_lists, organism, sources, user_threshold, correction_method,
+                    domain_scope, custom_bg, min_term_size, max_term_size, significant,
+                    exclude_iea, verbose)
+  - Functional enrichment using gprofiler2::gost()
+  - Accepts multiple ID types directly (ENSEMBL, SYMBOL, etc.) - no conversion needed
+  - Sources: GO:BP, GO:MF, GO:CC, KEGG, REAC (Reactome), WP (WikiPathways),
+             TF (TRANSFAC), MIRNA, CORUM, HP (Human Phenotype)
+  - Returns combined results with 'module' and 'source' columns
+  - correction_method: "g_SCS" (default), "fdr", "bonferroni"
+  - organism: "hsapiens", "mmusculus", etc.
+
+APOLLO_filter_enrichment(enrich_result, sources, modules, top_n)
+  - Filter gost_enrichment results by source (e.g., "KEGG") or module
+  - top_n: keep top N terms per module per source
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -78,8 +119,6 @@ PLANNED / TODO
 ================================================================================
 - Transcription factor binding motif identification (HOMER/motifmatchr)
 - Additional genome mappings (hg38, mm10, etc.)
-- Reactome pathway enrichment
-- Disease ontology enrichment
 
 ================================================================================
 DEPENDENCIES
@@ -91,7 +130,8 @@ DEPENDENCIES
   - AnnotationDbi (for saveDb/loadDb of TxDb objects)
   - GenomicFeatures (for genes/transcripts queries)
   - ChIPseeker (for peak annotation)
-  - clusterProfiler (for GO/KEGG enrichment)
+  - clusterProfiler (for peak_annotation GO/KEGG enrichment)
+  - gprofiler2 (for gene list enrichment - more flexible, no ENTREZID required)
   - org.Hs.eg.db (human gene annotation, or other org.Db)
   - Rsamtools (for FASTA file access in sequence_composition)
   - Biostrings (for sequence extraction and manipulation)

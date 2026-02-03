@@ -1,7 +1,7 @@
 ================================================================================
 DEMETER MODULE STATUS - Utilities
 ================================================================================
-Last Updated: 2026-01-19
+Last Updated: 2026-02-02
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -40,6 +40,24 @@ DEMETER_generate_multi_datasets(n_datasets, n_samples, n_features,
                                  signal_samples, signal_features, seed)
   - Generate synthetic multi-omics data for testing sCCA methods
   - Creates correlated signal regions across datasets
+
+correlation_utils.R:
+--------------------
+DEMETER_correlation_matrix(data, method, alternative, adjust, use)
+  - Calculate pairwise correlation matrix with p-values
+  - Methods: spearman, pearson, kendall
+  - Optional p-value adjustment (BH, bonferroni, etc.)
+  - Returns: correlation, pvalue, padj (optional), n matrices
+
+DEMETER_format_pvalues(pvalues, format, digits, sig_threshold, hide_ns, ns_string)
+  - Format p-values for display
+  - Formats: "scientific", "stars", "decimal", "hybrid"
+  - Option to hide non-significant values
+  - Works with vectors or matrices
+
+DEMETER_format_pvalue_triangle(pvalue_matrix, triangle, format, sig_threshold, hide_ns)
+  - Format p-values for triangular correlation plots
+  - Keeps upper or lower triangle, blanks rest
 
 ================================================================================
 IN PROGRESS

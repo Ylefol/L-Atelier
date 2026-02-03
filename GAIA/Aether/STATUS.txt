@@ -1,7 +1,7 @@
 ================================================================================
 AETHER MODULE STATUS - Visualization
 ================================================================================
-Last Updated: 2026-01-30
+Last Updated: 2026-02-03
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -91,9 +91,20 @@ AETHER_plot_fc_vs_signal(shift_result, fc_threshold, n_label, title)
 
 enrichment_plots.R:
 -------------------
+AETHER_plot_gost_dotplot(gost_result, source, top_n, modules, color_by,
+                          size_by, order_by, title, dot_range, ...)
+  - Multi-module dotplot for gprofiler2 results (APOLLO_enrich_gost)
+  - X-axis: modules, Y-axis: terms (union of top N per module)
+  - source: required - which ontology (GO:BP, KEGG, REAC, etc.)
+  - top_n: number of top terms per module (default 10)
+  - size_by: "odds_ratio" (default), "intersection_size", "precision", "recall"
+  - color_by: "p_value" (default), "odds_ratio", "precision", "recall"
+  - Calculates odds ratio from gprofiler2 columns (strength of association)
+  - Shows all modules in single plot for easy comparison
+
 AETHER_plot_enrichment_dotplot(enrich_result, show_category, color_by,
                                 size_by, order_by, title, ...)
-  - Dotplot for GO/KEGG enrichment results
+  - Dotplot for clusterProfiler GO/KEGG enrichment results
   - color_by: "p.adjust", "pvalue", or "odds_ratio" (effect size!)
   - size_by: "Count" or "GeneRatio"
   - Odds ratio = (k/(n-k)) / ((M-k)/(N-M-n+k)) - strength of association
@@ -197,6 +208,48 @@ AETHER_plot_lambda_path(cv_result, show_1se, title)
   - Error ribbon for uncertainty
   - Companion to ARTEMIS_select_lambda()
 
+wgcna_plots.R:
+--------------
+AETHER_plot_wgcna_power(power_result, r2_cutoff, highlight_power, return_plots)
+  - Diagnostic plots for soft threshold power selection
+  - Scale-free topology fit and mean connectivity
+  - Highlights selected power
+  - ggplot2-based, can return plot objects
+
+AETHER_plot_wgcna_dendrogram(modules, block, main, ...)
+  - Gene dendrogram with module color bar
+  - Wraps WGCNA::plotDendroAndColors()
+  - Supports multi-block datasets
+
+AETHER_plot_module_trait_heatmap(trait_cor, use_padj, show_values, colors,
+                                  main, cex.text, ...)
+  - Module-trait correlation heatmap (base R, WGCNA-style)
+  - Shows correlation values and p-values in cells
+  - Blue-white-red color scale
+
+AETHER_plot_module_trait_heatmap_gg(trait_cor, use_padj, sig_threshold,
+                                     show_values, colors, title)
+  - ggplot2 version of module-trait heatmap
+  - More customizable, publication-ready
+  - Options: "cor", "pval", "both", "stars"
+
+AETHER_plot_sample_dendrogram(cluster_result, traits, main, ...)
+  - Sample clustering dendrogram with trait color bars
+  - Accepts wgcna_cluster or hclust objects
+  - Trait values shown as colored bars underneath
+
+AETHER_plot_gs_vs_mm(gene_sig, module, trait_name, mm_threshold, gs_threshold,
+                      n_label, title)
+  - Gene significance vs module membership scatter plot
+  - Highlights hub genes (high GS + high MM)
+  - Labels top genes
+  - Shows correlation between GS and MM
+
+AETHER_plot_hub_summary(hubs, top_n, show_top_gene, title)
+  - Bar plot of hub genes per module
+  - Labels with top hub gene name
+  - Module colors as bar fill
+
 ================================================================================
 FILE ORGANIZATION
 ================================================================================
@@ -208,6 +261,7 @@ enrichment_plots.R - GO/KEGG enrichment visualizations (dotplot, barplot)
 famd_plots.R       - FAMD visualization (individuals, variables, contrib, scree)
 cluster_plots.R    - Clustering visualization (silhouette, radar profiles)
 coefficient_plots.R - Regression coefficient visualization (forest plot, lambda path)
+wgcna_plots.R      - WGCNA visualization (power, dendrograms, heatmaps, GS vs MM)
 
 ================================================================================
 IN PROGRESS
@@ -234,7 +288,8 @@ DEPENDENCIES
 - Uses: None (standalone)
 - External: ggplot2, circlize, scales (for color palettes),
             plotly (for interactive plots), htmlwidgets (for HTML export),
-            RColorBrewer (for color palettes)
+            RColorBrewer (for color palettes), gridExtra (for multi-panel),
+            ggrepel (for label placement), WGCNA (for WGCNA plots)
 
 ================================================================================
 NOTES
