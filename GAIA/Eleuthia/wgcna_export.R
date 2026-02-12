@@ -2,238 +2,7 @@
 # Export and reporting functions for WGCNA results
 #
 # Functions to export module gene lists, save results, and generate reports.
-# Also includes export functions for enrichment results (gprofiler2).
-
-
-#' Export enrichment results to files
-#'
-#' Exports gprofiler2 enrichment results (from APOLLO_enrich_gost) to CSV files
-#' and optionally generates dotplots for each source.
-#'
-#' @param enrichment A gost_enrichment object from APOLLO_enrich_gost().
-#' @param output_dir Output directory path.
-#' @param prefix Prefix for output filenames. Default: "enrichment".
-#' @param by_source Logical. Create separate files per source (GO:BP, KEGG, etc.). Default: TRUE.
-#' @param by_module Logical. Create separate files per module. Default: FALSE.
-#' @param save_plots Logical. Generate dotplots per source. Default: TRUE.
-#' @param plot_top_n Integer. Number of top terms per module in dotplots. Default: 10.
-#' @param plot_format Character. Plot file format: "png", "pdf", or "both". Default: "png".
-#' @param plot_width Numeric. Plot width in inches. Default: 10.
-#' @param plot_height_per_module Numeric. Plot height per module in inches. Default: 3.
-#' @param save_rds Logical. Save full R object as RDS. Default: TRUE.
-#' @param verbose Logical. Print progress. Default: TRUE.
-#'
-#' @return Invisible list of file paths created.
-#'
-#' @details
-#' Creates the following files:
-#' - {prefix}_combined.csv: All results in one table
-#' - {prefix}_summary.csv: Summary counts per module/source
-#' - {prefix}_by_source/{source}.csv: Results split by source (if by_source = TRUE)
-#' - {prefix}_by_module/{module}.csv: Results split by module (if by_module = TRUE)
-#' - {prefix}_plots/dotplot_{source}.png: Dotplot per source (if save_plots = TRUE)
-#' - {prefix}.rds: Full gost_enrichment object (if save_rds = TRUE)
-#'
-#' @examples
-#' enrich <- APOLLO_enrich_gost(module_genes)
-#' ELEUTHIA_export_enrichment(enrich, "results/enrichment")
-#'
-#' # Without plots
-#' ELEUTHIA_export_enrichment(enrich, "results/enrichment", save_plots = FALSE)
-#'
-#' @export
-ELEUTHIA_export_enrichment <- function(enrichment,
-                                        output_dir,
-                                        prefix = "enrichment",
-                                        by_source = TRUE,
-                                        by_module = FALSE,
-                                        save_plots = TRUE,
-                                        plot_top_n = 10,
-                                        plot_format = "png",
-                                        plot_width = 10,
-                                        plot_height_per_module = 3,
-                                        save_rds = TRUE,
-                                        verbose = TRUE) {
-
-  if (!inherits(enrichment, "gost_enrichment")) {
-    stop("enrichment must be a gost_enrichment object from APOLLO_enrich_gost()")
-  }
-
-  if (verbose) cat("=== Exporting Enrichment Results ===\n")
-
-  # Create output directory
-  if (!dir.exists(output_dir)) {
-    dir.create(output_dir, recursive = TRUE)
-    if (verbose) cat("Created directory:", output_dir, "\n")
-  }
-
-  files_created <- character(0)
-  combined <- enrichment$combined
-
-  # --------------------------------------------------------------------------
-  # Handle list columns (gprofiler2 returns some columns as lists)
-  # Convert to comma-separated strings for CSV export
-  # --------------------------------------------------------------------------
-  .flatten_list_cols <- function(df) {
-    if (nrow(df) == 0) return(df)
-
-    list_cols <- sapply(df, is.list)
-    for (col in names(list_cols)[list_cols]) {
-      df[[col]] <- sapply(df[[col]], function(x) {
-        if (is.null(x) || length(x) == 0) {
-          NA_character_
-        } else {
-          paste(x, collapse = ",")
-        }
-      })
-    }
-    return(df)
-  }
-
-  # --------------------------------------------------------------------------
-  # Combined results
-  # --------------------------------------------------------------------------
-  if (nrow(combined) > 0) {
-    combined_file <- file.path(output_dir, paste0(prefix, "_combined.csv"))
-    write.csv(.flatten_list_cols(combined), combined_file, row.names = FALSE)
-    files_created <- c(files_created, combined_file)
-    if (verbose) cat("Combined results:", combined_file, "\n")
-  } else {
-    if (verbose) cat("No significant results to export.\n")
-  }
-
-  # --------------------------------------------------------------------------
-  # Summary
-  # --------------------------------------------------------------------------
-  summary_file <- file.path(output_dir, paste0(prefix, "_summary.csv"))
-  write.csv(enrichment$summary, summary_file, row.names = FALSE)
-  files_created <- c(files_created, summary_file)
-  if (verbose) cat("Summary:", summary_file, "\n")
-
-  # --------------------------------------------------------------------------
-  # By source
-  # --------------------------------------------------------------------------
-  if (by_source && nrow(combined) > 0) {
-    source_dir <- file.path(output_dir, paste0(prefix, "_by_source"))
-    if (!dir.exists(source_dir)) {
-      dir.create(source_dir)
-    }
-
-    sources <- unique(combined$source)
-    for (src in sources) {
-      src_df <- combined[combined$source == src, ]
-      if (nrow(src_df) > 0) {
-        # Clean source name for filename (GO:BP -> GO_BP)
-        src_clean <- gsub(":", "_", src)
-        src_file <- file.path(source_dir, paste0(src_clean, ".csv"))
-        write.csv(.flatten_list_cols(src_df), src_file, row.names = FALSE)
-        files_created <- c(files_created, src_file)
-      }
-    }
-    if (verbose) cat("By source:", source_dir, "/\n")
-  }
-
-  # --------------------------------------------------------------------------
-  # By module
-  # --------------------------------------------------------------------------
-  if (by_module && nrow(combined) > 0) {
-    module_dir <- file.path(output_dir, paste0(prefix, "_by_module"))
-    if (!dir.exists(module_dir)) {
-      dir.create(module_dir)
-    }
-
-    modules <- unique(combined$module)
-    for (mod in modules) {
-      mod_df <- combined[combined$module == mod, ]
-      if (nrow(mod_df) > 0) {
-        mod_file <- file.path(module_dir, paste0(mod, ".csv"))
-        write.csv(.flatten_list_cols(mod_df), mod_file, row.names = FALSE)
-        files_created <- c(files_created, mod_file)
-      }
-    }
-    if (verbose) cat("By module:", module_dir, "/\n")
-  }
-
-  # --------------------------------------------------------------------------
-  # Generate dotplots per source
-  # --------------------------------------------------------------------------
-  if (save_plots && nrow(combined) > 0) {
-    plot_dir <- file.path(output_dir, paste0(prefix, "_plots"))
-    if (!dir.exists(plot_dir)) {
-      dir.create(plot_dir)
-    }
-
-    sources <- unique(combined$source)
-
-    if (verbose) cat("Generating dotplots...\n")
-
-    for (src in sources) {
-      src_df <- combined[combined$source == src, ]
-      if (nrow(src_df) == 0) next
-
-      # Clean source name for filename
-      src_clean <- gsub(":", "_", src)
-
-      # Calculate height based on number of unique terms (after top_n selection)
-      # Estimate: top_n terms per module, but many overlap, so use unique count
-      src_df_ordered <- src_df[order(src_df$p_value), ]
-      top_terms <- do.call(rbind, lapply(split(src_df_ordered, src_df_ordered$module), head, plot_top_n))
-      n_unique_terms <- length(unique(top_terms$term_name))
-      # ~0.3 inches per term, minimum 6 inches, maximum 20 inches
-      plot_height <- min(20, max(6, n_unique_terms * 0.3))
-
-      # Generate plot using AETHER function
-      p <- tryCatch({
-        AETHER_plot_gost_dotplot(
-          gost_result = src_df,
-          source = src,
-          top_n = plot_top_n
-        )
-      }, error = function(e) {
-        if (verbose) cat("  Warning: Could not create plot for", src, "-", e$message, "\n")
-        NULL
-      })
-
-      if (!is.null(p)) {
-        # Save in requested format(s)
-        if (plot_format %in% c("png", "both")) {
-          png_file <- file.path(plot_dir, paste0("dotplot_", src_clean, ".png"))
-          ggplot2::ggsave(png_file, p, width = plot_width, height = plot_height,
-                          dpi = 150, bg = "white")
-          files_created <- c(files_created, png_file)
-        }
-
-        if (plot_format %in% c("pdf", "both")) {
-          pdf_file <- file.path(plot_dir, paste0("dotplot_", src_clean, ".pdf"))
-          ggplot2::ggsave(pdf_file, p, width = plot_width, height = plot_height)
-          files_created <- c(files_created, pdf_file)
-        }
-
-        if (verbose) cat("  ", src, "\n", sep = "")
-      }
-    }
-
-    if (verbose) cat("Plots saved to:", plot_dir, "/\n")
-  }
-
-  # --------------------------------------------------------------------------
-  # Save RDS
-  # --------------------------------------------------------------------------
-  if (save_rds) {
-    rds_file <- file.path(output_dir, paste0(prefix, ".rds"))
-    saveRDS(enrichment, rds_file)
-    files_created <- c(files_created, rds_file)
-    if (verbose) cat("RDS:", rds_file, "\n")
-  }
-
-  if (verbose) {
-    cat("\n--- Export Summary ---\n")
-    cat("Total files created:", length(files_created), "\n")
-    cat("Total terms exported:", nrow(combined), "\n")
-  }
-
-  invisible(files_created)
-}
+# Note: ELEUTHIA_export_enrichment() is in export_shared.R (generic function)
 
 
 #' Export WGCNA results to files
@@ -345,15 +114,30 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
       dir.create(modules_dir)
     }
 
-    unique_modules <- unique(modules$module_colors)
+    unique_modules <- unique(modules$module_names)
     for (mod in unique_modules) {
-      mod_genes <- names(modules$module_colors)[modules$module_colors == mod]
+      mod_genes <- names(modules$module_names)[modules$module_names == mod]
       mod_df <- data.frame(gene = mod_genes, module = mod, stringsAsFactors = FALSE)
       mod_file <- file.path(modules_dir, paste0(mod, ".csv"))
       write.csv(mod_df, mod_file, row.names = FALSE)
       files_created <- c(files_created, mod_file)
     }
     if (verbose) cat("  Module gene lists:", modules_dir, "/\n")
+
+    # Export color map
+    if (!is.null(modules$module_colors)) {
+      color_map_file <- file.path(output_dir, paste0(prefix, "_color_map.csv"))
+      color_map_df <- data.frame(
+        module = names(modules$module_colors),
+        display_color = unname(modules$module_colors),
+        color_name = if (!is.null(modules$color_names))
+          modules$color_names[names(modules$module_colors)] else NA,
+        stringsAsFactors = FALSE
+      )
+      write.csv(color_map_df, color_map_file, row.names = FALSE)
+      files_created <- c(files_created, color_map_file)
+      if (verbose) cat("  Color map:", color_map_file, "\n")
+    }
 
     # Save RDS
     if (save_rds) {
@@ -539,6 +323,24 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
           if (verbose) cat("  Module-trait heatmap\n")
         }
       }
+            if (!is.null(trait_cor)) {
+        p <- tryCatch({
+          AETHER_plot_module_trait_heatmap_gg(trait_cor,use_padj = TRUE)
+        }, error = function(e) {
+          if (verbose) cat("  Warning: Could not create trait heatmap -", e$message, "\n")
+          NULL
+        })
+        if (!is.null(p)) {
+          # Calculate size based on number of modules and traits
+          n_modules <- nrow(trait_cor$cor_matrix)
+          n_traits <- ncol(trait_cor$cor_matrix)
+          width <- max(6, n_traits * 1.2 + 3)
+          height <- max(6, n_modules * 0.4 + 2)
+          plot_files <- .save_plot(p, "module_trait_heatmap_padj", width = width, height = height)
+          files_created <- c(files_created, plot_files)
+          if (verbose) cat("  Module-trait heatmap padjusted\n")
+        }
+      }
 
       # Sample dendrogram
       if (!is.null(cluster_result)) {
@@ -587,8 +389,8 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
       enrichment = enrichment,
       output_dir = enrich_dir,
       prefix = "enrichment",
-      by_source = TRUE,
-      by_module = FALSE,
+      by_source = FALSE,
+      by_module = TRUE,
       save_rds = save_rds,
       verbose = FALSE
     )
@@ -706,7 +508,7 @@ ELEUTHIA_wgcna_report <- function(output_dir,
     add_line("================================================================================")
     add_line("Power used: ", modules$power)
     add_line("Network type: ", modules$network_type)
-    add_line("Modules detected: ", modules$n_modules, " (excluding grey)")
+    add_line("Modules detected: ", modules$n_modules, " (excluding module_0/unassigned)")
     add_line("Total genes: ", modules$n_genes)
     add_line("")
     add_line("Module sizes:")

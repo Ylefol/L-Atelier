@@ -42,3 +42,16 @@ Goddess of agriculture and harvest, Demeter cultivates the foundation - providin
 
 ## Current implementations
 ### sCCA - Integrating multi-OMICS data through sparse canonical correlation analysis for the prediction of complex traits: a comparison study (doi: 10.1093/bioinformatics/btaa530)
+### TiSA - TiSA: TimeSeriesAnalysis—a pipeline for the analysis of longitudinal transcriptomics data (doi: 10.1093/nargab/lqad020)
+### DESeq2 - Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2 (doi: 10.1186/s13059-014-0550-8)
+### FactoMineR - An R Package for Multivariate Analysis (doi: 10.18637/jss.v025.i01)
+### WGCNA - An R package for weighted correlation network analysis (doi: 10.1186/1471-2105-9-559)
+### PART - Identifying clusters in genomics data by recursive partitioning (doi: 10.1515/sagmb-2013-0016)
+### gprofiler2 - An R package for gene list functional enrichment analysis and namespace conversion toolset g:Profiler (doi: 10.12688/f1000research.24956.2)
+### Cibersort (source code must be obtained separately) - Profiling Tumor Infiltrating Immune Cells with CIBERSORT (doi: 10.1007/978-1-4939-7493-1_12)
+### HOMER - Simple combinations of lineage-determining transcription factors prime cis-regulatory elements required for macrophage and B cell identities (doi: 10.1016/j.molcel.2010.05.004.)
+### OmnipathR - Integrated knowledgebase for multi-omics analysis (doi: 10.1093/nar/gkaf1126)
+### DecoupleR - Ensemble of computational methods to infer biological activities from omics data (doi: 10.1093/bioadv/vbac016)
+### ChipSeeker - An R/Bioconductor package for ChIP peak annotation, comparison and visualization (doi: 10.1093/bioinformatics/btv145)
+
+

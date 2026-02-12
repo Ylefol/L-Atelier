@@ -142,13 +142,14 @@ AETHER_plot_wgcna_dendrogram <- function(modules,
     stop("Dendrogram not available for block ", block)
   }
 
-  # Get colors for genes in this block
+  # Get display colors for genes in this block
   block_genes <- modules$net$blockGenes[[block]]
-  block_colors <- modules$module_colors[block_genes]
+  block_module_names <- modules$module_names[block_genes]
+  block_colors <- modules$module_colors[block_module_names]
 
   plotDendroAndColors(
     modules$dendrograms[[block]],
-    block_colors,
+    unname(block_colors),
     "Module colors",
     dendroLabels = FALSE,
     hang = 0.03,
@@ -251,6 +252,10 @@ AETHER_plot_module_trait_heatmap <- function(trait_cor,
 #' @param sig_threshold P-value threshold for significance stars. Default: 0.05.
 #' @param show_values What to show in cells: "cor", "pval", "both", or "stars".
 #'   Default: "both".
+#' @param pval_format Format for p-values: "scientific" (e.g., 1.2e-03) or
+#'   "decimal" (e.g., 0.001). Default: "decimal".
+#' @param pval_digits Integer. Decimal places for p-values (decimal format only).
+#'   Default: 3.
 #' @param colors Color palette. Default: blue-white-red gradient.
 #' @param title Plot title.
 #'
@@ -261,6 +266,8 @@ AETHER_plot_module_trait_heatmap_gg <- function(trait_cor,
                                                  use_padj = FALSE,
                                                  sig_threshold = 0.05,
                                                  show_values = "both",
+                                                 pval_format = "decimal",
+                                                 pval_digits = 3,
                                                  colors = NULL,
                                                  title = "Module-trait relationships") {
 
@@ -281,12 +288,20 @@ AETHER_plot_module_trait_heatmap_gg <- function(trait_cor,
   cor_df$Pvalue <- as.vector(pvalue_matrix)
   cor_df$Significant <- cor_df$Pvalue < sig_threshold
 
+  # Format p-values based on user preference
+  if (pval_format == "decimal") {
+    pval_fmt <- paste0("%.", pval_digits, "f")
+    pval_str <- sprintf(pval_fmt, cor_df$Pvalue)
+  } else {
+    pval_str <- sprintf("%.1e", cor_df$Pvalue)
+  }
+
   # Create label
   cor_df$Label <- switch(
     show_values,
     "cor" = sprintf("%.2f", cor_df$Correlation),
-    "pval" = sprintf("%.2e", cor_df$Pvalue),
-    "both" = sprintf("%.2f\n(%.1e)", cor_df$Correlation, cor_df$Pvalue),
+    "pval" = pval_str,
+    "both" = paste0(sprintf("%.2f", cor_df$Correlation), "\n(", pval_str, ")"),
     "stars" = ifelse(cor_df$Pvalue < 0.001, "***",
                      ifelse(cor_df$Pvalue < 0.01, "**",
                             ifelse(cor_df$Pvalue < 0.05, "*", "")))
@@ -404,6 +419,7 @@ AETHER_plot_sample_dendrogram <- function(cluster_result,
 #' @param mm_threshold Module membership threshold for highlighting. Default: 0.8.
 #' @param gs_threshold Gene significance threshold for highlighting. Default: 0.2.
 #' @param n_label Number of top genes to label. Default: 10.
+#' @param module_color Hex color for hub gene points. If NULL, uses default green.
 #' @param title Plot title. If NULL, auto-generated.
 #'
 #' @return A ggplot object.
@@ -419,6 +435,7 @@ AETHER_plot_gs_vs_mm <- function(gene_sig,
                                   mm_threshold = 0.8,
                                   gs_threshold = 0.2,
                                   n_label = 10,
+                                  module_color = NULL,
                                   title = NULL) {
 
   if (!inherits(gene_sig, "wgcna_gene_sig")) {
@@ -474,12 +491,17 @@ AETHER_plot_gs_vs_mm <- function(gene_sig,
     title <- sprintf("Module: %s | Trait: %s | cor = %.2f", module, trait_name, cor_val)
   }
 
+  # Resolve display color for hub points
+  if (is.null(module_color)) {
+    module_color <- "#4DAF4A"  # default green
+  }
+
   # Plot
   p <- ggplot(plot_df, aes(x = MM, y = GS)) +
     geom_point(aes(color = is_hub), alpha = 0.6, size = 2) +
     geom_vline(xintercept = mm_threshold, linetype = "dashed", color = "grey50") +
     geom_hline(yintercept = gs_threshold, linetype = "dashed", color = "grey50") +
-    scale_color_manual(values = c("FALSE" = "grey60", "TRUE" = module),
+    scale_color_manual(values = c("FALSE" = "grey60", "TRUE" = module_color),
                        guide = "none") +
     labs(
       x = paste0("Module Membership (|MM.", module, "|)"),
@@ -513,6 +535,8 @@ AETHER_plot_gs_vs_mm <- function(gene_sig,
 #' @param hubs A wgcna_hubs object from ARTEMIS_wgcna_hub_genes().
 #' @param top_n Number of modules to show. Default: NULL (all).
 #' @param show_top_gene Logical. Label bars with top hub gene name. Default: TRUE.
+#' @param module_colors Named character vector of module colors (module_name -> hex).
+#'   If NULL, generates colors automatically.
 #' @param title Plot title.
 #'
 #' @return A ggplot object.
@@ -521,6 +545,7 @@ AETHER_plot_gs_vs_mm <- function(gene_sig,
 AETHER_plot_hub_summary <- function(hubs,
                                      top_n = NULL,
                                      show_top_gene = TRUE,
+                                     module_colors = NULL,
                                      title = "Hub genes per module") {
 
   if (!inherits(hubs, "wgcna_hubs")) {
@@ -538,9 +563,19 @@ AETHER_plot_hub_summary <- function(hubs,
   hub_summary$module <- factor(hub_summary$module,
                                levels = hub_summary$module[order(hub_summary$n_hubs)])
 
+  # Resolve module colors
+  if (is.null(module_colors)) {
+    # Generate colors for each module present
+    mod_levels <- levels(hub_summary$module)
+    module_colors <- setNames(
+      grDevices::hcl.colors(length(mod_levels), palette = "Dark 3"),
+      mod_levels
+    )
+  }
+
   p <- ggplot(hub_summary, aes(x = module, y = n_hubs, fill = module)) +
     geom_col() +
-    scale_fill_identity() +
+    scale_fill_manual(values = module_colors) +
     coord_flip() +
     labs(x = NULL, y = "Number of hub genes", title = title) +
     theme_bw() +

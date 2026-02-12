@@ -1,7 +1,7 @@
 ================================================================================
 POSEIDON MODULE STATUS - Preprocessing & Normalization
 ================================================================================
-Last Updated: 2026-01-30
+Last Updated: 2026-02-11
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -38,19 +38,18 @@ POSEIDON_filter_low_counts(quant_result, min_count, min_samples_pct,
   - Filter low-count regions from quantification results
   - Supports group-specific filtering
 
-POSEIDON_correct_batch(quant_result, method, covariates, verbose)
+POSEIDON_correct_batch(quant_result, batch_col, group_col, method, log_transform, verbose)
   - Batch effect correction using ComBat or limma
   - Operates on quant_result objects
 
-POSEIDON_plot_batch_pca(quant_result, color_by, shape_by, title)
+POSEIDON_plot_batch_pca(quant_result, batch_col, group_col, log_transform, title)
   - PCA visualization colored by batch/group
   - For assessing batch effects
 
-POSEIDON_filter_by_group(quant_result, groups, keep, verbose)
+POSEIDON_filter_by_group(quant_result, group_col, groups, verbose)
   - Subset quant_result to specific groups
-  - Keep or exclude specified groups
 
-POSEIDON_filter_by_metadata(quant_result, column, values, keep, verbose)
+POSEIDON_filter_by_metadata(quant_result, column, values, verbose)
   - Subset by arbitrary metadata column
   - More flexible than filter_by_group
 
@@ -85,7 +84,7 @@ POSEIDON_scale_predictors(X, method, exclude_binary, var_mapping, verbose)
 ================================================================================
 IN PROGRESS
 ================================================================================
-Discriminative Variable Analysis pipeline (see to_process/discriminative_analysis_implementation.txt)
+None
 
 ================================================================================
 PLANNED / TODO

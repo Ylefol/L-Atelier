@@ -1,7 +1,7 @@
 ================================================================================
 ELEUTHIA MODULE STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-02-03
+Last Updated: 2026-02-12
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -29,11 +29,11 @@ ELEUTHIA_load_quant_beds(sample_sheet, omics, verbose)
 
 peak_loading.R:
 ---------------
-ELEUTHIA_load_narrowpeak(file_path, min_score, verbose)
+ELEUTHIA_load_narrowpeak(file_path, min_score, min_qvalue)
   - Load narrowPeak format file
-  - Optional score filtering
+  - Optional score and q-value filtering
 
-ELEUTHIA_load_peaks_from_sheet(sample_sheet, omics, min_score, verbose)
+ELEUTHIA_load_peaks_from_sheet(sample_sheet, omics, min_score, min_qvalue, verbose)
   - Load peaks for all samples of an omics type
   - Returns named list
 
@@ -97,11 +97,12 @@ ELEUTHIA_summarize_quantification(quant_result)
 
 rnaseq_loading.R:
 -----------------
-ELEUTHIA_load_count_file(file_path, sample_name, gene_col, count_col)
+ELEUTHIA_load_count_file(file_path, gene_col, count_col, header)
   - Load single count file
 
-ELEUTHIA_load_rnaseq_from_sheet(sample_sheet, gene_col, count_col, verbose)
+ELEUTHIA_load_rnaseq_from_sheet(sample_sheet, omics, verbose)
   - Load RNA-seq counts from sample sheet
+  - omics: which omics type to load (default "RNAseq")
   - Combines into count matrix
 
 ELEUTHIA_filter_low_expression(rna_data, min_count, min_samples, verbose)
@@ -116,8 +117,8 @@ ELEUTHIA_load_counts_from_dir(count_path, pattern, gene_col, count_col,
 ELEUTHIA_load_multi_counts(count_paths, ...)
   - Load multiple count files
 
-save_results.R:
----------------
+export_sCCA.R:
+--------------
 ELEUTHIA_save_scca_results(output_dir, scca_result, cv_results, method_name,
                             dataset_names, prefix, save_plots, verbose)
   - Save sCCA results to files
@@ -126,6 +127,20 @@ ELEUTHIA_save_scca_results(output_dir, scca_result, cv_results, method_name,
 ELEUTHIA_generate_scca_summary(coarse_cv_results, fine_cv_results,
                                 best_params, n_datasets, param_names)
   - Generate text summary of sCCA CV results
+
+export_shared.R:
+----------------
+ELEUTHIA_export_enrichment(enrichment, output_dir, prefix, by_source, by_module,
+                            save_plots, plot_top_n, plot_format, plot_width,
+                            plot_height_per_module, save_rds, verbose)
+  - Export gprofiler2 enrichment results (from APOLLO_enrich_gost)
+  - Generic function used by WGCNA, TiSA, and other pipelines
+  - Creates: combined results CSV, summary CSV
+  - Default: by_module=TRUE creates per-cluster/module files (all sources combined)
+  - Optional: by_source=TRUE creates per-source files (GO_BP, KEGG, etc.)
+  - save_plots: generates multi-module dotplot per source (uses AETHER_plot_gost_dotplot)
+  - plot_format: "png", "pdf", or "both"
+  - Optional RDS export for full gost_enrichment object
 
 logging.R:
 ----------
@@ -184,18 +199,6 @@ ELEUTHIA_discriminative_quick_summary(glasso_fit, cv_result, selected)
 
 wgcna_export.R:
 ---------------
-ELEUTHIA_export_enrichment(enrichment, output_dir, prefix, by_source, by_module,
-                            save_plots, plot_top_n, plot_format, plot_width,
-                            plot_height_per_module, save_rds, verbose)
-  - Export gprofiler2 enrichment results (from APOLLO_enrich_gost)
-  - Creates: combined results CSV, summary CSV
-  - Optional split by source (GO:BP, KEGG, etc.) in subdirectory
-  - Optional split by module in subdirectory
-  - save_plots: generates multi-module dotplot per source (uses AETHER_plot_gost_dotplot)
-  - plot_format: "png", "pdf", or "both"
-  - Optional RDS export for full gost_enrichment object
-  - Standalone function for non-WGCNA enrichment use cases
-
 ELEUTHIA_export_wgcna_results(output_dir, modules, trait_cor, gene_sig, hubs,
                                enrichment, power_result, cluster_result, wgcna_data,
                                save_plots, plot_format, prefix, save_rds, verbose)
@@ -203,7 +206,8 @@ ELEUTHIA_export_wgcna_results(output_dir, modules, trait_cor, gene_sig, hubs,
   - Creates: gene-module assignments, module summary, eigengenes,
     trait correlations, p-values, significant associations,
     gene significance, hub genes
-  - Module-specific gene lists in subdirectory
+  - Module-specific gene lists in subdirectory (module_1.csv, module_2.csv, ...)
+  - Exports color_map.csv: module_name -> display_color -> legacy WGCNA color_name
   - Optional enrichment: exports to {prefix}_enrichment/ with dotplots
   - save_plots: generates plots to {prefix}_plots/:
     - power_selection.png (if power_result provided)
@@ -218,6 +222,46 @@ ELEUTHIA_wgcna_report(output_dir, wgcna_data, power_result, modules, trait_cor,
   - Sections: Data summary, Power selection, Module detection,
     Trait correlations, Hub genes
   - Includes top associations and hub gene lists
+
+activity_export.R:
+------------------
+ELEUTHIA_export_activity_results(result, output_dir, prefix, save_plots,
+                                  plot_format, top_n, save_rds, save_long, verbose)
+  - Export decoupleR activity inference results to CSV/RDS/plots
+  - Handles both decoupler_result (single method) and decoupler_comparison (multi-method)
+  - Single method exports: activity matrix, p-values, long-format results, metadata
+  - Single method plots: activity heatmap, top activities bar chart
+  - Comparison exports: per-method activities in subdirectory, consensus scores,
+    summary table, method correlations, method stats, metadata
+  - Comparison plots: activity heatmap (consensus), top activities,
+    method correlation heatmap, method agreement
+  - plot_format: "png", "pdf", or "both"
+  - RDS files loadable via DEMETER_load_activity()
+
+timeseries_export.R:
+--------------------
+ELEUTHIA_export_timeseries_results(output_dir, part_result, ts_de, gene_selection,
+                                    enrichment, sample_info, time_col, group_col,
+                                    save_plots, plot_format, prefix, save_rds, verbose)
+  - Comprehensive export for time series analysis pipeline
+  - PART exports: cluster assignments CSV, cluster map CSV, summary CSV, parameters
+  - DEA exports: per-comparison result tables in subdirectory, summary CSV
+  - Gene selection: selected genes CSV, gene summary CSV, selection parameters
+  - Enrichment: delegates to ELEUTHIA_export_enrichment() in subdirectory
+  - Plots: PART heatmap, cluster trajectories, cluster means, DEA summary
+  - RDS for full objects
+
+dea_export.R:
+-------------
+ELEUTHIA_export_dea_results(output_dir, dea_result, part_result, gene_selection,
+                             enrichment, l2fc_thresh, p_thresh, sample_info,
+                             group_col, save_plots, plot_format, prefix, save_rds, verbose)
+  - Export standard (non-time-series) DEA + PART + enrichment results
+  - DEA exports: all results CSV, significant results CSV (filtered), metadata.txt
+  - PART exports: cluster assignments CSV, summary CSV, parameters.txt, heatmap
+  - Gene selection: selected genes CSV
+  - Enrichment: delegates to ELEUTHIA_export_enrichment() in subdirectory
+  - RDS for full objects
 
 ================================================================================
 IN PROGRESS
@@ -243,3 +287,10 @@ NOTES
 ================================================================================
 - Largest module by function count
 - Central to data flow in/out of GAIA
+- Export file organization (2026-02-06):
+  - export_shared.R: Generic export functions (enrichment, etc.)
+  - export_sCCA.R: sCCA-specific exports
+  - wgcna_export.R: WGCNA-specific exports
+  - activity_export.R: DecoupleR activity exports
+  - timeseries_export.R: TiSA/PART time series exports
+  - dea_export.R: Standard DEA + PART exports (non-time-series)

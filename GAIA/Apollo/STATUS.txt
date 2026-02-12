@@ -1,7 +1,7 @@
 ================================================================================
 APOLLO MODULE STATUS - Annotation & Enrichment
 ================================================================================
-Last Updated: 2026-02-03
+Last Updated: 2026-02-12
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -89,25 +89,92 @@ APOLLO_prepare_genelist(genes, org_db, from_type, to_type, strip_version,
 APOLLO_extract_module_genes(modules, modules_of_interest, exclude_grey,
                              strip_version, org_db, from_type, to_type, verbose)
   - Extract gene lists from wgcna_modules object
+  - Uses module_names (module_0, module_1, ...) as list names
+  - exclude_grey: excludes module_0 (unassigned genes)
   - strip_version: for Ensembl IDs with version numbers (e.g., for gprofiler)
   - Optionally convert to ENTREZID if org_db provided
   - from_type/to_type: control ID conversion (default ENSEMBL -> ENTREZID)
   - Convenience wrapper for WGCNA workflows
 
 APOLLO_enrich_gost(gene_lists, organism, sources, user_threshold, correction_method,
-                    domain_scope, custom_bg, min_term_size, max_term_size, significant,
-                    exclude_iea, verbose)
+                    domain_scope, custom_bg, min_term_size, max_term_size, max_query_size,
+                    significant, exclude_iea, verbose)
   - Functional enrichment using gprofiler2::gost()
   - Accepts multiple ID types directly (ENSEMBL, SYMBOL, etc.) - no conversion needed
   - Sources: GO:BP, GO:MF, GO:CC, KEGG, REAC (Reactome), WP (WikiPathways),
              TF (TRANSFAC), MIRNA, CORUM, HP (Human Phenotype)
   - Returns combined results with 'module' and 'source' columns
+  - Stores module_sizes in metadata for annotation coverage calculation
   - correction_method: "g_SCS" (default), "fdr", "bonferroni"
   - organism: "hsapiens", "mmusculus", etc.
 
 APOLLO_filter_enrichment(enrich_result, sources, modules, top_n)
   - Filter gost_enrichment results by source (e.g., "KEGG") or module
   - top_n: keep top N terms per module per source
+
+activity_networks.R:
+--------------------
+APOLLO_get_collectri(organism, split_complexes, verbose)
+  - Fetch CollecTRI TF-target network (default for TF activity inference)
+  - Comprehensive collection from multiple sources
+  - Returns: source (TF), target (gene), mor (mode of regulation)
+
+APOLLO_get_dorothea(organism, levels, verbose)
+  - Fetch DoRothEA TF regulons with confidence filtering
+  - levels: "A" (highest) to "E" (lowest) - default all
+  - Returns: source, target, mor, confidence
+
+APOLLO_get_progeny(organism, top, verbose)
+  - Fetch PROGENy pathway-responsive gene signatures
+  - top: number of genes per pathway (default 500)
+  - 14 cancer-relevant pathways from perturbation experiments
+  - Returns: source (pathway), target (gene), weight
+
+APOLLO_list_activity_databases()
+  - Print available prior knowledge databases
+  - Shows CollecTRI, DoRothEA (TF-target) and PROGENy (pathway)
+
+motif_enrichment.R:
+-------------------
+APOLLO_homer_motif_enrichment(bed_file, genome, output_dir, size, mask,
+                               denovo, denovo_n, bg, nproc, extra_args, verbose)
+  - Run HOMER findMotifsGenome.pl on a single BED file
+  - Validates HOMER installation, builds command, runs via system2()
+  - size: region size (default 200, "given" for actual peak widths)
+  - mask: mask repeats (default TRUE, recommended for ATAC)
+  - denovo: enable de novo discovery (default FALSE, uses -nomotif)
+  - bg: optional background BED for custom comparison
+  - Parses output and returns homer_motif S3 object
+
+APOLLO_homer_motif_enrichment_batch(bed_files, genome, output_dir, ..., verbose)
+  - Run HOMER on multiple peak sets (named character vector)
+  - Creates subdirectory per set, iterates single-set function
+  - Returns homer_motif_batch S3 object with combined results + summary
+
+APOLLO_load_homer_results(homer_dir, verbose)
+  - Parse existing HOMER output directory (re-load without re-running)
+  - Parses knownResults.txt (known motif enrichment)
+  - Parses homerMotifs.all.motifs (de novo, if available)
+  - Returns homer_motif S3 object
+
+APOLLO_load_homer_batch(output_dir, set_names, verbose)
+  - Load multiple HOMER result directories into batch object
+  - Auto-detects subdirectories containing knownResults.txt
+  - Returns homer_motif_batch S3 object
+
+APOLLO_filter_motifs(homer_result, q_thresh, p_thresh, min_target_pct, top_n, verbose)
+  - Filter motif results by significance/enrichment thresholds
+  - Works on both homer_motif and homer_motif_batch objects
+  - top_n: keep top N per peak set by q-value
+
+APOLLO_get_ppi(genes, organism, resources, min_resources, directed, verbose)
+  - Fetch PPI network from OmniPath (aggregates STRING, BioGRID, IntAct, etc.)
+  - Filters to interactions where both endpoints are in gene list
+  - min_resources: require N supporting databases (default 1)
+  - Computes degree and betweenness centrality as vertex attributes
+  - Returns igraph object with node/edge attributes
+  - Isolated query genes included as disconnected nodes
+  - Example: graph <- APOLLO_get_ppi(c("TP53", "BRCA1", "EGFR"))
 
 ================================================================================
 IN PROGRESS
@@ -117,7 +184,6 @@ None
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- Transcription factor binding motif identification (HOMER/motifmatchr)
 - Additional genome mappings (hg38, mm10, etc.)
 
 ================================================================================
@@ -136,6 +202,7 @@ DEPENDENCIES
   - Rsamtools (for FASTA file access in sequence_composition)
   - Biostrings (for sequence extraction and manipulation)
   - GenomicRanges/IRanges (for GRanges coordinate handling)
+  - decoupleR (for prior knowledge networks: CollecTRI, DoRothEA, PROGENy)
 
 ================================================================================
 NOTES

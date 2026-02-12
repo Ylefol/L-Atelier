@@ -289,12 +289,12 @@ APOLLO_extract_module_genes <- function(modules,
     stop("modules must be a wgcna_modules object")
   }
 
-  module_colors <- modules$module_colors
+  module_names_vec <- modules$module_names
 
   # Determine modules to extract
-  all_modules <- unique(module_colors)
+  all_modules <- unique(module_names_vec)
   if (exclude_grey) {
-    all_modules <- all_modules[all_modules != "grey"]
+    all_modules <- all_modules[all_modules != "module_0"]
   }
 
   if (!is.null(modules_of_interest)) {
@@ -312,7 +312,7 @@ APOLLO_extract_module_genes <- function(modules,
 
   # Extract gene lists
   gene_lists <- lapply(all_modules, function(mod) {
-    names(module_colors)[module_colors == mod]
+    names(module_names_vec)[module_names_vec == mod]
   })
   names(gene_lists) <- all_modules
 
@@ -377,6 +377,9 @@ APOLLO_extract_module_genes <- function(modules,
 #' @param custom_bg Custom background gene set (when domain_scope = "custom").
 #' @param min_term_size Minimum term/pathway size. Default: 10.
 #' @param max_term_size Maximum term/pathway size. Default: 500.
+#' @param max_query_size Maximum number of genes per query. Gene lists exceeding
+#'   this are skipped. Prevents slow, uninformative enrichment on very large
+#'   gene sets (e.g., WGCNA grey module). Default: 10000. Set to NULL to disable.
 #' @param significant Logical. Only return significant results. Default: TRUE.
 #' @param exclude_iea Logical. Exclude GO terms inferred from electronic annotation. Default: FALSE.
 #' @param verbose Logical. Print progress. Default: TRUE.
@@ -417,6 +420,7 @@ APOLLO_enrich_gost <- function(gene_lists,
                                 custom_bg = NULL,
                                 min_term_size = 10,
                                 max_term_size = 500,
+                                max_query_size = 10000,
                                 significant = TRUE,
                                 exclude_iea = FALSE,
                                 verbose = TRUE) {
@@ -441,6 +445,12 @@ APOLLO_enrich_gost <- function(gene_lists,
 
     if (length(genes) < 3) {
       if (verbose) cat(name, ": Skipping (< 3 genes)\n")
+      next
+    }
+
+    if (!is.null(max_query_size) && length(genes) > max_query_size) {
+      if (verbose) cat(name, " (", length(genes), " genes): Skipping (exceeds max_query_size = ",
+                       max_query_size, ")\n", sep = "")
       next
     }
 
@@ -531,6 +541,9 @@ APOLLO_enrich_gost <- function(gene_lists,
     }
   }
 
+  # Store original gene list sizes for annotation coverage calculation
+  module_sizes <- sapply(gene_lists, length)
+
   result <- list(
     results = results,
     combined = combined,
@@ -541,7 +554,8 @@ APOLLO_enrich_gost <- function(gene_lists,
       user_threshold = user_threshold,
       correction_method = correction_method,
       min_term_size = min_term_size,
-      max_term_size = max_term_size
+      max_term_size = max_term_size,
+      module_sizes = module_sizes
     )
   )
   class(result) <- c("gost_enrichment", "list")

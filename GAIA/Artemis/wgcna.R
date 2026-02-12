@@ -867,16 +867,18 @@ print.wgcna_power <- function(x, ...) {
 #' @param verbose Logical. Print progress messages. Default: TRUE.
 #'
 #' @return A list with class "wgcna_modules" containing:
-#'   \item{module_colors}{Named vector: gene -> module color assignment}
-#'   \item{module_labels}{Named vector: gene -> module number}
-#'   \item{module_eigengenes}{Data.frame of module eigengenes (MEs)}
-#'   \item{module_summary}{Data.frame summarizing each module (size, etc.)}
-#'   \item{gene_module_df}{Data.frame with gene names and their module}
+#'   \item{module_names}{Named vector: gene -> module name (module_0, module_1, ...)}
+#'   \item{module_labels}{Named vector: gene -> module number (0, 1, 2, ...)}
+#'   \item{module_colors}{Named vector: module_name -> hex display color}
+#'   \item{color_names}{Named vector: module_name -> WGCNA color name (for reference)}
+#'   \item{module_eigengenes}{Data.frame of module eigengenes (MEmodule_1, ...)}
+#'   \item{module_summary}{Data.frame: module, n_genes, color_name}
+#'   \item{gene_module_df}{Data.frame: gene, module_name, module_label, color_name}
 #'   \item{dendrograms}{List of gene dendrograms}
 #'   \item{net}{Raw blockwiseModules output (for advanced use)}
 #'   \item{power}{Power used}
 #'   \item{datExpr}{Expression matrix used}
-#'   \item{n_modules}{Number of modules detected (excluding grey)}
+#'   \item{n_modules}{Number of modules detected (excluding module_0)}
 #'
 #' @details
 #' The function wraps WGCNA::blockwiseModules() with sensible defaults and
@@ -998,44 +1000,81 @@ ARTEMIS_wgcna_detect_modules <- function(wgcna_data,
   # --------------------------------------------------------------------------
   # Process results
   # --------------------------------------------------------------------------
-  # Convert numeric labels to colors
-  module_colors <- labels2colors(net$colors)
-  names(module_colors) <- colnames(datExpr)
-
   module_labels <- net$colors
   names(module_labels) <- colnames(datExpr)
 
-  # Get module eigengenes
-  MEs <- net$MEs
-  # Reorder by color name
-  MEs0 <- moduleEigengenes(datExpr, module_colors)$eigengenes
+  # WGCNA color names (needed internally for moduleEigengenes, kept for reference)
+  wgcna_color_names <- labels2colors(net$colors)
+  names(wgcna_color_names) <- colnames(datExpr)
+
+  # Generic module names: module_0 (unassigned), module_1 (largest), etc.
+  module_names <- paste0("module_", module_labels)
+  names(module_names) <- colnames(datExpr)
+
+  # Build label -> color_name mapping for eigengene renaming
+  unique_labels <- sort(unique(module_labels))
+  label_to_module <- setNames(paste0("module_", unique_labels), unique_labels)
+  label_to_color <- setNames(
+    labels2colors(unique_labels),
+    unique_labels
+  )
+
+  # Display color map: module_name -> hex color
+  unique_module_names <- paste0("module_", unique_labels)
+  n_colors <- length(unique_module_names)
+  display_colors <- grDevices::hcl.colors(max(n_colors * 3, 50), palette = "Dark 3")
+  # Filter out near-white colors
+  rgb_vals <- grDevices::col2rgb(display_colors)
+  brightness <- colMeans(rgb_vals)
+  display_colors <- display_colors[brightness <= 200]
+  display_colors <- display_colors[seq_len(n_colors)]
+  # module_0 (unassigned) gets grey
+  if ("module_0" %in% unique_module_names) {
+    display_colors[which(unique_module_names == "module_0")] <- "#AAAAAA"
+  }
+  module_color_map <- setNames(display_colors, unique_module_names)
+
+  # color_names: module_name -> WGCNA color name (for reference)
+  color_name_map <- setNames(label_to_color[as.character(unique_labels)], unique_module_names)
+
+  # Get module eigengenes (requires WGCNA color names internally)
+  MEs0 <- moduleEigengenes(datExpr, wgcna_color_names)$eigengenes
   MEs <- orderMEs(MEs0)
+
+  # Rename eigengene columns: MEturquoise -> MEmodule_1
+  color_to_module <- setNames(
+    paste0("module_", unique_labels),
+    labels2colors(unique_labels)
+  )
+  colnames(MEs) <- paste0("ME", color_to_module[gsub("^ME", "", colnames(MEs))])
 
   # Create gene-module data.frame
   gene_module_df <- data.frame(
     gene = colnames(datExpr),
-    module_color = module_colors,
+    module_name = module_names,
     module_label = module_labels,
+    color_name = wgcna_color_names,
     stringsAsFactors = FALSE
   )
 
   # Create module summary
-  module_counts <- table(module_colors)
+  module_counts <- table(module_names)
   module_summary <- data.frame(
     module = names(module_counts),
     n_genes = as.integer(module_counts),
+    color_name = color_name_map[names(module_counts)],
     stringsAsFactors = FALSE
   )
   module_summary <- module_summary[order(-module_summary$n_genes), ]
   rownames(module_summary) <- NULL
 
-  # Count modules (excluding grey)
-  n_modules <- length(unique(module_colors[module_colors != "grey"]))
+  # Count modules (excluding module_0/unassigned)
+  n_modules <- length(unique(module_names[module_names != "module_0"]))
 
   if (verbose) {
     cat("\n--- Module Detection Summary ---\n")
     cat("Total genes:", ncol(datExpr), "\n")
-    cat("Modules detected:", n_modules, "(plus grey/unassigned)\n")
+    cat("Modules detected:", n_modules, "(plus module_0/unassigned)\n")
     cat("\nModule sizes:\n")
     print(module_summary, row.names = FALSE)
   }
@@ -1044,8 +1083,10 @@ ARTEMIS_wgcna_detect_modules <- function(wgcna_data,
   # Build result object
   # --------------------------------------------------------------------------
   result <- list(
-    module_colors = module_colors,
+    module_names = module_names,
     module_labels = module_labels,
+    module_colors = module_color_map,
+    color_names = color_name_map,
     module_eigengenes = MEs,
     module_summary = module_summary,
     gene_module_df = gene_module_df,
@@ -1342,7 +1383,7 @@ ARTEMIS_wgcna_gene_significance <- function(modules,
 
   datExpr <- modules$datExpr
   MEs <- modules$module_eigengenes
-  module_colors <- modules$module_colors
+  module_names_vec <- modules$module_names
 
   # Extract traits
   if (inherits(traits, "wgcna_data")) {
@@ -1408,7 +1449,7 @@ ARTEMIS_wgcna_gene_significance <- function(modules,
   # --------------------------------------------------------------------------
   gene_info <- data.frame(
     gene = colnames(datExpr),
-    module = module_colors,
+    module = module_names_vec,
     stringsAsFactors = FALSE
   )
 
@@ -1558,7 +1599,7 @@ ARTEMIS_wgcna_hub_genes <- function(modules,
 
   datExpr <- modules$datExpr
   MEs <- modules$module_eigengenes
-  module_colors <- modules$module_colors
+  module_names_vec <- modules$module_names
 
   # Calculate MM if gene_sig not provided
   if (is.null(gene_sig)) {
@@ -1606,14 +1647,14 @@ ARTEMIS_wgcna_hub_genes <- function(modules,
   # --------------------------------------------------------------------------
   # Identify hub genes per module
   # --------------------------------------------------------------------------
-  unique_modules <- unique(module_colors)
-  unique_modules <- unique_modules[unique_modules != "grey"]  # Exclude grey
+  unique_modules <- unique(module_names_vec)
+  unique_modules <- unique_modules[unique_modules != "module_0"]  # Exclude unassigned
 
   hub_list <- list()
 
   for (mod in unique_modules) {
     # Get genes in this module
-    mod_genes <- names(module_colors)[module_colors == mod]
+    mod_genes <- names(module_names_vec)[module_names_vec == mod]
 
     # Get MM for these genes (for their own module)
     if (mod %in% colnames(MM)) {
@@ -1664,7 +1705,7 @@ ARTEMIS_wgcna_hub_genes <- function(modules,
   # Summary
   hub_summary <- data.frame(
     module = names(hub_list),
-    n_genes = sapply(unique_modules, function(m) sum(module_colors == m)),
+    n_genes = sapply(unique_modules, function(m) sum(module_names_vec == m)),
     n_hubs = sapply(hub_list, function(df) sum(df$is_hub)),
     top_hub = sapply(hub_list, function(df) df$gene[1]),
     stringsAsFactors = FALSE

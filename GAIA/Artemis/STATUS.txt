@@ -1,7 +1,7 @@
 ================================================================================
 ARTEMIS MODULE STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-02-03
+Last Updated: 2026-02-12
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -24,14 +24,46 @@ ARTEMIS_plot_global_shift(shift_result, plot_type, highlight_threshold, title)
 
 differential_analysis.R:
 ------------------------
+ARTEMIS_normalize_counts(counts, targets, group_col, batch_col, verbose)
+  - Normalize count data using DESeq2 size factors
+  - Estimates size factors on FULL dataset ONCE
+  - For multi-comparison workflows: normalize first, then run multiple DEA
+  - Returns "artemis_norm" object with: dds, norm_counts, targets, size_factors
+  - Ensures consistent normalization across all subsequent comparisons
+
 ARTEMIS_differential_counts(quant_result, reference, experiment,
                              group_col, batch_col, alpha, verbose)
   - General-purpose differential analysis using DESeq2
   - Works with any count data: RNA-seq, ATAC-seq, CUT&TAG, ChIP-seq
+  - Accepts two input types:
+    - quant_result (list with counts + targets): standard single comparison
+    - artemis_norm object: uses pre-computed size factors, subsets to groups
   - Strict two-group comparison (reference vs experiment)
   - Optional batch correction via design formula (~ batch + group)
   - Validates: exactly 2 groups, minimum 2 replicates each, integer counts
-  - Returns: per-feature stats (log2FC, pvalue, padj), DESeqDataSet, summary
+  - Returns: per-feature stats (log2FC, pvalue, padj), DESeqDataSet, norm_counts, summary
+
+ARTEMIS_select_de_genes(de_results, l2fc_thresh, p_col, p_thresh, gene_col, union, verbose)
+  - Collect significant genes across DE comparisons (union or intersection)
+  - Accepts multiple input types:
+    - artemis_ts_de objects (time series DEA)
+    - DEA result from ARTEMIS_differential_counts()
+    - Raw data.frame with gene IDs and DE stats
+    - Lists of any combination
+  - Auto-detects gene ID column (gene_id, feature_id, etc.) or specify with gene_col
+  - Returns character vector with gene_summary and per_comparison attributes
+
+ARTEMIS_prepare_part_matrix(de_result, genes, samples, scale, log_transform, verbose)
+  - Prepare expression matrix for PART clustering from DEA results
+  - Extracts normalized counts from:
+    - artemis_norm objects (from ARTEMIS_normalize_counts)
+    - DEA result from ARTEMIS_differential_counts() (from DESeqDataSet)
+    - artemis_ts_de objects (from norm_counts)
+    - Raw numeric matrix
+  - Subsets to selected genes, optional sample subsetting
+  - log_transform: applies log2(x+1) (default FALSE, matches original TiSA)
+  - scale: z-score each gene across samples (default TRUE)
+  - Returns matrix ready for ARTEMIS_part()
 
 utils.R:
 --------
@@ -190,10 +222,13 @@ ARTEMIS_wgcna_detect_modules(wgcna_data, power, network_type, tom_type,
   - Configurable: network/TOM type, module size, merge threshold, threads
   - Auto-detects and fixes WGCNA cor() masking issue (e.g., from org.Hs.eg.db)
   - Returns "wgcna_modules" object with:
-    - module_colors/labels: gene-to-module assignments
-    - module_eigengenes: MEs for each module
-    - module_summary: table of module sizes
-    - gene_module_df: convenient gene-module data.frame
+    - module_names: gene -> "module_1" (generic identifier, numbered by size)
+    - module_labels: gene -> numeric label (0=unassigned, 1=largest, ...)
+    - module_colors: module_name -> hex display color (decoupled from name)
+    - color_names: module_name -> WGCNA color name (for reference)
+    - module_eigengenes: MEs with columns MEmodule_1, MEmodule_2, ...
+    - module_summary: module, n_genes, color_name
+    - gene_module_df: gene, module_name, module_label, color_name
     - net: raw blockwiseModules output
 
 ARTEMIS_wgcna_module_traits(modules, traits, cor_method, p_adjust, verbose)
@@ -223,11 +258,94 @@ ARTEMIS_wgcna_hub_genes(modules, gene_sig, trait_name, n_top, mm_threshold,
     - by_module: hub genes per module
     - hub_summary: summary table
 
+decoupler.R:
+------------
+ARTEMIS_list_methods(recommended_only)
+  - List available decoupleR statistical methods
+  - Methods: ulm, mlm, viper, wsum, wmean, udt, mdt, ora, gsva, aucell
+  - Shows descriptions and recommended flag
+
+ARTEMIS_run_decoupler(mat, network, method, minsize, verbose)
+  - Core activity inference function
+  - Requires explicit method (no default) - ensures user understands choice
+  - Returns decoupler_result: activities matrix, pvalues, results_long, metadata
+
+ARTEMIS_compare_methods(mat, network, methods, minsize, consensus, verbose)
+  - Run multiple methods and compare results
+  - Returns decoupler_comparison with:
+    - results: per-method decoupler_result objects
+    - summary: per-source statistics across methods
+    - correlations: method-method correlation matrix
+    - consensus: z-scored mean activity across methods
+
+ARTEMIS_infer_tf_activity(mat, method, database, organism, dorothea_levels,
+                           minsize, verbose)
+  - Convenience wrapper for TF activity inference
+  - database: "collectri" (default) or "dorothea"
+  - Fetches network internally via APOLLO functions
+
+ARTEMIS_infer_pathway_activity(mat, method, database, organism, top, minsize,
+                                verbose)
+  - Convenience wrapper for pathway activity inference
+  - Uses PROGENy signatures (different from enrichment-based pathway analysis)
+
+part_clustering.R:
+------------------
+ARTEMIS_part(mat, q, min_size, B, Kmax, dist_method, linkage, scale, seed, verbose)
+  - PART clustering (Partitioning Algorithm based on Recursive Thresholding)
+  - Recursive splitting using Gap statistic + dendrogram height threshold
+  - Detects multi-scale cluster structure in genomic data
+  - Returns: cluster assignments, cluster_map, colors, dendrogram, ordered data
+  - Class "artemis_part" with print method
+
+ARTEMIS_part_summary(part_result, verbose)
+  - Print formatted summary of PART results (clusters, sizes, parameters)
+
+timeseries_analysis.R:
+----------------------
+ARTEMIS_normalize_timeseries(counts, targets, group_col, time_col, batch_col, verbose)
+  - CRITICAL: First step for time series DEA - normalizes full dataset ONCE
+  - Creates DESeqDataSet, estimates size factors on ALL samples
+  - MUST be called before conditional/temporal DEA for statistical soundness
+  - Returns "artemis_ts_norm" object with dds, norm_counts, size_factors
+
+ARTEMIS_timeseries_conditional(ts_norm, reference, experiment, alpha, verbose)
+  - Conditional DEA: compare two groups at each timepoint
+  - REQUIRES artemis_ts_norm from ARTEMIS_normalize_timeseries() (not raw counts)
+  - Subsets DESeq2 object (preserves pre-computed size factors)
+  - Returns "artemis_ts_de" object with per-timepoint results, summary, norm_counts
+
+ARTEMIS_timeseries_temporal(ts_norm, comparisons, alpha, verbose)
+  - Temporal DEA: compare timepoints pooling ALL groups together
+  - Extracts pure temporal effect independent of condition
+  - REQUIRES artemis_ts_norm from ARTEMIS_normalize_timeseries() (not raw counts)
+  - comparisons: "consecutive" (TP2 vs TP1, TP3 vs TP2) or "all" (all pairs)
+  - Returns "artemis_ts_de" object with norm_counts
+
+cibersort.R:
+------------
+ARTEMIS_cibersort(mixture, cibersort_path, sig_matrix, perm, QN, verbose)
+  - CIBERSORT immune cell deconvolution wrapper
+  - Sources original CIBERSORT.R (unmodified) and calls its functions
+  - Accepts R objects directly: matrix, data.frame, artemis_norm, artemis_ts_norm
+  - Also accepts file path for mixture input
+  - Runs in temp directory to contain CIBERSORT's side-effect output file
+  - perm: permutations for p-values (default 0, set 100+ for testing)
+  - QN: quantile normalization (TRUE for microarray, FALSE for RNA-seq)
+  - Returns "artemis_cibersort" S3 object:
+    - proportions: samples x cell types matrix (rows sum to 1)
+    - p_values: per-sample (NULL if perm=0)
+    - correlations: Pearson correlation per sample
+    - rmse: RMSE per sample
+    - raw: full original CIBERSORT output
+    - metadata: parameters, cell type names, timing
+  - Requires: CIBERSORT.R source file + signature matrix (e.g., LM22.txt)
+  - CIBERSORT dependencies: e1071, parallel, preprocessCore
+
 ================================================================================
 IN PROGRESS
 ================================================================================
-WGCNA workflow implementation (see to_process/wgcna_implementation_notes.txt)
-Discriminative Variable Analysis pipeline (see to_process/discriminative_analysis_implementation.txt)
+None
 
 ================================================================================
 PLANNED / TODO
@@ -240,12 +358,14 @@ PLANNED / TODO
 ================================================================================
 DEPENDENCIES
 ================================================================================
-- Uses: None (standalone)
+- Uses: APOLLO_get_collectri, APOLLO_get_dorothea, APOLLO_get_progeny (for decoupler)
 - External: ggplot2 (for plotting), DESeq2 (for differential analysis),
             GenomicRanges/IRanges (for distance calculations),
             FactoMineR (for FAMD), missMDA (optional, for FAMD imputation),
             cluster (for Gower distance, PAM, silhouette),
-            WGCNA (for co-expression network analysis)
+            WGCNA (for co-expression network analysis),
+            decoupleR (for TF/pathway activity inference),
+            stats (for PART clustering: hclust, dist, cutree, kmeans, cor, svd)
 
 ================================================================================
 NOTES
@@ -256,3 +376,8 @@ NOTES
   function, causing "unused arguments (weights.x, weights.y, cosine)" errors.
   ARTEMIS_wgcna_detect_modules auto-detects and fixes this by assigning
   WGCNA::cor to the global environment.
+- Time series DEA workflow: Size factors MUST be estimated on full dataset once,
+  then subsets use those pre-computed size factors. This is enforced by requiring
+  ARTEMIS_normalize_timeseries() before conditional/temporal DEA. Creating new
+  DESeq2 objects per comparison (with independent normalization) is statistically
+  unsound and not supported.

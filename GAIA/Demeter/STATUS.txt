@@ -1,7 +1,7 @@
 ================================================================================
 DEMETER MODULE STATUS - Utilities
 ================================================================================
-Last Updated: 2026-02-02
+Last Updated: 2026-02-12
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -30,7 +30,7 @@ DEMETER_create_fine_grid(ranges, n_points)
   - Create fine grid within specified ranges
   - For refined search after coarse grid identifies promising region
 
-DEMETER_create_ranges_around_values(best_values, coarse_values, width_factor)
+DEMETER_create_ranges_around_values(best_values, width, bounds)
   - Generate ranges around best values from coarse search
   - Helper for two-stage grid search workflow
 
@@ -58,6 +58,94 @@ DEMETER_format_pvalues(pvalues, format, digits, sig_threshold, hide_ns, ns_strin
 DEMETER_format_pvalue_triangle(pvalue_matrix, triangle, format, sig_threshold, hide_ns)
   - Format p-values for triangular correlation plots
   - Keeps upper or lower triangle, blanks rest
+
+result_loaders.R:
+-----------------
+DEMETER_load_wgcna(results_dir, prefix, what, strip_version, verbose)
+  - Load WGCNA results from ELEUTHIA_export_wgcna_results output
+  - what: "modules", "trait_cor", "gene_sig", "hubs", "enrichment", or "all"
+  - strip_version: remove Ensembl version suffixes from gene IDs (default FALSE)
+  - Prioritizes RDS files (complete objects with class info)
+  - Falls back to CSV reconstruction if RDS not found
+  - CSV reconstruction reads module_name column and color_map.csv
+  - Reconstructed objects are compatible with ARTEMIS functions
+  - Example: results <- DEMETER_load_wgcna("results/wgcna_output")
+            modules <- results$modules
+
+DEMETER_top_activities(result, n, by, verbose)
+  - Select top N sources (TFs/pathways) from activity results
+  - by: "variance" (most variable), "activity" (strongest), "max" (highest peak)
+  - Works with decoupler_result objects or raw matrices
+  - Use before plotting heatmaps or WGCNA trait correlation
+  - Example: tf_top <- DEMETER_top_activities(tf_result, n = 20)
+
+DEMETER_load_activity(file_path, verbose)
+  - Load saved decoupleR activity results from RDS
+  - Works with decoupler_result and decoupler_comparison objects
+  - Simple wrapper around readRDS with validation
+
+DEMETER_load_dea_genes(dea_dir, source, prefix, experiments, l2fc_thresh, p_thresh, gene_col, verbose)
+  - Load and combine DEA gene lists from multiple experiment directories
+  - source: "significant" (default, pre-filtered), "selected" (gene list), "all" (apply thresholds)
+  - Auto-detects gene ID column (feature_id, gene_id, gene, ensembl_id)
+  - Returns character vector of unique genes (union across experiments)
+  - Attributes: per_experiment lists, counts, parameters used
+  - Use as gene selection input for PART clustering
+  - Example: genes <- DEMETER_load_dea_genes("results/DEA/")
+
+DEMETER_load_dea(dea_dir, experiments, prefix, what, strip_version, verbose)
+  - Load DEA results from ELEUTHIA_export_dea_results output directories
+  - strip_version: remove Ensembl version suffixes from gene IDs (default FALSE)
+  - Scans subdirectories, one per experiment/comparison
+  - what: "dea" (default), "part", or "all" (both)
+  - Prioritizes RDS (complete objects with dds), falls back to CSV reconstruction
+  - CSV reconstruction parses metadata.txt for comparison info and summary stats
+  - Returns named list: list(C5RO = <dea_result>, CS1AN = <dea_result>, ...)
+  - If what = "all", returns nested: list(C5RO = list(dea = ..., part = ...))
+  - Directly compatible with DEMETER_prepare_part_wgcna_circos(dea_results = ...)
+  - Example: dea_list <- DEMETER_load_dea("results/DEA/")
+
+DEMETER_prepare_part_wgcna_circos(part_result, wgcna_modules, wgcna_trait_cor,
+                                    dea_results, strip_version, p_thresh, sig_type, verbose)
+  - sig_type: "padj" (default) or "pvalue" for trait correlation significance
+  - Combine PART, WGCNA, and DEA results into circos plot data structure
+  - Uses module_names (module_0, module_1, ...) and module_colors (hex map)
+  - Matches gene IDs between PART (versioned Ensembl) and WGCNA (stripped)
+  - Builds PART_df (genes x cluster/module/L2FC), module_df (trait cors/significance/size),
+    association_matrix (cluster-module gene overlap)
+  - Returns part_wgcna_circos S3 object
+  - Example: circos_data <- DEMETER_prepare_part_wgcna_circos(part, wgcna$modules, wgcna$trait_cor, dea_list)
+
+DEMETER_filter_circos_modules(circos_data, selected_modules, dummy_name, dummy_color)
+  - Filter to specific WGCNA modules, assign rest to dummy module
+  - Preserves all PART cluster data, rebuilds association matrix
+
+DEMETER_filter_circos_clusters(circos_data, selected_clusters)
+  - Filter to specific PART clusters
+
+DEMETER_rename_circos_modules(circos_data, rename_vector, recolor_vector)
+  - Rename and recolor modules (e.g., WGCNA color names -> "module_1", "module_2")
+  - Updates all internal references consistently
+
+DEMETER_select_circos_modules(circos_data, min_cor, require_sig_cor, min_size,
+                                min_overlap, exclude_grey, enrichment, verbose)
+  - Select WGCNA modules worth displaying based on multiple criteria
+  - min_cor: minimum absolute trait correlation (default 0.3)
+  - require_sig_cor: require at least one significant trait correlation (default TRUE)
+  - min_size: minimum gene count (default 30)
+  - min_overlap: minimum genes shared with PART clusters (default 1)
+  - exclude_grey: remove grey/dummy modules (default TRUE)
+  - enrichment: optional enrichment results to filter by
+  - Returns character vector of module names passing all criteria
+
+DEMETER_generate_colors(n, palette, max_brightness)
+  - Generate n distinct visible colors for plotting
+  - Filters out near-white colors based on brightness threshold
+  - Uses grDevices::hcl.colors() with configurable palette
+
+print.part_wgcna_circos(x, ...)
+  - S3 print method for part_wgcna_circos objects
+  - Shows summary: cluster count, module count, gene count, trait info
 
 ================================================================================
 IN PROGRESS

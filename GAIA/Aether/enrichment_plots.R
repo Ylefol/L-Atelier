@@ -181,28 +181,38 @@ AETHER_plot_gost_dotplot <- function(gost_result,
   }
 
   # ---------------------------------------------------------------------------
-  # Truncate term names
+  # Wrap long term names across multiple lines
   # ---------------------------------------------------------------------------
-  df$term_short <- ifelse(
-    nchar(df$term_name) > max_term_length,
-    paste0(substr(df$term_name, 1, max_term_length - 3), "..."),
-    df$term_name
-  )
+  df$term_short <- sapply(df$term_name, function(name) {
+    paste(strwrap(name, width = max_term_length), collapse = "\n")
+  }, USE.NAMES = FALSE)
 
   # ---------------------------------------------------------------------------
-  # Create module labels with gene counts
+  # Create module labels with annotation coverage percentage
   # ---------------------------------------------------------------------------
-  if ("query_size" %in% colnames(df)) {
-    # Get unique module sizes (query_size = number of genes in module)
-    module_sizes <- aggregate(query_size ~ module, data = df, FUN = function(x) x[1])
-    # Format with commas and trim whitespace (format() adds padding)
-    formatted_sizes <- trimws(format(module_sizes$query_size, big.mark = ","))
-    module_labels <- setNames(
-      paste0(module_sizes$module, " (", formatted_sizes, ")"),
-      module_sizes$module
-    )
+  # query_size = genes recognized in this specific database/source
+  # module_sizes (from metadata) = total genes in the original gene list
+  # Percentage shows how much of the module is annotated in the source
+  total_sizes <- NULL
+  if (inherits(gost_result, "gost_enrichment") &&
+      !is.null(gost_result$metadata$module_sizes)) {
+    total_sizes <- gost_result$metadata$module_sizes
+  }
+
+  if ("query_size" %in% colnames(df) && !is.null(total_sizes)) {
+    query_sizes <- aggregate(query_size ~ module, data = df, FUN = function(x) x[1])
+    module_labels <- sapply(query_sizes$module, function(mod) {
+      total <- total_sizes[[mod]]
+      qs <- query_sizes$query_size[query_sizes$module == mod]
+      if (!is.null(total) && total > 0) {
+        pct <- round(qs / total * 100, 1)
+        paste0(mod, " (", pct, "%)")
+      } else {
+        mod
+      }
+    })
+    module_labels <- setNames(module_labels, query_sizes$module)
     df$module_label <- module_labels[as.character(df$module)]
-    # Preserve module order
     df$module_label <- factor(df$module_label, levels = module_labels[unique(df$module)])
   } else {
     df$module_label <- df$module

@@ -62,6 +62,10 @@
 #' Sample IDs are generated in the format:
 #' {omics}_{group}_{bio_rep}{tech_rep}_b{batch}
 #'
+#' If a "timepoint" column is present (specifically named "timepoint"), the
+#' timepoint value is appended to ensure uniqueness for time series data:
+#' {omics}_{group}_{bio_rep}{tech_rep}_b{batch}_t{timepoint}
+#'
 #' @export
 #'
 #' @examples
@@ -245,6 +249,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   if (length(errors) == 0) {
     if (verbose) cat("Generating sample IDs...\n")
 
+    # Base sample ID: {omics}_{group}_{bio_rep}{tech_rep}_b{batch}
     sample_sheet$sample_id <- paste0(
       sample_sheet$omics, "_",
       sample_sheet$group, "_",
@@ -252,6 +257,15 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
       sample_sheet$tech_rep, "_b",
       sample_sheet$batch
     )
+
+    # If timepoint column exists, append _t{timepoint} for uniqueness
+    if ("timepoint" %in% colnames(sample_sheet)) {
+      if (verbose) cat("  Timepoint column detected - including in sample IDs\n")
+      sample_sheet$sample_id <- paste0(
+        sample_sheet$sample_id, "_t",
+        sample_sheet$timepoint
+      )
+    }
 
     # Check for duplicate sample IDs
     dup_ids <- sample_sheet$sample_id[duplicated(sample_sheet$sample_id)]
