@@ -1,0 +1,68 @@
+Package: GAIA
+Title: Multi-Omics Integration Toolkit for CUT&TAG, ATAC-seq, and RNA-seq
+Version: 0.1.0
+Authors@R: person("Yohan", "Lefol", role = c("aut", "cre"), email = "email@example.com")
+Description: Modular pipeline for multi-omics analysis including quality control,
+    preprocessing, annotation, enrichment, integration, machine learning,
+    statistical analysis, visualization, and reporting. Named after the
+    subordinate functions from Horizon Zero Dawn.
+License: file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.1.0),
+    ggplot2
+Imports:
+    stats,
+    grDevices,
+    utils,
+    rlang,
+    circlize,
+    ComplexHeatmap,
+    grid,
+    DESeq2,
+    SummarizedExperiment,
+    WGCNA
+Suggests:
+    sva,
+    limma,
+    GenomicRanges,
+    IRanges,
+    GenomeInfoDb,
+    GenomicFeatures,
+    txdbmaker,
+    AnnotationDbi,
+    Rsamtools,
+    Rsubread,
+    Biostrings,
+    S4Vectors,
+    ChIPseeker,
+    clusterProfiler,
+    gprofiler2,
+    decoupleR,
+    OmnipathR,
+    org.Hs.eg.db,
+    FactoMineR,
+    missMDA,
+    cluster,
+    grpreg,
+    nnet,
+    Matrix,
+    PMA,
+    data.table,
+    pheatmap,
+    gridExtra,
+    scales,
+    ggrepel,
+    ggraph,
+    igraph,
+    visNetwork,
+    plotly,
+    htmlwidgets,
+    RColorBrewer,
+    dplyr,
+    e1071,
+    parallel,
+    preprocessCore,
+    testthat (>= 3.0.0)

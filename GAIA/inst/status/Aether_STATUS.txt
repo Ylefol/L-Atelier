@@ -1,0 +1,483 @@
+================================================================================
+AETHER MODULE STATUS - Visualization
+================================================================================
+Last Updated: 2026-02-16
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+colors.R:
+---------
+AETHER_generate_gradient(base_color, n, direction)
+  - Generate n shades from dark base to light (or reverse)
+  - Uses HSL color space for perceptually uniform gradients
+
+AETHER_default_palette(type)
+  - Default colors for omics types and experimental groups
+  - type="omics": ATACseq, CHIPseq, RNAseq, CUTnTAG, etc.
+  - type="groups": WT, KO, Control, Treatment, etc.
+
+circos.R:
+---------
+AETHER_prepare_circos_data(sample_sheet, chr_sizes, omics, bin_size,
+                            aggregate, cap_outliers, verbose)
+  - Prepare data for circos plots from sample_sheet
+  - Memory-efficient: loads BED files one at a time
+  - Bins fragments into genomic tiles
+  - Caps outliers at mean + 3*SD
+  - Returns: bins, signal matrix, sample_info, chr_sizes
+
+AETHER_create_circos(circos_data, genome, output, split_by, color_by,
+                      invert_gradient, colors, track_height, track_margin,
+                      line_width, title, highlights, highlight_padding,
+                      annotation_regions, annotation_colors, show_chords,
+                      chord_alpha, annotation_sector_size, ...)
+  - Create circos plot from prepared data
+  - split_by: "omics", "group", "batch" (combinable)
+  - color_by: "track", "group", "omics_group"
+  - invert_gradient: control dark=high or dark=low signal
+  - line_width: configurable line thickness (default 1.0)
+  - Independent y-axis scaling per track
+  - Output format inferred from extension (.png, .pdf)
+  - Phase 2A: highlights parameter for region highlighting on tracks
+    - Named list with regions (df), tracks ("all" or track names), color
+    - highlight_padding: fraction of chr length for padding (default 0.005)
+  - Phase 2B: annotation chords for peak-to-annotation connections
+    - annotation_regions: df with chr, start, end, annotation columns
+    - annotation_colors: named vector of colors per category
+    - show_chords: TRUE to draw chord connections
+    - chord_alpha: transparency for chords (0-1)
+    - annotation_sector_size: size of annotation pseudo-chromosome
+    - Proportional segment allocation based on annotation counts
+    - Custom cytoband with masked signal tracks in annotation sector
+
+.AETHER_assign_circos_colors(sample_info, sample_ids)
+  - Internal helper for color assignment
+
+scca_plots.R:
+-------------
+AETHER_plot_feature_weights(weights, method_name, true_features, threshold)
+  - Stem plot of canonical weights
+  - Highlights non-zero features
+  - Optional true signal region overlay
+
+AETHER_plot_multi_feature_weights(weights_list, method_name, dataset_names,
+                                   true_features_list, threshold)
+  - Faceted stem plots for multi-dataset sCCA
+  - One panel per dataset
+
+AETHER_plot_cv_comparison(coarse_cv_results, fine_cv_results, n_datasets,
+                           param_names, metric_name, x_axis_type)
+  - Compare coarse vs fine grid CV performance
+  - Marginal plots for each parameter
+
+AETHER_plot_best_cv_scores(coarse_cv_results, fine_cv_results, metric_name)
+  - Simple bar chart comparing best CV scores
+  - Shows improvement from fine-tuning
+
+differential_plots.R:
+---------------------
+AETHER_plot_waterfall(shift_result, n_label, fc_threshold, title, colors)
+  - Waterfall plot of ranked fold changes
+  - Bars sorted from most decreased to most increased
+  - Colors: blue (down), gray (neutral), red (up)
+  - Labels extreme regions on each end (angled text, no clipping)
+
+AETHER_plot_fc_vs_signal(shift_result, fc_threshold, n_label, title)
+  - Fold change vs mean signal strength plot
+  - Identifies if high/low signal regions behave differently
+  - Labels most extreme points
+
+enrichment_plots.R:
+-------------------
+AETHER_plot_gost_dotplot(gost_result, source, top_n, modules, color_by,
+                          size_by, order_by, title, font_size, max_term_length,
+                          color_low, color_high, dot_range)
+  - Multi-module dotplot for gprofiler2 results (APOLLO_enrich_gost)
+  - X-axis: modules with annotation coverage % (query_size / module_size)
+  - Y-axis: terms (union of top N per module), wrapped across lines if long
+  - source: required - which ontology (GO:BP, KEGG, REAC, etc.)
+  - top_n: number of top terms per module (default 10)
+  - max_term_length: wrap width for term names (default 50)
+  - size_by: "odds_ratio" (default), "intersection_size", "precision", "recall"
+  - color_by: "p_value" (default), "odds_ratio", "precision", "recall"
+  - Calculates odds ratio from gprofiler2 columns (strength of association)
+  - Shows all modules in single plot for easy comparison
+
+AETHER_plot_enrichment_dotplot(enrich_result, show_category, color_by,
+                                size_by, order_by, title, ...)
+  - Dotplot for clusterProfiler GO/KEGG enrichment results
+  - color_by: "p.adjust", "pvalue", or "odds_ratio" (effect size!)
+  - size_by: "Count" or "GeneRatio"
+  - Odds ratio = (k/(n-k)) / ((M-k)/(N-M-n+k)) - strength of association
+  - Truncates long term descriptions for readability
+
+AETHER_plot_enrichment_bar(enrich_result, show_category, x_var, fill_by,
+                            order_by, title)
+  - Horizontal bar plot alternative to dotplot
+  - x_var: "Count", "odds_ratio", or "GeneRatio"
+  - Simpler visualization for presentations
+
+AETHER_plot_annotation_bar(annotated_list, use_simple, show_percentage,
+                            colors, title, bar_height, show_labels, min_label_pct)
+  - Stacked horizontal bar plot of genomic feature distribution
+  - Accepts named list for comparing multiple datasets (e.g., ATAC vs ChIP)
+  - Shows Promoter/Exon/Intron/Intergenic/etc. proportions
+  - Labels percentages on bars (configurable threshold)
+  - ChIPseeker-inspired color scheme
+
+.calculate_odds_ratio(gene_ratio, bg_ratio)
+  - Internal helper to compute odds ratio from GeneRatio/BgRatio strings
+
+famd_plots.R:
+-------------
+AETHER_plot_famd_individuals(famd_result, dims, color_by, point_size, alpha,
+                              show_ellipse, ellipse_level, show_labels, colors, ...)
+  - Scatter plot of samples in FAMD space
+  - Color by categorical variable to visualize groupings
+  - Optional confidence ellipses per group
+  - Variance explained shown in axis labels
+
+AETHER_plot_famd_variables(famd_result, dims, var_type, aggregate_quali,
+                            color_by, show_labels, contrib_threshold, ...)
+  - Variable contribution plot
+  - Quantitative as arrows, qualitative as triangles
+  - Color by contribution or variable type
+  - Correlation circle for reference
+  - aggregate_quali: collapse category-level to variable-level (reduces clutter)
+
+AETHER_plot_famd_contrib(famd_result, n_dims, var_type, top_n, title)
+  - Contribution heatmap (cleaner than bar plots)
+  - Variables as rows, dimensions as columns
+  - Faceted by variable type (quanti/quali)
+
+AETHER_plot_famd_scree(famd_result, n_dims, show_cumulative, bar_fill,
+                        line_color, title)
+  - Variance explained per dimension
+  - Bar plot with cumulative line on secondary axis
+
+AETHER_plot_famd_variables_interactive(famd_result, dims, var_type, point_size,
+                                        show_arrows, title, save_html)
+  - Interactive plotly version of variables plot
+  - Hover to see variable/category names and contributions
+  - Zoom and pan for exploring high-cardinality variables
+  - Categories colored by parent variable for grouping
+  - save_html: export as standalone HTML file (shareable)
+
+cluster_plots.R:
+----------------
+AETHER_plot_silhouette(cluster_result, colors, show_avg, title)
+  - Silhouette plot for cluster quality assessment
+  - Shows silhouette width per sample, grouped by cluster
+  - Includes overall and per-cluster average lines
+  - Interpretation guide (Strong/Reasonable/Weak thresholds)
+  - Red dashed line = overall average
+
+AETHER_plot_cluster_radar(cluster_char, variables, data, clusters, normalize,
+                           colors, alpha, line_width, title)
+  - Radar/spider chart for cluster profiles
+  - Shows how clusters differ across multiple quantitative variables
+  - Each axis = variable, each polygon = cluster
+  - Normalizes to 0-1 by default for comparability
+  - Concentric grid circles for reference
+
+AETHER_plot_cluster_sankey(k_eval, colors, node_width, font_size, title, save_html)
+  - Sankey diagram showing sample flows between clusters across k values
+  - Input: artemis_k_evaluation object from ARTEMIS_evaluate_k_range()
+  - Columns = k values, nodes = clusters, flows = sample transitions
+  - Helps identify: natural substructure, artificial splits, stable cores
+  - Interactive plotly visualization with HTML export option
+
+AETHER_plot_k_selection(k_eval, highlight_optimal, show_sizes, title)
+  - Line plot of silhouette scores across k values
+  - Highlights optimal k with diamond marker
+  - Reference lines for interpretation (Strong/Reasonable/Weak)
+  - Companion to Sankey for determining optimal number of clusters
+
+coefficient_plots.R:
+--------------------
+AETHER_plot_coefficients(coef_table, null_line, log_scale, sort_by, colors,
+                          point_size, title, show_values, sig_level)
+  - Forest plot for regression coefficients/odds ratios
+  - Confidence intervals as horizontal lines
+  - Color by significance (p < threshold)
+  - Optional value annotations on right side
+  - Sortable by estimate, significance, or name
+
+AETHER_plot_lambda_path(cv_result, show_1se, title)
+  - Cross-validation error across lambda values
+  - Shows lambda.min and lambda.1se with annotations
+  - Error ribbon for uncertainty
+  - Companion to ARTEMIS_select_lambda()
+
+wgcna_plots.R:
+--------------
+AETHER_plot_wgcna_power(power_result, r2_cutoff, highlight_power, return_plots)
+  - Diagnostic plots for soft threshold power selection
+  - Scale-free topology fit and mean connectivity
+  - Highlights selected power
+  - ggplot2-based, can return plot objects
+
+AETHER_plot_wgcna_dendrogram(modules, block, main, ...)
+  - Gene dendrogram with module color bar
+  - Wraps WGCNA::plotDendroAndColors()
+  - Supports multi-block datasets
+
+AETHER_plot_module_trait_heatmap(trait_cor, use_padj, show_values, colors,
+                                  main, cex.text, ...)
+  - Module-trait correlation heatmap (base R, WGCNA-style)
+  - Shows correlation values and p-values in cells
+  - Blue-white-red color scale
+
+AETHER_plot_module_trait_heatmap_gg(trait_cor, use_padj, sig_threshold,
+                                     show_values, pval_format, pval_digits, colors, title)
+  - ggplot2 version of module-trait heatmap
+  - More customizable, publication-ready
+  - show_values: "cor", "pval", "both", "stars"
+  - pval_format: "decimal" (0.001) or "scientific" (1e-03)
+  - pval_digits: decimal places for decimal format (default 3)
+
+AETHER_plot_sample_dendrogram(cluster_result, traits, main, ...)
+  - Sample clustering dendrogram with trait color bars
+  - Accepts wgcna_cluster or hclust objects
+  - Trait values shown as colored bars underneath
+
+AETHER_plot_gs_vs_mm(gene_sig, module, trait_name, mm_threshold, gs_threshold,
+                      n_label, module_color, title)
+  - Gene significance vs module membership scatter plot
+  - Highlights hub genes (high GS + high MM)
+  - Labels top genes
+  - Shows correlation between GS and MM
+
+AETHER_plot_hub_summary(hubs, top_n, show_top_gene, module_colors, title)
+  - Bar plot of hub genes per module
+  - Labels with top hub gene name
+  - Module colors as bar fill
+
+activity_plots.R:
+-----------------
+AETHER_plot_activity_heatmap(result, top_n, cluster_rows, cluster_cols, scale,
+                              annotation_col, color_palette, title, ...)
+  - Heatmap of TF/pathway activity scores (pheatmap)
+  - Works with decoupler_result, decoupler_comparison (uses consensus), or matrix
+  - top_n: limit to top sources by absolute mean activity
+
+AETHER_plot_top_activities(result, sample, top_n, title, x_label, fill_colors)
+  - Bar chart of top positive and negative activities
+  - Shows most activated and repressed TFs/pathways
+  - Works with single sample or mean across samples
+
+AETHER_plot_method_correlation(comparison, title, color_palette, show_values)
+  - Correlation heatmap between decoupleR methods
+  - Shows how similar different methods' results are
+
+AETHER_plot_method_agreement(comparison, top_n, order_by, title, point_size, colors)
+  - Point + range plot showing variability across methods
+  - Point = mean activity, error bars = min-max range across methods
+  - Color by direction (positive/negative mean)
+  - Small bars = methods agree, large bars crossing zero = methods disagree
+  - order_by: "activity", "variance", or "name"
+
+AETHER_plot_activity_by_method(comparison, sources, top_n, plot_type, title)
+  - Boxplot/violin comparing activity distributions across methods
+  - Faceted by source (TF/pathway)
+  - Visual method comparison for specific sources
+
+AETHER_plot_activity_trait(result, trait, source, method, show_labels, label_size, title)
+  - Scatter plot of activity vs sample trait
+  - Shows correlation with annotation
+  - Auto-selects most correlated source if not specified
+  - show_labels: TRUE, FALSE, or "repel" (uses ggrepel)
+  - Tight axis limits (no extension beyond data)
+
+timeseries_plots.R:
+--------------------
+AETHER_plot_part_heatmap(part_result, sample_info, group_col, time_col,
+                          group_colors, time_colors, show_row_names, row_names_side,
+                          save_path, width, height)
+  - Heatmap of PART clustered data using ComplexHeatmap (TiSA-style)
+  - Row annotation: cluster color blocks
+  - Top annotation: group blocks + timepoint colors (timepoint optional)
+  - time_col: NULL for non-time-series data (only group annotation)
+  - Rows split by cluster, columns split by group
+  - save_path: NULL returns plot object, or saves to .png/.pdf/.svg
+
+AETHER_plot_cluster_trajectories(part_result, sample_info, time_col, group_col,
+                                  clusters, type, ncol, colors, title)
+  - Faceted expression trajectories per cluster
+  - type: "ribbon" (mean +/- SD), "spaghetti" (individual + mean), "mean"
+  - Lines colored by group, facets labeled with cluster sizes
+
+AETHER_plot_cluster_means(part_result, sample_info, time_col, group_col,
+                           clusters, colors, title)
+  - Single panel: all cluster mean trajectories overlaid
+  - Colors from PART cluster_colors, linetype by group
+  - Compact overview of cluster behavior
+
+AETHER_plot_timeseries_summary(ts_de_result, colors, title)
+  - Bar chart of up/down-regulated genes per DEA comparison
+  - Up above axis, down below, with count labels
+  - Works with both conditional and temporal DEA results
+
+pca_plots.R:
+------------
+AETHER_plot_pca(counts, sample_info, group_col, shape_col, dims, ntop,
+                log_transform, colors, point_size, label_samples, title, verbose)
+  - PCA scatter plot from normalized counts
+  - Accepts artemis_norm, artemis_ts_norm objects, or plain matrix
+  - Color by group, shape by optional second variable (e.g., timepoint, batch)
+  - ntop: use N most variable genes (default 500), NULL for all
+  - log_transform: log2(x+1) before PCA (default TRUE, recommended for counts)
+  - label_samples: FALSE, TRUE, or "repel" (ggrepel)
+  - Prints variance explained per PC
+
+part_wgcna_circos.R:
+--------------------
+AETHER_plot_part_wgcna_circos(circos_data, output_file, plot_width, plot_height,
+                               data_track_height, label_track_height, expression_limit,
+                               expression_colors, trait_colors, na_color, show_trait_values,
+                               show_trait_significance, show_sector_borders, show_legend,
+                               show_track_labels, track_label_cex,
+                               position_grouping_threshold, min_chord_width_pct,
+                               min_module_visual_size, part_degrees, wgcna_degrees,
+                               gap_degrees, verbose)
+  - Circos plot comparing PART clustering with WGCNA modules
+  - Input: part_wgcna_circos object from DEMETER_prepare_part_wgcna_circos()
+  - PART clusters occupy 270 degrees (configurable), WGCNA modules occupy 90 degrees
+  - Dummy modules automatically hidden from display (filtered before layout)
+  - expression_limit: optional cap for L2FC values (NULL = no cap); legend shows "L2FC (capped)" when used
+  - Data tracks: per-gene L2FC (cluster sectors) and trait correlations (module sectors)
+  - Innermost ring: colored sector labels for clusters and modules
+  - show_track_labels: experimental — add text labels in gap identifying tracks
+    (sample names for PART, trait names for WGCNA). Default FALSE.
+  - track_label_cex: text size for track labels (default 0.4)
+  - Chords connect clusters to modules based on shared gene positions
+  - Position-based grouping: nearby same-cluster genes merged into single chord
+  - Minimum chord width enforcement for visibility
+  - Legend on separate page (PDF) or embedded (PNG)
+  - Output: .pdf or .png (inferred from extension)
+
+================================================================================
+FILE ORGANIZATION
+================================================================================
+colors.R           - Shared color utilities (gradients, palettes)
+circos.R           - Circos plot functions (sources colors.R)
+scca_plots.R       - sCCA/integration result visualization
+differential_plots.R - Fold-change visualizations (waterfall, FC vs signal)
+enrichment_plots.R - GO/KEGG enrichment visualizations (dotplot, barplot)
+famd_plots.R       - FAMD visualization (individuals, variables, contrib, scree)
+cluster_plots.R    - Clustering visualization (silhouette, radar profiles)
+coefficient_plots.R - Regression coefficient visualization (forest plot, lambda path)
+wgcna_plots.R      - WGCNA visualization (power, dendrograms, heatmaps, GS vs MM)
+activity_plots.R   - DecoupleR activity visualization (heatmaps, method comparison)
+timeseries_plots.R - Time series + PART visualization (heatmaps, trajectories, DEA summary)
+pca_plots.R        - PCA visualization
+part_wgcna_circos.R - PART vs WGCNA comparison circos (circlize + ComplexHeatmap)
+motif_plots.R      - HOMER motif enrichment visualization (dotplot, heatmap)
+network_plots.R    - PPI network visualization (static ggraph + interactive visNetwork)
+cibersort_plots.R  - CIBERSORT deconvolution visualization (proportions, heatmap, boxplot)
+
+network_plots.R:
+----------------
+AETHER_plot_ppi_network(graph, color_by, size_by, layout, show_labels, hub_n,
+                         colors, edge_alpha, edge_color, size_range, title, seed)
+  - Static PPI network plot using ggraph (publication quality)
+  - color_by: "degree", "betweenness", named vector (clusters/FC), or single color
+  - size_by: "degree" (default), "betweenness", named vector, or fixed number
+  - show_labels: TRUE (all), FALSE (none), "hubs" (top N by degree)
+  - layout: igraph layouts ("fr", "kk", "circle", "stress", etc.)
+  - Supports continuous (gradient) and discrete (categorical) coloring
+  - Returns ggplot object
+
+AETHER_plot_ppi_network_interactive(graph, color_by, size_by, colors, size_range,
+                                      show_labels, physics, layout, title,
+                                      save_html, seed)
+  - Interactive PPI network using visNetwork
+  - Drag nodes, zoom, hover for info (degree, betweenness)
+  - Highlight nearest neighbors on hover
+  - physics: TRUE for force-directed layout, FALSE for static igraph layout
+  - save_html: export as standalone HTML file
+  - Node search by gene name
+
+motif_plots.R:
+--------------
+AETHER_plot_motif_enrichment(homer_result, top_n, color_by, size_by, sets,
+                              q_thresh, title, font_size, max_name_length,
+                              color_low, color_high, dot_range)
+  - Dotplot of HOMER known motif enrichment results
+  - Works with homer_motif (single) and homer_motif_batch (multi-set)
+  - Single: motifs on y-axis, -log10(q) on x-axis
+  - Batch: motifs on y-axis, peak sets on x-axis, dot grid
+  - color_by: "q_value" (default, -log10) or "p_value"
+  - size_by: "pct_target" (default) or "n_target"
+  - Filters to significant motifs, selects top N per set
+
+AETHER_plot_motif_comparison(homer_batch, top_n, motifs, cluster_sets,
+                              cluster_motifs, q_thresh, colors, title,
+                              show_values, ...)
+  - Heatmap of -log10(q-value) across peak sets (pheatmap)
+  - Rows: motifs, Columns: peak sets
+  - Optional hierarchical clustering of rows/columns
+  - Select specific motifs or top N by best q-value
+  - Values capped at -log10(1e-50) for visualization
+
+cibersort_plots.R:
+------------------
+AETHER_plot_cell_proportions(result, group_by, colors, title, text_size,
+                              legend_position, bar_width)
+  - Stacked bar plot of cell type proportions per sample
+  - Accepts artemis_cibersort object or proportions matrix
+  - group_by: optional grouping vector to reorder/facet samples
+  - Auto-filters zero-proportion cell types
+
+AETHER_plot_cell_heatmap(result, annotation_col, cluster_rows, cluster_cols,
+                          scale, color_palette, title, show_rownames,
+                          show_colnames, ...)
+  - Heatmap of cell type proportions (pheatmap)
+  - Cell types as rows, samples as columns
+  - White-to-red sequential palette by default
+  - scale="none" by default (proportions already comparable)
+
+AETHER_plot_cell_boxplot(result, group_by, cell_types, top_n, colors, title,
+                          text_size, point_size, show_points, ncol)
+  - Faceted boxplots of cell type proportions by condition
+  - group_by: required condition vector
+  - top_n: show only top N cell types by mean proportion
+  - Jittered data points overlaid by default
+  - Cell types ordered by mean proportion (descending)
+
+================================================================================
+IN PROGRESS
+================================================================================
+None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+Future circos enhancements:
+- Heatmap track support
+- Lines instead of chords option
+- Configurable legend for annotation colors
+- Track label customization
+
+Other visualization:
+- Genome browser track plots
+- Heatmaps for multi-omics data
+- Correlation plots
+
+================================================================================
+DEPENDENCIES
+================================================================================
+- Uses: None (standalone)
+- External: ggplot2, circlize, scales (for color palettes),
+            plotly (for interactive plots), htmlwidgets (for HTML export),
+            RColorBrewer (for color palettes), gridExtra (for multi-panel),
+            ggrepel (for label placement), WGCNA (for WGCNA plots),
+            pheatmap (for activity heatmaps)
+
+================================================================================
+NOTES
+================================================================================
+- See to_process/circos_implementation_notes.txt for detailed circos design
+- circos.R sources colors.R for color utilities
