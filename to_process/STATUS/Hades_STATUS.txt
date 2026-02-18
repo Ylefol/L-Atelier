@@ -1,0 +1,38 @@
+================================================================================
+HADES STATUS - Quality Control & Filtering
+================================================================================
+Last Updated: 2026-02-18
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+hades_qc_mixed_data.R:
+-----------------------
+HADES_qc_mixed_data(data, ...)
+  - Run quality control on mixed/multi-omics data
+  - Returns hades_qc S3 object
+  - S3 print: print.hades_qc (show_flagged_only = TRUE)
+HADES_convert_to_factor(data, ...)
+  - Convert appropriate columns to factor type
+HADES_drop_high_na_variables(data, threshold, ...)
+  - Drop variables exceeding NA threshold
+
+================================================================================
+IN PROGRESS
+================================================================================
+- Nothing currently in progress
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- QC functions specific to CUT&TAG / ATAC-seq (fragment length distribution,
+  FRiP scores, TSS enrichment)
+- RNA-seq specific QC (library size, gene body coverage, duplication rates)
+- Integration with Poseidon for post-QC normalization handoff
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Currently limited to mixed data QC (clinical/phenotypic + omics)
+- Sequencing-specific QC not yet implemented

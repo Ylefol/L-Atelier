@@ -1,0 +1,41 @@
+================================================================================
+POSEIDON STATUS - Preprocessing & Normalization
+================================================================================
+Last Updated: 2026-02-18
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+poseidon_preprocessing.R:
+--------------------------
+POSEIDON_scale_data(X, ...)
+  - Scale data (centering, unit variance, or 0-1 normalization)
+POSEIDON_filter_zero_variance(X_list, ...)
+  - Remove zero-variance features from dataset list
+POSEIDON_filter_shared_variance(X_list, by_row, ...)
+  - Filter features by shared variance across datasets
+POSEIDON_validate_multi_dataset(X_list, ...)
+  - Validate sample alignment across multiple omics datasets
+POSEIDON_filter_low_counts(counts, ...)
+  - Filter low count genes (count-based; complements Eleuthia loader)
+POSEIDON_plot_batch_pca(counts, sample_sheet, ...)
+  - PCA plot coloured by batch for visual batch effect assessment
+
+================================================================================
+IN PROGRESS
+================================================================================
+- Nothing currently in progress
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Batch effect correction wrappers (ComBat via sva, limma::removeBatchEffect)
+- CPM / TPM / RPKM normalization functions
+- Quantile normalization
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- sva (ComBat), limma: in Suggests — load manually for batch correction
+- preprocessCore: in Suggests — for quantile normalization

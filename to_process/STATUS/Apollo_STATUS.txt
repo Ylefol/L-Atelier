@@ -1,0 +1,80 @@
+================================================================================
+APOLLO STATUS - Annotation & Enrichment
+================================================================================
+Last Updated: 2026-02-18
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+apollo_activity_networks.R:
+----------------------------
+APOLLO_get_collectri(...)
+  - Retrieve CollecTRI TF-target network
+APOLLO_get_dorothea(...)
+  - Retrieve DoRothEA TF regulatory network
+APOLLO_get_progeny(...)
+  - Retrieve PROGENy pathway network
+APOLLO_get_ppi(...)
+  - Retrieve protein-protein interaction network
+APOLLO_list_activity_databases()
+  - List available activity inference databases
+
+apollo_annotation.R:
+--------------------
+APOLLO_chr_sizes_to_seqinfo(chr_sizes, ...)
+  - Convert chromosome sizes file to Seqinfo object
+APOLLO_get_chr_mapping(...)
+  - Get chromosome name mapping (e.g. chr1 <-> 1)
+
+apollo_gene_enrichment.R:
+--------------------------
+APOLLO_convert_genes(genes, from, to, ...)
+  - Convert between gene ID types (symbol, Ensembl, Entrez)
+  - Uses org.Hs.eg.db; load separately with library(org.Hs.eg.db)
+APOLLO_prepare_genelist(genes, ...)
+  - Prepare ranked/filtered gene list for enrichment
+APOLLO_extract_module_genes(wgcna_result, module, ...)
+  - Extract gene list from a WGCNA module
+APOLLO_enrich_gost(genes, ...)
+  - Run gprofiler2 enrichment analysis
+APOLLO_filter_enrichment(enrichment_result, ...)
+  - Filter enrichment results by significance / source
+
+apollo_motif_enrichment.R:
+---------------------------
+APOLLO_homer_motif_enrichment(peaks, genome, output_dir, ...)
+  - Run HOMER motif enrichment on a peak set
+APOLLO_homer_motif_enrichment_batch(peak_list, ...)
+  - Batch HOMER motif enrichment across multiple peak sets
+APOLLO_load_homer_results(output_dir, ...)
+  - Load HOMER results from output directory
+APOLLO_load_homer_batch(output_dirs, ...)
+  - Load batch HOMER results
+APOLLO_filter_motifs(homer_result, ...)
+  - Filter motif enrichment results
+
+apollo_peak_annotation.R:
+--------------------------
+APOLLO_enrich_kegg(genes, ...)
+  - KEGG pathway enrichment for gene lists
+
+================================================================================
+IN PROGRESS
+================================================================================
+- Nothing currently in progress
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Peak-to-gene linking (ChIPseeker-based annotation not yet fully implemented)
+- Broader peak annotation functions beyond KEGG
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- org.Hs.eg.db: optional, load manually with library(org.Hs.eg.db) before
+  calling APOLLO_convert_genes()
+- External: gprofiler2, clusterProfiler, AnnotationDbi, ChIPseeker,
+  GenomicRanges, IRanges (all in Suggests)
+- HOMER motif enrichment requires HOMER to be installed system-wide

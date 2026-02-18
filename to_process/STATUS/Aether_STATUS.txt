@@ -1,0 +1,170 @@
+================================================================================
+AETHER STATUS - Visualization
+================================================================================
+Last Updated: 2026-02-18
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+aether_activity_plots.R:
+------------------------
+AETHER_plot_activity_heatmap(tf_result, ...)
+  - Heatmap of TF/pathway activity scores across samples
+AETHER_plot_top_activities(tf_result, ...)
+  - Bar chart of top N activities
+AETHER_plot_method_correlation(tf_result, ...)
+  - Correlation heatmap comparing activity inference methods
+AETHER_plot_method_agreement(tf_result, ...)
+  - Method agreement / variability across inference methods
+AETHER_plot_activity_by_method(tf_result, ...)
+  - Side-by-side activity comparison across methods
+AETHER_plot_activity_trait(tf_result, ...)
+  - Scatter of activity vs trait correlation
+
+aether_cibersort_plots.R:
+--------------------------
+AETHER_plot_cell_proportions(cibersort_result, ...)
+  - Stacked bar chart of cell type proportions
+AETHER_plot_cell_heatmap(cibersort_result, ...)
+  - Heatmap of cell type proportions
+AETHER_plot_cell_boxplot(cibersort_result, ...)
+  - Boxplots of cell type proportions by condition
+
+aether_circos.R:
+----------------
+AETHER_prepare_circos_data(...)
+  - Prepare data structure for circos plots
+AETHER_create_circos(circos_data, ...)
+  - Create full circos plot (multi-omics integration visualization)
+
+aether_cluster_plots.R:
+------------------------
+AETHER_plot_silhouette(cluster_result, ...)
+  - Silhouette plot for cluster quality assessment
+AETHER_plot_cluster_radar(cluster_result, ...)
+  - Radar/spider chart for cluster profiles
+AETHER_plot_cluster_sankey(cluster_result, ...)
+  - Sankey diagram for cluster transitions across k values
+AETHER_plot_k_selection(cluster_result, ...)
+  - k selection metrics plot
+
+aether_coefficient_plots.R:
+-----------------------------
+AETHER_plot_coefficients(model, ...)
+  - Forest plot of regression coefficients
+AETHER_plot_lambda_path(model, ...)
+  - Lambda selection path for penalized regression
+
+aether_colors.R:
+----------------
+AETHER_generate_gradient(n, ...)
+  - Generate color gradient
+AETHER_default_palette(type, ...)
+  - Default color palettes for GAIA plots
+
+aether_differential_plots.R:
+------------------------------
+AETHER_plot_waterfall(dea_result, ...)
+  - Waterfall plot of fold changes
+AETHER_plot_fc_vs_signal(anchor_result, ...)
+  - Volcano-style plot for anchor/signal analysis
+
+aether_enrichment_plots.R:
+---------------------------
+AETHER_plot_gost_dotplot(enrichment_result, ...)
+  - Multi-module dotplot for gprofiler2 enrichment
+AETHER_plot_enrichment_dotplot(enrichment_result, ...)
+  - Dotplot for enrichment results
+AETHER_plot_enrichment_bar(enrichment_result, ...)
+  - Bar plot for enrichment results
+AETHER_plot_annotation_bar(annotation_result, ...)
+  - Genomic annotation distribution bar plot
+
+aether_famd_plots.R:
+--------------------
+AETHER_plot_famd_individuals(famd_result, ...)
+  - FAMD individuals (samples) scatter plot
+AETHER_plot_famd_variables(famd_result, ...)
+  - FAMD variables plot
+AETHER_plot_famd_contrib(famd_result, ...)
+  - FAMD contribution heatmap
+AETHER_plot_famd_scree(famd_result, ...)
+  - FAMD scree plot
+AETHER_plot_famd_variables_interactive(famd_result, ...)
+  - Interactive FAMD variables plot (plotly)
+
+aether_motif_plots.R:
+---------------------
+AETHER_plot_motif_enrichment(homer_result, ...)
+  - Dotplot of HOMER motif enrichment results
+AETHER_plot_motif_comparison(homer_result, ...)
+  - Heatmap of motif enrichment across peak sets
+
+aether_network_plots.R:
+-----------------------
+AETHER_plot_ppi_network(ppi_data, ...)
+  - Static PPI network plot (ggraph)
+AETHER_plot_ppi_network_interactive(ppi_data, ...)
+  - Interactive PPI network plot (visNetwork)
+
+aether_part_wgcna_circos.R:
+----------------------------
+AETHER_plot_part_wgcna_circos(circos_data, ...)
+  - Circos plot comparing PART clusters to WGCNA modules
+
+aether_pca_plots.R:
+-------------------
+AETHER_plot_pca(counts, ...)
+  - PCA plot of normalized counts
+
+aether_scca_plots.R:
+--------------------
+AETHER_plot_feature_weights(weights, ...)
+  - Feature weight plot from sparse CCA results
+
+aether_timeseries_plots.R:
+---------------------------
+AETHER_plot_part_heatmap(part_result, ...)
+  - PART clustering heatmap
+AETHER_plot_cluster_trajectories(part_result, ...)
+  - Cluster trajectories over time
+AETHER_plot_cluster_means(part_result, ...)
+  - Cluster mean expression profiles
+AETHER_plot_timeseries_summary(part_result, ...)
+  - Summary plot for time series analysis
+
+aether_wgcna_plots.R:
+---------------------
+AETHER_plot_wgcna_power(wgcna_power, ...)
+  - Soft threshold power selection diagnostics
+AETHER_plot_wgcna_dendrogram(wgcna_modules, ...)
+  - Module dendrogram with color assignments
+AETHER_plot_module_trait_heatmap(wgcna_trait_cor, ...)
+  - WGCNA module-trait correlation heatmap (base R)
+AETHER_plot_module_trait_heatmap_gg(wgcna_trait_cor, ...)
+  - WGCNA module-trait correlation heatmap (ggplot2)
+AETHER_plot_sample_dendrogram(wgcna_data, ...)
+  - Sample dendrogram for outlier detection
+AETHER_plot_gs_vs_mm(wgcna_gene_sig, ...)
+  - Gene significance vs module membership scatter
+AETHER_plot_hub_summary(wgcna_hubs, ...)
+  - Hub genes summary plot
+
+================================================================================
+IN PROGRESS
+================================================================================
+- Nothing currently in progress
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Nothing planned at this time
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- No inter-module dependencies (Aether is visualization only)
+- External: ggplot2 (Depends), ComplexHeatmap, circlize, plotly, visNetwork,
+  ggraph, igraph, pheatmap, RColorBrewer, ggrepel, gridExtra
+- WGCNA plot functions require WGCNA package (Imports)

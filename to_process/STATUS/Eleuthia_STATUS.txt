@@ -1,0 +1,135 @@
+================================================================================
+ELEUTHIA STATUS - Import, Export & Reporting
+================================================================================
+Last Updated: 2026-02-18
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+eleuthia_activity_export.R:
+----------------------------
+ELEUTHIA_export_activity_results(activity_result, output_dir, ...)
+  - Export activity inference results to files
+
+eleuthia_cibersort_export.R:
+-----------------------------
+ELEUTHIA_export_cibersort_results(cibersort_result, output_dir, ...)
+  - Export CIBERSORT deconvolution results
+
+eleuthia_data_import.R:
+-----------------------
+ELEUTHIA_load_counts_from_dir(count_path, ...)
+  - Load count files from a directory
+ELEUTHIA_load_multi_counts(count_paths, ...)
+  - Load and combine counts from multiple paths/datasets
+
+eleuthia_dea_export.R:
+-----------------------
+ELEUTHIA_export_dea_results(dea_result, output_dir, ...)
+  - Export differential analysis results to files
+
+eleuthia_discriminative_report.R:
+-----------------------------------
+ELEUTHIA_discriminative_quick_summary(model_result, output_dir, ...)
+  - Generate quick summary report for discriminative analysis
+
+eleuthia_export_shared.R:
+--------------------------
+ELEUTHIA_export_enrichment(enrichment_result, output_dir, ...)
+  - Export enrichment results (shared helper used across export modules)
+
+eleuthia_logging.R:
+-------------------
+ELEUTHIA_generate_log_filename(log_dir, ...)
+  - Generate timestamped log filename
+ELEUTHIA_start_log(log_file, append, ...)
+  - Start logging output to file (sink)
+ELEUTHIA_stop_log()
+  - Stop logging and close sink
+ELEUTHIA_is_logging()
+  - Check if logging is currently active
+ELEUTHIA_get_log_file()
+  - Get path of current log file
+
+eleuthia_peak_loading.R:
+------------------------
+ELEUTHIA_load_bed(path, ...)
+  - Load BED format peak file
+ELEUTHIA_load_narrowpeak(path, ...)
+  - Load narrowPeak format file
+ELEUTHIA_load_bed_from_sheet(sample_sheet, ...)
+  - Load BED files listed in sample sheet
+ELEUTHIA_load_peaks_from_sheet(sample_sheet, ...)
+  - Load peaks from sample sheet (auto-detects format)
+ELEUTHIA_create_consensus_peaks(peak_list, ...)
+  - Create consensus peak set from multiple samples
+ELEUTHIA_peaks_to_saf(peaks, ...)
+  - Convert peak set to SAF format for featureCounts
+ELEUTHIA_call_regions_from_fragments(fragments, chrom_sizes, ...)
+  - Call accessible regions from fragment files
+
+eleuthia_quantification.R:
+---------------------------
+ELEUTHIA_summarize_quantification(quant_result, ...)
+  - Summarize quantification results across samples
+
+eleuthia_rnaseq_loading.R:
+---------------------------
+ELEUTHIA_load_count_file(path, ...)
+  - Load a single count file (HTSeq, featureCounts, etc.)
+ELEUTHIA_load_rnaseq_from_sheet(sample_sheet, ...)
+  - Load RNA-seq counts from all samples in sample sheet
+ELEUTHIA_filter_low_expression(counts, ...)
+  - Filter low-expression genes from count matrix
+
+eleuthia_sample_sheet.R:
+------------------------
+ELEUTHIA_get_omics_subset(sample_sheet, omics_type, ...)
+  - Subset sample sheet by omics type
+ELEUTHIA_load_quant_beds(sample_sheet, ...)
+  - Load quantification BED files listed in sample sheet
+ELEUTHIA_summarize_sample_sheet(sample_sheet, ...)
+  - Print summary of sample sheet structure
+
+eleuthia_sCCA_export.R:
+------------------------
+ELEUTHIA_save_scca_results(output_dir, scca_result, ...)
+  - Save sCCA results to output directory
+ELEUTHIA_generate_scca_summary(coarse_cv_results, ...)
+  - Generate summary report for sCCA cross-validation
+
+eleuthia_stratification_report.R:
+-----------------------------------
+ELEUTHIA_quick_summary(result, output_dir, ...)
+  - Generate quick summary report for cluster stratification analysis
+
+eleuthia_timeseries_export.R:
+------------------------------
+ELEUTHIA_export_timeseries_results(ts_result, output_dir, ...)
+  - Export time series analysis results to files
+
+eleuthia_wgcna_export.R:
+------------------------
+ELEUTHIA_export_wgcna_results(wgcna_result, output_dir, ...)
+  - Export WGCNA results (module assignments, traits, hub genes)
+ELEUTHIA_wgcna_report(wgcna_result, output_dir, ...)
+  - Generate WGCNA analysis report
+
+================================================================================
+IN PROGRESS
+================================================================================
+- Nothing currently in progress
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Nothing planned at this time
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- eleuthia_export_shared.R provides helpers used internally by other
+  Eleuthia export modules (all in same namespace, no source() needed)
+- Peak loading functions depend on GenomicRanges, IRanges (Suggests)
+- Quantification depends on Rsubread/Rsamtools (Suggests)

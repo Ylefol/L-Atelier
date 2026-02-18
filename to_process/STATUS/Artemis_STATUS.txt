@@ -1,0 +1,145 @@
+================================================================================
+ARTEMIS STATUS - Analysis & Statistics
+================================================================================
+Last Updated: 2026-02-18
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+artemis_anchor_analysis.R:
+---------------------------
+ARTEMIS_global_shift_test(data, ...)
+  - Test for global signal shift between conditions
+ARTEMIS_plot_global_shift(shift_result, ...)
+  - Plot global shift analysis results
+
+artemis_cibersort.R:
+--------------------
+ARTEMIS_cibersort(mixture, signature, ...)
+  - Run CIBERSORT cell type deconvolution
+
+artemis_clustering.R:
+---------------------
+ARTEMIS_cluster_mixed(data, k, ...)
+  - Cluster mixed/multi-omics data (FAMD + PAM)
+ARTEMIS_cluster_stability(data, k, ...)
+  - Assess cluster stability via bootstrap resampling
+ARTEMIS_evaluate_k_range(data, k_range, ...)
+  - Evaluate optimal number of clusters across a range of k
+ARTEMIS_characterize_clusters(data, cluster_result, ...)
+  - Characterize cluster profiles (variable importance, summaries)
+  - S3 print methods: print.artemis_characterization,
+    print.artemis_k_evaluation, print.artemis_variable_comparison
+
+artemis_decoupler.R:
+--------------------
+ARTEMIS_list_methods()
+  - List available decoupleR activity inference methods
+ARTEMIS_run_decoupler(counts, network, methods, ...)
+  - Run decoupleR for activity inference
+ARTEMIS_compare_methods(counts, network, ...)
+  - Compare multiple activity inference methods
+ARTEMIS_infer_tf_activity(counts, network, ...)
+  - Infer transcription factor activity
+ARTEMIS_infer_pathway_activity(counts, network, ...)
+  - Infer pathway activity
+
+artemis_differential_analysis.R:
+----------------------------------
+ARTEMIS_normalize_counts(counts, sample_sheet, ...)
+  - Normalize count data via DESeq2 size factors
+ARTEMIS_select_de_genes(dea_result, ...)
+  - Select differentially expressed genes by threshold
+ARTEMIS_prepare_part_matrix(counts, genes, ...)
+  - Prepare expression matrix for PART clustering
+
+artemis_discriminative_analysis.R:
+------------------------------------
+ARTEMIS_fit_group_lasso(X, y, ...)
+  - Fit group LASSO model for discriminative analysis
+  - S3 print: print.artemis_group_lasso
+ARTEMIS_select_lambda(glasso_fit, ...)
+  - Select optimal lambda from group LASSO fit
+ARTEMIS_extract_selected_variables(glasso_fit, ...)
+  - Extract selected variables from group LASSO
+ARTEMIS_fit_final_model(data, ...)
+  - Fit final multinomial model on selected variables
+ARTEMIS_extract_coefficients(final_model, ...)
+  - Extract coefficients from final model
+  - S3 print: print.artemis_final_model
+
+artemis_famd.R:
+---------------
+ARTEMIS_famd(data, ...)
+  - Factor Analysis of Mixed Data (wraps FactoMineR::FAMD)
+  - S3 print: print.artemis_famd
+
+artemis_part_clustering.R:
+---------------------------
+ARTEMIS_part(expr_matrix, ...)
+  - PART (Partition Around medoids for Time series) clustering
+ARTEMIS_part_summary(part_result, ...)
+  - Summary statistics for PART clustering result
+
+artemis_timeseries_analysis.R:
+--------------------------------
+ARTEMIS_normalize_timeseries(counts, sample_sheet, ...)
+  - Normalize time series count data
+ARTEMIS_timeseries_conditional(data, ...)
+  - Conditional analysis comparing conditions over time
+ARTEMIS_timeseries_temporal(data, ...)
+  - Temporal pattern analysis within conditions
+
+artemis_utils.R:
+----------------
+ARTEMIS_distance_to_nearest(query_regions, subject_regions, ...)
+  - Calculate distance from query to nearest subject genomic regions
+
+artemis_wgcna.R:
+----------------
+ARTEMIS_wgcna_prepare(counts, ...)
+  - Prepare expression data for WGCNA (transpose, filter)
+  - S3 print: print.wgcna_data
+ARTEMIS_wgcna_qc(wgcna_data, ...)
+  - Quality control for WGCNA (outlier detection)
+ARTEMIS_wgcna_cluster_samples(wgcna_data, ...)
+  - Hierarchical clustering of samples for WGCNA QC
+ARTEMIS_wgcna_pick_power(wgcna_data, ...)
+  - Select soft-threshold power for network construction
+  - S3 print: print.wgcna_power
+ARTEMIS_wgcna_detect_modules(wgcna_data, power, ...)
+  - Detect co-expression modules via blockwiseModules
+  - S3 print: print.wgcna_modules
+  - Note: assigns WGCNA::cor to .GlobalEnv if not on search path
+ARTEMIS_wgcna_module_traits(wgcna_modules, traits, ...)
+  - Correlate modules to sample traits
+  - S3 print: print.wgcna_trait_cor
+ARTEMIS_wgcna_gene_significance(wgcna_modules, traits, ...)
+  - Calculate gene significance and module membership
+  - S3 print: print.wgcna_gene_sig
+ARTEMIS_wgcna_hub_genes(wgcna_gene_sig, ...)
+  - Identify hub genes per module
+  - S3 print: print.wgcna_hubs
+
+================================================================================
+IN PROGRESS
+================================================================================
+- Nothing currently in progress
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Full DESeq2 differential expression pipeline (currently only normalization
+  and gene selection are implemented; pairwise/multi-group DEA wrappers planned)
+- Time series: additional pattern detection methods
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- DESeq2, SummarizedExperiment: in Imports (loaded with library(GAIA))
+- WGCNA: in Imports (loaded with library(GAIA)); cor() override handled
+  automatically in ARTEMIS_wgcna_detect_modules
+- decoupleR, OmnipathR: in Suggests (load manually)
+- FactoMineR, missMDA: in Suggests (load manually for FAMD)
+- grpreg, nnet: in Suggests (load manually for discriminative analysis)

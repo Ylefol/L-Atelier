@@ -1,0 +1,54 @@
+================================================================================
+MINERVA STATUS - Machine Learning & Validation
+================================================================================
+Last Updated: 2026-02-18
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+minerva_penalty_functions.R:
+-----------------------------
+MINERVA_soft_threshold_lasso(x, tau)
+  - Soft-thresholding operator for LASSO penalty
+MINERVA_soft_threshold_scad(x, tau, a)
+  - SCAD thresholding penalty
+MINERVA_proximal_lasso(omega, mu, c, tau, old)
+  - Proximal gradient step for LASSO
+MINERVA_proximal_scad(omega, mu, c, tau, old, a)
+  - Proximal gradient step for SCAD
+MINERVA_proximal_elastic_net(omega, mu, c, tau, old, alpha)
+  - Proximal gradient step for Elastic Net
+
+minerva_sCCA_CV.R:
+------------------
+MINERVA_create_folds(n, k, ...)
+  - Create cross-validation fold assignments
+MINERVA_scca_fit(X_1, X_2, method, tau, ...)
+  - Fit a single sparse CCA model
+MINERVA_evaluate_scca(fit, X_1_test, X_2_test, ...)
+  - Evaluate sCCA fit on held-out data
+MINERVA_cv_scca(X_1, X_2, method, tau_grid, ...)
+  - Cross-validation for sparse CCA (coarse + fine grid search)
+MINERVA_sparsity_quality(weights, ...)
+  - Evaluate sparsity quality metrics for CCA weight vectors
+MINERVA_pilot_compare_methods(X_1, X_2, ...)
+  - Pilot comparison of sCCA methods (ConvCCA vs RelPMDCCA)
+
+================================================================================
+IN PROGRESS
+================================================================================
+- Nothing currently in progress
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Cross-validation wrappers for other methods beyond sCCA
+- Model evaluation metrics for classification (from discriminative analysis)
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- minerva_penalty_functions.R is used by Hephaestus integration methods
+  (available automatically via package namespace)
+- minerva_sCCA_CV.R depends on Hephaestus CCA functions

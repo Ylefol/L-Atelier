@@ -1,0 +1,59 @@
+================================================================================
+HEPHAESTUS STATUS - Integration
+================================================================================
+Last Updated: 2026-02-18
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+hephaestus_ConvCCA.R:
+---------------------
+Internal helpers (not exported):
+  HEPHAESTUS_updateW_convCCA(K, v, tau, penalty)
+    - Update weight vector for ConvCCA (single dataset)
+  HEPHAESTUS_updateWmulti_convCCA(K, w, whichDSet, tau, penalty)
+    - Update weight vector for multi-dataset ConvCCA
+  HEPHAESTUS_convCCA_algo(X_1, X_2, tauW_1, tauW_2, ...)
+    - Core ConvCCA algorithm (2-dataset)
+  HEPHAESTUS_multi_convCCA_algo(X, tau, ...)
+    - Core multi-dataset ConvCCA algorithm
+
+Exported:
+  HEPHAESTUS_convCCA(X_1, X_2, tauW_1, tauW_2, ...)
+    - Convex sparse CCA for 2 datasets
+  HEPHAESTUS_multi_convCCA(X, tau, ...)
+    - Convex sparse CCA for multiple datasets
+
+hephaestus_RelPMDCCA.R:
+-----------------------
+Internal helpers (not exported):
+  HEPHAESTUS_updateZ(x, old)
+    - Update Z in RelPMD algorithm
+  HEPHAESTUS_relPMDCCA_algo(X_1, X_2, lambda, tauW_1, tauW_2, ...)
+    - Core RelPMD-CCA algorithm (2-dataset)
+  HEPHAESTUS_multi_relPMDCCA_algo(X, lambda, tau, ...)
+    - Core multi-dataset RelPMD-CCA algorithm
+
+Exported:
+  HEPHAESTUS_relPMDCCA(X_1, X_2, lambda, tauW_1, tauW_2, ...)
+    - Relative PMD sparse CCA for 2 datasets
+  HEPHAESTUS_multi_relPMDCCA(X, lambda, tau, ...)
+    - Relative PMD sparse CCA for multiple datasets
+
+================================================================================
+IN PROGRESS
+================================================================================
+- Nothing currently in progress
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Additional integration methods (e.g. MOFA-inspired, kernel-based)
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Depends on Minerva penalty functions (MINERVA_soft_threshold_lasso, etc.)
+  available automatically via package namespace
+- External: Matrix, PMA (Suggests)

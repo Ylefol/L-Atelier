@@ -1,0 +1,79 @@
+================================================================================
+DEMETER STATUS - Utilities
+================================================================================
+Last Updated: 2026-02-18
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+demeter_correlation_utils.R:
+------------------------------
+DEMETER_correlation_matrix(data, ...)
+  - Calculate correlation matrix with optional p-values
+DEMETER_format_pvalues(pval_matrix, ...)
+  - Format p-value matrix for display
+DEMETER_format_pvalue_triangle(pval_matrix, ...)
+  - Format p-value triangle plot annotation
+
+demeter_grid_utils.R:
+---------------------
+DEMETER_create_coarse_grid(n_params, values, ...)
+  - Create coarse parameter grid for hyperparameter search
+DEMETER_create_fine_grid(ranges, n_points, ...)
+  - Create fine grid around promising regions
+DEMETER_create_ranges_around_values(best_values, ...)
+  - Create parameter ranges centred on best values from coarse search
+
+demeter_matrix_utils.R:
+------------------------
+DEMETER_matrix_power(Sigma, power)
+  - Compute matrix power (e.g. Sigma^{-0.5} for whitening)
+  - Also exports %^% operator for matrix power
+
+demeter_result_loaders.R:
+--------------------------
+DEMETER_load_wgcna(path, ...)
+  - Load saved WGCNA results from file
+DEMETER_top_activities(activity_result, ...)
+  - Extract top N activities from inference results
+DEMETER_load_activity(path, ...)
+  - Load activity inference results from file
+DEMETER_load_dea_genes(path, ...)
+  - Load differentially expressed gene list
+DEMETER_load_dea(path, ...)
+  - Load full DEA results object
+DEMETER_generate_colors(groups, ...)
+  - Generate consistent color schemes for groups/modules
+DEMETER_prepare_part_wgcna_circos(part_result, wgcna_result, ...)
+  - Prepare combined PART-WGCNA data structure for circos plotting
+DEMETER_select_circos_modules(circos_data, ...)
+  - Select modules meeting criteria for circos display
+DEMETER_filter_circos_modules(circos_data, modules, ...)
+  - Filter circos data to selected modules
+DEMETER_filter_circos_clusters(circos_data, clusters, ...)
+  - Filter circos data to selected PART clusters
+DEMETER_rename_circos_modules(circos_data, rename_map, ...)
+  - Rename modules for display in circos plot
+
+demeter_simulate_data.R:
+------------------------
+DEMETER_generate_multi_datasets(n_datasets, n_samples, n_features, ...)
+  - Generate simulated multi-omics datasets for testing
+
+================================================================================
+IN PROGRESS
+================================================================================
+- Nothing currently in progress
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Nothing planned at this time
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- No inter-module dependencies (Demeter is the base utility layer)
+- demeter_result_loaders.R is the primary helper for cross-module result loading
+  used heavily in project scripts
