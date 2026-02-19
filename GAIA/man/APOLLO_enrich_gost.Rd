@@ -12,8 +12,8 @@ APOLLO_enrich_gost(
   correction_method = "g_SCS",
   domain_scope = "annotated",
   custom_bg = NULL,
-  min_term_size = 10,
-  max_term_size = 500,
+  min_term_size = 1,
+  max_term_size = 1e+06,
   max_query_size = 10000,
   significant = TRUE,
   exclude_iea = FALSE,
@@ -51,9 +51,11 @@ Default: c("GO:BP", "KEGG", "REAC").}
 
 \item{custom_bg}{Custom background gene set (when domain_scope = "custom").}
 
-\item{min_term_size}{Minimum term/pathway size. Default: 10.}
+\item{min_term_size}{Minimum term/pathway size. Default: 1 (no filtering,
+matches gprofiler online defaults).}
 
-\item{max_term_size}{Maximum term/pathway size. Default: 500.}
+\item{max_term_size}{Maximum term/pathway size. Default: 1e6 (no effective
+upper limit, matches gprofiler online defaults).}
 
 \item{max_query_size}{Maximum number of genes per query. Gene lists exceeding
 this are skipped. Prevents slow, uninformative enrichment on very large

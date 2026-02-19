@@ -247,12 +247,16 @@ genes <- unique(as.character(genes))
 }
 
 
-#' Extract gene lists from WGCNA modules
+#' Extract gene lists from WGCNA modules or hub gene objects
 #'
-#' Convenience function to extract gene lists from a wgcna_modules object,
-#' optionally converting to ENTREZID.
+#' Convenience function to extract gene lists from a wgcna_modules or
+#' wgcna_hubs object, optionally converting to ENTREZID. When passed a
+#' wgcna_hubs object (from ARTEMIS_wgcna_hub_genes() with n_top = NULL and
+#' a kME threshold), only hub genes passing the threshold are returned —
+#' suitable for enrichment analysis on large modules.
 #'
-#' @param modules A wgcna_modules object from ARTEMIS_wgcna_detect_modules().
+#' @param modules A wgcna_modules object from ARTEMIS_wgcna_detect_modules(),
+#'   or a wgcna_hubs object from ARTEMIS_wgcna_hub_genes().
 #' @param modules_of_interest Character vector of module colors to extract.
 #'   Default: NULL (all modules except grey).
 #' @param exclude_grey Logical. Exclude the grey (unassigned) module. Default: TRUE.
@@ -290,8 +294,52 @@ APOLLO_extract_module_genes <- function(modules,
                                          to_type = "ENTREZID",
                                          verbose = TRUE) {
 
+  # --- wgcna_hubs dispatch ---
+  if (inherits(modules, "wgcna_hubs")) {
+    hub_df <- modules$hub_genes  # already filtered by is_hub / mm_threshold
+
+    if (nrow(hub_df) == 0) {
+      stop("wgcna_hubs object contains no hub genes (hub_genes is empty). ",
+           "Consider lowering mm_threshold or setting n_top = NULL.")
+    }
+
+    gene_lists <- split(hub_df$gene, hub_df$module)
+
+    if (!is.null(modules_of_interest)) {
+      invalid <- setdiff(modules_of_interest, names(gene_lists))
+      if (length(invalid) > 0) {
+        warning("Modules not found in hub genes: ", paste(invalid, collapse = ", "))
+      }
+      gene_lists <- gene_lists[intersect(modules_of_interest, names(gene_lists))]
+    }
+
+    if (verbose) {
+      sizes <- sapply(gene_lists, length)
+      cat("Hub genes per module (MM threshold =",
+          modules$criteria$mm_threshold, "):\n")
+      cat(paste(names(sizes), sizes, sep = "=", collapse = ", "), "\n")
+    }
+
+    if (strip_version) {
+      gene_lists <- lapply(gene_lists, function(genes) unique(sub("\\.[0-9]+$", "", genes)))
+    }
+
+    if (!is.null(org_db)) {
+      gene_lists <- APOLLO_prepare_genelist(
+        gene_lists,
+        org_db = org_db,
+        from_type = from_type,
+        to_type = to_type,
+        strip_version = FALSE,
+        verbose = verbose
+      )
+    }
+
+    return(gene_lists)
+  }
+
   if (!inherits(modules, "wgcna_modules")) {
-    stop("modules must be a wgcna_modules object")
+    stop("modules must be a wgcna_modules or wgcna_hubs object")
   }
 
   module_names_vec <- modules$module_names
@@ -380,8 +428,10 @@ APOLLO_extract_module_genes <- function(modules,
 #'   "known" (all known genes),
 #'   "custom" (provide custom_bg). Default: "annotated".
 #' @param custom_bg Custom background gene set (when domain_scope = "custom").
-#' @param min_term_size Minimum term/pathway size. Default: 10.
-#' @param max_term_size Maximum term/pathway size. Default: 500.
+#' @param min_term_size Minimum term/pathway size. Default: 1 (no filtering,
+#'   matches gprofiler online defaults).
+#' @param max_term_size Maximum term/pathway size. Default: 1e6 (no effective
+#'   upper limit, matches gprofiler online defaults).
 #' @param max_query_size Maximum number of genes per query. Gene lists exceeding
 #'   this are skipped. Prevents slow, uninformative enrichment on very large
 #'   gene sets (e.g., WGCNA grey module). Default: 10000. Set to NULL to disable.
@@ -425,8 +475,8 @@ APOLLO_enrich_gost <- function(gene_lists,
                                 correction_method = "g_SCS",
                                 domain_scope = "annotated",
                                 custom_bg = NULL,
-                                min_term_size = 10,
-                                max_term_size = 500,
+                                min_term_size = 1,
+                                max_term_size = 1e6,
                                 max_query_size = 10000,
                                 significant = TRUE,
                                 exclude_iea = FALSE,

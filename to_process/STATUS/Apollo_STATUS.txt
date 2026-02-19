@@ -1,7 +1,7 @@
 ================================================================================
 APOLLO STATUS - Annotation & Enrichment
 ================================================================================
-Last Updated: 2026-02-18
+Last Updated: 2026-02-19
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -35,7 +35,8 @@ APOLLO_convert_genes(genes, from, to, ...)
 APOLLO_prepare_genelist(genes, ...)
   - Prepare ranked/filtered gene list for enrichment
 APOLLO_extract_module_genes(wgcna_result, module, ...)
-  - Extract gene list from a WGCNA module
+  - Extract gene list from a wgcna_modules or wgcna_hubs object
+  - Accepts wgcna_hubs for kME-filtered enrichment on large modules
 APOLLO_enrich_gost(genes, ...)
   - Run gprofiler2 enrichment analysis
 APOLLO_filter_enrichment(enrichment_result, ...)
@@ -43,6 +44,9 @@ APOLLO_filter_enrichment(enrichment_result, ...)
 
 apollo_motif_enrichment.R:
 ---------------------------
+APOLLO_extract_summits(peak_files, output_dir, ...)
+  - Extract summit-centered BED files from narrowPeak files (col10 summit offset)
+  - Returns named vector of output paths for direct input to HOMER batch
 APOLLO_homer_motif_enrichment(peaks, genome, output_dir, ...)
   - Run HOMER motif enrichment on a peak set
 APOLLO_homer_motif_enrichment_batch(peak_list, ...)

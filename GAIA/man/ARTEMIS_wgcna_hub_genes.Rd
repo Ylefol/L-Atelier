@@ -23,7 +23,9 @@ to identify trait-relevant hubs.}
 \item{trait_name}{Trait name to use for trait-relevant hub identification.
 Required if gene_sig is provided and has multiple traits.}
 
-\item{n_top}{Number of top hub genes to return per module. Default: 10.}
+\item{n_top}{Number of top hub genes to return per module. Default: 10.
+Set to NULL to return all genes above mm_threshold (useful for enrichment
+analysis where a kME threshold is more appropriate than a fixed count).}
 
 \item{mm_threshold}{Module membership threshold for hub genes. Default: 0.8.}
 

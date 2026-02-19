@@ -352,14 +352,15 @@ AETHER_plot_ppi_network_interactive <- function(graph,
 
   # --- Build edges data.frame ---
   edge_list <- igraph::as_data_frame(graph, what = "edges")
+  n_edges <- nrow(edge_list)
   edges <- data.frame(
     from  = edge_list$from,
     to    = edge_list$to,
-    color = "gray80",
+    color = rep("gray80", n_edges),
     stringsAsFactors = FALSE
   )
 
-  if ("n_resources" %in% colnames(edge_list)) {
+  if (n_edges > 0 && "n_resources" %in% colnames(edge_list)) {
     edges$title <- paste0("Resources: ", edge_list$n_resources)
     # Scale edge width by resources
     edges$width <- pmin(edge_list$n_resources, 5)

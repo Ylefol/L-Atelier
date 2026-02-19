@@ -9,6 +9,159 @@
 
 
 # ==============================================================================
+# Peak preprocessing
+# ==============================================================================
+
+#' Extract summit-centered BED files from narrowPeak files
+#'
+#' Reads MACS2/MACS3 narrowPeak files and writes fixed-width BED files centered
+#' on each peak summit (column 10: 0-based offset from peak start). The output
+#' is a named vector of BED paths that feeds directly into
+#' \code{APOLLO_homer_motif_enrichment_batch()}.
+#'
+#' @param peak_files Named character vector of narrowPeak file paths. Names are
+#'   used as set identifiers and as the base of output BED filenames.
+#' @param output_dir Directory to save summit BED files. Created if it doesn't
+#'   exist.
+#' @param half_window Integer. Half-width (bp) around each summit. Total window
+#'   = \code{2 * half_window}. Default: 100 (200 bp total).
+#' @param skip_missing Logical. If TRUE, missing peak files are skipped with a
+#'   warning rather than causing an error. Default: TRUE.
+#' @param verbose Logical. Print per-set progress. Default: TRUE.
+#'
+#' @return Named character vector of output BED file paths (one per input set).
+#'   Silently drops entries for files that were skipped or contained no valid
+#'   summits.
+#'
+#' @details
+#' NarrowPeak column 10 is the 0-based distance from the peak start to the
+#' summit. Rows where this value is \code{-1} (as in broadPeak-style output with
+#' no called summit) are skipped. Coordinates that would extend below 0 are
+#' clamped to 0; no upper-boundary clamping is applied (chromosome sizes are
+#' not required).
+#'
+#' The output BED is 6-column (chr, start, end, name, score, strand). Name and
+#' score are taken from the narrowPeak where available.
+#'
+#' @examples
+#' \dontrun{
+#' peak_files <- c(
+#'   KO1a = "data/ATACseq/KO1a_sorted_peaks.narrowPeak",
+#'   WT1a = "data/ATACseq/WT1a_sorted_peaks.narrowPeak"
+#' )
+#'
+#' summit_beds <- APOLLO_extract_summits(peak_files, "results/summits/")
+#'
+#' # Feed directly into HOMER batch
+#' batch <- APOLLO_homer_motif_enrichment_batch(summit_beds, "hg38", "results/motifs/")
+#' }
+#' @export
+APOLLO_extract_summits <- function(peak_files,
+                                    output_dir,
+                                    half_window = 100L,
+                                    skip_missing = TRUE,
+                                    verbose = TRUE) {
+
+  if (is.null(names(peak_files)) || any(names(peak_files) == "")) {
+    stop("peak_files must be a named character vector. Names are used as set identifiers.",
+         call. = FALSE)
+  }
+
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+    if (verbose) cat("Created directory:", output_dir, "\n")
+  }
+
+  half_window <- as.integer(half_window)
+  out_paths <- stats::setNames(rep(NA_character_, length(peak_files)), names(peak_files))
+
+  for (nm in names(peak_files)) {
+    peak_file <- peak_files[[nm]]
+
+    # Check file exists
+    if (!file.exists(peak_file)) {
+      if (skip_missing) {
+        if (verbose) cat("  Skipping (file not found):", peak_file, "\n")
+        next
+      } else {
+        stop("Peak file not found: ", peak_file, call. = FALSE)
+      }
+    }
+
+    # Read narrowPeak (tab-separated, no header)
+    np <- tryCatch(
+      utils::read.table(peak_file, header = FALSE, stringsAsFactors = FALSE,
+                        fill = TRUE, comment.char = "#"),
+      error = function(e) {
+        stop("Failed to read narrowPeak '", peak_file, "': ", e$message, call. = FALSE)
+      }
+    )
+
+    if (ncol(np) < 10) {
+      stop("File does not appear to be narrowPeak format (expected >= 10 columns): ",
+           peak_file, call. = FALSE)
+    }
+
+    # Drop rows with no summit (col10 = -1, used in broadPeak-style output)
+    valid <- !is.na(np[[10]]) & np[[10]] >= 0L
+    if (any(!valid)) {
+      if (verbose) {
+        cat("  ", nm, ": dropping", sum(!valid),
+            "peak(s) with no summit (col10 = -1)\n", sep = "")
+      }
+      np <- np[valid, , drop = FALSE]
+    }
+
+    if (nrow(np) == 0) {
+      warning("No peaks with a valid summit in: ", peak_file)
+      next
+    }
+
+    # Summit position (0-based): peak start + col10 offset
+    summit    <- np[[2]] + np[[10]]
+    start_new <- pmax(0L, as.integer(summit) - half_window)
+    end_new   <- as.integer(summit) + half_window
+
+    # 6-column BED
+    has_name  <- ncol(np) >= 4 && !all(np[[4]] == ".")
+    has_score <- ncol(np) >= 5
+    has_strand <- ncol(np) >= 6 && !all(np[[6]] == ".")
+
+    bed <- data.frame(
+      chr    = np[[1]],
+      start  = start_new,
+      end    = end_new,
+      name   = if (has_name) np[[4]] else paste0(nm, "_peak_", seq_len(nrow(np))),
+      score  = if (has_score) np[[5]] else 0L,
+      strand = if (has_strand) np[[6]] else ".",
+      stringsAsFactors = FALSE
+    )
+
+    out_file <- file.path(output_dir, paste0(nm, "_summits.bed"))
+    utils::write.table(bed, out_file, sep = "\t", quote = FALSE,
+                       row.names = FALSE, col.names = FALSE)
+
+    out_paths[[nm]] <- out_file
+
+    if (verbose) {
+      cat("  ", nm, ": ", nrow(bed), " summit regions (", 2L * half_window,
+          " bp) -> ", basename(out_file), "\n", sep = "")
+    }
+  }
+
+  # Drop entries for sets that were skipped
+  out_paths <- out_paths[!is.na(out_paths)]
+
+  if (verbose) {
+    cat("Summit BED files written:", length(out_paths), "/",
+        length(peak_files), "\n")
+  }
+
+  return(out_paths)
+}
+
+
+# ==============================================================================
 # Internal helpers
 # ==============================================================================
 

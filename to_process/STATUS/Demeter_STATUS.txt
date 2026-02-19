@@ -1,7 +1,7 @@
 ================================================================================
 DEMETER STATUS - Utilities
 ================================================================================
-Last Updated: 2026-02-18
+Last Updated: 2026-02-19
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -33,6 +33,9 @@ DEMETER_matrix_power(Sigma, power)
 
 demeter_result_loaders.R:
 --------------------------
+DEMETER_load_part_result(exp_dir, prefix, ...)
+  - Load a PART clustering result from RDS or CSV fallback
+  - Promoted from internal helper; RDS gives full object, CSV gives limited reconstruction
 DEMETER_load_wgcna(path, ...)
   - Load saved WGCNA results from file
 DEMETER_top_activities(activity_result, ...)

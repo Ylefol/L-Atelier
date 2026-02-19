@@ -265,13 +265,18 @@ ELEUTHIA_export_enrichment <- function(enrichment,
       # Clean source name for filename
       src_clean <- gsub(":", "_", src)
 
-      # Calculate height based on number of unique terms (after top_n selection)
-      # Estimate: top_n terms per module, but many overlap, so use unique count
+      # Calculate height based on wrapped line count of unique terms.
+      # Terms are wrapped at width = 50 (matches AETHER_plot_gost_dotplot default).
+      # A term wrapping to N lines occupies N times the vertical space of a
+      # single-line term, so we sum lines rather than count terms.
       src_df_ordered <- src_df[order(src_df$p_value), ]
       top_terms <- do.call(rbind, lapply(split(src_df_ordered, src_df_ordered$module), head, plot_top_n))
-      n_unique_terms <- length(unique(top_terms$term_name))
-      # ~0.3 inches per term, minimum 6 inches, maximum 20 inches
-      plot_height <- min(20, max(6, n_unique_terms * 0.3))
+      unique_term_names <- unique(top_terms$term_name)
+      total_lines <- sum(sapply(unique_term_names, function(nm) {
+        length(strwrap(nm, width = 50))
+      }))
+      # ~0.3 inches per line, minimum 6 inches, maximum 24 inches
+      plot_height <- min(24, max(6, total_lines * 0.3))
 
       # Generate plot using AETHER function
       p <- tryCatch({

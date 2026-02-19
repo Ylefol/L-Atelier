@@ -1585,6 +1585,8 @@ print.wgcna_gene_sig <- function(x, ...) {
 #' @param trait_name Trait name to use for trait-relevant hub identification.
 #'   Required if gene_sig is provided and has multiple traits.
 #' @param n_top Number of top hub genes to return per module. Default: 10.
+#'   Set to NULL to return all genes above mm_threshold (useful for enrichment
+#'   analysis where a kME threshold is more appropriate than a fixed count).
 #' @param mm_threshold Module membership threshold for hub genes. Default: 0.8.
 #' @param gs_threshold Gene significance threshold (if using trait). Default: 0.2.
 #' @param verbose Logical. Print progress messages. Default: TRUE.
@@ -1724,8 +1726,8 @@ ARTEMIS_wgcna_hub_genes <- function(modules,
       mod_df <- mod_df[order(-abs(mod_df$MM)), ]
     }
 
-    # Get top hubs
-    hub_list[[mod]] <- head(mod_df, n_top)
+    # Get top hubs (NULL = all genes above mm_threshold)
+    hub_list[[mod]] <- if (is.null(n_top)) mod_df else head(mod_df, n_top)
   }
 
   # Combine all hub genes

@@ -1,7 +1,7 @@
 ================================================================================
 ARTEMIS STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-02-18
+Last Updated: 2026-02-19
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -120,6 +120,7 @@ ARTEMIS_wgcna_gene_significance(wgcna_modules, traits, ...)
   - S3 print: print.wgcna_gene_sig
 ARTEMIS_wgcna_hub_genes(wgcna_gene_sig, ...)
   - Identify hub genes per module
+  - n_top = NULL returns all genes above mm_threshold (for enrichment use)
   - S3 print: print.wgcna_hubs
 
 ================================================================================

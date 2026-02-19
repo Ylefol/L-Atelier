@@ -918,7 +918,7 @@ DEMETER_load_dea <- function(dea_dir,
 
     # --- Load PART ---
     if (load_part) {
-      part <- .load_part_result(exp_dir, prefix, verbose)
+      part <- DEMETER_load_part_result(exp_dir, prefix, verbose)
       if (!is.null(part)) {
         exp_result$part <- part
       }
@@ -1048,9 +1048,29 @@ DEMETER_load_dea <- function(dea_dir,
 }
 
 
-#' Load single PART result (RDS or CSV)
-#' @noRd
-.load_part_result <- function(exp_dir, prefix, verbose) {
+#' Load a PART clustering result
+#'
+#' Loads a PART result saved by \code{ELEUTHIA_export_timeseries_results()}.
+#' Tries the full RDS object first; falls back to reconstructing from the
+#' cluster assignment CSV if the RDS is not present.
+#'
+#' @param exp_dir Character. Directory containing the saved PART files.
+#' @param prefix Character. Filename prefix used when the result was exported
+#'   (e.g., the experiment name).
+#' @param verbose Logical. Print loading messages. Default: TRUE.
+#'
+#' @return An \code{artemis_part} object, or NULL if no PART files are found.
+#'   Objects reconstructed from CSV will have \code{dendrogram = NULL} and
+#'   \code{data = NULL} — sufficient for downstream plotting and gene extraction
+#'   but not for re-running tree-based operations.
+#'
+#' @examples
+#' \dontrun{
+#' part <- DEMETER_load_part_result("results/timeseries/experiment1/",
+#'                                   prefix = "experiment1")
+#' }
+#' @export
+DEMETER_load_part_result <- function(exp_dir, prefix, verbose = TRUE) {
 
   # Try RDS
   rds_file <- file.path(exp_dir, paste0(prefix, "_part_result.rds"))

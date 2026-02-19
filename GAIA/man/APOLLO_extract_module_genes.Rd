@@ -2,7 +2,7 @@
 % Please edit documentation in R/apollo_gene_enrichment.R
 \name{APOLLO_extract_module_genes}
 \alias{APOLLO_extract_module_genes}
-\title{Extract gene lists from WGCNA modules}
+\title{Extract gene lists from WGCNA modules or hub gene objects}
 \usage{
 APOLLO_extract_module_genes(
   modules,
@@ -16,7 +16,8 @@ APOLLO_extract_module_genes(
 )
 }
 \arguments{
-\item{modules}{A wgcna_modules object from ARTEMIS_wgcna_detect_modules().}
+\item{modules}{A wgcna_modules object from ARTEMIS_wgcna_detect_modules(),
+or a wgcna_hubs object from ARTEMIS_wgcna_hub_genes().}
 
 \item{modules_of_interest}{Character vector of module colors to extract.
 Default: NULL (all modules except grey).}
@@ -38,8 +39,11 @@ Default: NULL (all modules except grey).}
 Named list of gene vectors, one per module.
 }
 \description{
-Convenience function to extract gene lists from a wgcna_modules object,
-optionally converting to ENTREZID.
+Convenience function to extract gene lists from a wgcna_modules or
+wgcna_hubs object, optionally converting to ENTREZID. When passed a
+wgcna_hubs object (from ARTEMIS_wgcna_hub_genes() with n_top = NULL and
+a kME threshold), only hub genes passing the threshold are returned —
+suitable for enrichment analysis on large modules.
 }
 \examples{
 \dontrun{
