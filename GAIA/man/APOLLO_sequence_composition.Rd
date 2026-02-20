@@ -44,7 +44,11 @@ metrics (default = TRUE).}
 \item{verbose}{Logical. Print progress messages (default = TRUE).}
 }
 \value{
-A data.frame with one row per input region containing:
+When \code{regions} is a data.frame: a data.frame with one row per
+input region. When \code{regions} is a named list of data.frames: a named
+list of such data.frames, one per input set.
+
+Each data.frame contains:
 \describe{
 \item{peak_id}{Region identifier (from input or generated)}
 \item{width}{Final region width after extension}
@@ -87,6 +91,12 @@ short sequences (e.g., 10bp regions where each base is 10\%).
 \dontrun{
 # Basic usage with genomic regions
 comp <- APOLLO_sequence_composition(regions, "reference.fa")
+
+# Named list of peak sets (returns named list of data.frames)
+comp_list <- APOLLO_sequence_composition(
+  list(WT = wt_peaks, KO = ko_peaks),
+  "T2T.fna", chr_mapping = "T2T"
+)
 
 # With T2T genome (regions have chr1, FASTA has NC_060925.1)
 comp <- APOLLO_sequence_composition(regions, "T2T.fna", chr_mapping = "T2T")

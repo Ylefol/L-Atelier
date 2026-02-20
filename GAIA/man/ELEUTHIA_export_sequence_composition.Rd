@@ -14,7 +14,10 @@ ELEUTHIA_export_sequence_composition(
 )
 }
 \arguments{
-\item{composition}{A data.frame from \code{APOLLO_sequence_composition()}.
+\item{composition}{A data.frame from \code{APOLLO_sequence_composition()},
+or a named list of such data.frames (one per peak set). When a list is
+provided, each element is exported to its own subdirectory under
+\code{output_dir} named after the list element.
 Expected columns: \code{peak_id}, \code{width}, \code{gc_percent},
 \code{at_percent}, \code{n_Nbases}. Optional: \code{longest_homopolymer},
 \code{homopolymer_base}, \code{longest_dinucleotide},
@@ -58,6 +61,12 @@ region width, and repeat metrics (\code{{prefix}_summary.txt})
 \dontrun{
 comp <- APOLLO_sequence_composition(peaks, "genome.fa")
 ELEUTHIA_export_sequence_composition(comp, "results/composition/")
+
+# Named list — each set gets its own subdirectory
+comp_list <- APOLLO_sequence_composition(list(WT = wt, KO = ko), "genome.fa")
+ELEUTHIA_export_sequence_composition(comp_list, "results/composition/")
+# -> results/composition/WT/composition_composition.csv
+# -> results/composition/KO/composition_composition.csv
 
 # Save sequences separately
 ELEUTHIA_export_sequence_composition(comp, "results/composition/",

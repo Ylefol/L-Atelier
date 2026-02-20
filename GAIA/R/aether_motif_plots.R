@@ -102,13 +102,18 @@ AETHER_plot_motif_enrichment <- function(homer_result,
   df$motif_label <- factor(df$motif_label, levels = motif_order)
 
   # --- Set up color variable ---
+  # pmax guards against 0 (perfectly significant) producing Inf from -log10,
+  # which collapses scale_color_gradient to gray. Values are capped at 300
+  # for display; explicit limits ensure the gradient spans 0 -> max even
+  # when all values are equal (e.g., all q = 0 -> all color_var = 300).
   if (color_by == "p_value") {
-    df$color_var <- -log10(df$p_value)
+    df$color_var <- pmin(-log10(pmax(df$p_value, .Machine$double.xmin)), 300)
     color_label <- "-log10(p-value)"
   } else {
-    df$color_var <- -log10(df$q_value)
+    df$color_var <- pmin(-log10(pmax(df$q_value, .Machine$double.xmin)), 300)
     color_label <- "-log10(q-value)"
   }
+  color_limits <- c(0, max(df$color_var, na.rm = TRUE))
 
   # --- Set up size variable ---
   if (size_by == "n_target") {
@@ -142,7 +147,8 @@ AETHER_plot_motif_enrichment <- function(homer_result,
   }
 
   p <- p +
-    scale_color_gradient(low = color_low, high = color_high, name = color_label) +
+    scale_color_gradient(low = color_low, high = color_high, name = color_label,
+                         limits = color_limits) +
     scale_size_continuous(range = dot_range, name = size_label) +
     labs(
       title = title,
@@ -252,14 +258,14 @@ AETHER_plot_motif_comparison <- function(homer_batch,
     row_name <- df$motif_family[i]
     col_name <- df$peak_set[i]
     q_val <- df$q_value[i]
-    if (!is.na(q_val) && q_val > 0) {
-      mat[row_name, col_name] <- -log10(q_val)
+    if (!is.na(q_val)) {
+      mat[row_name, col_name] <- -log10(pmax(q_val, .Machine$double.xmin))
     }
   }
 
-  # Cap extreme values for visualization
+  # Cap extreme values for visualization (handles q = 0 -> Inf after -log10)
   max_val <- max(mat, na.rm = TRUE)
-  cap <- min(max_val, 50)  # Cap at -log10(1e-50)
+  cap <- if (is.finite(max_val)) min(max_val, 50) else 50
   mat[mat > cap] <- cap
 
   # --- Color palette ---
