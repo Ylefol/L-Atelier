@@ -1,7 +1,7 @@
 ================================================================================
 AETHER STATUS - Visualization
 ================================================================================
-Last Updated: 2026-02-18
+Last Updated: 2026-02-20
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -69,6 +69,13 @@ AETHER_plot_waterfall(dea_result, ...)
   - Waterfall plot of fold changes
 AETHER_plot_fc_vs_signal(anchor_result, ...)
   - Volcano-style plot for anchor/signal analysis
+AETHER_plot_volcano(dea_result, ...)
+  - Four-category volcano plot; accepts ARTEMIS_perform_dea() output or data.frame
+  - Categories: up-reg, down-reg, low-regulation, non-sig; counts in legend
+  - Supports genes_of_interest labels, label_top_n, show_non_sig_interest
+AETHER_plot_ma(dea_result, ...)
+  - Four-category MA plot (log2FC vs log2 baseMean)
+  - Same category/legend scheme as AETHER_plot_volcano
 
 aether_enrichment_plots.R:
 ---------------------------

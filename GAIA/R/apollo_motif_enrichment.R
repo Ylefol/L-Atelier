@@ -25,6 +25,20 @@
 #'   exist.
 #' @param half_window Integer. Half-width (bp) around each summit. Total window
 #'   = \code{2 * half_window}. Default: 100 (200 bp total).
+#' @param chr_mapping Optional chromosome name conversion applied to the chr
+#'   column before writing the BED file. Useful when peak files use UCSC-style
+#'   names (chr1, chr2) but the HOMER genome was indexed with NCBI accessions
+#'   (e.g., NC_060925.1 for T2T). Accepts:
+#'   \itemize{
+#'     \item A genome name string (e.g., \code{"T2T"}) — uses the built-in
+#'       mapping from \code{APOLLO_get_chr_mapping()}, automatically reversed
+#'       to UCSC → NCBI direction.
+#'     \item A named character vector where names are the source chr names and
+#'       values are the target chr names.
+#'     \item \code{NULL} (default) — no conversion.
+#'   }
+#'   Peaks whose chromosome is not found in the mapping are dropped with a
+#'   warning.
 #' @param skip_missing Logical. If TRUE, missing peak files are skipped with a
 #'   warning rather than causing an error. Default: TRUE.
 #' @param verbose Logical. Print per-set progress. Default: TRUE.
@@ -50,15 +64,20 @@
 #'   WT1a = "data/ATACseq/WT1a_sorted_peaks.narrowPeak"
 #' )
 #'
+#' # Standard hg38
 #' summit_beds <- APOLLO_extract_summits(peak_files, "results/summits/")
 #'
+#' # T2T: convert chr1/chr2/... to NC_060925.1/NC_060926.1/...
+#' summit_beds <- APOLLO_extract_summits(peak_files, "results/summits/", chr_mapping = "T2T")
+#'
 #' # Feed directly into HOMER batch
-#' batch <- APOLLO_homer_motif_enrichment_batch(summit_beds, "hg38", "results/motifs/")
+#' batch <- APOLLO_homer_motif_enrichment_batch(summit_beds, "T2T", "results/motifs/")
 #' }
 #' @export
 APOLLO_extract_summits <- function(peak_files,
                                     output_dir,
                                     half_window = 100L,
+                                    chr_mapping = NULL,
                                     skip_missing = TRUE,
                                     verbose = TRUE) {
 
@@ -73,6 +92,25 @@ APOLLO_extract_summits <- function(peak_files,
   }
 
   half_window <- as.integer(half_window)
+
+  # Resolve chr_mapping to a source -> target named vector
+  chr_map_vec <- NULL
+  if (!is.null(chr_mapping)) {
+    if (is.character(chr_mapping) && length(chr_mapping) == 1 &&
+        (is.null(names(chr_mapping)) || names(chr_mapping) == "")) {
+      # Built-in genome name (e.g., "T2T"): APOLLO_get_chr_mapping returns
+      # NCBI -> UCSC; reverse it to get UCSC -> NCBI for BED chr renaming
+      ncbi_to_ucsc <- APOLLO_get_chr_mapping(chr_mapping)
+      chr_map_vec  <- stats::setNames(names(ncbi_to_ucsc), ncbi_to_ucsc)
+      if (verbose) cat("Chromosome mapping: UCSC -> NCBI (", chr_mapping, ")\n", sep = "")
+    } else if (is.character(chr_mapping) && !is.null(names(chr_mapping))) {
+      chr_map_vec <- chr_mapping
+    } else {
+      stop("chr_mapping must be a genome name string (e.g., 'T2T') or a named character vector.",
+           call. = FALSE)
+    }
+  }
+
   out_paths <- stats::setNames(rep(NA_character_, length(peak_files)), names(peak_files))
 
   for (nm in names(peak_files)) {
@@ -136,6 +174,18 @@ APOLLO_extract_summits <- function(peak_files,
       strand = if (has_strand) np[[6]] else ".",
       stringsAsFactors = FALSE
     )
+
+    # Apply chromosome name conversion (e.g., chr1 -> NC_060925.1 for T2T)
+    if (!is.null(chr_map_vec)) {
+      mapped_chr <- chr_map_vec[bed$chr]
+      n_unmapped <- sum(is.na(mapped_chr))
+      if (n_unmapped > 0) {
+        warning(nm, ": ", n_unmapped, " peak(s) on chromosomes not in mapping — dropped.")
+        bed <- bed[!is.na(mapped_chr), , drop = FALSE]
+        mapped_chr <- mapped_chr[!is.na(mapped_chr)]
+      }
+      bed$chr <- mapped_chr
+    }
 
     out_file <- file.path(output_dir, paste0(nm, "_summits.bed"))
     utils::write.table(bed, out_file, sep = "\t", quote = FALSE,

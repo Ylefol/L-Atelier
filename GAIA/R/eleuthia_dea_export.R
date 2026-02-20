@@ -191,6 +191,40 @@ ELEUTHIA_export_dea_results <- function(output_dir,
         files_created <- c(files_created, rds_file)
         if (verbose) cat("  RDS:", basename(rds_file), "\n")
       }
+
+      # Volcano plot
+      if (save_plots) {
+        tryCatch({
+          p_vol <- AETHER_plot_volcano(
+            dea_result,
+            l2fc_thresh = l2fc_thresh,
+            p_thresh = p_thresh
+          )
+          vol_files <- .save_ggplot(p_vol, plot_dir,
+                                    paste0(prefix, "_volcano"), plot_format,
+                                    width = 8, height = 7)
+          files_created <- c(files_created, vol_files)
+          if (verbose) cat("  Volcano plot:", basename(vol_files[1]), "\n")
+        }, error = function(e) {
+          if (verbose) cat("  Warning: Could not create volcano plot -", e$message, "\n")
+        })
+
+        # MA plot
+        tryCatch({
+          p_ma <- AETHER_plot_ma(
+            dea_result,
+            l2fc_thresh = l2fc_thresh,
+            p_thresh = p_thresh
+          )
+          ma_files <- .save_ggplot(p_ma, plot_dir,
+                                   paste0(prefix, "_ma"), plot_format,
+                                   width = 8, height = 7)
+          files_created <- c(files_created, ma_files)
+          if (verbose) cat("  MA plot:", basename(ma_files[1]), "\n")
+        }, error = function(e) {
+          if (verbose) cat("  Warning: Could not create MA plot -", e$message, "\n")
+        })
+      }
     }
     if (verbose) cat("\n")
   }

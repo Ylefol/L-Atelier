@@ -253,3 +253,379 @@ AETHER_plot_fc_vs_signal <- function(shift_result,
 
   return(p)
 }
+
+
+# ==============================================================================
+# DEA plot helpers (internal)
+# ==============================================================================
+
+#' Extract data.frame from a DEA result object or data.frame
+#' @keywords internal
+.dea_extract_df <- function(dea_result, required) {
+  if (is.list(dea_result) && !is.data.frame(dea_result) && "results" %in% names(dea_result)) {
+    df <- dea_result$results
+  } else if (is.data.frame(dea_result)) {
+    df <- dea_result
+  } else {
+    stop("dea_result must be a data.frame or a list with a $results element (from ARTEMIS_perform_dea()).",
+         call. = FALSE)
+  }
+  missing_cols <- setdiff(required, colnames(df))
+  if (length(missing_cols) > 0) {
+    stop("Required column(s) not found: ", paste(missing_cols, collapse = ", "), call. = FALSE)
+  }
+  df
+}
+
+
+#' Resolve label column for DEA plots
+#' @keywords internal
+.dea_resolve_label_col <- function(df, label_col) {
+  if (!is.null(label_col)) {
+    if (!label_col %in% colnames(df)) {
+      stop("label_col '", label_col, "' not found. ",
+           "Available columns: ", paste(colnames(df), collapse = ", "), call. = FALSE)
+    }
+    return(label_col)
+  }
+  if ("gene_name" %in% colnames(df)) return("gene_name")
+  if ("feature_id" %in% colnames(df)) return("feature_id")
+  stop("Cannot auto-detect label column. Provide label_col explicitly.", call. = FALSE)
+}
+
+
+#' Assign four-category significance labels to a DEA data.frame
+#'
+#' Adds a .cat column: "up", "down", "low_reg", "non_sig".
+#' NA filter values are treated as non-significant.
+#' @keywords internal
+.dea_assign_categories <- function(df, filter_choice, p_thresh, l2fc_thresh) {
+  fval <- df[[filter_choice]]
+  lfc  <- df$log2FoldChange
+
+  sig  <- !is.na(fval) & fval < p_thresh
+  up   <- sig & !is.na(lfc) & lfc >  l2fc_thresh
+  down <- sig & !is.na(lfc) & lfc < -l2fc_thresh
+  low  <- sig & !is.na(lfc) & abs(lfc) <= l2fc_thresh
+
+  df$.cat <- "non_sig"
+  df$.cat[up]   <- "up"
+  df$.cat[down] <- "down"
+  df$.cat[low]  <- "low_reg"
+  df
+}
+
+
+# ==============================================================================
+# Volcano and MA plots
+# ==============================================================================
+
+#' Volcano Plot for Differential Expression/Accessibility Results
+#'
+#' Creates a four-category volcano plot (-log10 p-value vs log2 fold change)
+#' with embedded counts in the legend and optional gene labeling. Categories:
+#' up-regulated, down-regulated, low-regulation (significant but below l2FC
+#' threshold), and non-significant.
+#'
+#' @param dea_result A data.frame of DEA results, or a list with a
+#'   \code{$results} element (as returned by \code{ARTEMIS_perform_dea()}).
+#'   Required columns: \code{log2FoldChange}, \code{pvalue}, and the column
+#'   named by \code{filter_choice}.
+#' @param label_col Character. Column to use for point labels. If NULL,
+#'   auto-selects \code{gene_name} if present, otherwise \code{feature_id}.
+#' @param genes_of_interest Character vector. Values in \code{label_col} to
+#'   always label. Default: NULL.
+#' @param show_non_sig_interest Logical. If FALSE, genes of interest that do
+#'   not meet both thresholds are not labeled. Default: TRUE.
+#' @param label_top_n Integer. Label the top N features by \code{filter_choice}
+#'   regardless of direction. Default: 0 (disabled).
+#' @param filter_choice Column for significance filtering: \code{"padj"} or
+#'   \code{"pvalue"}. Default: \code{"padj"}.
+#' @param l2fc_thresh Numeric. log2 fold change threshold. Default: 1.
+#' @param p_thresh Numeric. Significance threshold. Default: 0.05.
+#' @param title Character. Plot title. Default: "Volcano Plot".
+#' @param colors Named character vector with colors for \code{"up"},
+#'   \code{"down"}, \code{"low_reg"}, \code{"non_sig"}. Default uses
+#'   red/blue/green/gray.
+#' @param point_size Numeric. Point size. Default: 0.8.
+#' @param point_alpha Numeric. Point transparency. Default: 0.7.
+#'
+#' @return A ggplot object.
+#'
+#' @details
+#' The four categories are:
+#' \itemize{
+#'   \item \strong{up-reg}: \code{log2FoldChange > l2fc_thresh} AND
+#'     \code{filter_choice < p_thresh}
+#'   \item \strong{down-reg}: \code{log2FoldChange < -l2fc_thresh} AND
+#'     \code{filter_choice < p_thresh}
+#'   \item \strong{low-regulation}: \code{|log2FoldChange| <= l2fc_thresh} AND
+#'     \code{filter_choice < p_thresh}
+#'   \item \strong{non-significant}: \code{filter_choice >= p_thresh} or NA
+#' }
+#' A horizontal dashed line marks the pvalue of the least-significant gene
+#' that still passes the filter threshold, showing the actual significance
+#' boundary in the plotted space. Vertical dashed lines mark
+#' \code{±l2fc_thresh}.
+#'
+#' @examples
+#' \dontrun{
+#' p <- AETHER_plot_volcano(dea_result, title = "KO vs WT")
+#'
+#' p <- AETHER_plot_volcano(dea_result, label_top_n = 10,
+#'                          genes_of_interest = c("SMUG1", "OGG1"))
+#'
+#' p <- AETHER_plot_volcano(dea_result, filter_choice = "pvalue", p_thresh = 0.01)
+#' }
+#' @export
+AETHER_plot_volcano <- function(dea_result,
+                                 label_col = NULL,
+                                 genes_of_interest = NULL,
+                                 show_non_sig_interest = TRUE,
+                                 label_top_n = 0,
+                                 filter_choice = "padj",
+                                 l2fc_thresh = 1,
+                                 p_thresh = 0.05,
+                                 title = "Volcano Plot",
+                                 colors = NULL,
+                                 point_size = 0.8,
+                                 point_alpha = 0.7) {
+
+  df <- .dea_extract_df(dea_result, required = c("log2FoldChange", "pvalue", filter_choice))
+  label_col <- .dea_resolve_label_col(df, label_col)
+  df <- .dea_assign_categories(df, filter_choice, p_thresh, l2fc_thresh)
+  df <- df[!is.na(df$pvalue), , drop = FALSE]
+
+  if (is.null(colors)) {
+    colors <- c(up = "#B31B21", down = "#1465AC", low_reg = "green", non_sig = "darkgray")
+  }
+
+  n_up      <- sum(df$.cat == "up")
+  n_down    <- sum(df$.cat == "down")
+  n_low_reg <- sum(df$.cat == "low_reg")
+  n_non_sig <- sum(df$.cat == "non_sig")
+
+  lbl <- c(
+    up      = paste0("up-reg | ", filter_choice, "<", p_thresh, " (n=", n_up, ")"),
+    down    = paste0("down-reg | ", filter_choice, "<", p_thresh, " (n=", n_down, ")"),
+    low_reg = paste0("low-regulation | ", filter_choice, "<", p_thresh, " (n=", n_low_reg, ")"),
+    non_sig = paste0("non-significant | ", filter_choice, "\u2265", p_thresh, " (n=", n_non_sig, ")")
+  )
+
+  df$Significance <- factor(lbl[df$.cat],
+                             levels = c(lbl["up"], lbl["down"], lbl["low_reg"], lbl["non_sig"]))
+  df$.cat <- NULL
+  # Non-sig drawn first (background), significant on top
+  df <- df[order(df$Significance, decreasing = TRUE), ]
+
+  # Horizontal line at pvalue of the least-significant passing gene
+  sig_mask   <- df[[filter_choice]] < p_thresh & !is.na(df[[filter_choice]])
+  sig_line_y <- if (any(sig_mask)) -log10(max(df$pvalue[sig_mask], na.rm = TRUE)) else NA_real_
+
+  # Label data: genes of interest
+  labs_interest <- df[0, ]
+  if (!is.null(genes_of_interest) && length(genes_of_interest) > 0) {
+    labs_interest <- df[df[[label_col]] %in% genes_of_interest, , drop = FALSE]
+    if (!show_non_sig_interest) {
+      labs_interest <- labs_interest[labs_interest$Significance != lbl["non_sig"], , drop = FALSE]
+    }
+  }
+  labs_interest$.label <- labs_interest[[label_col]]
+
+  # Label data: top N
+  labs_top <- df[0, ]
+  if (label_top_n > 0) {
+    labs_top <- head(df[order(df[[filter_choice]]), ], label_top_n)
+  }
+  labs_top$.label <- labs_top[[label_col]]
+
+  p <- ggplot(df, aes(x = log2FoldChange, y = -log10(pvalue), color = Significance)) +
+    geom_point(size = point_size, alpha = point_alpha) +
+    geom_vline(xintercept = c(-l2fc_thresh, l2fc_thresh),
+               linetype = "dashed", color = "black", linewidth = 0.4) +
+    scale_color_manual(
+      values = setNames(unname(colors[c("up", "down", "low_reg", "non_sig")]),
+                        unname(lbl[c("up", "down", "low_reg", "non_sig")])),
+      breaks = unname(lbl),
+      name   = NULL
+    ) +
+    guides(color = guide_legend(override.aes = list(size = 5, alpha = 1))) +
+    xlab(expression("Log"[2]*"Fold Change")) +
+    ylab(expression("-log"[10]*"(p-value)")) +
+    ggtitle(title) +
+    theme_light() +
+    theme(
+      text             = element_text(size = 10),
+      plot.title       = element_text(size = 16, face = "bold"),
+      legend.text      = element_text(size = 9),
+      legend.position  = "bottom",
+      legend.direction = "vertical"
+    )
+
+  if (!is.na(sig_line_y)) {
+    p <- p + geom_hline(yintercept = sig_line_y, linetype = "dashed",
+                        color = "black", linewidth = 0.4)
+  }
+
+  if (nrow(labs_interest) > 0) {
+    p <- p + ggrepel::geom_label_repel(
+      data = labs_interest, mapping = aes(label = .label),
+      box.padding = unit(0.35, "lines"), point.padding = unit(0.3, "lines"),
+      force = 1, segment.colour = "black", show.legend = FALSE,
+      label.size = 0.5, size = 3
+    )
+  }
+
+  if (nrow(labs_top) > 0) {
+    p <- p + ggrepel::geom_label_repel(
+      data = labs_top, mapping = aes(label = .label),
+      box.padding = unit(0.35, "lines"), point.padding = unit(0.3, "lines"),
+      force = 0.5, colour = "black", show.legend = FALSE,
+      label.size = 0.5, size = 3
+    )
+  }
+
+  return(p)
+}
+
+
+#' MA Plot for Differential Expression/Accessibility Results
+#'
+#' Creates a four-category MA plot (log2 fold change vs log2 mean expression)
+#' with embedded counts in the legend and optional gene labeling.
+#'
+#' @param dea_result A data.frame of DEA results, or a list with a
+#'   \code{$results} element (as returned by \code{ARTEMIS_perform_dea()}).
+#'   Required columns: \code{baseMean}, \code{log2FoldChange}, and the column
+#'   named by \code{filter_choice}.
+#' @param label_col Character. Column to use for point labels. If NULL,
+#'   auto-selects \code{gene_name} if present, otherwise \code{feature_id}.
+#' @param genes_of_interest Character vector. Values in \code{label_col} to
+#'   label. Default: NULL.
+#' @param label_top_n Integer. Label the top N features by \code{filter_choice}.
+#'   Default: 0 (disabled).
+#' @param filter_choice Column for significance filtering: \code{"padj"} or
+#'   \code{"pvalue"}. Default: \code{"padj"}.
+#' @param l2fc_thresh Numeric. log2 fold change threshold. Default: 1.
+#' @param p_thresh Numeric. Significance threshold. Default: 0.05.
+#' @param title Character. Plot title. Default: "MA Plot".
+#' @param colors Named character vector with colors for \code{"up"},
+#'   \code{"down"}, \code{"low_reg"}, \code{"non_sig"}. Default uses
+#'   red/blue/green/gray.
+#' @param point_size Numeric. Point size. Default: 0.8.
+#' @param point_alpha Numeric. Point transparency. Default: 0.7.
+#'
+#' @return A ggplot object.
+#'
+#' @details
+#' X-axis is \code{log2(baseMean + 1)}. Y-axis is \code{log2FoldChange}.
+#' A solid red line marks y = 0. Dashed black lines mark \code{±l2fc_thresh}.
+#' Non-significant points are drawn first (background) with significant points
+#' on top.
+#'
+#' @examples
+#' \dontrun{
+#' p <- AETHER_plot_ma(dea_result, title = "KO vs WT")
+#'
+#' p <- AETHER_plot_ma(dea_result, label_top_n = 10,
+#'                     genes_of_interest = c("SMUG1", "OGG1"))
+#' }
+#' @export
+AETHER_plot_ma <- function(dea_result,
+                            label_col = NULL,
+                            genes_of_interest = NULL,
+                            label_top_n = 0,
+                            filter_choice = "padj",
+                            l2fc_thresh = 1,
+                            p_thresh = 0.05,
+                            title = "MA Plot",
+                            colors = NULL,
+                            point_size = 0.8,
+                            point_alpha = 0.7) {
+
+  df <- .dea_extract_df(dea_result, required = c("baseMean", "log2FoldChange", filter_choice))
+  label_col <- .dea_resolve_label_col(df, label_col)
+  df <- .dea_assign_categories(df, filter_choice, p_thresh, l2fc_thresh)
+  df <- df[!is.na(df$baseMean) & !is.na(df$log2FoldChange), , drop = FALSE]
+  df$baseMean_log2 <- log2(df$baseMean + 1)
+
+  if (is.null(colors)) {
+    colors <- c(up = "#B31B21", down = "#1465AC", low_reg = "green", non_sig = "darkgray")
+  }
+
+  n_up      <- sum(df$.cat == "up")
+  n_down    <- sum(df$.cat == "down")
+  n_low_reg <- sum(df$.cat == "low_reg")
+  n_non_sig <- sum(df$.cat == "non_sig")
+
+  lbl <- c(
+    up      = paste0("up-reg | ", filter_choice, "<", p_thresh, " (n=", n_up, ")"),
+    down    = paste0("down-reg | ", filter_choice, "<", p_thresh, " (n=", n_down, ")"),
+    low_reg = paste0("low-regulation | ", filter_choice, "<", p_thresh, " (n=", n_low_reg, ")"),
+    non_sig = paste0("non-significant | ", filter_choice, "\u2265", p_thresh, " (n=", n_non_sig, ")")
+  )
+
+  df$Significance <- factor(lbl[df$.cat],
+                             levels = c(lbl["up"], lbl["down"], lbl["low_reg"], lbl["non_sig"]))
+  df$.cat <- NULL
+  # Non-sig drawn first (background), significant on top
+  df <- df[order(df$Significance, decreasing = TRUE), ]
+
+  # Label data: genes of interest
+  labs_interest <- df[0, ]
+  if (!is.null(genes_of_interest) && length(genes_of_interest) > 0) {
+    labs_interest <- df[df[[label_col]] %in% genes_of_interest, , drop = FALSE]
+  }
+  labs_interest$.label <- labs_interest[[label_col]]
+
+  # Label data: top N
+  labs_top <- df[0, ]
+  if (label_top_n > 0) {
+    labs_top <- head(df[order(df[[filter_choice]]), ], label_top_n)
+  }
+  labs_top$.label <- labs_top[[label_col]]
+
+  p <- ggplot(df, aes(x = baseMean_log2, y = log2FoldChange, color = Significance)) +
+    geom_point(size = point_size, alpha = point_alpha) +
+    geom_hline(yintercept = 0, linetype = "solid", color = "red", linewidth = 0.5) +
+    geom_hline(yintercept = c(-l2fc_thresh, l2fc_thresh),
+               linetype = "dashed", color = "black", linewidth = 0.4) +
+    scale_color_manual(
+      values = setNames(unname(colors[c("up", "down", "low_reg", "non_sig")]),
+                        unname(lbl[c("up", "down", "low_reg", "non_sig")])),
+      breaks = unname(lbl),
+      name   = NULL
+    ) +
+    guides(color = guide_legend(override.aes = list(size = 5, alpha = 1))) +
+    xlab(expression("log"[2]*"(baseMean + 1)")) +
+    ylab(expression("log"[2]*"Fold Change")) +
+    ggtitle(title) +
+    theme_light() +
+    theme(
+      text             = element_text(size = 10),
+      plot.title       = element_text(size = 16, face = "bold"),
+      legend.text      = element_text(size = 9),
+      legend.position  = "bottom",
+      legend.direction = "vertical"
+    )
+
+  if (nrow(labs_interest) > 0) {
+    p <- p + ggrepel::geom_label_repel(
+      data = labs_interest, mapping = aes(label = .label),
+      box.padding = unit(0.35, "lines"), point.padding = unit(0.3, "lines"),
+      force = 1, segment.colour = "black", show.legend = FALSE,
+      label.size = 0.5, size = 3
+    )
+  }
+
+  if (nrow(labs_top) > 0) {
+    p <- p + ggrepel::geom_label_repel(
+      data = labs_top, mapping = aes(label = .label),
+      box.padding = unit(0.35, "lines"), point.padding = unit(0.3, "lines"),
+      force = 0.5, colour = "black", show.legend = FALSE,
+      label.size = 0.5, size = 3
+    )
+  }
+
+  return(p)
+}

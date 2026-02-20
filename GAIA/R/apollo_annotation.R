@@ -467,7 +467,11 @@ APOLLO_chr_sizes_to_seqinfo <- function(chr_sizes, genome = NA_character_) {
 #'   (default = TRUE). Set to FALSE to reduce memory usage for large datasets.
 #' @param verbose Logical. Print progress messages (default = TRUE).
 #'
-#' @return A data.frame with one row per input region containing:
+#' @return When \code{regions} is a data.frame: a data.frame with one row per
+#'   input region. When \code{regions} is a named list of data.frames: a named
+#'   list of such data.frames, one per input set.
+#'
+#'   Each data.frame contains:
 #' \describe{
 #'   \item{peak_id}{Region identifier (from input or generated)}
 #'   \item{width}{Final region width after extension}
@@ -509,6 +513,12 @@ APOLLO_chr_sizes_to_seqinfo <- function(chr_sizes, genome = NA_character_) {
 #' # Basic usage with genomic regions
 #' comp <- APOLLO_sequence_composition(regions, "reference.fa")
 #'
+#' # Named list of peak sets (returns named list of data.frames)
+#' comp_list <- APOLLO_sequence_composition(
+#'   list(WT = wt_peaks, KO = ko_peaks),
+#'   "T2T.fna", chr_mapping = "T2T"
+#' )
+#'
 #' # With T2T genome (regions have chr1, FASTA has NC_060925.1)
 #' comp <- APOLLO_sequence_composition(regions, "T2T.fna", chr_mapping = "T2T")
 #'
@@ -530,6 +540,31 @@ APOLLO_sequence_composition <- function(regions,
                                           include_repeats = TRUE,
                                           include_sequence = TRUE,
                                           verbose = TRUE) {
+
+  # ---------------------------------------------------------------------------
+  # List dispatch: process each element and return a named list
+  # ---------------------------------------------------------------------------
+  if (is.list(regions) && !is.data.frame(regions)) {
+    set_names <- names(regions)
+    if (is.null(set_names)) {
+      set_names <- paste0("set_", seq_along(regions))
+    }
+    results <- lapply(seq_along(regions), function(i) {
+      if (verbose) cat("\n--- Processing:", set_names[i], "---\n")
+      APOLLO_sequence_composition(
+        regions          = regions[[i]],
+        fasta_path       = fasta_path,
+        chr_mapping      = chr_mapping,
+        extend           = extend,
+        min_width        = min_width,
+        include_repeats  = include_repeats,
+        include_sequence = include_sequence,
+        verbose          = verbose
+      )
+    })
+    names(results) <- set_names
+    return(results)
+  }
 
   # ---------------------------------------------------------------------------
   # Check for required packages

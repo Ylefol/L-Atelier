@@ -1,7 +1,7 @@
 ================================================================================
 ELEUTHIA STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-02-18
+Last Updated: 2026-02-20
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -24,15 +24,36 @@ ELEUTHIA_load_counts_from_dir(count_path, ...)
 ELEUTHIA_load_multi_counts(count_paths, ...)
   - Load and combine counts from multiple paths/datasets
 
+eleuthia_atac_export.R:
+-----------------------
+ELEUTHIA_export_atac_results(output_dir, ...)
+  - Orchestrating export for full ATAC-seq pipeline results
+  - Delegates annotated_peaks → CSV, dea_result → export_dea_results,
+    enrichment → export_enrichment, homer_result → export_homer_results,
+    sequence_composition → export_sequence_composition
+
+eleuthia_composition_export.R:
+-------------------------------
+ELEUTHIA_export_sequence_composition(composition, output_dir, ...)
+  - Export APOLLO_sequence_composition() data.frame
+  - Composition CSV (no sequence col), optional sequences CSV, summary TXT
+
 eleuthia_dea_export.R:
 -----------------------
 ELEUTHIA_export_dea_results(dea_result, output_dir, ...)
   - Export differential analysis results to files
+  - Now includes volcano and MA plots when save_plots = TRUE
 
 eleuthia_discriminative_report.R:
 -----------------------------------
 ELEUTHIA_discriminative_quick_summary(model_result, output_dir, ...)
   - Generate quick summary report for discriminative analysis
+
+eleuthia_homer_export.R:
+------------------------
+ELEUTHIA_export_homer_results(homer_result, output_dir, ...)
+  - Export homer_motif or homer_motif_batch objects
+  - Known/denovo CSVs, metadata TXT, dotplot (all), heatmap (batch only), RDS
 
 eleuthia_export_shared.R:
 --------------------------

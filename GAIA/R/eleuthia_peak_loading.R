@@ -1389,7 +1389,9 @@ ELEUTHIA_quantify_bed <- function(sample_sheet,
     }
 
     # Ensure integer types for overlap calculation
-    bed_dt[, `:=`(start = as.integer(start), end = as.integer(end))]
+    # Use data.table::set() to avoid CEDTA check (data.table is in Suggests)
+    data.table::set(bed_dt, j = "start", value = as.integer(bed_dt$start))
+    data.table::set(bed_dt, j = "end",   value = as.integer(bed_dt$end))
 
     # Set key for foverlaps (requires start, end naming)
     data.table::setkey(bed_dt, chr, start, end)
@@ -1407,14 +1409,17 @@ ELEUTHIA_quantify_bed <- function(sample_sheet,
       # Apply minimum overlap filter if needed
       if (min_overlap > 1) {
         # Calculate actual overlap bp
-        overlaps[, overlap_bp := pmin(end, i.end) - pmax(start, i.start)]
-        overlaps <- overlaps[overlap_bp >= min_overlap]
+        data.table::set(overlaps, j = "overlap_bp",
+                        value = pmin(overlaps$end, overlaps$i.end) -
+                                pmax(overlaps$start, overlaps$i.start))
+        # Use $ to avoid [.data.table dispatch (data.table is in Suggests)
+        overlaps <- overlaps[overlaps$overlap_bp >= min_overlap, ]
       }
 
-      # Count fragments per region
+      # Count fragments per region using tabulate() — avoids [.data.table dispatch
+      # tabulate(x, nbins) returns a vector of length nbins where [i] = count of i in x
       if (nrow(overlaps) > 0) {
-        overlap_counts <- overlaps[, .N, by = region_idx]
-        counts[overlap_counts$region_idx, s] <- overlap_counts$N
+        counts[, s] <- tabulate(overlaps$region_idx, nbins = nrow(regions_dt))
       }
     }
 
