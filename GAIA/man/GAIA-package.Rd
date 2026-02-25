@@ -9,7 +9,7 @@
 Modular pipeline for multi-omics analysis including quality control, preprocessing, annotation, enrichment, integration, machine learning, statistical analysis, visualization, and reporting. Named after the subordinate functions from Horizon Zero Dawn.
 }
 \author{
-\strong{Maintainer}: Yohan Lefol \email{email@example.com}
+\strong{Maintainer}: Yohan Lefol \email{yohan.lefol@gmail.com}
 
 }
 \keyword{internal}

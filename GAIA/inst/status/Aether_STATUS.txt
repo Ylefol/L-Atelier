@@ -447,6 +447,31 @@ AETHER_plot_cell_boxplot(result, group_by, cell_types, top_n, colors, title,
   - Jittered data points overlaid by default
   - Cell types ordered by mean proportion (descending)
 
+coverage_tracks.R:
+------------------
+AETHER_plot_coverage_tracks(bigwig_files, bed_files, region, chrom_sizes,
+                             normalize, bin_size, peak_bed, group_colors,
+                             scale_y, show_variance, variance_type,
+                             track_height, annotation_height,
+                             peak_color, title, verbose)
+  - Genome browser-style stacked coverage track plot; two mutually exclusive modes:
+    * BigWig mode (bigwig_files): reads signal from pre-computed BigWig files
+    * BED mode (bed_files): computes coverage on-the-fly via ELEUTHIA_bed_region_coverage()
+      more efficient when plotting a small region without pre-generated BigWigs
+  - Both modes: named list (track = vector of files) or named character vector
+  - Multiple files per track averaged into one signal
+  - chrom_sizes: required for BED mode (named vector or APOLLO_get_chromosome_sizes())
+  - normalize, bin_size: BED mode only (ignored in BigWig mode)
+  - peak_bed: optional path or data.frame; renders as bottom annotation track
+  - scale_y: "free" (per-track autoscale) or "fixed" (shared y maximum)
+  - show_variance: optional ribbon showing spread across replicates (default FALSE)
+  - variance_type: "sd" (mean ± SD) or "range" (min-max); ignored for single files
+  - Colors: uses AETHER_default_palette if names match known groups, else auto
+  - Assembly via patchwork; BigWig mode also requires: rtracklayer
+
+.AETHER_parse_region(region)
+  - Internal helper: parses region string/vector/GRanges to single GRanges
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -462,7 +487,6 @@ Future circos enhancements:
 - Track label customization
 
 Other visualization:
-- Genome browser track plots
 - Heatmaps for multi-omics data
 - Correlation plots
 

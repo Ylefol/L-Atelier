@@ -1,7 +1,7 @@
 Package: GAIA
 Title: Multi-Omics Integration Toolkit for CUT&TAG, ATAC-seq, and RNA-seq
 Version: 0.1.0
-Authors@R: person("Yohan", "Lefol", role = c("aut", "cre"), email = "email@example.com")
+Authors@R: person("Yohan", "Lefol", role = c("aut", "cre"), email = "yohan.lefol@gmail.com")
 Description: Modular pipeline for multi-omics analysis including quality control,
     preprocessing, annotation, enrichment, integration, machine learning,
     statistical analysis, visualization, and reporting. Named after the
@@ -65,4 +65,6 @@ Suggests:
     e1071,
     parallel,
     preprocessCore,
+    rtracklayer,
+    patchwork,
     testthat (>= 3.0.0)

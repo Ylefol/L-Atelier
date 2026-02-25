@@ -288,6 +288,29 @@ ELEUTHIA_export_cibersort_results(result, output_dir, prefix, group_by,
   - RDS for full artemis_cibersort object
   - Reuses .save_ggplot/.save_pheatmap helpers from activity_export.R
 
+bigwig.R:
+---------
+ELEUTHIA_bed_to_bigwig(bed_file, output_path, chrom_sizes, normalize, bin_size,
+                        chromosomes, verbose)
+  - Convert fragment-level BED file to BigWig coverage track
+  - chrom_sizes: named numeric vector OR APOLLO_get_chromosome_sizes() data.frame (chr, size)
+
+ELEUTHIA_bed_region_coverage(bed_file, region, chrom_sizes, normalize, bin_size, verbose)
+  - Compute binned coverage for a specific region directly from a fragment BED file
+  - Does NOT generate a full BigWig — tiles only the requested region (efficient for plotting)
+  - region: "chr:start-end" string, named vector, or GRanges
+  - chrom_sizes: named numeric vector OR APOLLO_get_chromosome_sizes() data.frame
+  - normalize: "CPM" (default) or "raw"; CPM uses genome-wide fragment count
+  - bin_size: default 10bp; bins only the requested region, not the full chromosome
+  - Returns data.frame(start, end, score, midpoint) — same format as rtracklayer::import.bw()
+  - Intended as efficient backend for AETHER_plot_coverage_tracks(bed_files=...)
+  - Requires: data.table, GenomicRanges, IRanges, GenomeInfoDb
+  - normalize: "CPM" (default) or "raw"
+  - bin_size: coverage bin resolution in bp, default 10
+  - chromosomes: optional restriction to subset of chromosomes
+  - Uses binnedAverage for binning; drops zero bins to reduce file size
+  - Requires: GenomicRanges, IRanges, GenomeInfoDb, rtracklayer
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -296,7 +319,6 @@ None
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- BigWig export/import
 - BAM file handling
 - HTML/PDF report generation (rmarkdown-based)
 - Additional file format support
