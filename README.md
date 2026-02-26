@@ -55,8 +55,10 @@ All module source files live flat under `GAIA/R/` with module-prefixed names (e.
 
 ---
 ## Future packages
+
 A HORIZON package - data processing (raw sequencing to bed files, counts, peaks ect...)
 A CAULDRON package - single cell/nuclei version of GAIA
+
 ---
 
 ## Issues
