@@ -49,7 +49,11 @@ This approach avoids any need for a drag-and-drop canvas while remaining intuiti
 
 ## Script Export
 
-A central feature: once a workflow is complete, the app **writes it out as a clean R script** that the user can download, run independently, and modify. This serves both practical and pedagogical purposes — users can see exactly what their clicks produced in code, supporting the gradual development of R literacy.
+**The app's primary output is an R script, not analysis results.** The app itself never executes any toolkit functions. It is an interactive flowchart and script assembly tool — the user builds a workflow by making choices in the UI, and the app translates those choices into a valid, runnable R script. The user then takes that script to their IDE of choice and runs it there.
+
+This means the app has no runtime, no long-running processes, and no async concerns. All state managed by the app is purely about workflow structure (which nodes exist, how they're connected, what parameters are set) — not about data or computation.
+
+Once a workflow is complete, the app **writes it out as a clean R script** that the user can download, run independently, and modify. This serves both practical and pedagogical purposes — users can see exactly what their clicks produced in code, supporting the gradual development of R literacy.
 
 ---
 
@@ -65,11 +69,19 @@ Each function in the toolkit should be described by a **structured metadata conf
 
 The Shiny app reads from this config dynamically to populate menus, parameter dialogs, and valid next-step options. **No function information should be hardcoded in the Shiny UI logic itself.**
 
+### Type Vocabulary: Semantic Pipeline States
+
+The input/output types in the config are **logical pipeline state labels**, not R class names. They represent what the data *is* at a given stage of analysis — for example `raw_rnaseq`, `normalized_rnaseq`, `deseq_model`, `differential_result` — not the underlying R object type.
+
+This distinction matters: two functions could return the same R class (e.g. a `SummarizedExperiment`) but represent different pipeline states. The config is the only place that encodes whether a given output is suitable input for a downstream function. For example, `normalize_timeseries()` outputs `normalized_rnaseq`, which is the required input for `timeseries_conditional()`. A function that outputs `raw_rnaseq` cannot feed into `timeseries_conditional()`, even if both are technically the same R type. The validity of a connection is semantic (has this data been through the right steps?), not structural (is this the right R class?).
+
+This type vocabulary is defined and maintained by the toolkit developer as part of the config. It is independent of R's class system.
+
 ### Updatability
 This config-driven approach is specifically chosen to make the app maintainable as the toolkit evolves. Adding a new function, changing a parameter, or modifying input/output types should require only a config update, not changes to Shiny code.
 
 ### Execution Model
-The interactive session is kept lightweight — the app manages state (which boxes exist, how they're connected, what parameters are set) but does not execute toolkit functions during this phase. Execution happens at the end, triggered explicitly by the user.
+The app manages only workflow state: which nodes exist, how they're connected, and what parameters are set. It does not execute any toolkit functions at any point. Execution is entirely the user's responsibility and happens outside the app, in their own R environment.
 
 ---
 

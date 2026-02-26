@@ -1,0 +1,243 @@
+================================================================================
+CAULDRON - Single-Cell / Single-Nuclei Analysis Toolkit
+Integration Notes
+================================================================================
+Created: 2026-02-23
+Updated: 2026-02-26 (renamed from YGGDRASIL; naming convention changed to
+         Hephaestus's creations from Greek mythology)
+
+================================================================================
+OVERVIEW
+================================================================================
+CAULDRON is a separate R package toolkit for single-cell and single-nuclei
+RNA-seq analysis, designed as a companion to GAIA (bulk multi-omics). It
+follows the same architectural philosophy: a central orchestrating system with
+named subordinate modules, each handling a specific stage of the analysis
+workflow.
+
+Primary scope: scRNA-seq and snRNA-seq
+Future expansion: scATAC-seq, multiome (snRNA + snATAC), spatial transcriptomics
+
+Relationship to GAIA:
+- Separate R package (not integrated into GAIA)
+- Fully independent — no formal GAIA imports
+- Targeted code reuse addressed case-by-case (selective import or copy)
+- Installed independently via devtools::install("CAULDRON")
+- Same naming and documentation conventions as GAIA
+
+Name rationale:
+  CAULDRON references the Cauldron network from Horizon Zero Dawn — underground
+  facilities purpose-built for complex, heavy manufacturing tasks. In HZD lore,
+  Cauldrons are controlled by HEPHAESTUS, the most complex GAIA subordinate
+  (multi-omics integration). Single-cell analysis is the more complex, higher-
+  resolution counterpart to bulk analysis — a fitting parallel. The loose lore
+  connection to HEPHAESTUS (already GAIA's integration module) is acknowledged
+  and accepted as thematically coherent rather than conflicting.
+
+================================================================================
+NAMING CONVENTION
+================================================================================
+Theme: Hephaestus's creations — automatons and forged objects from Greek
+       mythology (public domain). Chosen for thematic coherence with GAIA's
+       Greek mythology naming, and for the Hephaestus/Cauldron lore connection.
+       The collection of Hephaestus's creations is large enough to accommodate
+       future module expansion without exhausting options.
+
+Central system: CAULDRON
+  The Cauldron network — complex underground facilities for heavy processing.
+
+All functions follow the strict prefix convention: MODULE_function_name
+  e.g., AEGIS_filter_cells(), PANDORA_annotate_singler(), ASPIS_plot_umap()
+
+================================================================================
+MODULE STRUCTURE
+================================================================================
+
++------------+--------------+-----------------------------------------------+
+| Module     | Name         | Core Responsibilities                         |
++------------+--------------+-----------------------------------------------+
+| I/O        | TALARIA      | Load 10x MEX, h5, h5ad, loom; export;        |
+|            |              | format conversion; report generation          |
++------------+--------------+-----------------------------------------------+
+| QC         | AEGIS        | Per-cell metrics (nUMI, nGenes, MT%,         |
+|            |              | ribo%); doublet detection (scDblFinder);     |
+|            |              | ambient RNA removal (SoupX/DecontX);         |
+|            |              | adaptive filtering                            |
++------------+--------------+-----------------------------------------------+
+| Preprocess | PYRI         | Normalization (library-size, scran,          |
+|            |              | SCTransform); HVG selection; scaling;        |
+|            |              | cell cycle regression; batch correction      |
+|            |              | (Harmony, etc.)                              |
++------------+--------------+-----------------------------------------------+
+| Embedding  | TALOS        | PCA, UMAP, tSNE; graph construction          |
+|            |              | (KNN/SNN); clustering (Leiden/Louvain);      |
+|            |              | resolution tuning                             |
++------------+--------------+-----------------------------------------------+
+| Annotation | PANDORA      | Marker-based annotation; reference-based     |
+|            |              | annotation (SingleR, Azimuth); cell type     |
+|            |              | hierarchy; manual label management           |
++------------+--------------+-----------------------------------------------+
+| Expression | KERAUNOS     | Cluster markers; condition DE; pseudobulk    |
+|            |              | DE; gene set enrichment (GSEA/ORA)           |
++------------+--------------+-----------------------------------------------+
+| Trajectory | TRIPODES     | Pseudotime (Monocle3); RNA velocity;         |
+|            |              | CytoTRACE (stemness); trajectory/lineage     |
+|            |              | inference                                     |
++------------+--------------+-----------------------------------------------+
+| Communic.  | DIKTYON      | Cell-cell communication (CellChat,           |
+|            |              | NicheNet, LIANA); signaling network          |
+|            |              | analysis and visualisation                   |
++------------+--------------+-----------------------------------------------+
+| Visualize  | ASPIS        | UMAP/tSNE plots; violin plots; dot plots;   |
+|            |              | feature plots; heatmaps; trajectory plots;   |
+|            |              | communication network plots                  |
++------------+--------------+-----------------------------------------------+
+| Utilities  | KHALKOS      | Shared helpers; object manipulation;         |
+|            |              | configuration; common data structures        |
+|            |              | Parallel to GAIA's DEMETER module            |
++------------+--------------+-----------------------------------------------+
+
+Data flow:
+TALARIA → AEGIS → PYRI → TALOS → PANDORA → KERAUNOS / TRIPODES / DIKTYON → ASPIS → TALARIA
+
+================================================================================
+MODULE RATIONALE (HEPHAESTUS'S CREATIONS)
+================================================================================
+TALARIA   - The winged sandals forged for Hermes. Carries data in and out of
+            the toolkit — pure transport, bridging external formats and the
+            internal object model.
+
+AEGIS     - The divine shield forged by Hephaestus (carried by Athena/Zeus).
+            Protects the dataset from bad data — filters dead cells, doublets,
+            and ambient RNA contamination before analysis proceeds.
+
+PYRI      - The sacred forge fire of Hephaestus. Fire purifies raw ore into
+            refined metal — normalization and preprocessing refine raw counts
+            into analysis-ready data, removing technical noise and batch effects.
+
+TALOS     - The great bronze automaton that guarded Crete, continuously
+            traversing its entire perimeter. Dimensionality reduction maps
+            high-dimensional space; clustering partitions that traversed terrain.
+            The most famous of Hephaestus's automatons.
+
+PANDORA   - Fashioned from clay by Hephaestus at Zeus's command; every god
+            bestowed a gift upon her (pan = all, dora = gifts). Annotation
+            assigns identities drawn from all available reference knowledge —
+            each cell receives its "gifts" of cell type labels and markers.
+
+KERAUNOS  - The thunderbolts of Zeus, forged by Hephaestus and the Cyclopes in
+            his forge. The thunderbolt is the definitive, decisive statement —
+            it strikes and the matter is settled. Statistical significance in
+            differential expression carries that same quality of finality.
+
+TRIPODES  - The self-moving golden tripod tables described in the Iliad
+            (Book 18), forged by Hephaestus to ferry themselves to Olympian
+            feasts and return autonomously. The only Hephaestus creation
+            explicitly described as self-directed in motion — pseudotime and
+            trajectory inference reconstruct autonomous paths through cell state
+            space.
+
+DIKTYON   - The invisible net/snare forged by Hephaestus to trap Ares and
+            Aphrodite. Greek for "net" or "network." Cell-cell communication
+            is modeled and visualised as a signaling network — cells cast a
+            net of ligand-receptor signals to communicate with one another.
+
+ASPIS     - The Shield of Achilles, forged by Hephaestus and described in
+            extraordinary detail in the Iliad (Book 18) — it depicted all of
+            human civilisation on its surface: cities, fields, weddings, battles.
+            The shield that shows everything. Visualisation makes the invisible
+            structure of data visible.
+
+KHALKOS   - Bronze (khalkos), the fundamental working material of Hephaestus's
+            forge. Every creation depends on it. Shared utilities, helpers, and
+            configuration underpin all other modules — the foundational material
+            of the package.
+
+================================================================================
+PACKAGE STRUCTURE
+================================================================================
+ZERO_DAWN/
+├── GAIA/                          # Existing bulk multi-omics R package
+├── CAULDRON/                      # Single-cell R package
+│   ├── R/
+│   │   ├── CAULDRON-package.R     # Package-level docs and @importFrom
+│   │   ├── talaria_io.R           # TALARIA: I/O and format conversion
+│   │   ├── aegis_qc.R             # AEGIS: Quality control and filtering
+│   │   ├── pyri_preprocessing.R   # PYRI: Normalization and preprocessing
+│   │   ├── talos_embedding.R      # TALOS: Dim reduction and clustering
+│   │   ├── pandora_annotation.R   # PANDORA: Cell type annotation
+│   │   ├── keraunos_expression.R  # KERAUNOS: Differential expression and GSEA
+│   │   ├── tripodes_trajectory.R  # TRIPODES: Trajectory and pseudotime
+│   │   ├── diktyon_communication.R# DIKTYON: Cell-cell communication
+│   │   ├── aspis_visualization.R  # ASPIS: All plotting functions
+│   │   └── khalkos_utils.R        # KHALKOS: Shared utilities
+│   ├── man/                       # Auto-generated by roxygen2
+│   ├── tests/testthat/            # Unit tests
+│   ├── inst/status/               # Module STATUS.txt files
+│   │   ├── TALARIA_STATUS.txt
+│   │   ├── AEGIS_STATUS.txt
+│   │   ├── PYRI_STATUS.txt
+│   │   ├── TALOS_STATUS.txt
+│   │   ├── PANDORA_STATUS.txt
+│   │   ├── KERAUNOS_STATUS.txt
+│   │   ├── TRIPODES_STATUS.txt
+│   │   ├── DIKTYON_STATUS.txt
+│   │   ├── ASPIS_STATUS.txt
+│   │   └── KHALKOS_STATUS.txt
+│   ├── DESCRIPTION
+│   ├── NAMESPACE                  # Auto-generated by roxygen2
+│   └── LICENSE
+├── projects/
+├── data/
+└── to_process/
+
+Development cycle (same as GAIA):
+  devtools::document("CAULDRON")   # Regenerate NAMESPACE and man/
+  devtools::install("CAULDRON")    # Install updated package
+  library(CAULDRON)                # Load all modules
+
+================================================================================
+IMPLEMENTATION NOTES
+================================================================================
+Primary object: SingleCellExperiment (Bioconductor)
+  Rationale:
+  - Modular and programmatically flexible — better foundation for a custom toolkit
+  - Native integration with scran, scDblFinder, SingleR, MAST, edgeR/DESeq2
+  - Structural near-equivalence with AnnData (obs→colData, var→rowData,
+    obsm→reducedDims, obsp→colPairs, uns→metadata, layers→assays)
+    making Scanpy/Python experience directly transferable
+  - h5ad/loom legacy data handled cleanly via zellkonverter and LoomExperiment
+  - Bioconductor's strict deprecation policy insulates against breaking changes
+    (cf. Seurat v5 disruption)
+  - Seurat compatibility handled via TALARIA conversion functions as needed;
+    no full Seurat dependency
+
+Primary R ecosystem targets:
+  - SingleCellExperiment, SummarizedExperiment (core object)
+  - scran, scater (normalization, QC)
+  - scDblFinder (doublet detection)
+  - SoupX / decontX (ambient RNA)
+  - SingleR (reference-based annotation)
+  - Monocle3 (trajectory/pseudotime)
+  - zellkonverter (AnnData/h5ad interop)
+  - Seurat (conversion only, not a hard dependency)
+  - ArchR (future scATAC expansion)
+
+- devtools::document() + devtools::install() workflow same as GAIA
+- No source() calls — all inter-module access via package namespace
+
+================================================================================
+OPEN DECISIONS
+================================================================================
+- None currently. NORNIR split (trajectory vs communication) resolved as
+  TRIPODES and DIKTYON respectively.
+
+================================================================================
+PENDING
+================================================================================
+- Rename YGGDRASIL/ directory to CAULDRON/ in the repository
+- Implement first functions (suggest starting with TALARIA loading + AEGIS QC
+  as these are required before any other module can be used)
+- Add CAULDRON to .gitignore exclusions if needed (data/, projects/ already
+  excluded in GAIA context)
+================================================================================

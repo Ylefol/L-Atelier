@@ -53,7 +53,10 @@ ZERO_DAWN/
 
 All module source files live flat under `GAIA/R/` with module-prefixed names (e.g., `artemis_wgcna.R`, `aether_circos.R`). Function names follow the same convention: `MODULE_function_name` (e.g., `ARTEMIS_wgcna_detect_modules`, `AETHER_plot_circos`).
 
-Note an YGGDRASIL package is in the works - this will be a package formatted similarly to GAIA intended for single cell/nuclei analyses.
+---
+## Future packages
+A HORIZON package - data processing (raw sequencing to bed files, counts, peaks ect...)
+A CAULDRON package - single cell/nuclei version of GAIA
 ---
 
 ## Issues
