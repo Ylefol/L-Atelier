@@ -45,6 +45,10 @@
 #'   estimateSizeFactors nbinomWaldTest results sizeFactors counts
 #'   design "design<-"
 #' @importFrom SummarizedExperiment colData "colData<-"
+#' @importFrom GenomicRanges seqinfo seqnames GRanges start end coverage
+#'   tileGenome binnedAverage distanceToNearest
+#' @importFrom IRanges IRanges
+#' @importFrom rtracklayer import.bw export.bw BigWigFile
 
 # ============================================================================
 # WGCNA imports (listed in Imports)

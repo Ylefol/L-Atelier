@@ -115,10 +115,14 @@ ELEUTHIA_summarize_sample_sheet(sample_sheet, ...)
 
 eleuthia_sCCA_export.R:
 ------------------------
-ELEUTHIA_save_scca_results(output_dir, scca_result, ...)
-  - Save sCCA results to output directory
-ELEUTHIA_generate_scca_summary(coarse_cv_results, ...)
-  - Generate summary report for sCCA cross-validation
+ELEUTHIA_save_scca_results(output_dir, coarse_cv_results, fine_cv_results, plots, ...)
+  - Export full CV workflow results (coarse+fine grid, best model, plots, summary)
+ELEUTHIA_generate_scca_summary(coarse_cv_results, fine_cv_results, ...)
+  - Internal: generate plain text summary for CV workflow
+ELEUTHIA_export_scca_result(result, output_dir, dataset_names, method_name, ...)
+  - Export direct (non-CV) sCCA run: per-dataset weight CSVs, sparsity summary,
+    feature weight plot, metadata file, optional RDS
+  - Accepts output of HEPHAESTUS_multi_convCCA() or HEPHAESTUS_multi_relPMDCCA()
 
 eleuthia_stratification_report.R:
 -----------------------------------

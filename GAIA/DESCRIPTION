@@ -23,12 +23,13 @@ Imports:
     grid,
     DESeq2,
     SummarizedExperiment,
-    WGCNA
+    WGCNA,
+    GenomicRanges,
+    IRanges,
+    rtracklayer
 Suggests:
     sva,
     limma,
-    GenomicRanges,
-    IRanges,
     GenomeInfoDb,
     GenomicFeatures,
     txdbmaker,

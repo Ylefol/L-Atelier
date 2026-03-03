@@ -247,19 +247,23 @@ genes <- unique(as.character(genes))
 }
 
 
-#' Extract gene lists from WGCNA modules or hub gene objects
+#' Extract gene lists from clustering results
 #'
-#' Convenience function to extract gene lists from a wgcna_modules or
-#' wgcna_hubs object, optionally converting to ENTREZID. When passed a
+#' Extracts gene lists from clustering results, returning a named list suitable
+#' for enrichment analysis. Accepts \code{wgcna_modules}, \code{wgcna_hubs}
+#' (from ARTEMIS_wgcna_*), or \code{artemis_part} objects. When passed a
 #' wgcna_hubs object (from ARTEMIS_wgcna_hub_genes() with n_top = NULL and
 #' a kME threshold), only hub genes passing the threshold are returned —
 #' suitable for enrichment analysis on large modules.
 #'
-#' @param modules A wgcna_modules object from ARTEMIS_wgcna_detect_modules(),
-#'   or a wgcna_hubs object from ARTEMIS_wgcna_hub_genes().
-#' @param modules_of_interest Character vector of module colors to extract.
-#'   Default: NULL (all modules except grey).
-#' @param exclude_grey Logical. Exclude the grey (unassigned) module. Default: TRUE.
+#' @param modules A \code{wgcna_modules} object from \code{ARTEMIS_wgcna_detect_modules()},
+#'   a \code{wgcna_hubs} object from \code{ARTEMIS_wgcna_hub_genes()}, or an
+#'   \code{artemis_part} object from \code{ARTEMIS_part()}.
+#' @param modules_of_interest Character vector of module/cluster names to extract.
+#'   Default: NULL (all clusters, excluding unassigned).
+#' @param exclude_grey Logical. Exclude unassigned genes: the grey module for
+#'   WGCNA (\code{module_0}), or the outlier cluster for PART (\code{C0}).
+#'   Default: TRUE.
 #' @param strip_version Logical. Remove version numbers from Ensembl-style IDs
 #'   (e.g., ENSG00000141510.16 -> ENSG00000141510). Default: FALSE.
 #' @param org_db Optional OrgDb for ID conversion. If provided, converts to ENTREZID.
@@ -267,27 +271,31 @@ genes <- unique(as.character(genes))
 #' @param to_type Type of output gene IDs (for conversion). Default: "ENTREZID".
 #' @param verbose Logical. Print progress. Default: TRUE.
 #'
-#' @return Named list of gene vectors, one per module.
+#' @return Named list of gene vectors, one per cluster/module.
 #'
 #' @examples
 #' \dontrun{
-#' # Get gene symbols (no conversion)
-#' module_genes <- APOLLO_extract_module_genes(modules)
+#' # From WGCNA modules
+#' cluster_genes <- APOLLO_extract_cluster_genes(modules)
+#'
+#' # From PART clustering (C0 outliers excluded by default)
+#' part_result <- ARTEMIS_part(mat, seed = 42)
+#' cluster_genes <- APOLLO_extract_cluster_genes(part_result)
 #'
 #' # Strip Ensembl version numbers for gprofiler
-#' module_genes <- APOLLO_extract_module_genes(modules, strip_version = TRUE)
+#' cluster_genes <- APOLLO_extract_cluster_genes(modules, strip_version = TRUE)
 #'
 #' # Get ENTREZID from Ensembl IDs
 #' library(org.Hs.eg.db)
-#' module_entrez <- APOLLO_extract_module_genes(modules, strip_version = TRUE,
-#'                                               org_db = org.Hs.eg.db,
-#'                                               from_type = "ENSEMBL")
+#' cluster_entrez <- APOLLO_extract_cluster_genes(modules, strip_version = TRUE,
+#'                                                 org_db = org.Hs.eg.db,
+#'                                                 from_type = "ENSEMBL")
 #'
 #' }
 #' @export
-APOLLO_extract_module_genes <- function(modules,
-                                         modules_of_interest = NULL,
-                                         exclude_grey = TRUE,
+APOLLO_extract_cluster_genes <- function(modules,
+                                          modules_of_interest = NULL,
+                                          exclude_grey = TRUE,
                                          strip_version = FALSE,
                                          org_db = NULL,
                                          from_type = "ENSEMBL",
@@ -338,8 +346,49 @@ APOLLO_extract_module_genes <- function(modules,
     return(gene_lists)
   }
 
+  # --- artemis_part dispatch ---
+  if (inherits(modules, "artemis_part")) {
+    cluster_vec <- modules$clusters
+    gene_lists  <- split(names(cluster_vec), cluster_vec)
+
+    if (exclude_grey) gene_lists[["C0"]] <- NULL
+
+    if (!is.null(modules_of_interest)) {
+      invalid <- setdiff(modules_of_interest, names(gene_lists))
+      if (length(invalid) > 0) {
+        warning("Clusters not found: ", paste(invalid, collapse = ", "))
+      }
+      gene_lists <- gene_lists[intersect(modules_of_interest, names(gene_lists))]
+    }
+
+    if (verbose) {
+      sizes <- sapply(gene_lists, length)
+      cat("Genes per cluster:", paste(names(sizes), sizes, sep = "=", collapse = ", "), "\n")
+      if (modules$n_outliers > 0 && exclude_grey) {
+        cat("(", modules$n_outliers, "outlier genes in C0 excluded)\n")
+      }
+    }
+
+    if (strip_version) {
+      gene_lists <- lapply(gene_lists, function(genes) unique(sub("\\.[0-9]+$", "", genes)))
+    }
+
+    if (!is.null(org_db)) {
+      gene_lists <- APOLLO_prepare_genelist(
+        gene_lists,
+        org_db       = org_db,
+        from_type    = from_type,
+        to_type      = to_type,
+        strip_version = FALSE,
+        verbose      = verbose
+      )
+    }
+
+    return(gene_lists)
+  }
+
   if (!inherits(modules, "wgcna_modules")) {
-    stop("modules must be a wgcna_modules or wgcna_hubs object")
+    stop("modules must be a wgcna_modules, wgcna_hubs, or artemis_part object")
   }
 
   module_names_vec <- modules$module_names
@@ -448,7 +497,7 @@ APOLLO_extract_module_genes <- function(modules,
 #' @details
 #' gprofiler2 automatically detects the input ID type in most cases. For best results
 #' with Ensembl IDs that have version numbers (e.g., ENSG00000141510.16), use
-#' APOLLO_extract_module_genes() with strip_version = TRUE before calling this function.
+#' APOLLO_extract_cluster_genes() with strip_version = TRUE before calling this function.
 #'
 #' @examples
 #' \dontrun{
@@ -460,7 +509,7 @@ APOLLO_extract_module_genes <- function(modules,
 #' results <- APOLLO_enrich_gost(gene_lists)
 #'
 #' # From WGCNA modules (Ensembl IDs)
-#' module_genes <- APOLLO_extract_module_genes(modules, strip_version = TRUE)
+#' module_genes <- APOLLO_extract_cluster_genes(modules, strip_version = TRUE)
 #' results <- APOLLO_enrich_gost(module_genes, sources = c("GO:BP", "GO:MF", "KEGG", "REAC"))
 #'
 #' # Mouse data

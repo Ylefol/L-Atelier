@@ -242,7 +242,7 @@ AETHER_plot_top_activities <- function(result,
 #'
 #' @examples
 #' \dontrun{
-#' comparison <- ARTEMIS_compare_methods(mat, network, methods = c("ulm", "mlm", "wsum"))
+#' comparison <- ARTEMIS_decoupler_compare_methods(mat, network, methods = c("ulm", "mlm", "wsum"))
 #' AETHER_plot_method_correlation(comparison)
 #'
 #' }

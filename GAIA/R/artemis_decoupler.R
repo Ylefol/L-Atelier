@@ -68,6 +68,27 @@
   )
 )
 
+# ==============================================================================
+# INTERNAL NORMALIZATION HELPERS
+# ==============================================================================
+
+.is_raw_counts <- function(mat) {
+  sample_vals <- mat[seq_len(min(100, nrow(mat))), seq_len(min(10, ncol(mat))), drop = FALSE]
+  all(sample_vals == floor(sample_vals), na.rm = TRUE)
+}
+
+.normalize_for_decoupler <- function(mat, norm_method, verbose = TRUE) {
+  if (norm_method == "none") return(mat)
+  if (norm_method == "log2cpm") {
+    if (verbose) cat("Normalizing: log2(CPM + 1)\n")
+    lib_sizes <- colSums(mat)
+    cpm <- sweep(mat, 2, lib_sizes, "/") * 1e6
+    return(log2(cpm + 1))
+  }
+  stop("Unknown norm_method: '", norm_method, "'. Options: 'log2cpm', 'none'.")
+}
+
+
 #' List available decoupleR methods
 #'
 #' Prints information about available statistical methods for activity inference.
@@ -79,12 +100,12 @@
 #'
 #' @examples
 #' \dontrun{
-#' ARTEMIS_list_methods()
-#' ARTEMIS_list_methods(recommended_only = TRUE)
+#' ARTEMIS_decoupler_list_methods()
+#' ARTEMIS_decoupler_list_methods(recommended_only = TRUE)
 #'
 #' }
 #' @export
-ARTEMIS_list_methods <- function(recommended_only = FALSE) {
+ARTEMIS_decoupler_list_methods <- function(recommended_only = FALSE) {
 
   cat("=== Available decoupleR Methods ===\n\n")
 
@@ -119,14 +140,20 @@ ARTEMIS_list_methods <- function(recommended_only = FALSE) {
 #' Core function for inferring biological activities (TF or pathway) from
 #' gene expression data using a specified statistical method.
 #'
-#' @param mat Numeric matrix of gene expression data. Genes as rows, samples as columns.
-#'   Rownames must be gene identifiers matching the network.
+#' @param mat Numeric matrix of gene expression data (genes x samples), an
+#'   \code{artemis_norm} object from \code{ARTEMIS_normalize_counts()}, or raw
+#'   integer count matrix. Rownames must be gene identifiers matching the network.
 #' @param network Prior knowledge network (from APOLLO_get_* functions or custom).
 #'   Must have columns: 'source' (TF/pathway), 'target' (gene), and 'mor' or 'weight'.
 #' @param method Character. Statistical method to use. REQUIRED - no default.
 #'   Options: "ulm", "mlm", "viper", "wsum", "wmean", "udt", "mdt", "ora", "gsva", "aucell".
 #' @param minsize Integer. Minimum number of targets per source to include.
 #'   Default: 5.
+#' @param norm_method Character. Normalization to apply to raw counts before inference.
+#'   \code{"log2cpm"} (default): log2(CPM + 1). \code{"none"}: pass matrix through as-is
+#'   (use when already normalized). If \code{mat} is an \code{artemis_norm} object,
+#'   DESeq2-normalized counts are extracted and log2-transformed automatically,
+#'   regardless of this parameter.
 #' @param verbose Logical. Print progress messages. Default: TRUE.
 #' @param ... Additional arguments passed to the specific method function.
 #'
@@ -142,10 +169,11 @@ ARTEMIS_list_methods <- function(recommended_only = FALSE) {
 #' @details
 #' This function requires an explicit method choice to ensure users understand
 #' which statistical approach they are using. For method recommendations, use
-#' ARTEMIS_list_methods().
+#' \code{ARTEMIS_decoupler_list_methods()}.
 #'
-#' The input matrix should be normalized gene expression data (e.g., log-transformed
-#' TPM or VST-normalized counts). Raw counts are not recommended.
+#' DecoupleR methods expect log-normalized continuous expression values, not raw
+#' counts. Use \code{norm_method = "log2cpm"} for raw counts, or pass an
+#' \code{artemis_norm} object to reuse DESeq2 size factors from a prior normalization.
 #'
 #' @examples
 #' \dontrun{
@@ -164,12 +192,13 @@ ARTEMIS_run_decoupler <- function(mat,
                                    network,
                                    method,
                                    minsize = 5,
+                                   norm_method = "log2cpm",
                                    verbose = TRUE,
                                    ...) {
 
   # Validate method is provided
   if (missing(method)) {
-    stop("'method' is required. Use ARTEMIS_list_methods() to see available options.")
+    stop("'method' is required. Use ARTEMIS_decoupler_list_methods() to see available options.")
   }
 
   method <- tolower(method)
@@ -179,15 +208,35 @@ ARTEMIS_run_decoupler <- function(mat,
          paste(valid_methods, collapse = ", "))
   }
 
+  # Handle artemis_norm input
+  if (inherits(mat, "artemis_norm")) {
+    if (verbose) cat("artemis_norm object detected — extracting log2(DESeq2-normalized + 1) counts.\n")
+    mat <- log2(mat$norm_counts + 1)
+    norm_method <- "none"
+  }
+
   # Validate matrix
   if (!is.matrix(mat) && !is.data.frame(mat)) {
-    stop("'mat' must be a matrix or data.frame")
+    stop("'mat' must be a matrix, data.frame, or artemis_norm object")
   }
   if (is.data.frame(mat)) {
     mat <- as.matrix(mat)
   }
   if (is.null(rownames(mat))) {
     stop("'mat' must have rownames (gene identifiers)")
+  }
+
+  # Apply normalization or warn if raw counts passed with norm_method = "none"
+  if (norm_method != "none") {
+    if (verbose && .is_raw_counts(mat)) {
+      cat("Raw integer counts detected — applying", norm_method, "normalization.\n")
+    }
+    mat <- .normalize_for_decoupler(mat, norm_method, verbose)
+  } else if (.is_raw_counts(mat)) {
+    warning("Input appears to be raw integer counts but norm_method = 'none'. ",
+            "DecoupleR expects normalized expression values. ",
+            "Consider norm_method = 'log2cpm' or pre-normalizing with ARTEMIS_normalize_counts().",
+            call. = FALSE)
   }
 
   # Validate network
@@ -286,10 +335,17 @@ ARTEMIS_run_decoupler <- function(mat,
 #' Runs multiple statistical methods on the same data and compares results.
 #' Useful for assessing robustness and identifying consensus activities.
 #'
-#' @param mat Numeric matrix of gene expression data. Genes as rows, samples as columns.
+#' @param mat Numeric matrix of gene expression data (genes x samples), or an
+#'   \code{artemis_norm} object from \code{ARTEMIS_normalize_counts()}. Rownames
+#'   must be gene identifiers matching the network.
 #' @param network Prior knowledge network.
 #' @param methods Character vector. Methods to compare. REQUIRED - no default.
 #' @param minsize Integer. Minimum targets per source. Default: 5.
+#' @param norm_method Character. Normalization to apply before running methods.
+#'   \code{"log2cpm"} (default): log2(CPM + 1). \code{"none"}: pass through as-is.
+#'   Normalization is applied once to the full matrix before any method runs to
+#'   ensure consistency. If \code{mat} is an \code{artemis_norm} object, DESeq2
+#'   normalized counts are extracted and log2-transformed automatically.
 #' @param consensus Logical. Compute consensus scores across methods. Default: TRUE.
 #' @param verbose Logical. Print progress messages. Default: TRUE.
 #' @param ... Additional arguments passed to each method.
@@ -316,7 +372,7 @@ ARTEMIS_run_decoupler <- function(mat,
 #' @examples
 #' \dontrun{
 #' network <- APOLLO_get_collectri()
-#' comparison <- ARTEMIS_compare_methods(
+#' comparison <- ARTEMIS_decoupler_compare_methods(
 #'   expr_matrix, network,
 #'   methods = c("ulm", "mlm", "wsum")
 #' )
@@ -329,17 +385,18 @@ ARTEMIS_run_decoupler <- function(mat,
 #'
 #' }
 #' @export
-ARTEMIS_compare_methods <- function(mat,
-                                     network,
-                                     methods,
-                                     minsize = 5,
-                                     consensus = TRUE,
-                                     verbose = TRUE,
-                                     ...) {
+ARTEMIS_decoupler_compare_methods <- function(mat,
+                                               network,
+                                               methods,
+                                               minsize = 5,
+                                               norm_method = "log2cpm",
+                                               consensus = TRUE,
+                                               verbose = TRUE,
+                                               ...) {
 
   # Validate methods
   if (missing(methods)) {
-    stop("'methods' is required. Use ARTEMIS_list_methods() to see options.")
+    stop("'methods' is required. Use ARTEMIS_decoupler_list_methods() to see options.")
   }
 
   methods <- tolower(methods)
@@ -354,13 +411,30 @@ ARTEMIS_compare_methods <- function(mat,
     stop("At least 2 methods required for comparison.")
   }
 
+  # Handle artemis_norm input
+  if (inherits(mat, "artemis_norm")) {
+    if (verbose) cat("artemis_norm object detected — extracting log2(DESeq2-normalized + 1) counts.\n")
+    mat <- log2(mat$norm_counts + 1)
+    norm_method <- "none"
+  } else if (norm_method != "none") {
+    if (verbose) cat("Normalizing matrix once before running", length(methods), "methods...\n")
+    if (verbose && .is_raw_counts(mat)) cat("Raw integer counts detected — applying", norm_method, "normalization.\n")
+    mat <- .normalize_for_decoupler(mat, norm_method, verbose = FALSE)
+    norm_method <- "none"
+  } else if (.is_raw_counts(mat)) {
+    warning("Input appears to be raw integer counts but norm_method = 'none'. ",
+            "DecoupleR expects normalized expression values. ",
+            "Consider norm_method = 'log2cpm' or pre-normalizing with ARTEMIS_normalize_counts().",
+            call. = FALSE)
+  }
+
   if (verbose) {
     cat("=== ARTEMIS Method Comparison ===\n")
     cat("Methods:", paste(methods, collapse = ", "), "\n")
     cat("Input:", nrow(mat), "genes x", ncol(mat), "samples\n\n")
   }
 
-  # Run each method
+  # Run each method (matrix already normalized above — pass norm_method = "none")
   results <- list()
   for (m in methods) {
     if (verbose) cat("Running", m, "...\n")
@@ -369,6 +443,7 @@ ARTEMIS_compare_methods <- function(mat,
       network = network,
       method = m,
       minsize = minsize,
+      norm_method = "none",
       verbose = FALSE,
       ...
     )
@@ -483,7 +558,7 @@ ARTEMIS_infer_tf_activity <- function(mat,
                                        ...) {
 
   if (missing(method)) {
-    stop("'method' is required. Use ARTEMIS_list_methods() to see options.")
+    stop("'method' is required. Use ARTEMIS_decoupler_list_methods() to see options.")
   }
 
   database <- tolower(database)
@@ -562,7 +637,7 @@ ARTEMIS_infer_pathway_activity <- function(mat,
                                             ...) {
 
   if (missing(method)) {
-    stop("'method' is required. Use ARTEMIS_list_methods() to see options.")
+    stop("'method' is required. Use ARTEMIS_decoupler_list_methods() to see options.")
   }
 
   database <- tolower(database)

@@ -1,0 +1,120 @@
+================================================================================
+HORIZON STATUS - Upstream Bioinformatics Processing Package
+================================================================================
+Last Updated: 2026-03-03
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+sample_sheet.R:
+---------------
+HORIZON_create_sample_sheet(output_path = NULL, n_samples = 1)
+  - Generates a CSV template with all required columns
+  - Returns data.frame invisibly; writes to disk if output_path provided
+  - Columns: sample_id, fastq_r1, fastq_r2, paired_end, output_dir,
+    strandedness, condition
+
+HORIZON_validate_sample_sheet(path, check_files = TRUE)
+  - Reads CSV or accepts data.frame
+  - Checks required columns, unique sample IDs, valid strandedness values
+  - Checks FASTQ file existence (set check_files=FALSE if drive not mounted)
+  - Returns validated sample sheet data.frame
+
+build_index.R:
+--------------
+HORIZON_build_index(basename, reference, memory=8000, index_split=TRUE,
+                    gapped=TRUE, force=FALSE, ...)
+  - Wraps Rsubread::buildindex()
+  - Skips build if index files already exist at basename (force=FALSE default)
+  - force=TRUE overwrites existing index
+  - index_split=TRUE reduces per-alignment RAM at cost of slight speed
+  - memory parameter controls RAM during build (default 8 GB)
+
+qc_trim.R:
+----------
+HORIZON_run_qc_trim(sample_sheet, sample_id, threads=4, compression=4,
+                    adapter_r1=NULL, adapter_r2=NULL, ...)
+  - Wraps Rfastp::rfastp() — QC + trimming in one pass
+  - Auto-detects adapters (PE: overlap analysis; SE: built-in list)
+  - Writes trimmed FASTQs + HTML/JSON report to <output_dir>/<sample_id>/qc/
+  - Returns list: trimmed_r1, trimmed_r2, report_html, report_json
+
+align.R:
+--------
+HORIZON_run_align(sample_sheet, sample_id, index, use_trimmed=TRUE,
+                  threads=4, max_mismatches=3, ...)
+  - Wraps Rsubread::align() with type="rna" (splice-aware)
+  - use_trimmed=TRUE reads from qc/ subfolder; FALSE reads raw FASTQs
+  - Writes unsorted BAM to <output_dir>/<sample_id>/aligned/
+  - Pass to HORIZON_sort_index_bam() before counting
+
+bam_processing.R:
+-----------------
+HORIZON_sort_index_bam(sample_sheet, sample_id, threads=4,
+                       memory_per_thread=2000, remove_unsorted=TRUE)
+  - Wraps Rsamtools::sortBam() + indexBam()
+  - Total sort RAM ~ memory_per_thread * threads MB
+  - Removes unsorted BAM by default (remove_unsorted=FALSE to keep)
+  - Writes <sample_id>_sorted.bam + .bai index
+
+count.R:
+--------
+HORIZON_run_count(sample_sheet, sample_id, annotation, feature_type="exon",
+                  attribute_type="gene_id", threads=4,
+                  min_mapping_quality=10, ...)
+  - Wraps Rsubread::featureCounts()
+  - Strandedness read from sample sheet and auto-mapped (unstranded=0,
+    forward=1, reverse=2)
+  - Writes <sample_id>_counts.txt (gene_id + count TSV)
+  - Writes <sample_id>_featurecounts.rds (full result object)
+
+aggregate.R:
+------------
+HORIZON_aggregate_counts(sample_sheet, output_root=NULL, save_rds=TRUE,
+                         save_metadata=TRUE)
+  - Reads per-sample _counts.txt files and builds genes x samples matrix
+  - Skips samples with missing count files (warning)
+  - output_root inferred from first sample if NULL
+  - Writes count_matrix.csv, count_matrix.rds, sample_metadata.csv
+    to <output_root>/aggregated/counts/
+
+internals.R (not exported):
+----------------------------
+.get_sample_row(sample_sheet, sample_id)
+  - Extracts single row from sample sheet; stops if not found
+.strand_to_int(strandedness)
+  - Maps "unstranded"/"forward"/"reverse" to 0/1/2 for featureCounts
+
+================================================================================
+IN PROGRESS
+================================================================================
+- None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- HORIZON_infer_strandedness(bam, annotation, threads=4)
+  - Runs featureCounts with strandSpecific = 0, 1, 2 on a single BAM
+  - Returns named vector of assigned read % per setting
+  - Prints recommendation (forward/reverse/unstranded) based on results
+  - Useful when library prep kit documentation is ambiguous
+- Additional assay types: ChIP-seq, ATAC-seq, CUT&TAG alignment wrappers
+  (Rbowtie2 instead of Rsubread for these)
+- BAM filtering functions (remove duplicates, blacklist regions)
+- MultiQC-style QC summary across all samples
+- BigWig generation from sorted BAMs (rtracklayer)
+- Single-cell/nuclei variant (CAULDRON upstream)
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Rsubread: alignment (align()) + counting (featureCounts()) + index (buildindex())
+- Rfastp: QC + trimming (rfastp()) — bundles fastp binary, cross-platform
+- Rsamtools: BAM sorting (sortBam()) + indexing (indexBam())
+- All Bioconductor packages: install via BiocManager::install()
+- Output directory structure: <output_dir>/<sample_id>/{qc,aligned,counts}/
+- Aggregated output: <output_root>/aggregated/counts/
+- Functions process one sample at a time by design (RAM-conservative)
+- Workflow: devtools::document("HORIZON") then devtools::install("HORIZON")
+================================================================================

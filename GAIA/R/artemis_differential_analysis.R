@@ -366,10 +366,13 @@ ARTEMIS_differential_counts <- function(quant_result,
   # Check exactly two groups (only reference and experiment)
   other_groups <- setdiff(unique_groups, c(reference, experiment))
   if (length(other_groups) > 0) {
-    stop("Data contains more than two groups. This function requires exactly two groups.\n",
+    stop("Data contains more than two groups. When running multiple comparisons\n",
+         "  from the same dataset, size factors must be estimated once on all samples\n",
+         "  to ensure consistency across comparisons.\n",
+         "  Use ARTEMIS_normalize_counts() on the full dataset first, then pass\n",
+         "  the result to ARTEMIS_differential_counts() for each pairwise comparison.\n",
          "  Specified: '", reference, "' (reference) and '", experiment, "' (experiment)\n",
-         "  Additional groups found: ", paste(other_groups, collapse = ", "), "\n",
-         "  Please subset your data to include only the two groups of interest.")
+         "  Additional groups found: ", paste(other_groups, collapse = ", "))
   }
 
   # Check replicates

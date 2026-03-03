@@ -19,7 +19,7 @@ ELEUTHIA_export_activity_results(
 \arguments{
 \item{result}{A \code{decoupler_result} or \code{decoupler_comparison} object
 from ARTEMIS_run_decoupler(), ARTEMIS_infer_tf_activity(),
-ARTEMIS_infer_pathway_activity(), or ARTEMIS_compare_methods().}
+ARTEMIS_infer_pathway_activity(), or ARTEMIS_decoupler_compare_methods().}
 
 \item{output_dir}{Character. Directory to save results. Created if needed.}
 
@@ -81,7 +81,7 @@ tf_result <- ARTEMIS_infer_tf_activity(expr_matrix, method = "ulm")
 ELEUTHIA_export_activity_results(tf_result, "results/tf_activity/")
 
 # Export multi-method comparison
-comparison <- ARTEMIS_compare_methods(
+comparison <- ARTEMIS_decoupler_compare_methods(
   expr_matrix, network, methods = c("ulm", "mlm", "wsum")
 )
 ELEUTHIA_export_activity_results(comparison, "results/tf_comparison/")

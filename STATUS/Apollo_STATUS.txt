@@ -34,9 +34,10 @@ APOLLO_convert_genes(genes, from, to, ...)
   - Uses org.Hs.eg.db; load separately with library(org.Hs.eg.db)
 APOLLO_prepare_genelist(genes, ...)
   - Prepare ranked/filtered gene list for enrichment
-APOLLO_extract_module_genes(wgcna_result, module, ...)
-  - Extract gene list from a wgcna_modules or wgcna_hubs object
-  - Accepts wgcna_hubs for kME-filtered enrichment on large modules
+APOLLO_extract_cluster_genes(modules, modules_of_interest=NULL, exclude_grey=TRUE, ...)
+  - Extract named gene list from clustering results for enrichment analysis
+  - Accepts wgcna_modules, wgcna_hubs, or artemis_part objects
+  - exclude_grey=TRUE removes grey module (WGCNA) or C0 outliers (PART)
 APOLLO_enrich_gost(genes, ...)
   - Run gprofiler2 enrichment analysis
 APOLLO_filter_enrichment(enrichment_result, ...)

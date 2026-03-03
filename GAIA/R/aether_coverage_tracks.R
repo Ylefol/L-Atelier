@@ -127,6 +127,7 @@ AETHER_plot_coverage_tracks <- function(bigwig_files      = NULL,
              "Install with: BiocManager::install('", pkg, "')",
              call. = FALSE)
     }
+
   }
 
   # --- Normalise input --------------------------------------------------------
@@ -181,7 +182,17 @@ AETHER_plot_coverage_tracks <- function(bigwig_files      = NULL,
         if (!file.exists(f))
           stop("BigWig not found: ", f, call. = FALSE)
         if (verbose) message("[AETHER]   Reading [", nm, "]: ", basename(f))
-        sig <- rtracklayer::import.bw(f, which = region_gr)
+        sig <- tryCatch(
+          rtracklayer::import.bw(f, which = region_gr),
+          error = function(e) {
+            stop("rtracklayer failed to read BigWig file: ", basename(f), "\n",
+                 "  Original error: ", conditionMessage(e), "\n",
+                 "  If this is an S4 dispatch or seqinfo error, your Bioconductor\n",
+                 "  packages may be out of sync. Run BiocManager::valid() to\n",
+                 "  identify and reinstall any outdated packages.",
+                 call. = FALSE)
+          }
+        )
         df  <- as.data.frame(sig)[, c("start", "end", "score"), drop = FALSE]
         df$midpoint <- (df$start + df$end) / 2
         df

@@ -4,11 +4,20 @@
 \alias{ARTEMIS_run_decoupler}
 \title{Run decoupleR activity inference}
 \usage{
-ARTEMIS_run_decoupler(mat, network, method, minsize = 5, verbose = TRUE, ...)
+ARTEMIS_run_decoupler(
+  mat,
+  network,
+  method,
+  minsize = 5,
+  norm_method = "log2cpm",
+  verbose = TRUE,
+  ...
+)
 }
 \arguments{
-\item{mat}{Numeric matrix of gene expression data. Genes as rows, samples as columns.
-Rownames must be gene identifiers matching the network.}
+\item{mat}{Numeric matrix of gene expression data (genes x samples), an
+\code{artemis_norm} object from \code{ARTEMIS_normalize_counts()}, or raw
+integer count matrix. Rownames must be gene identifiers matching the network.}
 
 \item{network}{Prior knowledge network (from APOLLO_get_* functions or custom).
 Must have columns: 'source' (TF/pathway), 'target' (gene), and 'mor' or 'weight'.}
@@ -18,6 +27,12 @@ Options: "ulm", "mlm", "viper", "wsum", "wmean", "udt", "mdt", "ora", "gsva", "a
 
 \item{minsize}{Integer. Minimum number of targets per source to include.
 Default: 5.}
+
+\item{norm_method}{Character. Normalization to apply to raw counts before inference.
+\code{"log2cpm"} (default): log2(CPM + 1). \code{"none"}: pass matrix through as-is
+(use when already normalized). If \code{mat} is an \code{artemis_norm} object,
+DESeq2-normalized counts are extracted and log2-transformed automatically,
+regardless of this parameter.}
 
 \item{verbose}{Logical. Print progress messages. Default: TRUE.}
 
@@ -40,10 +55,11 @@ gene expression data using a specified statistical method.
 \details{
 This function requires an explicit method choice to ensure users understand
 which statistical approach they are using. For method recommendations, use
-ARTEMIS_list_methods().
+\code{ARTEMIS_decoupler_list_methods()}.
 
-The input matrix should be normalized gene expression data (e.g., log-transformed
-TPM or VST-normalized counts). Raw counts are not recommended.
+DecoupleR methods expect log-normalized continuous expression values, not raw
+counts. Use \code{norm_method = "log2cpm"} for raw counts, or pass an
+\code{artemis_norm} object to reuse DESeq2 size factors from a prior normalization.
 }
 \examples{
 \dontrun{

@@ -235,7 +235,6 @@ OPEN DECISIONS
 ================================================================================
 PENDING
 ================================================================================
-- Rename YGGDRASIL/ directory to CAULDRON/ in the repository
 - Implement first functions (suggest starting with TALARIA loading + AEGIS QC
   as these are required before any other module can be used)
 - Add CAULDRON to .gitignore exclusions if needed (data/, projects/ already

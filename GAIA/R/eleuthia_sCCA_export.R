@@ -404,3 +404,230 @@ ELEUTHIA_generate_scca_summary <- function(coarse_cv_results,
 
   return(txt)
 }
+
+
+# ==============================================================================
+# DIRECT RUN EXPORT (no CV)
+# ==============================================================================
+
+#' Export sCCA Direct Run Results
+#'
+#' Exports results from a direct (non-CV) sCCA run using
+#' \code{HEPHAESTUS_multi_convCCA()} or \code{HEPHAESTUS_multi_relPMDCCA()}.
+#' Saves per-dataset feature weight tables, a sparsity summary, the feature
+#' weight plot, a metadata file, and optionally the full R object as RDS.
+#'
+#' @param result List with element \code{$W}: a list of canonical weight vectors,
+#'   one per dataset. Direct output of \code{HEPHAESTUS_multi_convCCA()} or
+#'   \code{HEPHAESTUS_multi_relPMDCCA()}.
+#' @param output_dir Character. Directory to save results. Created if needed.
+#' @param dataset_names Character vector. Names for each dataset (e.g.,
+#'   \code{c("ATAC", "ChIP", "RNA")}). Default: "Dataset_1", "Dataset_2", etc.
+#' @param method_name Character. Method label used in plot titles and metadata.
+#'   Default: "sCCA".
+#' @param prefix Character. Prefix for all output filenames. Default: "scca".
+#' @param top_n Integer or NULL. If NULL, exports all non-zero weighted features
+#'   per dataset. If an integer, exports the top N features by absolute weight
+#'   (regardless of zero status). Default: NULL.
+#' @param save_plots Logical. Save the feature weight plot. Default: TRUE.
+#' @param plot_format Character. Plot format: "png", "pdf", or "both".
+#'   Default: "png".
+#' @param save_rds Logical. Save full result object as RDS. Default: TRUE.
+#' @param verbose Logical. Print progress. Default: TRUE.
+#'
+#' @return Invisibly returns a character vector of file paths created.
+#'
+#' @details
+#' Creates the following files in \code{output_dir}:
+#' \preformatted{
+#' output_dir/
+#'   <prefix>_<dataset_name>_weights.csv   (one per dataset)
+#'   <prefix>_sparsity_summary.csv
+#'   <prefix>_feature_weights.png / .pdf
+#'   <prefix>_metadata.txt
+#'   <prefix>_result.rds                   (optional)
+#' }
+#'
+#' Weight tables contain: \code{feature}, \code{weight}, \code{abs_weight},
+#' \code{rank} (by absolute weight). Feature names are taken from
+#' \code{names(result$W[[i]])} if available, otherwise integer indices are used.
+#'
+#' @examples
+#' \dontrun{
+#' result <- HEPHAESTUS_multi_convCCA(X = scca_data, tau = as.list(rep(0.1, 4)))
+#' ELEUTHIA_export_scca_result(
+#'   result,
+#'   output_dir  = "results/scca/",
+#'   dataset_names = c("ATAC_1", "ATAC_2", "ChIP", "RNA"),
+#'   method_name = "multi.convCCA"
+#' )
+#' }
+#' @export
+ELEUTHIA_export_scca_result <- function(result,
+                                         output_dir,
+                                         dataset_names = NULL,
+                                         method_name   = "sCCA",
+                                         prefix        = "scca",
+                                         top_n         = NULL,
+                                         save_plots    = TRUE,
+                                         plot_format   = "png",
+                                         save_rds      = TRUE,
+                                         verbose       = TRUE) {
+
+  if (!is.list(result) || !"W" %in% names(result)) {
+    stop("'result' must be a list with element $W (output of HEPHAESTUS_multi_convCCA ",
+         "or HEPHAESTUS_multi_relPMDCCA).")
+  }
+
+  W          <- result$W
+  n_datasets <- length(W)
+
+  if (is.null(dataset_names)) {
+    dataset_names <- paste0("Dataset_", seq_len(n_datasets))
+  }
+  if (length(dataset_names) != n_datasets) {
+    stop("'dataset_names' must have one name per dataset (", n_datasets, " datasets).")
+  }
+
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+    if (verbose) cat("Created directory:", output_dir, "\n")
+  }
+
+  files_created <- character(0)
+
+  if (verbose) {
+    cat("=== Exporting sCCA Results ===\n")
+    cat("Method:", method_name, "\n")
+    cat("Datasets:", n_datasets, "\n\n")
+  }
+
+  # --------------------------------------------------------------------------
+  # 1. Per-dataset weight tables
+  # --------------------------------------------------------------------------
+  sparsity_rows <- vector("list", n_datasets)
+
+  for (i in seq_len(n_datasets)) {
+    w    <- as.numeric(W[[i]])
+    feat <- if (!is.null(names(W[[i]]))) names(W[[i]]) else seq_along(w)
+
+    df <- data.frame(
+      feature    = feat,
+      weight     = w,
+      abs_weight = abs(w),
+      stringsAsFactors = FALSE
+    )
+    df <- df[order(df$abs_weight, decreasing = TRUE), ]
+    df$rank <- seq_len(nrow(df))
+
+    if (!is.null(top_n)) {
+      df <- df[seq_len(min(top_n, nrow(df))), ]
+    } else {
+      df <- df[df$abs_weight > 1e-6, ]
+    }
+
+    safe_name <- gsub("[^A-Za-z0-9_]", "_", dataset_names[i])
+    wt_file   <- file.path(output_dir, paste0(prefix, "_", safe_name, "_weights.csv"))
+    write.csv(df, wt_file, row.names = FALSE)
+    files_created <- c(files_created, wt_file)
+    if (verbose) cat("  Weights [", dataset_names[i], "]:", wt_file, "\n")
+
+    n_nonzero <- sum(abs(as.numeric(W[[i]])) > 1e-6)
+    sparsity_rows[[i]] <- data.frame(
+      dataset    = dataset_names[i],
+      n_features = length(W[[i]]),
+      n_nonzero  = n_nonzero,
+      pct_nonzero = round(100 * n_nonzero / length(W[[i]]), 1),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # --------------------------------------------------------------------------
+  # 2. Sparsity summary
+  # --------------------------------------------------------------------------
+  summary_df   <- do.call(rbind, sparsity_rows)
+  summary_file <- file.path(output_dir, paste0(prefix, "_sparsity_summary.csv"))
+  write.csv(summary_df, summary_file, row.names = FALSE)
+  files_created <- c(files_created, summary_file)
+  if (verbose) cat("  Sparsity summary:", summary_file, "\n")
+
+  # --------------------------------------------------------------------------
+  # 3. Feature weight plot
+  # --------------------------------------------------------------------------
+  if (save_plots) {
+    p <- AETHER_plot_multi_feature_weights(
+      weights_list = W,
+      method_name  = method_name,
+      dataset_names = dataset_names
+    )
+
+    plot_height <- max(4, 2.5 * n_datasets)
+
+    save_fmt <- function(ext) {
+      path <- file.path(output_dir, paste0(prefix, "_feature_weights.", ext))
+      ggsave(path, plot = p, width = 12, height = plot_height, dpi = 300)
+      files_created <<- c(files_created, path)
+      if (verbose) cat("  Plot:", path, "\n")
+    }
+
+    if (plot_format %in% c("png", "both")) save_fmt("png")
+    if (plot_format %in% c("pdf", "both")) save_fmt("pdf")
+  }
+
+  # --------------------------------------------------------------------------
+  # 4. Metadata file
+  # --------------------------------------------------------------------------
+  meta_lines <- c(
+    "================================================================================",
+    "sCCA DIRECT RUN — EXPORT METADATA",
+    "================================================================================",
+    "",
+    paste0("Date:        ", format(Sys.time(), "%Y-%m-%d %H:%M")),
+    paste0("Method:      ", method_name),
+    paste0("Datasets:    ", n_datasets),
+    "",
+    "--------------------------------------------------------------------------------",
+    "SPARSITY",
+    "--------------------------------------------------------------------------------",
+    ""
+  )
+  for (i in seq_len(n_datasets)) {
+    r <- sparsity_rows[[i]]
+    meta_lines <- c(meta_lines,
+      sprintf("  %-14s %d / %d non-zero features (%.1f%%)",
+              paste0(dataset_names[i], ":"), r$n_nonzero, r$n_features, r$pct_nonzero))
+  }
+  meta_lines <- c(meta_lines, "",
+    "--------------------------------------------------------------------------------",
+    "FILES",
+    "--------------------------------------------------------------------------------",
+    ""
+  )
+  for (f in files_created) meta_lines <- c(meta_lines, paste0("  ", basename(f)))
+  meta_lines <- c(meta_lines, "",
+    "================================================================================"
+  )
+
+  meta_file <- file.path(output_dir, paste0(prefix, "_metadata.txt"))
+  writeLines(meta_lines, meta_file)
+  files_created <- c(files_created, meta_file)
+  if (verbose) cat("  Metadata:", meta_file, "\n")
+
+  # --------------------------------------------------------------------------
+  # 5. RDS
+  # --------------------------------------------------------------------------
+  if (save_rds) {
+    rds_file <- file.path(output_dir, paste0(prefix, "_result.rds"))
+    saveRDS(result, rds_file)
+    files_created <- c(files_created, rds_file)
+    if (verbose) cat("  RDS:", rds_file, "\n")
+  }
+
+  if (verbose) {
+    cat("\n--- Export Summary ---\n")
+    cat("Total files created:", length(files_created), "\n")
+    cat("Output directory:", output_dir, "\n")
+  }
+
+  invisible(files_created)
+}

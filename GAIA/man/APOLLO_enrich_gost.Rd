@@ -82,7 +82,7 @@ Accepts multiple ID types directly (ENSEMBL, SYMBOL, etc.) - no conversion neede
 \details{
 gprofiler2 automatically detects the input ID type in most cases. For best results
 with Ensembl IDs that have version numbers (e.g., ENSG00000141510.16), use
-APOLLO_extract_module_genes() with strip_version = TRUE before calling this function.
+APOLLO_extract_cluster_genes() with strip_version = TRUE before calling this function.
 }
 \examples{
 \dontrun{
@@ -94,7 +94,7 @@ gene_lists <- list(
 results <- APOLLO_enrich_gost(gene_lists)
 
 # From WGCNA modules (Ensembl IDs)
-module_genes <- APOLLO_extract_module_genes(modules, strip_version = TRUE)
+module_genes <- APOLLO_extract_cluster_genes(modules, strip_version = TRUE)
 results <- APOLLO_enrich_gost(module_genes, sources = c("GO:BP", "GO:MF", "KEGG", "REAC"))
 
 # Mouse data

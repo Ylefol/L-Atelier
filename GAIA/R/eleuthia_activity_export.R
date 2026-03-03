@@ -15,7 +15,7 @@
 #'
 #' @param result A \code{decoupler_result} or \code{decoupler_comparison} object
 #'   from ARTEMIS_run_decoupler(), ARTEMIS_infer_tf_activity(),
-#'   ARTEMIS_infer_pathway_activity(), or ARTEMIS_compare_methods().
+#'   ARTEMIS_infer_pathway_activity(), or ARTEMIS_decoupler_compare_methods().
 #' @param output_dir Character. Directory to save results. Created if needed.
 #' @param prefix Character. Prefix for output filenames. Default: "activity".
 #' @param save_plots Logical. Save diagnostic plots. Default: TRUE.
@@ -63,7 +63,7 @@
 #' ELEUTHIA_export_activity_results(tf_result, "results/tf_activity/")
 #'
 #' # Export multi-method comparison
-#' comparison <- ARTEMIS_compare_methods(
+#' comparison <- ARTEMIS_decoupler_compare_methods(
 #'   expr_matrix, network, methods = c("ulm", "mlm", "wsum")
 #' )
 #' ELEUTHIA_export_activity_results(comparison, "results/tf_comparison/")
@@ -90,7 +90,7 @@ ELEUTHIA_export_activity_results <- function(result,
   if (!is_single && !is_comparison) {
     stop("'result' must be a decoupler_result or decoupler_comparison object.\n",
          "  Use ARTEMIS_run_decoupler(), ARTEMIS_infer_tf_activity(), ",
-         "ARTEMIS_infer_pathway_activity(), or ARTEMIS_compare_methods().")
+         "ARTEMIS_infer_pathway_activity(), or ARTEMIS_decoupler_compare_methods().")
   }
 
   if (verbose) cat("=== Exporting Activity Results ===\n")

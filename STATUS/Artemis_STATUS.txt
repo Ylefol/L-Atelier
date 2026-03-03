@@ -34,12 +34,15 @@ ARTEMIS_characterize_clusters(data, cluster_result, ...)
 
 artemis_decoupler.R:
 --------------------
-ARTEMIS_list_methods()
+ARTEMIS_decoupler_list_methods()
   - List available decoupleR activity inference methods
-ARTEMIS_run_decoupler(counts, network, methods, ...)
+ARTEMIS_run_decoupler(mat, network, method, norm_method="log2cpm", ...)
   - Run decoupleR for activity inference
-ARTEMIS_compare_methods(counts, network, ...)
+  - Accepts raw counts (log2cpm), artemis_norm objects (auto log2 DESeq2), or
+    pre-normalized matrices (norm_method="none")
+ARTEMIS_decoupler_compare_methods(mat, network, methods, norm_method="log2cpm", ...)
   - Compare multiple activity inference methods
+  - Normalizes matrix once before the method loop to prevent double normalization
 ARTEMIS_infer_tf_activity(counts, network, ...)
   - Infer transcription factor activity
 ARTEMIS_infer_pathway_activity(counts, network, ...)
