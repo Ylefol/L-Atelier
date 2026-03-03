@@ -1,0 +1,36 @@
+================================================================================
+PYRI STATUS - Normalization & Preprocessing
+================================================================================
+Last Updated: 2026-02-26
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+pyri_preprocessing.R:
+---------------------
+(none yet)
+
+================================================================================
+IN PROGRESS
+================================================================================
+- None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- PYRI_normalize()           Normalization (library-size, scran, SCTransform)
+- PYRI_select_hvg()          Highly variable gene selection
+- PYRI_scale()               Feature scaling (zero-mean, unit-variance)
+- PYRI_score_cell_cycle()    Cell cycle phase scoring
+- PYRI_regress_cell_cycle()  Regress out cell cycle effects
+- PYRI_correct_batch()       Batch correction (Harmony, fastMNN, etc.)
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Key packages: scran (normalization, HVG), scater (logNormCounts),
+  harmony (batch correction), batchelor (fastMNN)
+- Normalization must precede HVG selection, scaling, and all downstream steps
+- SCTransform handled via Seurat interop if needed; scran preferred natively
+- Batch correction should be applied to the PCA embedding (TALOS), not
+  directly to the count matrix, in most workflows

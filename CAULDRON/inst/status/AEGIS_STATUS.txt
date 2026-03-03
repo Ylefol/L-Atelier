@@ -1,0 +1,37 @@
+================================================================================
+AEGIS STATUS - Quality Control & Filtering
+================================================================================
+Last Updated: 2026-02-26
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+aegis_qc.R:
+-----------
+(none yet)
+
+================================================================================
+IN PROGRESS
+================================================================================
+- None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- AEGIS_compute_qc_metrics()  Per-cell QC metrics (nUMI, nGenes, MT%, ribo%)
+- AEGIS_filter_cells()        Filter cells by QC thresholds (fixed or MAD-based)
+- AEGIS_detect_doublets()     Doublet detection via scDblFinder
+- AEGIS_remove_ambient()      Ambient RNA removal via SoupX or DecontX
+- AEGIS_plot_qc_violin()      Violin plots of QC metrics per sample
+- AEGIS_plot_qc_scatter()     Scatter plots (e.g. nUMI vs nGenes, MT% vs nUMI)
+- AEGIS_plot_knee()           Knee/barcode rank plot for empty droplet detection
+- AEGIS_summarise_qc()        Sample-level QC summary table
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Key packages: scater (QC metrics), scDblFinder (doublets),
+  SoupX / decontX (ambient RNA)
+- Should be run immediately after TALARIA loading, before any PYRI steps
+- MAD-based adaptive thresholds preferred over fixed cutoffs for robustness
+  across samples with different sequencing depths

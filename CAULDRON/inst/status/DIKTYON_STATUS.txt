@@ -1,0 +1,39 @@
+================================================================================
+DIKTYON STATUS - Cell-Cell Communication
+================================================================================
+Last Updated: 2026-02-26
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+diktyon_communication.R:
+------------------------
+(none yet)
+
+================================================================================
+IN PROGRESS
+================================================================================
+- None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- DIKTYON_run_cellchat()        Communication inference via CellChat
+- DIKTYON_run_nichenet()        Ligand activity scoring via NicheNet
+- DIKTYON_run_liana()           Multi-method communication via LIANA
+- DIKTYON_compare_conditions()  Condition-level communication comparison
+- DIKTYON_plot_network()        Signaling network chord / circle plot
+- DIKTYON_plot_heatmap()        Communication strength heatmap
+- DIKTYON_plot_bubble()         Ligand-receptor bubble plot
+- DIKTYON_summarise_signals()   Summary table of top interactions
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Key packages: CellChat, NicheNet / liana (R wrapper), circlize
+- Requires annotated data (PANDORA) — cell type labels are the units of
+  communication inference
+- LIANA preferred as entry point as it wraps multiple methods and allows
+  consensus scoring across tools
+- DIKTYON was split from the original combined Dynamics module to separate
+  cell-cell communication from trajectory inference (now TRIPODES)

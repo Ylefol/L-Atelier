@@ -1,0 +1,37 @@
+================================================================================
+TALOS STATUS - Dimensionality Reduction & Clustering
+================================================================================
+Last Updated: 2026-02-26
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+talos_embedding.R:
+------------------
+(none yet)
+
+================================================================================
+IN PROGRESS
+================================================================================
+- None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- TALOS_run_pca()          Principal component analysis
+- TALOS_run_umap()         UMAP embedding
+- TALOS_run_tsne()         tSNE embedding
+- TALOS_build_graph()      KNN / SNN graph construction
+- TALOS_cluster()          Graph-based clustering (Leiden / Louvain)
+- TALOS_tune_resolution()  Resolution sweep and cluster stability assessment
+- TALOS_plot_elbow()       Elbow plot for PCA component selection
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Key packages: scater (runPCA, runUMAP, runTSNE), scran (buildSNNGraph,
+  clusterCells), igraph (Leiden/Louvain)
+- Requires normalized data from PYRI before running
+- Batch-corrected embeddings (from PYRI) should be used as PCA input when
+  multi-sample integration is needed
+- Reduced dims stored in reducedDims(sce) slot of the SCE object

@@ -1,0 +1,39 @@
+================================================================================
+TRIPODES STATUS - Trajectory & Pseudotime Analysis
+================================================================================
+Last Updated: 2026-02-26
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+tripodes_trajectory.R:
+----------------------
+(none yet)
+
+================================================================================
+IN PROGRESS
+================================================================================
+- None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- TRIPODES_run_monocle()        Pseudotime inference via Monocle3
+- TRIPODES_run_velocity()       RNA velocity estimation (scVelo / velociraptor)
+- TRIPODES_score_cytotrace()    Stemness scoring via CytoTRACE
+- TRIPODES_infer_lineage()      Lineage/branching structure inference
+- TRIPODES_plot_trajectory()    Trajectory overlaid on UMAP embedding
+- TRIPODES_plot_pseudotime()    Pseudotime gradient on UMAP
+- TRIPODES_plot_velocity()      RNA velocity arrows on UMAP
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Key packages: monocle3, velociraptor (R interface to scVelo), CytoTRACE
+- Requires annotated, embedded data (TALOS + PANDORA) before trajectory
+  inference is meaningful
+- RNA velocity requires spliced/unspliced count matrices — these must be
+  generated at the alignment stage (STARsolo, alevin-fry) and loaded via
+  TALARIA
+- TRIPODES was split from the original combined Dynamics module to separate
+  trajectory inference from cell-cell communication (now DIKTYON)

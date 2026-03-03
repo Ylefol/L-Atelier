@@ -1,0 +1,37 @@
+================================================================================
+KERAUNOS STATUS - Differential Expression & Gene Set Enrichment
+================================================================================
+Last Updated: 2026-02-26
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+keraunos_expression.R:
+----------------------
+(none yet)
+
+================================================================================
+IN PROGRESS
+================================================================================
+- None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- KERAUNOS_find_markers()       Cluster marker identification (scran/wilcox)
+- KERAUNOS_de_condition()       Condition-level DE within clusters
+- KERAUNOS_de_pseudobulk()      Pseudobulk DE (edgeR / DESeq2)
+- KERAUNOS_gsea()               Gene set enrichment analysis (fgsea)
+- KERAUNOS_ora()                Over-representation analysis
+- KERAUNOS_summarise_de()       Summary table of DE results
+- KERAUNOS_export_de()          Export DE results to CSV
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Key packages: scran (findMarkers), edgeR, DESeq2 (pseudobulk),
+  fgsea (GSEA), clusterProfiler (ORA)
+- Pseudobulk DE is strongly preferred over single-cell DE for
+  condition comparisons — aggregates counts per sample per cluster
+  before testing, properly accounting for sample as the unit of replication
+- Single-cell level DE (findMarkers) appropriate for cluster marker discovery

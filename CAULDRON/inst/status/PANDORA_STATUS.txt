@@ -1,0 +1,36 @@
+================================================================================
+PANDORA STATUS - Cell Type Annotation
+================================================================================
+Last Updated: 2026-02-26
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+pandora_annotation.R:
+---------------------
+(none yet)
+
+================================================================================
+IN PROGRESS
+================================================================================
+- None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- PANDORA_annotate_singler()    Reference-based annotation via SingleR
+- PANDORA_annotate_azimuth()    Reference-based annotation via Azimuth
+- PANDORA_score_markers()       Score cells against known marker gene sets
+- PANDORA_assign_labels()       Assign/overwrite cell type labels manually
+- PANDORA_build_hierarchy()     Define cell type hierarchy / ontology tree
+- PANDORA_summarise_labels()    Label frequency table per cluster / sample
+- PANDORA_plot_label_heatmap()  Heatmap of SingleR scores across cell types
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Key packages: SingleR, celldex (reference datasets), AzimuthR (optional)
+- Requires clustered data from TALOS
+- Labels stored in colLabels(sce) or colData(sce)$cell_type
+- Automated annotation should always be reviewed manually — treat as a
+  starting point, not ground truth

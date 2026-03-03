@@ -1,0 +1,22 @@
+Package: HORIZON
+Title: Upstream Bioinformatics Processing for Multi-Omics Data
+Version: 0.1.0
+Authors@R:
+    person("First", "Last", email = "email@example.com", role = c("aut", "cre"))
+Description: A flat collection of wrappers around Bioconductor processing tools
+    (Rfastp, Rsubread, Rsamtools) for upstream bulk RNA-seq preprocessing.
+    Covers the full pipeline from raw FASTQ to analysis-ready count matrices:
+    QC, adapter trimming, genome alignment, BAM processing, and read counting.
+    Designed to produce outputs compatible with the GAIA and CAULDRON analysis
+    packages. Prioritises low RAM usage for single-machine operation.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.1.0)
+Imports:
+    Rsubread,
+    Rfastp,
+    Rsamtools
+biocViews: Sequencing, RNASeq, Preprocessing, QualityControl, Alignment

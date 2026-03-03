@@ -1,0 +1,41 @@
+================================================================================
+ASPIS STATUS - Visualisation
+================================================================================
+Last Updated: 2026-02-26
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+aspis_visualization.R:
+----------------------
+(none yet)
+
+================================================================================
+IN PROGRESS
+================================================================================
+- None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- ASPIS_plot_umap()          UMAP coloured by cluster, gene, or metadata
+- ASPIS_plot_tsne()          tSNE coloured by cluster, gene, or metadata
+- ASPIS_plot_violin()        Violin plot of gene expression per cluster
+- ASPIS_plot_dotplot()       Dot plot of marker gene expression
+- ASPIS_plot_feature()       Feature / gene expression overlay on embedding
+- ASPIS_plot_heatmap()       Heatmap of top marker genes per cluster
+- ASPIS_plot_ridge()         Ridge plot of expression distributions
+- ASPIS_plot_composition()   Cell type composition bar chart per sample
+- ASPIS_plot_trajectory()    Trajectory / pseudotime overlay (via TRIPODES)
+- ASPIS_plot_network()       Communication network plot (via DIKTYON)
+- ASPIS_save_plot()          Wrapper for saving plots (PNG / PDF / SVG)
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Key packages: ggplot2 (primary), scater (plotReducedDim),
+  ComplexHeatmap (heatmaps), ggridges (ridge plots)
+- pheatmap / ComplexHeatmap plots draw on creation — use png()/dev.off()
+  wrappers rather than ggsave() for these
+- Trajectory and communication plots delegate data preparation to
+  TRIPODES and DIKTYON respectively; ASPIS handles rendering only

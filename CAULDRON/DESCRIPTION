@@ -1,0 +1,54 @@
+Package: CAULDRON
+Title: Single-Cell and Single-Nuclei RNA-seq Analysis Toolkit
+Version: 0.1.0
+Authors@R: person("Yohan", "Lefol", role = c("aut", "cre"), email = "email@example.com")
+Description: Modular pipeline for single-cell and single-nuclei RNA-seq analysis
+    including quality control, preprocessing, dimensionality reduction, clustering,
+    annotation, differential expression, trajectory analysis, cell-cell
+    communication, and visualization. Built on SingleCellExperiment (Bioconductor).
+    Named after figures from Norse mythology.
+License: file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.1.0),
+    ggplot2
+Imports:
+    stats,
+    utils,
+    grDevices,
+    methods,
+    rlang,
+    Matrix,
+    SingleCellExperiment,
+    SummarizedExperiment,
+    BiocGenerics,
+    S4Vectors,
+    scran,
+    scater,
+    scDblFinder,
+    SingleR,
+    BiocParallel
+Suggests:
+    zellkonverter,
+    SeuratObject,
+    Seurat,
+    harmony,
+    bluster,
+    igraph,
+    uwot,
+    Rtsne,
+    scuttle,
+    DESeq2,
+    edgeR,
+    monocle3,
+    CellChat,
+    ggrepel,
+    scales,
+    RColorBrewer,
+    pheatmap,
+    ComplexHeatmap,
+    gridExtra,
+    data.table,
+    testthat (>= 3.0.0)

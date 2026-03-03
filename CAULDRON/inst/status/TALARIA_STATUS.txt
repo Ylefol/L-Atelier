@@ -1,0 +1,39 @@
+================================================================================
+TALARIA STATUS - Import, Export & Format Conversion
+================================================================================
+Last Updated: 2026-02-26
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+talaria_io.R:
+-------------
+(none yet)
+
+================================================================================
+IN PROGRESS
+================================================================================
+- None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- TALARIA_load_10x()        Load 10x MEX directory (barcodes/features/matrix)
+- TALARIA_load_h5()         Load 10x HDF5 (.h5) file
+- TALARIA_load_h5ad()       Load AnnData (.h5ad) via zellkonverter
+- TALARIA_load_loom()       Load Loom file via LoomExperiment
+- TALARIA_to_seurat()       Convert SCE to Seurat object
+- TALARIA_from_seurat()     Convert Seurat object to SCE
+- TALARIA_export_matrix()   Export count matrix to CSV / MEX
+- TALARIA_export_metadata() Export cell metadata to CSV
+- TALARIA_save_sce()        Save SCE object as RDS
+- TALARIA_load_sce()        Load SCE object from RDS
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Primary object: SingleCellExperiment (Bioconductor)
+- Key packages: zellkonverter (h5ad), LoomExperiment (loom),
+  BPCells or HDF5Array (h5), Seurat (conversion only, not hard dependency)
+- Entry point for the CAULDRON pipeline — all other modules depend on
+  a properly loaded SCE passing through TALARIA first

@@ -1,7 +1,7 @@
 ================================================================================
 HORIZON STATUS - Upstream Bioinformatics Processing Package
 ================================================================================
-Last Updated: 2026-03-03
+Last Updated: 2026-03-03 (added HORIZON_bam_to_bigwig)
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -58,6 +58,21 @@ HORIZON_sort_index_bam(sample_sheet, sample_id, threads=4,
   - Removes unsorted BAM by default (remove_unsorted=FALSE to keep)
   - Writes <sample_id>_sorted.bam + .bai index
 
+bigwig.R:
+---------
+HORIZON_bam_to_bigwig(sample_sheet, sample_id, effective_genome_size,
+                      threads=4L, bin_size=10L,
+                      ignore_for_normalization=c("X","M"),
+                      ignore_duplicates=TRUE, extend_reads=TRUE)
+  - Wraps deeptools bamCoverage (must be on PATH)
+  - RPKM normalisation; bin_size=10 matches bamCoverage default
+  - effective_genome_size: numeric value OR assembly name string
+    Built-in: "GRCh38" (2913022398), "GRCm38" (2652783500),
+              "WBcel235" (100272607), "T2TCHM13" (3117292070)
+  - ignore_for_normalization: use c("chrX","chrM") for UCSC-style genomes
+  - Writes <sample_id>_RPKM.bw alongside the BAM in aligned/
+  - Checks PATH for bamCoverage and BAI index before running
+
 count.R:
 --------
 HORIZON_run_count(sample_sheet, sample_id, annotation, feature_type="exon",
@@ -103,7 +118,7 @@ PLANNED / TODO
   (Rbowtie2 instead of Rsubread for these)
 - BAM filtering functions (remove duplicates, blacklist regions)
 - MultiQC-style QC summary across all samples
-- BigWig generation from sorted BAMs (rtracklayer)
+- BigWig generation from sorted BAMs (rtracklayer) [DONE — see bigwig.R]
 - Single-cell/nuclei variant (CAULDRON upstream)
 
 ================================================================================
@@ -111,7 +126,9 @@ DEPENDENCIES / NOTES
 ================================================================================
 - Rsubread: alignment (align()) + counting (featureCounts()) + index (buildindex())
 - Rfastp: QC + trimming (rfastp()) — bundles fastp binary, cross-platform
-- Rsamtools: BAM sorting (sortBam()) + indexing (indexBam())
+- Rsamtools: BAM sorting (sortBam()) + indexing (indexBam()) + BAM scanning
+- deeptools bamCoverage (external, not an R package) — required by HORIZON_bam_to_bigwig
+  Install: conda install -c bioconda deeptools
 - All Bioconductor packages: install via BiocManager::install()
 - Output directory structure: <output_dir>/<sample_id>/{qc,aligned,counts}/
 - Aggregated output: <output_root>/aggregated/counts/
