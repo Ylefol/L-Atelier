@@ -1,14 +1,97 @@
 ================================================================================
 TALOS STATUS - Dimensionality Reduction & Clustering
 ================================================================================
-Last Updated: 2026-02-26
+Last Updated: 2026-03-06
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
 talos_embedding.R:
 ------------------
-(none yet)
+TALOS_run_pca(sce, n_pcs=50, use_hvg=TRUE, assay_name="logcounts",
+              scale=FALSE, verbose=TRUE)
+  - Runs PCA via scater::runPCA(); BPCells-aware: if logcounts is a BPCells
+    IterableMatrix, uses irlba::irlba() directly — BPCells implements %*% so
+    irlba streams matrix-vector products from disk without loading full matrix
+    (scater::runPCA bypassed: wraps in DelayedArray which needs extract_array())
+  - BPCells path: 2 streaming passes (gene means + gene variances) then irlba
+  - use_hvg=TRUE uses metadata(sce)$hvg (set by PYRI_select_hvg); warns and
+    falls back to all genes if HVGs not found
+  - Prints variance explained by first 5 PCs
+  - Stored as reducedDims(sce)[["PCA"]] with percentVar and rotation attributes
+
+TALOS_run_umap(sce, n_pcs=30, n_neighbors=15, min_dist=0.1, seed=42,
+               verbose=TRUE)
+  - Runs UMAP via scater::runUMAP() on PCA space
+  - n_pcs: number of PCA components to use as input
+  - Stored as reducedDims(sce)[["UMAP"]]
+
+TALOS_run_tsne(sce, n_pcs=30, perplexity=30, max_iter=1000, seed=42,
+               verbose=TRUE)
+  - Runs tSNE via scater::runTSNE() on PCA space
+  - Stored as reducedDims(sce)[["TSNE"]]
+
+TALOS_build_graph(sce, n_pcs=30, k=20, type="rank", verbose=TRUE)
+  - Builds SNN graph via scran::buildSNNGraph() on PCA space
+  - type: edge weight scheme — "rank" (default), "number", "jaccard"
+  - Stored as metadata(sce)$snn_graph
+
+TALOS_cluster(sce, method="leiden", resolution=1.0, cluster_col="cluster",
+               seed=42, verbose=TRUE)
+  - Applies community detection to metadata(sce)$snn_graph
+  - method: "leiden" (default, better-connected partitions) or "louvain"
+  - resolution: controls granularity — higher = more, smaller clusters
+  - Stored as colData(sce)[[cluster_col]] (factor)
+  - Requires TALOS_build_graph() to have been run first
+
+TALOS_tune_k(sce, k_range=seq(5,50,by=5), n_pcs=30, type="rank",
+              method="leiden", resolution=1.0, compute_silhouette=TRUE,
+              max_cells_sil=10000, seed=42, verbose=TRUE)
+  - Sweeps k values for SNN graph construction; clusters at each k
+  - Metrics per k: n_clusters, modularity, mean silhouette width (PCA space)
+  - Silhouette skipped automatically when ncol(sce) > max_cells_sil
+    (uses modularity for selection instead)
+  - Returns talos_k_sweep object: results df, ggplot, best_k, params
+  - print.talos_k_sweep() gives a tidy console summary
+  - Recommended before committing to a k in TALOS_build_graph()
+
+TALOS_tune_umap(sce, n_neighbors_range=c(10,15,20,30,50),
+                 min_dist_range=c(0.05,0.1,0.3,0.5), n_pcs=30, knn_k=15,
+                 cluster_col="cluster", seed=42, verbose=TRUE)
+  - Sweeps n_neighbors × min_dist grid for UMAP
+  - Metrics: KNN overlap (Jaccard, PCA vs embedding) + mean silhouette in 2D
+  - Both normalised to [0,1] and averaged into a composite score
+  - Silhouette skipped if cluster_col not found in colData
+  - Returns talos_embedding_sweep: results df, embeddings list (cells×2 per combo),
+    tile heatmap ggplot, best_params (n_neighbors + min_dist), params
+  - KNN reference computed once in PCA space via BiocNeighbors::findKNN()
+  - Embedding matrices stored in sweep$embeddings for use by ASPIS_plot_embedding_grid
+
+TALOS_tune_resolution(sce, resolution_range=seq(0.1,2.0,by=0.1),
+                       method="both", n_pcs=30, compute_silhouette=TRUE,
+                       max_cells_sil=10000, seed=42, verbose=TRUE)
+  - Sweeps resolution for Leiden and/or Louvain on the pre-built SNN graph
+  - Metrics: n_clusters, modularity, mean silhouette (PCA space), min_cl_size
+  - method="both" runs both algorithms at every resolution for direct comparison
+  - PCA distance matrix computed once before the loop (silhouette-efficient)
+  - Silhouette skipped when ncol(sce) > max_cells_sil (modularity used instead)
+  - Returns talos_resolution_sweep: results df, multi-panel line plot,
+    best_params (overall), best_per_method (per algorithm), params
+  - Plot: 4 panels (n_clusters/modularity/silhouette/min_cl_size), two
+    coloured lines (leiden=#4E79A7, louvain=#F28E2B), dashed vlines at best
+    resolution per method
+  - print.talos_resolution_sweep() gives tidy console summary
+  - Requires TALOS_build_graph() to have been run first
+
+TALOS_tune_tsne(sce, perplexity_range=c(10,20,30,50,100), n_pcs=30,
+                 max_iter=1000, knn_k=15, cluster_col="cluster",
+                 seed=42, verbose=TRUE)
+  - Sweeps perplexity for tSNE; max_iter is fixed (not a tuning target)
+  - Same metrics as TALOS_tune_umap; perplexity > N/3 automatically removed
+  - Returns talos_embedding_sweep: results df, embeddings list (cells×2 per combo),
+    line plot ggplot, best_params (perplexity), params
+  - Embedding matrices stored in sweep$embeddings for use by ASPIS_plot_embedding_grid
+  - Shared S3 class with TALOS_tune_umap; print.talos_embedding_sweep()
 
 ================================================================================
 IN PROGRESS
@@ -18,20 +101,20 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- TALOS_run_pca()          Principal component analysis
-- TALOS_run_umap()         UMAP embedding
-- TALOS_run_tsne()         tSNE embedding
-- TALOS_build_graph()      KNN / SNN graph construction
-- TALOS_cluster()          Graph-based clustering (Leiden / Louvain)
-- TALOS_tune_resolution()  Resolution sweep and cluster stability assessment
-- TALOS_plot_elbow()       Elbow plot for PCA component selection
+- TALOS_plot_elbow()       [MOVED TO ASPIS — see ASPIS_plot_elbow()]
 
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- Key packages: scater (runPCA, runUMAP, runTSNE), scran (buildSNNGraph,
-  clusterCells), igraph (Leiden/Louvain)
-- Requires normalized data from PYRI before running
-- Batch-corrected embeddings (from PYRI) should be used as PCA input when
-  multi-sample integration is needed
-- Reduced dims stored in reducedDims(sce) slot of the SCE object
+- scater (Imports): runPCA, runUMAP, runTSNE
+- scran (Imports): buildSNNGraph
+- igraph (Suggests): cluster_leiden, cluster_louvain, vcount, ecount, membership,
+  modularity — always available in practice since scran depends on it
+- cluster (Suggests): silhouette — used by TALOS_tune_k/umap/tsne(); standard R package
+- BiocNeighbors (Imports): findKNN — used by TALOS_tune_umap/tsne() for KNN overlap metric
+- Recommended order: run_pca → run_umap/run_tsne → build_graph → cluster
+- Both UMAP and tSNE operate on PCA space, not raw gene space
+- HVG input to PCA via metadata(sce)$hvg (set by PYRI_select_hvg)
+- SNN graph stored in metadata(sce)$snn_graph (consumed by TALOS_cluster)
+- Cluster labels stored as factor in colData(sce)$cluster
+================================================================================

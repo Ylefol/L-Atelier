@@ -1,14 +1,77 @@
 ================================================================================
 TALARIA STATUS - Import, Export & Format Conversion
 ================================================================================
-Last Updated: 2026-02-26
+Last Updated: 2026-03-04
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
 talaria_io.R:
 -------------
-(none yet)
+TALARIA_load_h5ad(path, use_hdf5=FALSE, reader="R", backend="memory",
+                   bpcells_dir=NULL, verbose=TRUE)
+  - Loads .h5ad (AnnData/Scanpy) into SingleCellExperiment via zellkonverter
+  - X / raw.X -> assay(s); layers -> additional assays; obs -> colData;
+    var -> rowData; obsm (X_pca, X_umap, etc.) -> reducedDims
+  - Validates and normalises assay names (see .talaria_normalise_assay_names)
+  - use_hdf5=TRUE keeps matrices on-disk (HDF5Array) for large datasets
+  - reader="R" uses pure rhdf5; reader="python" uses basilisk/anndata
+  - backend="bpcells" converts counts to BPCells on-disk store after loading
+  - Prints formatted summary; returns SingleCellExperiment
+
+TALARIA_load_10x(path, sample_names=NULL, backend="memory", bpcells_dir=NULL,
+                  verbose=TRUE)
+  - Loads 10x MEX directory (barcodes/features/matrix) via DropletUtils
+  - path: directory containing barcodes.tsv.gz, features.tsv.gz, matrix.mtx.gz
+  - backend="bpcells" converts counts to BPCells on-disk store after loading
+  - Returns SingleCellExperiment with "counts" assay
+
+TALARIA_load_h5(path, sample_names=NULL, backend="memory", bpcells_dir=NULL,
+                 verbose=TRUE)
+  - Loads 10x HDF5 (.h5) file via DropletUtils
+  - backend="bpcells" converts counts to BPCells on-disk store after loading
+  - Returns SingleCellExperiment with "counts" assay
+
+TALARIA_load_loom(path, verbose=TRUE)
+  - Loads .loom file via LoomExperiment::import()
+  - Returns SingleCellExperiment (SingleCellLoomExperiment subclass)
+  - No BPCells backend — legacy format, no direct BPCells reader
+
+TALARIA_to_bpcells(sce, bpcells_dir, assay_name="counts", verbose=TRUE)
+  - Converts any in-memory SCE counts assay to on-disk BPCells IterableMatrix
+  - Writes to bpcells_dir via BPCells::write_matrix_dir()
+  - Re-opens lazily via BPCells::open_matrix_dir()
+  - Stores bpcells_dir path in metadata(sce)$bpcells_dir
+  - bpcells_dir must be a permanent path (embedded in RDS on save)
+  - Use at any pipeline stage to adopt BPCells backend after initial load
+  - Requires BPCells (Suggests): devtools::install_github("bnprks/BPCells/r")
+
+TALARIA_to_seurat(sce, counts="counts", data=NULL)
+  - Converts SCE to Seurat object via Seurat::as.Seurat()
+  - data defaults to "logcounts" if present, otherwise NULL
+  - Requires Seurat (Suggests)
+
+TALARIA_from_seurat(sobj, assay="RNA", verbose=TRUE)
+  - Converts Seurat object to SCE via Seurat::as.SingleCellExperiment()
+  - Applies assay name normalisation after conversion
+  - Requires Seurat (Suggests)
+
+TALARIA_export_matrix(sce, output_dir, format="csv", assay_name="counts",
+                       verbose=TRUE)
+  - format="csv": writes assay as dense CSV (warns if matrix is large)
+  - format="mex": writes 10x MEX files via DropletUtils::write10xCounts()
+  - Creates output_dir if it does not exist
+
+TALARIA_export_metadata(sce, output_path, verbose=TRUE)
+  - Writes colData as CSV with cell_barcode as first column
+
+TALARIA_save_sce(sce, output_path, verbose=TRUE)
+  - Serialises SCE to RDS; creates parent directories as needed
+
+TALARIA_load_sce(path, verbose=TRUE)
+  - Reads RDS; validates the loaded object is a SingleCellExperiment
+  - If SCE was BPCells-backed, the lazy matrix reconnects automatically
+    provided bpcells_dir is accessible at the stored path
 
 ================================================================================
 IN PROGRESS
@@ -18,22 +81,42 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- TALARIA_load_10x()        Load 10x MEX directory (barcodes/features/matrix)
-- TALARIA_load_h5()         Load 10x HDF5 (.h5) file
-- TALARIA_load_h5ad()       Load AnnData (.h5ad) via zellkonverter
-- TALARIA_load_loom()       Load Loom file via LoomExperiment
-- TALARIA_to_seurat()       Convert SCE to Seurat object
-- TALARIA_from_seurat()     Convert Seurat object to SCE
-- TALARIA_export_matrix()   Export count matrix to CSV / MEX
-- TALARIA_export_metadata() Export cell metadata to CSV
-- TALARIA_save_sce()        Save SCE object as RDS
-- TALARIA_load_sce()        Load SCE object from RDS
+- None (all planned I/O functions implemented)
 
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
 - Primary object: SingleCellExperiment (Bioconductor)
-- Key packages: zellkonverter (h5ad), LoomExperiment (loom),
-  BPCells or HDF5Array (h5), Seurat (conversion only, not hard dependency)
-- Entry point for the CAULDRON pipeline — all other modules depend on
-  a properly loaded SCE passing through TALARIA first
+- zellkonverter (Suggests): h5ad loading
+- DropletUtils (Suggests): 10x MEX + H5 loading; MEX export
+- LoomExperiment (Suggests): loom loading
+- Seurat (Suggests): SCE <-> Seurat conversion (not a hard dependency)
+- BPCells (Suggests): on-disk bitpacked matrix backend for large datasets
+  Install: devtools::install_github("bnprks/BPCells/r")
+  All calls via requireNamespace() + BPCells:: prefix (no @importFrom)
+- Entry point for CAULDRON — all other modules depend on a properly loaded SCE
+- .talaria_normalise_assay_names(): ensures raw counts assay is named "counts"
+  (Bioconductor convention); errors if X is continuous/log-normalised
+- .talaria_is_integer_matrix(): block-sample check, safe for HDF5Array
+- .talaria_to_bpcells_backend(): internal dispatcher called by loaders;
+  validates bpcells_dir is non-NULL, then delegates to TALARIA_to_bpcells()
+
+================================================================================
+BPCELLS PIPELINE COMPATIBILITY
+================================================================================
+Step                      | Compatible | Notes
+--------------------------|------------|--------------------------------------
+AEGIS_compute_qc_metrics  | YES        | BPCells path via colSums()+matrix_stats();
+                          |            | scuttle/beachmat bypassed (no S4Arrays
+                          |            | support for IterableMatrix)
+AEGIS_detect_doublets     | SKIP       | Skipped by default when BPCells detected;
+                          |            | scDblFinder would load full matrix into RAM
+                          |            | (OOM risk). Override: force_bpcells=TRUE
+PYRI_normalize            | YES        | scater::logNormCounts produces lazy BPCells logcounts
+PYRI_select_hvg           | YES        | BPCells path via matrix_stats()+fitTrendVar();
+                          |            | scran::modelGeneVar bypassed (beachmat incompat.)
+TALOS_run_pca             | YES        | BPCells path via irlba directly; scater::runPCA
+                          |            | bypassed (wraps in DelayedArray which needs
+                          |            | extract_array(), not implemented by BPCells)
+TALOS_run_umap/tsne       | YES        | Operates on small dense PCA matrix
+TALOS_build_graph/cluster | YES        | Operates on small dense PCA matrix

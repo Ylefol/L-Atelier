@@ -27,11 +27,16 @@ Imports:
     S4Vectors,
     scran,
     scater,
+    scuttle,
+    BiocNeighbors,
     scDblFinder,
     SingleR,
     BiocParallel
 Suggests:
+    cluster,
     zellkonverter,
+    DropletUtils,
+    LoomExperiment,
     SeuratObject,
     Seurat,
     harmony,
@@ -39,7 +44,6 @@ Suggests:
     igraph,
     uwot,
     Rtsne,
-    scuttle,
     DESeq2,
     edgeR,
     monocle3,
@@ -51,4 +55,5 @@ Suggests:
     ComplexHeatmap,
     gridExtra,
     data.table,
+    BPCells,
     testthat (>= 3.0.0)

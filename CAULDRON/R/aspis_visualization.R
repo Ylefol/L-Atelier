@@ -18,3 +18,497 @@
 #
 # All functions prefixed: ASPIS_
 # ==============================================================================
+
+
+#' Elbow plot of PCA variance explained
+#'
+#' Plots the percentage of variance explained by each principal component,
+#' with an optional cumulative variance overlay, a user-specified cut-off line,
+#' and algorithmic suggestions to help choose the number of components.
+#'
+#' Two suggestion methods are available and can be overlaid simultaneously:
+#'
+#' \describe{
+#'   \item{\code{"elbow"}}{Finds the PC where the second derivative of the
+#'     variance curve is maximised — i.e., where the rate of decline itself
+#'     decelerates most sharply.  Tends to suggest fewer PCs for data with a
+#'     quick early drop-off.}
+#'   \item{\code{"cumulative"}}{Finds the minimum number of PCs needed to
+#'     explain at least \code{cum_threshold}\% of total variance.  Scales
+#'     naturally with how spread-out the variance is across components.}
+#' }
+#'
+#' Suggestions are printed to the console and drawn as distinct vertical lines
+#' (green = elbow, purple = cumulative) so they can be compared against one
+#' another and against the user's chosen \code{n_pcs}.
+#'
+#' @param sce A \code{SingleCellExperiment} with \code{reducedDims(sce)[["PCA"]]}
+#'   populated by \code{\link{TALOS_run_pca}}.
+#' @param n_show Integer. Number of components to display. Default \code{50}.
+#' @param n_pcs Integer. If provided, draws a grey dashed line marking the
+#'   user's chosen cut-off. Default \code{NULL}.
+#' @param show_cumulative Logical. Overlay cumulative variance as a red dashed
+#'   line. Default \code{TRUE}.
+#' @param suggest Character or \code{NULL}.  Algorithmic cut-off suggestions to
+#'   display.  One of \code{"elbow"}, \code{"cumulative"}, \code{"both"}, or
+#'   \code{NULL} (default, no suggestion).
+#' @param cum_threshold Numeric. Cumulative variance target (%) for the
+#'   \code{"cumulative"} method. Default \code{80}.
+#'
+#' @return A \code{ggplot} object.
+#' @export
+ASPIS_plot_elbow <- function(sce,
+                              n_show          = 50L,
+                              n_pcs           = NULL,
+                              show_cumulative = TRUE,
+                              suggest         = NULL,
+                              cum_threshold   = 80) {
+
+  if (!"PCA" %in% reducedDimNames(sce))
+    stop("PCA not found. Run TALOS_run_pca() first.", call. = FALSE)
+
+  pct_var <- attr(reducedDim(sce, "PCA"), "percentVar")
+
+  if (is.null(pct_var))
+    stop("No percentVar attribute found on the PCA result. ",
+         "Re-run TALOS_run_pca() to ensure it is stored.", call. = FALSE)
+
+  if (!is.null(suggest))
+    suggest <- match.arg(suggest, c("elbow", "cumulative", "both"))
+
+  n_show <- min(as.integer(n_show), length(pct_var))
+
+  df <- data.frame(
+    pc      = seq_len(n_show),
+    var_exp = pct_var[seq_len(n_show)],
+    cum_var = cumsum(pct_var)[seq_len(n_show)]
+  )
+
+  # ── Base plot ────────────────────────────────────────────────────────────────
+  p <- ggplot(df, aes(x = pc)) +
+    geom_col(aes(y = var_exp), fill = "#4E79A7", alpha = 0.7, width = 0.7) +
+    geom_point(aes(y = var_exp), colour = "#4E79A7", size = 1.5) +
+    labs(x = "Principal component", y = "Variance explained (%)",
+         title = "PCA elbow plot") +
+    theme_bw(base_size = 12) +
+    theme(panel.grid.minor = element_blank())
+
+  if (isTRUE(show_cumulative))
+    p <- p +
+      geom_line(aes(y = cum_var), colour = "#E15759", linewidth = 0.7,
+                linetype = "dashed") +
+      geom_point(aes(y = cum_var), colour = "#E15759", size = 1.5, shape = 17)
+
+  # ── User-chosen cut-off (grey) ───────────────────────────────────────────────
+  if (!is.null(n_pcs)) {
+    n_pcs <- min(as.integer(n_pcs), n_show)
+    p <- p +
+      geom_vline(xintercept = n_pcs, linetype = "dashed",
+                 colour = "grey30", linewidth = 0.7) +
+      annotate("text", x = n_pcs + 0.4, y = max(df$var_exp) * 0.97,
+               label = paste0("chosen\nPC", n_pcs),
+               hjust = 0, size = 3, colour = "grey30")
+  }
+
+  # ── Algorithmic suggestions ──────────────────────────────────────────────────
+  if (!is.null(suggest)) {
+    sugg <- .aspis_suggest_pcs(pct_var, suggest, cum_threshold)
+
+    if (!is.null(sugg$elbow)) {
+      e  <- min(sugg$elbow, n_show)
+      ce <- df$cum_var[e]
+      p  <- p +
+        geom_vline(xintercept = e, linetype = "dotdash",
+                   colour = "#59A14F", linewidth = 0.8) +
+        annotate("text", x = e + 0.4, y = max(df$var_exp) * 0.80,
+                 label = paste0("elbow\nPC", e),
+                 hjust = 0, size = 3, colour = "#59A14F")
+      message(sprintf("Elbow suggestion      : PC%d  (%.1f%% cum. variance)", e, ce))
+    }
+
+    if (!is.null(sugg$cumulative)) {
+      cv  <- min(sugg$cumulative, n_show)
+      p   <- p +
+        geom_vline(xintercept = cv, linetype = "dotdash",
+                   colour = "#B07AA1", linewidth = 0.8) +
+        annotate("text", x = cv + 0.4, y = max(df$var_exp) * 0.63,
+                 label = paste0(">=", cum_threshold, "%\nPC", cv),
+                 hjust = 0, size = 3, colour = "#B07AA1")
+      message(sprintf("Cumulative suggestion : PC%d  (>= %g%% variance explained)",
+                      cv, cum_threshold))
+    }
+  }
+
+  # ── Caption ──────────────────────────────────────────────────────────────────
+  caption_parts <- "Bars/blue: individual variance"
+  if (isTRUE(show_cumulative))
+    caption_parts <- paste0(caption_parts, "  |  Red dashed: cumulative variance")
+  if (!is.null(suggest) && suggest %in% c("elbow", "both"))
+    caption_parts <- paste0(caption_parts, "  |  Green dot-dash: elbow suggestion")
+  if (!is.null(suggest) && suggest %in% c("cumulative", "both"))
+    caption_parts <- paste0(caption_parts,
+                            "  |  Purple dot-dash: cumulative suggestion")
+
+  p + labs(caption = caption_parts)
+}
+
+
+#' UMAP embedding plot
+#'
+#' Plots the UMAP embedding stored in \code{reducedDims(sce)[["UMAP"]]},
+#' coloured by a \code{colData} column or gene expression value.
+#'
+#' @param sce A \code{SingleCellExperiment} with \code{"UMAP"} in
+#'   \code{reducedDims} (run \code{\link{TALOS_run_umap}} first).
+#' @param colour_by Character. A \code{colData} column name or a gene name
+#'   present in \code{rownames(sce)}.  Default \code{"cluster"}.
+#' @param point_size Numeric. Point size. Default \code{0.8}.
+#' @param point_alpha Numeric. Point transparency (0–1). Default \code{0.6}.
+#' @param palette Character vector or \code{NULL}.  For discrete variables:
+#'   a vector of colours (recycled as needed).  For continuous variables or
+#'   gene expression: a 2-element vector \code{c(low, high)}.
+#'   \code{NULL} (default) uses built-in palettes.
+#' @param title Character or \code{NULL}.  Plot title.  \code{NULL} auto-generates
+#'   \code{"UMAP — <colour_by>"}.
+#' @param label_clusters Logical.  Overlay cluster centroid labels.  Only
+#'   applied when \code{colour_by} resolves to a discrete variable.
+#'   Default \code{FALSE}.
+#' @param label_size Numeric.  Size of centroid labels.  Default \code{4}.
+#' @param assay_name Character.  Assay used when \code{colour_by} is a gene.
+#'   Default \code{"logcounts"}.
+#'
+#' @return A \code{ggplot} object.
+#' @export
+ASPIS_plot_umap <- function(sce,
+                             colour_by      = "cluster",
+                             point_size     = 0.8,
+                             point_alpha    = 0.6,
+                             palette        = NULL,
+                             title          = NULL,
+                             label_clusters = FALSE,
+                             label_size     = 4,
+                             assay_name     = "logcounts") {
+
+  if (!"UMAP" %in% reducedDimNames(sce))
+    stop("UMAP not found. Run TALOS_run_umap() first.", call. = FALSE)
+
+  .aspis_plot_dimred(sce, "UMAP",
+                     colour_by      = colour_by,
+                     point_size     = point_size,
+                     point_alpha    = point_alpha,
+                     palette        = palette,
+                     title          = title,
+                     label_clusters = label_clusters,
+                     label_size     = label_size,
+                     assay_name     = assay_name)
+}
+
+
+#' tSNE embedding plot
+#'
+#' Plots the tSNE embedding stored in \code{reducedDims(sce)[["TSNE"]]},
+#' coloured by a \code{colData} column or gene expression value.
+#'
+#' @param sce A \code{SingleCellExperiment} with \code{"TSNE"} in
+#'   \code{reducedDims} (run \code{\link{TALOS_run_tsne}} first).
+#' @param colour_by Character. A \code{colData} column name or a gene name
+#'   present in \code{rownames(sce)}.  Default \code{"cluster"}.
+#' @param point_size Numeric. Point size. Default \code{0.8}.
+#' @param point_alpha Numeric. Point transparency (0–1). Default \code{0.6}.
+#' @param palette Character vector or \code{NULL}.  For discrete variables:
+#'   a vector of colours (recycled as needed).  For continuous variables or
+#'   gene expression: a 2-element vector \code{c(low, high)}.
+#'   \code{NULL} (default) uses built-in palettes.
+#' @param title Character or \code{NULL}.  Plot title.  \code{NULL} auto-generates
+#'   \code{"tSNE — <colour_by>"}.
+#' @param label_clusters Logical.  Overlay cluster centroid labels.  Only
+#'   applied when \code{colour_by} resolves to a discrete variable.
+#'   Default \code{FALSE}.
+#' @param label_size Numeric.  Size of centroid labels.  Default \code{4}.
+#' @param assay_name Character.  Assay used when \code{colour_by} is a gene.
+#'   Default \code{"logcounts"}.
+#'
+#' @return A \code{ggplot} object.
+#' @export
+ASPIS_plot_tsne <- function(sce,
+                             colour_by      = "cluster",
+                             point_size     = 0.8,
+                             point_alpha    = 0.6,
+                             palette        = NULL,
+                             title          = NULL,
+                             label_clusters = FALSE,
+                             label_size     = 4,
+                             assay_name     = "logcounts") {
+
+  if (!"TSNE" %in% reducedDimNames(sce))
+    stop("tSNE not found. Run TALOS_run_tsne() first.", call. = FALSE)
+
+  .aspis_plot_dimred(sce, "TSNE",
+                     colour_by      = colour_by,
+                     point_size     = point_size,
+                     point_alpha    = point_alpha,
+                     palette        = palette,
+                     title          = title,
+                     label_clusters = label_clusters,
+                     label_size     = label_size,
+                     assay_name     = assay_name)
+}
+
+
+#' Grid of embedding plots from a parameter sweep
+#'
+#' Takes the output of \code{\link{TALOS_tune_umap}} or
+#' \code{\link{TALOS_tune_tsne}} and plots every parameter combination as a
+#' small embedding, arranged in a grid.  The best combination (by composite
+#' score) is marked with a \code{★} in its panel title.
+#'
+#' Embeddings are read directly from the sweep object (pre-computed during the
+#' tuning run) so no re-computation is needed.
+#'
+#' @param sweep A \code{talos_embedding_sweep} object produced by
+#'   \code{\link{TALOS_tune_umap}} or \code{\link{TALOS_tune_tsne}}.
+#' @param sce A \code{SingleCellExperiment} used only for \code{colData} and
+#'   assay access when resolving \code{colour_by}.
+#' @param colour_by Character.  A \code{colData} column name (e.g.
+#'   \code{"cluster"}, \code{"region"}, \code{"condition"}) or a gene name.
+#'   Default \code{"cluster"}.
+#' @param point_size Numeric.  Point size.  Smaller values work better in a
+#'   dense grid.  Default \code{0.3}.
+#' @param point_alpha Numeric.  Point transparency.  Default \code{0.5}.
+#' @param palette Character vector or \code{NULL}.  Passed to the colour
+#'   scale — see \code{\link{ASPIS_plot_umap}} for details.  Default
+#'   \code{NULL} uses built-in palettes.
+#' @param assay_name Character.  Assay used when \code{colour_by} is a gene.
+#'   Default \code{"logcounts"}.
+#'
+#' @return A \code{ggplot} object.
+#' @export
+ASPIS_plot_embedding_grid <- function(sweep,
+                                       sce,
+                                       colour_by   = "cluster",
+                                       point_size  = 0.3,
+                                       point_alpha = 0.5,
+                                       palette     = NULL,
+                                       assay_name  = "logcounts") {
+
+  if (!inherits(sweep, "talos_embedding_sweep"))
+    stop("'sweep' must be a talos_embedding_sweep object from ",
+         "TALOS_tune_umap() or TALOS_tune_tsne().", call. = FALSE)
+
+  if (is.null(sweep$embeddings))
+    stop("No embeddings found in sweep object. ",
+         "Re-run TALOS_tune_umap() or TALOS_tune_tsne().", call. = FALSE)
+
+  is_umap  <- sweep$params$type == "umap"
+  res_df   <- sweep$results
+  n_runs   <- nrow(res_df)
+  dim_name <- if (is_umap) "UMAP" else "tSNE"
+
+  # ── Resolve colour_by ────────────────────────────────────────────────────────
+  is_gene <- colour_by %in% rownames(sce)
+  is_meta <- colour_by %in% names(colData(sce))
+
+  if (!is_gene && !is_meta)
+    stop("'", colour_by, "' not found in colData(sce) or rownames(sce).",
+         call. = FALSE)
+
+  if (is_gene) {
+    if (!assay_name %in% assayNames(sce))
+      stop("Assay '", assay_name, "' not found.", call. = FALSE)
+    colour_vals <- as.numeric(assay(sce, assay_name)[colour_by, ])
+    is_discrete <- FALSE
+  } else {
+    colour_vals <- colData(sce)[[colour_by]]
+    is_discrete <- is.factor(colour_vals) || is.character(colour_vals)
+    if (is_discrete) colour_vals <- as.factor(colour_vals)
+  }
+
+  # ── Build panel label order (natural sort, best marked with ★) ───────────────
+  if (is_umap) {
+    ord  <- order(res_df$n_neighbors, res_df$min_dist)
+    labs <- vapply(ord, function(i) {
+      nn <- res_df$n_neighbors[i]; md <- res_df$min_dist[i]
+      is_best <- nn == sweep$best_params$n_neighbors &&
+                 md == sweep$best_params$min_dist
+      sprintf("%snn=%d | md=%.2f", if (is_best) "\u2605 " else "", nn, md)
+    }, character(1L))
+  } else {
+    ord  <- order(res_df$perplexity)
+    labs <- vapply(ord, function(i) {
+      pp      <- res_df$perplexity[i]
+      is_best <- pp == sweep$best_params$perplexity
+      sprintf("%sperplexity=%.0f", if (is_best) "\u2605 " else "", pp)
+    }, character(1L))
+  }
+
+  # ── Assemble data from stored embeddings ─────────────────────────────────────
+  df_list <- vector("list", n_runs)
+
+  for (idx in seq_along(ord)) {
+    i   <- ord[idx]
+    emb <- sweep$embeddings[[i]]
+    df_list[[idx]] <- data.frame(
+      dim1        = emb[, 1L],
+      dim2        = emb[, 2L],
+      colour_val  = colour_vals,
+      panel_label = factor(labs[idx], levels = labs)
+    )
+  }
+
+  df_all <- do.call(rbind, df_list)
+
+  # ── ncol: for UMAP lay out as n_neighbors × min_dist grid ───────────────────
+  ncols <- if (is_umap) length(unique(res_df$min_dist)) else
+              min(3L, n_runs)
+
+  # ── Plot ─────────────────────────────────────────────────────────────────────
+  p <- ggplot(df_all, aes(x = dim1, y = dim2, colour = colour_val)) +
+    geom_point(size = point_size, alpha = point_alpha) +
+    facet_wrap(~ panel_label, ncol = ncols) +
+    labs(x      = paste(dim_name, "1"),
+         y      = paste(dim_name, "2"),
+         title  = sprintf("%s parameter grid  |  coloured by: %s  |  \u2605 = best",
+                          dim_name, colour_by),
+         colour = colour_by) +
+    theme_bw(base_size = 9) +
+    theme(panel.grid  = element_blank(),
+          axis.ticks  = element_blank(),
+          axis.text   = element_blank(),
+          strip.text  = element_text(size = 7.5))
+
+  # ── Colour scale ─────────────────────────────────────────────────────────────
+  if (is_discrete) {
+    n_lev <- nlevels(df_all$colour_val)
+    pal   <- if (!is.null(palette)) rep(palette, length.out = n_lev) else
+               rep(.aspis_discrete_palette(), length.out = n_lev)
+    p <- p + scale_color_manual(values = pal)
+  } else {
+    low  <- if (!is.null(palette) && length(palette) >= 1L) palette[1L] else "grey90"
+    high <- if (!is.null(palette) && length(palette) >= 2L) palette[2L] else
+              if (is_gene) "#2166AC" else "#4E79A7"
+    p <- p + scale_color_gradient(low = low, high = high, name = colour_by)
+  }
+
+  p
+}
+
+
+# ── Internal helpers ──────────────────────────────────────────────────────────
+
+# Compute algorithmic PC cut-off suggestions.
+# - "elbow":      PC where the second derivative of variance is maximised
+#                 (sharpest deceleration in the drop-off)
+# - "cumulative": minimum PCs needed to reach cum_threshold% total variance
+.aspis_suggest_pcs <- function(pct_var, method, cum_threshold = 80) {
+
+  elbow_pc <- NULL
+  cum_pc   <- NULL
+
+  if (method %in% c("elbow", "both")) {
+    n <- length(pct_var)
+    if (n > 2) {
+      d2       <- diff(diff(pct_var))   # length n-2; d2[i] <-> PC i+1
+      elbow_pc <- as.integer(which.max(d2) + 1L)
+    } else {
+      elbow_pc <- 1L
+    }
+  }
+
+  if (method %in% c("cumulative", "both")) {
+    hits   <- which(cumsum(pct_var) >= cum_threshold)
+    cum_pc <- if (length(hits)) as.integer(hits[1L]) else as.integer(length(pct_var))
+  }
+
+  list(elbow = elbow_pc, cumulative = cum_pc)
+}
+
+
+# Shared embedding plot engine (UMAP and tSNE).
+.aspis_plot_dimred <- function(sce, dimred, colour_by, point_size, point_alpha,
+                                palette, title, label_clusters, label_size,
+                                assay_name) {
+
+  # ── Extract embedding ────────────────────────────────────────────────────────
+  emb <- reducedDim(sce, dimred)
+  df  <- data.frame(dim1 = emb[, 1L], dim2 = emb[, 2L])
+
+  # ── Resolve colour_by source ─────────────────────────────────────────────────
+  is_gene <- colour_by %in% rownames(sce)
+  is_meta <- colour_by %in% names(colData(sce))
+
+  if (!is_gene && !is_meta)
+    stop("'", colour_by, "' not found in colData(sce) or rownames(sce).",
+         call. = FALSE)
+
+  if (is_gene) {
+    if (!assay_name %in% assayNames(sce))
+      stop("Assay '", assay_name, "' not found.", call. = FALSE)
+    df$colour_val <- as.numeric(assay(sce, assay_name)[colour_by, ])
+    is_discrete   <- FALSE
+    is_gene_val   <- TRUE
+  } else {
+    df$colour_val <- colData(sce)[[colour_by]]
+    is_discrete   <- is.factor(df$colour_val) || is.character(df$colour_val)
+    is_gene_val   <- FALSE
+    if (is_discrete)
+      df$colour_val <- as.factor(df$colour_val)
+  }
+
+  # ── Axis / title labels ──────────────────────────────────────────────────────
+  display_name <- if (dimred == "UMAP") "UMAP" else "tSNE"
+  dim_labels   <- paste(display_name, 1:2)
+  auto_title   <- if (!is.null(title)) title else
+                    sprintf("%s \u2014 %s", display_name, colour_by)
+
+  # ── Base plot ────────────────────────────────────────────────────────────────
+  p <- ggplot(df, aes(x = dim1, y = dim2, colour = colour_val)) +
+    geom_point(size = point_size, alpha = point_alpha) +
+    labs(x      = dim_labels[1],
+         y      = dim_labels[2],
+         title  = auto_title,
+         colour = colour_by) +
+    theme_bw(base_size = 12) +
+    theme(panel.grid = element_blank(),
+          axis.ticks = element_blank(),
+          axis.text  = element_blank())
+
+  # ── Colour scale ─────────────────────────────────────────────────────────────
+  if (is_discrete) {
+    n_lev <- nlevels(df$colour_val)
+    pal   <- if (!is.null(palette)) {
+      rep(palette, length.out = n_lev)
+    } else {
+      rep(.aspis_discrete_palette(), length.out = n_lev)
+    }
+    p <- p + scale_color_manual(values = pal)
+
+  } else {
+    low  <- if (!is.null(palette) && length(palette) >= 1L) palette[1L] else "grey90"
+    high <- if (!is.null(palette) && length(palette) >= 2L) palette[2L] else
+              if (is_gene_val) "#2166AC" else "#4E79A7"
+    p <- p + scale_color_gradient(low = low, high = high, name = colour_by)
+  }
+
+  # ── Cluster centroid labels ──────────────────────────────────────────────────
+  if (isTRUE(label_clusters) && is_discrete) {
+    centroids <- stats::aggregate(cbind(dim1, dim2) ~ colour_val,
+                                   data = df, FUN = mean)
+    p <- p + geom_text(data        = centroids,
+                       aes(x = dim1, y = dim2, label = colour_val),
+                       colour      = "black",
+                       size        = label_size,
+                       fontface    = "bold",
+                       inherit.aes = FALSE)
+  }
+
+  p
+}
+
+
+# 20-colour categorical palette (Tableau-inspired).
+.aspis_discrete_palette <- function() {
+  c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
+    "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+    "#79706E", "#D4A6C8", "#86BCB6", "#FFBE7D", "#8CD17D",
+    "#499894", "#E6D16A", "#D37295", "#FABFD2", "#B6992D")
+}

@@ -19,4 +19,7 @@ Imports:
     Rsubread,
     Rfastp,
     Rsamtools
+Suggests:
+    rtracklayer,
+    GenomeInfoDb
 biocViews: Sequencing, RNASeq, Preprocessing, QualityControl, Alignment

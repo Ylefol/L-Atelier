@@ -1,7 +1,7 @@
 ================================================================================
 HORIZON STATUS - Upstream Bioinformatics Processing Package
 ================================================================================
-Last Updated: 2026-03-03 (added HORIZON_bam_to_bigwig)
+Last Updated: 2026-03-03 (added HORIZON_rename_chromosomes)
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -73,6 +73,23 @@ HORIZON_bam_to_bigwig(sample_sheet, sample_id, effective_genome_size,
   - Writes <sample_id>_RPKM.bw alongside the BAM in aligned/
   - Checks PATH for bamCoverage and BAI index before running
 
+rename_chromosomes.R:
+---------------------
+HORIZON_rename_chromosomes(sample_sheet, sample_id, chr_map, file_suffix,
+                           overwrite=FALSE, rename_suffix="_chrrenamed")
+  - Scans output_dir/sample_id/ recursively for files ending with file_suffix
+  - Renames chromosome identifiers according to chr_map for each matched file
+  - file_type derived from file_suffix extension (bam/bed/bw)
+  - chr_map: named character vector (old->new), path to 2-col TSV, or
+    "T2TCHM13" for built-in T2T-CHM13v2.0 NCBI-to-UCSC map (NC_060925.1->chr1
+    through NC_060948.1->chrY + NC_012920.1->chrM)
+  - file_suffix: trailing filename fragment to match, e.g. "RPKM.bw"
+  - BAM: rewrites @SQ SN: header fields via samtools reheader + re-indexes
+  - BED: line-by-line replacement of column 1; preserves header/comment lines
+  - BigWig: rtracklayer import -> renameSeqlevels -> export
+  - overwrite=FALSE: output written with rename_suffix before extension
+  - Returns character vector of output paths invisibly
+
 count.R:
 --------
 HORIZON_run_count(sample_sheet, sample_id, annotation, feature_type="exon",
@@ -129,6 +146,11 @@ DEPENDENCIES / NOTES
 - Rsamtools: BAM sorting (sortBam()) + indexing (indexBam()) + BAM scanning
 - deeptools bamCoverage (external, not an R package) — required by HORIZON_bam_to_bigwig
   Install: conda install -c bioconda deeptools
+- samtools (external) — required by HORIZON_rename_chromosomes for BAM files
+  Install: conda install -c bioconda samtools
+- rtracklayer + GenomeInfoDb (Bioconductor, Suggests) — required by
+  HORIZON_rename_chromosomes for BigWig files
+  Install: BiocManager::install("rtracklayer")
 - All Bioconductor packages: install via BiocManager::install()
 - Output directory structure: <output_dir>/<sample_id>/{qc,aligned,counts}/
 - Aggregated output: <output_root>/aggregated/counts/

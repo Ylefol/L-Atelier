@@ -1,14 +1,35 @@
 ================================================================================
 PYRI STATUS - Normalization & Preprocessing
 ================================================================================
-Last Updated: 2026-02-26
+Last Updated: 2026-03-04
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
 pyri_preprocessing.R:
 ---------------------
-(none yet)
+PYRI_normalize(sce, method="lognorm", assay_name="counts", verbose=TRUE)
+  - method="lognorm": library-size normalization + log1p via scater::logNormCounts
+  - method="scran": pooling-based size factors via scran::quickCluster +
+    scran::computeSumFactors, then scater::logNormCounts
+  - Both produce "logcounts" assay; scran also stores sizeFactors(sce)
+  - Prints size factor range and median
+
+PYRI_select_hvg(sce, n_hvgs=2000, block_col=NULL, assay_name="logcounts",
+                 verbose=TRUE)
+  - Models mean-variance relationship via scran::modelGeneVar
+  - BPCells-aware: if logcounts is a BPCells IterableMatrix, uses
+    BPCells::matrix_stats() (streaming) + scran::fitTrendVar() to extract
+    biological variance without loading the full matrix into RAM;
+    scran::modelGeneVar bypassed (beachmat incompatibility)
+  - Blocking with BPCells: fits trend per block and averages bio component
+  - block_col: colData column for per-sample blocking (strongly recommended
+    for multi-sample datasets — prevents depth differences driving selection)
+  - Selects top n_hvgs by biological variance
+  - Stores results in:
+      rowData(sce)$is_hvg  — logical flag per gene
+      metadata(sce)$hvg    — character vector of HVG names (used by TALOS)
+  - Requires PYRI_normalize() to have been run first
 
 ================================================================================
 IN PROGRESS
@@ -18,8 +39,6 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- PYRI_normalize()           Normalization (library-size, scran, SCTransform)
-- PYRI_select_hvg()          Highly variable gene selection
 - PYRI_scale()               Feature scaling (zero-mean, unit-variance)
 - PYRI_score_cell_cycle()    Cell cycle phase scoring
 - PYRI_regress_cell_cycle()  Regress out cell cycle effects
@@ -28,9 +47,11 @@ PLANNED / TODO
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- Key packages: scran (normalization, HVG), scater (logNormCounts),
-  harmony (batch correction), batchelor (fastMNN)
-- Normalization must precede HVG selection, scaling, and all downstream steps
-- SCTransform handled via Seurat interop if needed; scran preferred natively
-- Batch correction should be applied to the PCA embedding (TALOS), not
-  directly to the count matrix, in most workflows
+- scater (Imports): logNormCounts, librarySizeFactors
+- scran (Imports): quickCluster, computeSumFactors, modelGeneVar, getTopHVGs
+- BiocGenerics (Imports): sizeFactors
+- Normalization must precede HVG selection and all downstream TALOS steps
+- HVG results stored in metadata(sce)$hvg for TALOS to consume
+- For multi-sample data, always pass block_col to PYRI_select_hvg
+- Batch correction (Harmony) applied at PCA embedding level in TALOS, not here
+================================================================================

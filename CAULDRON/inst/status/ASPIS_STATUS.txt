@@ -1,14 +1,57 @@
 ================================================================================
 ASPIS STATUS - Visualisation
 ================================================================================
-Last Updated: 2026-02-26
+Last Updated: 2026-03-05
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
 aspis_visualization.R:
 ----------------------
-(none yet)
+ASPIS_plot_elbow(sce, n_show=50, n_pcs=NULL, show_cumulative=TRUE,
+                  suggest=NULL, cum_threshold=80)
+  - Elbow plot of % variance explained per PCA component
+  - Bars + blue points: individual variance; red dashed: cumulative
+  - n_pcs: grey dashed line marking the user's chosen cut-off
+  - suggest: algorithmic suggestions drawn as distinct coloured lines +
+    printed to console
+      "elbow"      — green dot-dash: PC of maximum second derivative
+                     (sharpest deceleration in the drop-off)
+      "cumulative" — purple dot-dash: minimum PCs for >= cum_threshold%
+                     total variance (default 80%)
+      "both"       — both suggestions shown simultaneously
+  - Requires TALOS_run_pca() to have been run first
+  - Returns ggplot object
+
+ASPIS_plot_umap(sce, colour_by="cluster", point_size=0.8, point_alpha=0.6,
+                 palette=NULL, title=NULL, label_clusters=FALSE,
+                 label_size=4, assay_name="logcounts")
+  - UMAP scatter plot coloured by colData column or gene expression
+  - colour_by auto-detected: colData column (discrete → categorical palette,
+    continuous → gradient) or gene name (logcounts → grey-to-blue gradient)
+  - label_clusters=TRUE overlays bold centroid labels (discrete only)
+  - palette: colour vector for discrete, c(low, high) for continuous/gene;
+    NULL uses built-in 20-colour Tableau-inspired set or grey→blue gradient
+  - Axis ticks/text removed by default (standard for embedding plots)
+  - Requires TALOS_run_umap() to have been run first
+
+ASPIS_plot_tsne(sce, colour_by="cluster", point_size=0.8, point_alpha=0.6,
+                 palette=NULL, title=NULL, label_clusters=FALSE,
+                 label_size=4, assay_name="logcounts")
+  - tSNE scatter plot; identical interface to ASPIS_plot_umap
+  - Requires TALOS_run_tsne() to have been run first
+
+ASPIS_plot_embedding_grid(sweep, sce, colour_by="cluster", point_size=0.3,
+                           point_alpha=0.5, palette=NULL, assay_name="logcounts")
+  - Grid of embedding plots from a talos_embedding_sweep object
+    (TALOS_tune_umap or TALOS_tune_tsne output)
+  - Reads pre-computed embeddings from sweep$embeddings (no re-computation)
+  - UMAP: laid out as n_neighbors × min_dist grid (ncol = n min_dist values)
+  - tSNE: row(s) of perplexity panels (ncol = min(3, n_perplexity))
+  - Best combination marked with ★ in panel title
+  - colour_by: colData column (cluster, region, condition, etc.) or gene name;
+    discrete → categorical palette; continuous/gene → gradient
+  - Requires talos_embedding_sweep object; works for both UMAP and tSNE
 
 ================================================================================
 IN PROGRESS
@@ -18,8 +61,6 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- ASPIS_plot_umap()          UMAP coloured by cluster, gene, or metadata
-- ASPIS_plot_tsne()          tSNE coloured by cluster, gene, or metadata
 - ASPIS_plot_violin()        Violin plot of gene expression per cluster
 - ASPIS_plot_dotplot()       Dot plot of marker gene expression
 - ASPIS_plot_feature()       Feature / gene expression overlay on embedding
@@ -33,9 +74,10 @@ PLANNED / TODO
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- Key packages: ggplot2 (primary), scater (plotReducedDim),
-  ComplexHeatmap (heatmaps), ggridges (ridge plots)
+- Key packages: ggplot2 (primary, Depends), scater (plotReducedDim),
+  ComplexHeatmap (heatmaps)
 - pheatmap / ComplexHeatmap plots draw on creation — use png()/dev.off()
   wrappers rather than ggsave() for these
 - Trajectory and communication plots delegate data preparation to
   TRIPODES and DIKTYON respectively; ASPIS handles rendering only
+================================================================================

@@ -6,7 +6,7 @@
 # ============================================================================
 
 #' @importFrom stats median mad IQR quantile sd var p.adjust wilcox.test
-#'   model.matrix na.omit setNames cor
+#'   model.matrix na.omit setNames cor aggregate
 #' @importFrom utils head tail read.csv read.table write.csv capture.output
 #'   sessionInfo
 #' @importFrom grDevices col2rgb colorRampPalette dev.off pdf png rgb
@@ -46,10 +46,12 @@
 # scran / scater / scDblFinder / SingleR
 # ============================================================================
 
+#' @importFrom BiocNeighbors findKNN
+#' @importFrom cluster silhouette
 #' @importFrom scran computeSumFactors modelGeneVar getTopHVGs findMarkers
 #'   clusterCells buildSNNGraph
-#' @importFrom scater logNormCounts runPCA runUMAP runTSNE perCellQCMetrics
-#'   addPerCellQCMetrics plotReducedDim
+#' @importFrom scater logNormCounts runPCA runUMAP runTSNE plotReducedDim
+#' @importFrom scuttle addPerCellQCMetrics perCellQCMetrics perCellQCFilters
 #' @importFrom scDblFinder scDblFinder
 #' @importFrom SingleR SingleR
 
@@ -73,5 +75,9 @@ utils::globalVariables(c(
   "cell", "cluster", "label", "group", "sample", "condition",
   "n_counts", "n_genes", "pct_mt", "pct_ribo", "doublet_score",
   "x", "y", "value", "variable", "feature", "expression",
-  "cell_type", "score", "p_value", "log2FC", "direction"
+  "cell_type", "score", "p_value", "log2FC", "direction",
+  "k", "metric_label", "n_clusters", "modularity", "mean_sil",
+  "dim1", "dim2", "colour_val",
+  "n_neighbors", "min_dist", "perplexity", "raw_val", "metric",
+  "panel_label", "method", "resolution", "xintercept", "min_cl_size"
 ))

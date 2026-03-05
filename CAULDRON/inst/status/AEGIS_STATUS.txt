@@ -1,14 +1,51 @@
 ================================================================================
 AEGIS STATUS - Quality Control & Filtering
 ================================================================================
-Last Updated: 2026-02-26
+Last Updated: 2026-03-04
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
 aegis_qc.R:
 -----------
-(none yet)
+AEGIS_compute_qc_metrics(sce, assay_name=NULL, mito_prefix="mt-",
+                          ribo_prefixes=c("Rps","Rpl"), verbose=TRUE)
+  - Adds QC columns to colData via scuttle::addPerCellQCMetrics()
+  - BPCells-aware: if counts assay is an IterableMatrix, bypasses
+    scuttle/beachmat (which lack S4Arrays support for BPCells) and computes
+    metrics natively via colSums() + BPCells::matrix_stats()
+  - Detects MT/ribo genes by prefix pattern (mouse defaults; use MT-/RPS/RPL
+    for human)
+  - Adds: sum, detected, subsets_mt_percent, subsets_ribo_percent,
+    log10_genes_per_umi (complexity: log10(genes)/log10(UMIs))
+  - assay_name=NULL auto-detects: prefers "counts" > "X" > first assay
+  - Warns if no MT genes found matching prefix
+
+AEGIS_detect_doublets(sce, sample_col=NULL, clusters_col=NULL,
+                       BPPARAM=SerialParam(), seed=42L,
+                       force_bpcells=FALSE, verbose=TRUE)
+  - Wraps scDblFinder::scDblFinder()
+  - BPCells safeguard: if counts assay is a BPCells IterableMatrix, skips
+    doublet detection by default and prints an explanatory message; scDblFinder
+    would coerce the full matrix into RAM, risking an OOM crash on large datasets
+  - Set force_bpcells=TRUE to override the safeguard (only if RAM permits)
+  - sample_col: colData column identifying sample of origin — run per-sample
+    for multi-sample datasets (strongly recommended)
+  - clusters_col: optional pre-computed clusters to improve sensitivity
+  - Adds scDblFinder.score and scDblFinder.class ("singlet"/"doublet")
+    to colData; returns SCE unchanged if step was skipped
+
+AEGIS_filter_cells(sce, mode="adaptive", n_mads=3, min_counts=NULL,
+                    max_counts=NULL, min_features=NULL, max_features=NULL,
+                    max_pct_mt=NULL, remove_doublets=TRUE, verbose=TRUE)
+  - mode="adaptive": MAD-based outlier detection via scuttle::perCellQCFilters
+    flags low sum, low detected, high subsets_mt_percent
+  - mode="fixed": hard thresholds supplied by user
+  - max_pct_mt always applied as hard ceiling regardless of mode
+  - remove_doublets=TRUE removes cells where scDblFinder.class=="doublet"
+  - Requires AEGIS_compute_qc_metrics() to have been run first
+  - Requires AEGIS_detect_doublets() if remove_doublets=TRUE
+  - Prints per-reason breakdown; returns filtered SCE
 
 ================================================================================
 IN PROGRESS
@@ -18,20 +55,17 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- AEGIS_compute_qc_metrics()  Per-cell QC metrics (nUMI, nGenes, MT%, ribo%)
-- AEGIS_filter_cells()        Filter cells by QC thresholds (fixed or MAD-based)
-- AEGIS_detect_doublets()     Doublet detection via scDblFinder
-- AEGIS_remove_ambient()      Ambient RNA removal via SoupX or DecontX
-- AEGIS_plot_qc_violin()      Violin plots of QC metrics per sample
-- AEGIS_plot_qc_scatter()     Scatter plots (e.g. nUMI vs nGenes, MT% vs nUMI)
-- AEGIS_plot_knee()           Knee/barcode rank plot for empty droplet detection
-- AEGIS_summarise_qc()        Sample-level QC summary table
+- AEGIS_remove_ambient()  Ambient RNA removal via SoupX or DecontX
+- AEGIS_summarise_qc()    Sample-level QC summary table (per-sample stats)
 
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- Key packages: scater (QC metrics), scDblFinder (doublets),
-  SoupX / decontX (ambient RNA)
-- Should be run immediately after TALARIA loading, before any PYRI steps
-- MAD-based adaptive thresholds preferred over fixed cutoffs for robustness
-  across samples with different sequencing depths
+- scater (Imports): addPerCellQCMetrics()
+- scuttle (Imports): perCellQCFilters() for adaptive MAD-based filtering
+- scDblFinder (Imports): doublet detection
+- Recommended pipeline order: compute_qc_metrics → detect_doublets → filter_cells
+- For multi-sample datasets, always pass sample_col to AEGIS_detect_doublets
+- MAD-based filtering adapts to depth; fixed thresholds for known cut-offs
+- mito_prefix="mt-" for mouse; "MT-" for human
+- ribo_prefixes=c("Rps","Rpl") for mouse; c("RPS","RPL") for human
