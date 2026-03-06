@@ -65,7 +65,7 @@ PYRI_normalize <- function(sce,
 
   } else {
 
-    message("Running scran: quick clustering for size factor estimation...")
+    cat("Running scran: quick clustering for size factor estimation...\n")
     clusters <- scran::quickCluster(sce, assay.type = assay_name)
     sce      <- scran::computeSumFactors(sce, clusters = clusters,
                                           assay.type = assay_name)
@@ -146,8 +146,8 @@ PYRI_select_hvg <- function(sce,
 
   if (isTRUE(verbose)) {
     bio_var <- gene_var$bio
-    message(sprintf(
-      "\u2500\u2500 PYRI: HVG selection %s\n  Selected   : %s / %s genes\n  Block      : %s\n  Bio var    : %.4f \u2013 %.4f (median %.4f)\n%s",
+    cat(sprintf(
+      "\u2500\u2500 PYRI: HVG selection %s\n  Selected   : %s / %s genes\n  Block      : %s\n  Bio var    : %.4f \u2013 %.4f (median %.4f)\n%s\n",
       strrep("\u2500", 34),
       format(n_hvgs, big.mark = ","),
       format(nrow(sce), big.mark = ","),
@@ -160,6 +160,178 @@ PYRI_select_hvg <- function(sce,
   }
 
   sce
+}
+
+
+#' Sweep HVG count to find a data-driven optimum
+#'
+#' Tests a range of \code{n_hvgs} values and, for each, scores the resulting
+#' gene set on two complementary metrics:
+#'
+#' \enumerate{
+#'   \item \strong{Cumulative variance explained} — the percentage of total
+#'     gene-expression variance captured by the top \code{n_pcs} principal
+#'     components computed from the selected HVGs.  Increasing \code{n_hvgs}
+#'     initially raises this sharply, then flattens as noise genes dilute the
+#'     signal.  The elbow of this curve (detected via the kneedle method) is
+#'     used as the suggested optimum.
+#'   \item \strong{Mean biological variance} — the mean of the scran biological
+#'     variance component across selected genes.  This falls monotonically as
+#'     lower-variance genes enter the set and serves as a sanity check: the
+#'     suggested \code{n_hvgs} should lie in the region where mean bio variance
+#'     is still meaningfully above zero.
+#' }
+#'
+#' The mean-variance model is fitted \strong{once} across all genes; the sweep
+#' only changes the cutoff on the pre-ranked list, so runtime is dominated by
+#' the repeated lightweight PCA steps, not by modelling.  PCA is performed with
+#' \code{irlba::irlba} directly (BPCells-aware — no full matrix materialisation
+#' required).
+#'
+#' @param sce A \code{SingleCellExperiment} with a \code{"logcounts"} assay
+#'   (\code{\link{PYRI_normalize}} must have been run first).
+#' @param n_hvgs_range Integer vector of candidate HVG counts to test.
+#'   Values exceeding \code{nrow(sce)} are silently dropped.
+#'   Default \code{c(500, 1000, 2000, 3000, 5000, 7500)}.
+#' @param n_pcs Integer.  Number of PCA components used to measure variance
+#'   explained at each step.  Smaller values are faster; \code{20} is usually
+#'   sufficient for a sweep.  Default \code{20}.
+#' @param scale Logical.  Whether to scale genes to unit variance before PCA,
+#'   matching \code{\link{TALOS_run_pca}}'s \code{scale} argument.
+#'   Default \code{FALSE}.
+#' @param block_col Character.  Column in \code{colData} for per-sample
+#'   blocking in the mean-variance model (matches \code{\link{PYRI_select_hvg}}).
+#'   \code{NULL} (default) fits one trend across all cells.
+#' @param assay_name Character.  Assay to model.  Default \code{"logcounts"}.
+#' @param seed Integer.  Random seed for irlba reproducibility.  Default
+#'   \code{42L}.
+#' @param verbose Logical.  Print progress messages.  Default \code{TRUE}.
+#'
+#' @return A \code{pyri_hvg_sweep} list with:
+#'   \describe{
+#'     \item{\code{results}}{Data frame: \code{n_hvgs}, \code{cum_var},
+#'       \code{mean_bio_var}.}
+#'     \item{\code{plot}}{Two-panel ggplot (cum var + mean bio var vs n_hvgs).}
+#'     \item{\code{best_n_hvgs}}{Suggested HVG count (elbow in cum_var).}
+#'     \item{\code{params}}{Sweep parameters.}
+#'   }
+#' @export
+PYRI_tune_hvg <- function(sce,
+                           n_hvgs_range = c(500L, 1000L, 2000L, 3000L, 5000L, 7500L),
+                           n_pcs        = 20L,
+                           scale        = FALSE,
+                           block_col    = NULL,
+                           assay_name   = "logcounts",
+                           seed         = 42L,
+                           verbose      = TRUE) {
+
+  if (!requireNamespace("irlba", quietly = TRUE))
+    stop("Package 'irlba' is required. Install via: install.packages(\"irlba\")",
+         call. = FALSE)
+
+  if (!assay_name %in% assayNames(sce))
+    stop("Assay '", assay_name, "' not found. Run PYRI_normalize() first.",
+         call. = FALSE)
+
+  if (!is.null(block_col) && !block_col %in% names(colData(sce)))
+    stop("block_col '", block_col, "' not found in colData. ",
+         "Available columns: ", paste(names(colData(sce)), collapse = ", "),
+         call. = FALSE)
+
+  n_hvgs_range <- sort(unique(as.integer(n_hvgs_range)))
+  n_hvgs_range <- n_hvgs_range[n_hvgs_range >= 2L & n_hvgs_range <= nrow(sce)]
+  if (length(n_hvgs_range) == 0L)
+    stop("No valid n_hvgs values after clipping to [2, nrow(sce)].", call. = FALSE)
+
+  n_pcs   <- as.integer(n_pcs)
+  n_cells <- ncol(sce)
+  n_genes <- nrow(sce)
+  mat     <- assay(sce, assay_name)
+  block   <- if (!is.null(block_col)) colData(sce)[[block_col]] else NULL
+
+  # ── Step 1: Fit mean-variance model ONCE over all genes ──────────────────────
+  if (verbose) cat("  Modelling mean-variance relationship (all genes) ...\n")
+
+  if (inherits(mat, "IterableMatrix")) {
+    gene_var_df <- .pyri_bpcells_model_gene_var(mat, block)
+    gene_bio    <- setNames(gene_var_df$bio, rownames(gene_var_df))
+  } else {
+    gene_var <- scran::modelGeneVar(sce, assay.type = assay_name, block = block)
+    gene_bio <- setNames(as.numeric(gene_var$bio), rownames(gene_var))
+  }
+
+  # Rank genes by biological variance (descending) — done once
+  ranked_genes <- names(sort(gene_bio, decreasing = TRUE))
+
+  if (verbose)
+    cat(sprintf(
+      "\u2500\u2500 PYRI: HVG sweep %s\n  n_hvgs range : %s\n  n_pcs        : %d  |  scale: %s\n  block_col    : %s\n  Total genes  : %s\n%s\n",
+      strrep("\u2500", 37),
+      paste(format(n_hvgs_range, big.mark = ","), collapse = ", "),
+      n_pcs, scale,
+      if (!is.null(block_col)) block_col else "none",
+      format(n_genes, big.mark = ","),
+      strrep("\u2500", 56)))
+
+  # ── Step 2: Sweep ────────────────────────────────────────────────────────────
+  results <- vector("list", length(n_hvgs_range))
+
+  for (i in seq_along(n_hvgs_range)) {
+    n <- n_hvgs_range[i]
+    if (verbose)
+      cat(sprintf("  (%d/%d) n_hvgs = %s ...\n",
+                      i, length(n_hvgs_range), format(n, big.mark = ",")))
+
+    genes_i  <- ranked_genes[seq_len(n)]
+    mat_i    <- mat[genes_i, , drop = FALSE]
+    cum_var  <- .pyri_quick_pca_var(mat_i, n_pcs, scale, seed)
+    mean_bio <- mean(gene_bio[genes_i], na.rm = TRUE)
+
+    results[[i]] <- data.frame(
+      n_hvgs       = n,
+      cum_var      = round(cum_var,  2),
+      mean_bio_var = round(mean_bio, 4)
+    )
+  }
+
+  res_df <- do.call(rbind, results)
+
+  # ── Step 3: Elbow detection on cum_var ───────────────────────────────────────
+  best_n_hvgs <- .pyri_elbow(res_df$n_hvgs, res_df$cum_var)
+
+  p <- .pyri_tune_hvg_plot(res_df, best_n_hvgs)
+
+  if (verbose)
+    cat(sprintf(
+      "%s\n  Suggested n_hvgs: %s (elbow in variance explained)\n%s\n",
+      strrep("\u2500", 56),
+      format(best_n_hvgs, big.mark = ","),
+      strrep("\u2500", 56)))
+
+  structure(
+    list(results     = res_df,
+         plot        = p,
+         best_n_hvgs = best_n_hvgs,
+         params      = list(n_hvgs_range = n_hvgs_range,
+                            n_pcs        = n_pcs,
+                            scale        = scale,
+                            block_col    = block_col,
+                            assay_name   = assay_name,
+                            seed         = seed)),
+    class = "pyri_hvg_sweep"
+  )
+}
+
+
+#' @export
+print.pyri_hvg_sweep <- function(x, ...) {
+  cat("\u2500\u2500 PYRI HVG sweep \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n")
+  cat(sprintf("  n_hvgs tested   : %s\n",
+              paste(format(x$params$n_hvgs_range, big.mark = ","), collapse = ", ")))
+  cat(sprintf("  Suggested n_hvgs: %s  (elbow in variance explained)\n\n",
+              format(x$best_n_hvgs, big.mark = ",")))
+  print(x$results, row.names = FALSE)
+  invisible(x)
 }
 
 
@@ -204,10 +376,118 @@ PYRI_select_hvg <- function(sce,
 }
 
 
+# Run a lightweight irlba PCA on a gene-subset matrix and return the cumulative
+# percentage of total variance explained by the top n_pcs components.
+#
+# mat   : genes × cells (dense, sparse Matrix, or BPCells IterableMatrix)
+# n_pcs : number of PCs to compute
+# scale : logical — scale genes to unit variance before PCA
+# seed  : integer random seed for irlba reproducibility
+#
+# Returns a single numeric: sum(d^2 / (n_cells-1)) / total_var * 100
+.pyri_quick_pca_var <- function(mat, n_pcs, scale, seed) {
+  n_genes <- nrow(mat)
+  n_cells <- ncol(mat)
+  n_pcs   <- min(n_pcs, n_genes - 1L, n_cells - 1L)
+
+  is_bpcells <- inherits(mat, "IterableMatrix")
+
+  # Per-gene means and variances (streaming for BPCells, vectorised otherwise)
+  if (is_bpcells) {
+    gene_means <- BPCells::matrix_stats(mat, row_stats = "mean")$row_stats["mean", ]
+    gene_vars  <- BPCells::matrix_stats(mat, row_stats = "variance")$row_stats["variance", ]
+  } else {
+    gene_means <- rowMeans(mat)
+    # E[X^2] - E[X]^2, then Bessel correction — works for dense and sparse Matrix
+    gene_vars  <- (rowMeans(mat * mat) - gene_means^2) * n_cells / (n_cells - 1L)
+  }
+
+  scale_vec <- if (isTRUE(scale)) {
+    pmax(sqrt(gene_vars), .Machine$double.eps)
+  } else {
+    FALSE
+  }
+
+  # Transpose for cells × genes layout required by irlba.
+  # BiocGenerics::t() dispatches S4 methods — handles dgCMatrix and BPCells
+  # IterableMatrix alike; base::t.default() fails on both.
+  tmat <- BiocGenerics::t(mat)
+
+  set.seed(seed)
+  result <- irlba::irlba(tmat, nv = n_pcs, center = gene_means, scale = scale_vec)
+
+  total_var <- if (isTRUE(scale)) n_genes else sum(gene_vars)
+  sum(result$d^2 / (n_cells - 1L)) / total_var * 100
+}
+
+
+# Kneedle elbow detection on a monotone curve.
+# Finds the point of maximum perpendicular distance from the line connecting
+# the first and last (x, y) point — the "elbow" where returns diminish.
+# x : numeric vector (n_hvgs values, sorted ascending)
+# y : numeric vector (cum_var values, same length)
+# Returns the x value at the detected elbow.
+.pyri_elbow <- function(x, y) {
+  n <- length(x)
+  if (n <= 2L) return(x[which.max(y)])
+
+  # Normalise both axes to [0,1]
+  x_n <- (x - min(x)) / (max(x) - min(x))
+  y_n <- (y - min(y)) / (max(y) - min(y) + .Machine$double.eps)
+
+  # Direction vector of the line from first to last point
+  dx <- x_n[n] - x_n[1L]
+  dy <- y_n[n] - y_n[1L]
+
+  # Perpendicular distance of each point from that line
+  dists <- abs(dy * x_n - dx * y_n + x_n[n] * y_n[1L] - y_n[n] * x_n[1L]) /
+           sqrt(dx^2 + dy^2)
+
+  x[which.max(dists)]
+}
+
+
+# Two-panel line plot for the HVG sweep.
+# Panel 1: cumulative variance explained (%) vs n_hvgs
+# Panel 2: mean biological variance vs n_hvgs
+# Dashed red vertical line at best_n_hvgs.
+.pyri_tune_hvg_plot <- function(res_df, best_n_hvgs) {
+
+  metrics <- c("cum_var", "mean_bio_var")
+  lab_map <- c(
+    cum_var      = "Cumulative variance\nexplained (%) in top PCs",
+    mean_bio_var = "Mean biological\nvariance of selected HVGs"
+  )
+
+  df_long <- do.call(rbind, lapply(metrics, function(m) {
+    data.frame(n_hvgs = res_df$n_hvgs,
+               metric = lab_map[m],
+               value  = res_df[[m]])
+  }))
+  df_long$metric <- factor(df_long$metric, levels = lab_map[metrics])
+
+  ggplot(df_long, aes(x = n_hvgs, y = value)) +
+    geom_line(colour = "#4E79A7", linewidth = 0.8) +
+    geom_point(colour = "#4E79A7", size = 2.5) +
+    geom_vline(xintercept = best_n_hvgs,
+               linetype = "dashed", colour = "#E15759", linewidth = 0.7) +
+    facet_wrap(~ metric, scales = "free_y", ncol = 1) +
+    scale_x_continuous(
+      labels = function(x) format(x, big.mark = ",", scientific = FALSE)) +
+    labs(x       = "Number of HVGs",
+         y       = NULL,
+         title   = "HVG count sweep",
+         caption = sprintf("Red dashed: suggested n_hvgs = %s",
+                           format(best_n_hvgs, big.mark = ","))) +
+    theme_bw(base_size = 12) +
+    theme(panel.grid.minor = element_blank())
+}
+
+
 .pyri_print_norm_summary <- function(method, size_factors) {
   bar <- strrep("\u2500", 56)
-  message(sprintf(
-    "\u2500\u2500 PYRI: Normalisation (%s) %s\n  Size factors : %s \u2013 %s (median %.3f)\n  Output assay : logcounts\n%s",
+  cat(sprintf(
+    "\u2500\u2500 PYRI: Normalisation (%s) %s\n  Size factors : %s \u2013 %s (median %.3f)\n  Output assay : logcounts\n%s\n",
     method, bar,
     format(round(min(size_factors),  3), nsmall = 3),
     format(round(max(size_factors),  3), nsmall = 3),

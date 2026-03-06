@@ -144,7 +144,7 @@ AEGIS_detect_doublets <- function(sce,
 
   # ── BPCells safeguard ────────────────────────────────────────────────────────
   if (inherits(counts(sce), "IterableMatrix") && !isTRUE(force_bpcells)) {
-    message(
+    cat(
       "\u2500\u2500 AEGIS: Doublet detection skipped \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n",
       "  The counts assay is BPCells-backed (on-disk IterableMatrix).\n",
       "  scDblFinder would load the full count matrix into RAM to run, which\n",
@@ -152,7 +152,8 @@ AEGIS_detect_doublets <- function(sce,
       "\n",
       "  To run doublet detection anyway (if RAM permits):\n",
       "    AEGIS_detect_doublets(sce, force_bpcells = TRUE)\n",
-      strrep("\u2500", 56)
+      strrep("\u2500", 56), "\n",
+      sep = ""
     )
     return(invisible(sce))
   }
@@ -181,8 +182,8 @@ AEGIS_detect_doublets <- function(sce,
     cls   <- colData(sce)$scDblFinder.class
     n_dbl <- sum(cls == "doublet", na.rm = TRUE)
     n_tot <- length(cls)
-    message(sprintf(
-      "\u2500\u2500 AEGIS: Doublet detection \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  Singlets : %s (%s%%)\n  Doublets : %s (%s%%)\n%s",
+    cat(sprintf(
+      "\u2500\u2500 AEGIS: Doublet detection \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  Singlets : %s (%s%%)\n  Doublets : %s (%s%%)\n%s\n",
       format(n_tot - n_dbl, big.mark = ","),
       round(100 * (n_tot - n_dbl) / n_tot, 1),
       format(n_dbl, big.mark = ","),
@@ -346,7 +347,7 @@ AEGIS_filter_cells <- function(sce,
     return(assay_name)
   }
   for (p in c("counts", "X", "logcounts")) if (p %in% an) return(p)
-  message("Note: using assay '", an[1], "' for QC metrics.")
+  cat("Note: using assay '", an[1], "' for QC metrics.\n", sep = "")
   an[1]
 }
 
@@ -362,17 +363,17 @@ AEGIS_filter_cells <- function(sce,
             format(round(max(x), 1), big.mark = ","))
   }
 
-  message("\u2500\u2500 AEGIS: QC metrics computed (assay: ", assay_name, ") ", bar)
-  message(sprintf("  Cells              : %s", format(ncol(sce), big.mark = ",")))
-  message(sprintf("  Mito genes found   : %s", sum(is_mito)))
-  message(sprintf("  Ribo genes found   : %s", sum(is_ribo)))
-  message(sprintf("  Total counts (sum) : %s", fmt_range(cd$sum)))
-  message(sprintf("  Genes detected     : %s", fmt_range(cd$detected)))
+  cat("\u2500\u2500 AEGIS: QC metrics computed (assay: ", assay_name, ") ", bar, "\n", sep = "")
+  cat(sprintf("  Cells              : %s\n", format(ncol(sce), big.mark = ",")))
+  cat(sprintf("  Mito genes found   : %s\n", sum(is_mito)))
+  cat(sprintf("  Ribo genes found   : %s\n", sum(is_ribo)))
+  cat(sprintf("  Total counts (sum) : %s\n", fmt_range(cd$sum)))
+  cat(sprintf("  Genes detected     : %s\n", fmt_range(cd$detected)))
   if ("subsets_mt_percent" %in% names(cd))
-    message(sprintf("  MT %%               : %s", fmt_range(cd$subsets_mt_percent)))
+    cat(sprintf("  MT %%               : %s\n", fmt_range(cd$subsets_mt_percent)))
   if ("subsets_ribo_percent" %in% names(cd))
-    message(sprintf("  Ribo %%             : %s", fmt_range(cd$subsets_ribo_percent)))
-  message(bar)
+    cat(sprintf("  Ribo %%             : %s\n", fmt_range(cd$subsets_ribo_percent)))
+  cat(bar, "\n", sep = "")
 }
 
 
@@ -420,15 +421,15 @@ AEGIS_filter_cells <- function(sce,
   mode_str <- if (mode == "adaptive") paste0("adaptive (nmads = ", n_mads, ")")
               else "fixed"
 
-  message("\u2500\u2500 AEGIS: Cell filtering (", mode_str, ") ", bar)
-  message(sprintf("  Before   : %s cells", format(n_before, big.mark = ",")))
-  message(sprintf("  Removed  : %s cells (%s%%)",
+  cat("\u2500\u2500 AEGIS: Cell filtering (", mode_str, ") ", bar, "\n", sep = "")
+  cat(sprintf("  Before   : %s cells\n", format(n_before, big.mark = ",")))
+  cat(sprintf("  Removed  : %s cells (%s%%)\n",
                   format(n_rm, big.mark = ","), pct_rm))
-  message(sprintf("  Retained : %s cells", format(n_after, big.mark = ",")))
+  cat(sprintf("  Retained : %s cells\n", format(n_after, big.mark = ",")))
   if (length(reasons)) {
-    message("  Reasons (non-exclusive):")
+    cat("  Reasons (non-exclusive):\n")
     for (nm in names(reasons))
-      message(sprintf("    %-32s: %s", nm, format(reasons[[nm]], big.mark = ",")))
+      cat(sprintf("    %-32s: %s\n", nm, format(reasons[[nm]], big.mark = ",")))
   }
-  message(bar)
+  cat(bar, "\n", sep = "")
 }

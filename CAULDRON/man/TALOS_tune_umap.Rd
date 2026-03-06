@@ -39,24 +39,51 @@ labels used for silhouette computation. Default \code{"cluster"}.}
 \item{verbose}{Logical. Print progress messages. Default \code{TRUE}.}
 }
 \value{
-A \code{talos_embedding_sweep} list with \code{results},
-\code{plot}, \code{best_params}, and \code{params}.
+A \code{talos_embedding_sweep} list with:
+\describe{
+\item{\code{results}}{Data frame with one row per n_neighbors × min_dist
+combination: \code{n_neighbors}, \code{min_dist}, \code{knn_overlap},
+\code{mean_sil} (\code{NA} if cluster labels absent), \code{composite}.}
+\item{\code{embeddings}}{Named list of cells × 2 matrices — one UMAP
+embedding per parameter combination, in the same order as
+\code{results}.  Passed directly to
+\code{ASPIS_plot_embedding_grid()} for visual comparison.}
+\item{\code{plot}}{Tile heatmap of composite score (or KNN overlap if
+no clusters) across the n_neighbors × min_dist grid, with the best
+combination outlined in red.}
+\item{\code{best_params}}{Named list (\code{n_neighbors},
+\code{min_dist}) for the combination with the highest composite score.}
+\item{\code{params}}{List of sweep parameters for reproducibility.}
+}
 }
 \description{
-Tests all combinations of \code{n_neighbors} and \code{min_dist} and
-scores each embedding on two complementary metrics:
-\enumerate{
-\item \strong{KNN overlap} — mean Jaccard similarity between each cell's
-k nearest neighbours in PCA space and in the UMAP embedding.  Measures
-how faithfully local neighbourhood structure is preserved.
-\item \strong{Silhouette width} — mean silhouette width computed in 2D
-UMAP space using existing cluster labels.  Skipped when
-\code{cluster_col} is not in \code{colData}.
-}
-Both metrics are normalised to \eqn{[0, 1]} and averaged into a composite
-score used to select the best parameter combination.
+UMAP has two parameters that most strongly shape the embedding.
+\code{n_neighbors} governs how many local neighbours each cell considers:
+small values emphasise fine local structure; large values preserve more
+global topology at the cost of local detail.  \code{min_dist} controls how
+tightly points are packed: small values produce compact, well-separated
+clusters; large values spread points more evenly, which can reveal
+continuous structure.  This function tests all combinations of both
+parameters and scores each embedding on two complementary metrics:
 }
 \details{
-The KNN reference is computed once in PCA space using
-\code{BiocNeighbors::findKNN}.
+\describe{
+\item{KNN overlap}{Mean Jaccard similarity between each cell's \code{k}
+nearest neighbours in PCA space and in the UMAP embedding.  Measures
+how faithfully local neighbourhood structure from PCA is preserved in
+the 2D layout.  Computed once from a shared KNN reference in PCA space
+(\code{BiocNeighbors::findKNN}), which is reused across all embedding
+combinations for efficiency.  Ranges from 0 (no overlap) to 1
+(identical neighbourhoods).}
+\item{Mean silhouette width}{Mean silhouette width computed in 2D UMAP
+space using existing cluster labels from \code{cluster_col}.  Measures
+how visually separated the clusters are in the final embedding.  Ranges
+from \eqn{-1} (misassigned) to \eqn{+1} (well-separated).  Skipped
+when \code{cluster_col} is not present in \code{colData} — only KNN
+overlap is used for selection in that case.}
+}
+
+Both metrics are normalised to \eqn{[0, 1]} and averaged into a composite
+score.  The parameter combination with the highest composite score is
+suggested as the optimum.
 }

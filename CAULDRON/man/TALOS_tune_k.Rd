@@ -13,6 +13,7 @@ TALOS_tune_k(
   resolution = 1,
   compute_silhouette = TRUE,
   max_cells_sil = 10000L,
+  n_runs = 5L,
   seed = 42L,
   verbose = TRUE
 )
@@ -33,7 +34,8 @@ and silhouette distances. Default \code{30}.}
 \item{method}{Character. Clustering algorithm: \code{"leiden"} (default)
 or \code{"louvain"}.}
 
-\item{resolution}{Numeric. Clustering resolution. Default \code{1.0}.}
+\item{resolution}{Numeric. Clustering resolution (held fixed during sweep).
+Default \code{1.0}.}
 
 \item{compute_silhouette}{Logical. Compute mean silhouette width.
 Automatically disabled when \code{ncol(sce) > max_cells_sil}.
@@ -42,25 +44,54 @@ Default \code{TRUE}.}
 \item{max_cells_sil}{Integer. Cell count above which silhouette is skipped.
 Default \code{10000}.}
 
-\item{seed}{Integer. Random seed. Default \code{42L}.}
+\item{n_runs}{Integer. Number of community-detection runs per k value.
+Results are averaged over runs (modularity mean; representative membership
+closest to the mean used for silhouette).  Increasing \code{n_runs}
+dampens Leiden/Louvain stochasticity at the cost of proportionally longer
+runtime.  Default \code{5L}.}
+
+\item{seed}{Integer. Random seed for the first run; subsequent runs use
+\code{seed + 1}, \code{seed + 2}, … Default \code{42L}.}
 
 \item{verbose}{Logical. Print per-k progress and a final summary.
 Default \code{TRUE}.}
 }
 \value{
-A \code{talos_k_sweep} list with \code{results}, \code{plot},
-\code{best_k}, and \code{params}.
+A \code{talos_k_sweep} list with:
+\describe{
+\item{\code{results}}{Data frame with one row per k: \code{k},
+\code{n_clusters}, \code{modularity} (mean over \code{n_runs}),
+\code{mean_sil} (\code{NA} if silhouette was skipped).}
+\item{\code{plot}}{Multi-panel line plot (one panel per metric) with a
+red dashed vertical line marking the suggested \code{k}.}
+\item{\code{best_k}}{Suggested k — the value with the highest mean
+silhouette (or highest modularity when silhouette is skipped).}
+\item{\code{params}}{List of sweep parameters for reproducibility.}
+}
 }
 \description{
-Builds an SNN graph and clusters cells across a range of \code{k} values,
-returning cluster count, modularity, and (for smaller datasets) mean
-silhouette width per k.  Use this to choose an appropriate \code{k} before
-running \code{\link{TALOS_build_graph}} and \code{\link{TALOS_cluster}}
-in your main workflow.
+The \code{k} parameter in \code{\link{TALOS_build_graph}} controls how many
+nearest neighbours each cell shares edges with.  Small \code{k} values
+produce fine-grained, loosely connected graphs that tend to over-fragment;
+large values produce coarser graphs that may merge distinct populations.
+This function sweeps a range of \code{k} values, builds an SNN graph and
+applies community detection at each, and scores the resulting partitions on
+two complementary metrics:
 }
 \details{
-Silhouette width is computed in PCA space using
-\code{cluster::silhouette()}.  Because pairwise distances are O(N²),
-silhouette is automatically skipped when \code{ncol(sce) > max_cells_sil};
-in that case modularity alone is used to select the suggested k.
+\describe{
+\item{Modularity}{Graph modularity of the partition — measures how cleanly
+communities separate relative to a random null graph.  Higher values
+indicate more distinct cluster boundaries.  Always computed.}
+\item{Mean silhouette width}{Average silhouette width in PCA space — for
+each cell, how much more similar it is to its own cluster than to the
+nearest other cluster.  Ranges from \eqn{-1} (misassigned) to \eqn{+1}
+(well-separated).  The \code{k} with the highest mean silhouette is
+suggested.  Automatically skipped when \code{ncol(sce) > max_cells_sil}
+(pairwise distances are \eqn{O(N^2)}); modularity is used instead.}
+}
+
+Resolution and clustering method are held fixed during the sweep — they are
+not targets here.  Use \code{\link{TALOS_tune_resolution}} afterwards to
+optimise those parameters with the chosen \code{k}.
 }

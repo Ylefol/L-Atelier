@@ -123,7 +123,7 @@ ASPIS_plot_elbow <- function(sce,
         annotate("text", x = e + 0.4, y = max(df$var_exp) * 0.80,
                  label = paste0("elbow\nPC", e),
                  hjust = 0, size = 3, colour = "#59A14F")
-      message(sprintf("Elbow suggestion      : PC%d  (%.1f%% cum. variance)", e, ce))
+      cat(sprintf("Elbow suggestion      : PC%d  (%.1f%% cum. variance)\n", e, ce))
     }
 
     if (!is.null(sugg$cumulative)) {
@@ -134,7 +134,7 @@ ASPIS_plot_elbow <- function(sce,
         annotate("text", x = cv + 0.4, y = max(df$var_exp) * 0.63,
                  label = paste0(">=", cum_threshold, "%\nPC", cv),
                  hjust = 0, size = 3, colour = "#B07AA1")
-      message(sprintf("Cumulative suggestion : PC%d  (>= %g%% variance explained)",
+      cat(sprintf("Cumulative suggestion : PC%d  (>= %g%% variance explained)\n",
                       cv, cum_threshold))
     }
   }
@@ -387,6 +387,180 @@ ASPIS_plot_embedding_grid <- function(sweep,
     high <- if (!is.null(palette) && length(palette) >= 2L) palette[2L] else
               if (is_gene) "#2166AC" else "#4E79A7"
     p <- p + scale_color_gradient(low = low, high = high, name = colour_by)
+  }
+
+  p
+}
+
+
+#' QC metric violin plots
+#'
+#' Visualises the distribution of per-cell quality control metrics computed by
+#' \code{\link{AEGIS_compute_qc_metrics}}.  Each metric is shown as a violin
+#' with an optional jitter overlay, arranged in a faceted grid.  Threshold
+#' lines can be drawn to inspect prospective filtering cut-offs before calling
+#' \code{\link{AEGIS_filter_cells}}.
+#'
+#' The following colData columns are produced by
+#' \code{\link{AEGIS_compute_qc_metrics}} and can be passed to
+#' \code{metrics}:
+#'
+#' \describe{
+#'   \item{\code{sum}}{Total UMI count per cell (library size).  Low values
+#'     indicate empty droplets or dead cells; extremely high values may indicate
+#'     doublets.  Typically inspected on a log scale.}
+#'   \item{\code{detected}}{Number of genes with at least one count.  Follows
+#'     a similar distribution to \code{sum} but is less sensitive to a few
+#'     highly expressed genes.  Typically inspected on a log scale.}
+#'   \item{\code{subsets_mt_percent}}{Percentage of counts from mitochondrial
+#'     genes.  High values suggest compromised cell membranes (cytoplasmic RNA
+#'     lost, mitochondrial RNA retained).  Inspected on a linear scale.}
+#'   \item{\code{subsets_ribo_percent}}{Percentage of counts from ribosomal
+#'     protein genes.  Unusually high values may indicate stressed or
+#'     proliferating cells.  Only present if ribosomal genes were detected.}
+#' }
+#'
+#' @param sce A \code{SingleCellExperiment} with QC columns in
+#'   \code{colData} (run \code{\link{AEGIS_compute_qc_metrics}} first).
+#' @param metrics Character vector of \code{colData} column names to plot.
+#'   Default \code{c("sum", "detected", "subsets_mt_percent")}.  Any numeric
+#'   \code{colData} column is accepted.
+#' @param group_by Character.  A \code{colData} column used to split violins
+#'   by group (e.g. \code{"sample_id"}, \code{"condition"}).  \code{NULL}
+#'   (default) shows a single violin per metric.
+#' @param thresholds Named list of threshold values to draw as red dashed
+#'   horizontal lines.  Names must match entries in \code{metrics}
+#'   (on the original, untransformed scale).  Example:
+#'   \code{list(subsets_mt_percent = 20, sum = 500)}.  \code{NULL} (default)
+#'   draws no lines.
+#' @param log_scale Character vector of metric names to display on a log10
+#'   scale.  Values are transformed as \code{log10(x + 1)} and axis labels
+#'   updated accordingly.  Default \code{c("sum", "detected")}.
+#' @param show_points Logical.  Overlay individual cell points as jitter.
+#'   Automatically suppressed when the number of cells exceeds
+#'   \code{max_points} to avoid overplotting.  Default \code{TRUE}.
+#' @param max_points Integer.  Maximum number of cells for which jitter points
+#'   are drawn.  If \code{ncol(sce) > max_points}, a random subsample of
+#'   \code{max_points} cells is shown.  Default \code{5000}.
+#' @param point_size Numeric.  Jitter point size.  Default \code{0.3}.
+#' @param point_alpha Numeric.  Jitter point transparency.  Default \code{0.3}.
+#' @param ncol Integer or \code{NULL}.  Number of columns in the facet grid.
+#'   \code{NULL} (default) uses \code{min(length(metrics), 3)}.
+#'
+#' @return A \code{ggplot} object.
+#' @export
+ASPIS_plot_qc <- function(sce,
+                           metrics     = c("sum", "detected", "subsets_mt_percent"),
+                           group_by    = NULL,
+                           thresholds  = NULL,
+                           log_scale   = c("sum", "detected"),
+                           show_points = TRUE,
+                           max_points  = 5000L,
+                           point_size  = 0.3,
+                           point_alpha = 0.3,
+                           ncol        = NULL) {
+
+  available <- names(colData(sce))
+  missing_m <- setdiff(metrics, available)
+  if (length(missing_m) > 0L)
+    stop("Metrics not found in colData: ", paste(missing_m, collapse = ", "),
+         "\nAvailable colData columns: ", paste(available, collapse = ", "),
+         call. = FALSE)
+
+  if (!is.null(group_by) && !group_by %in% available)
+    stop("group_by '", group_by, "' not found in colData.", call. = FALSE)
+
+  log_scale <- intersect(log_scale, metrics)
+  n_cells   <- ncol(sce)
+
+  # ── Build group vector ───────────────────────────────────────────────────────
+  group_vec <- if (!is.null(group_by)) {
+    as.factor(colData(sce)[[group_by]])
+  } else {
+    factor(rep("cells", n_cells))
+  }
+
+  # ── Build long-format data frame ─────────────────────────────────────────────
+  metric_labels <- setNames(vapply(metrics, function(m) {
+    if (m %in% log_scale) paste0(m, " (log\u2081\u2080 + 1)") else m
+  }, character(1L)), metrics)
+
+  df_list <- lapply(metrics, function(m) {
+    vals <- as.numeric(colData(sce)[[m]])
+    if (m %in% log_scale) vals <- log10(vals + 1)
+    data.frame(group  = group_vec,
+               metric = unname(metric_labels[m]),
+               value  = vals,
+               stringsAsFactors = FALSE)
+  })
+
+  df <- do.call(rbind, df_list)
+  df$metric <- factor(df$metric, levels = metric_labels)
+
+  # ── Jitter subsampling ───────────────────────────────────────────────────────
+  do_jitter <- isTRUE(show_points)
+  if (do_jitter && n_cells > as.integer(max_points)) {
+    jitter_idx <- sample.int(n_cells, as.integer(max_points))
+    df_jitter  <- df[rep(jitter_idx, length(metrics)) +
+                       rep(seq(0, (length(metrics) - 1L) * n_cells, by = n_cells),
+                           each = length(jitter_idx)), ]
+  } else {
+    df_jitter <- df
+  }
+
+  has_groups <- !is.null(group_by)
+  n_groups   <- nlevels(group_vec)
+  ncol_use   <- if (!is.null(ncol)) as.integer(ncol) else min(length(metrics), 3L)
+
+  # ── Colour palette ───────────────────────────────────────────────────────────
+  pal <- if (has_groups) {
+    rep(.aspis_discrete_palette(), length.out = n_groups)
+  } else {
+    "#4E79A7"
+  }
+
+  # ── Base plot ────────────────────────────────────────────────────────────────
+  p <- ggplot(df, aes(x = group, y = value, fill = group)) +
+    geom_violin(trim = TRUE, alpha = 0.75, linewidth = 0.4) +
+    scale_fill_manual(values = pal) +
+    facet_wrap(~ metric, scales = "free_y", ncol = ncol_use) +
+    labs(x     = if (has_groups) group_by else NULL,
+         y     = NULL,
+         title = "QC metrics",
+         fill  = if (has_groups) group_by else NULL) +
+    theme_bw(base_size = 12) +
+    theme(panel.grid.minor = element_blank(),
+          legend.position  = if (has_groups && n_groups > 1L) "right" else "none")
+
+  if (!has_groups)
+    p <- p + theme(axis.text.x  = element_blank(),
+                   axis.ticks.x = element_blank())
+
+  # ── Jitter overlay ───────────────────────────────────────────────────────────
+  if (do_jitter)
+    p <- p + geom_jitter(data    = df_jitter,
+                         width   = 0.15,
+                         size    = point_size,
+                         alpha   = point_alpha,
+                         colour  = "grey20",
+                         inherit.aes = TRUE)
+
+  # ── Threshold lines ──────────────────────────────────────────────────────────
+  if (!is.null(thresholds)) {
+    thresh_rows <- lapply(names(thresholds), function(m) {
+      if (!m %in% metrics) return(NULL)
+      lab <- metric_labels[m]
+      val <- if (m %in% log_scale) log10(thresholds[[m]] + 1) else thresholds[[m]]
+      data.frame(metric = factor(lab, levels = levels(df$metric)), yintercept = val)
+    })
+    thresh_df <- do.call(rbind, Filter(Negate(is.null), thresh_rows))
+    if (nrow(thresh_df) > 0L)
+      p <- p + geom_hline(data     = thresh_df,
+                          aes(yintercept = yintercept),
+                          linetype = "dashed",
+                          colour   = "#E15759",
+                          linewidth = 0.7,
+                          inherit.aes = FALSE)
   }
 
   p

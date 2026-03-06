@@ -1,7 +1,7 @@
 ================================================================================
 PYRI STATUS - Normalization & Preprocessing
 ================================================================================
-Last Updated: 2026-03-04
+Last Updated: 2026-03-05
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -31,6 +31,21 @@ PYRI_select_hvg(sce, n_hvgs=2000, block_col=NULL, assay_name="logcounts",
       metadata(sce)$hvg    — character vector of HVG names (used by TALOS)
   - Requires PYRI_normalize() to have been run first
 
+PYRI_tune_hvg(sce, n_hvgs_range=c(500,1000,2000,3000,5000,7500), n_pcs=20,
+              scale=FALSE, block_col=NULL, assay_name="logcounts",
+              seed=42, verbose=TRUE)
+  - Sweeps HVG counts to find a data-driven optimum
+  - Fits mean-variance model ONCE for all genes; only the cutoff changes per step
+  - BPCells-aware: same streaming path as PYRI_select_hvg
+  - Metrics per n_hvgs:
+      cum_var      — cumulative % variance in top n_pcs PCs (main elbow metric)
+      mean_bio_var — mean scran biological variance of selected genes (sanity check)
+  - Elbow detection: kneedle method (max perpendicular distance from
+    line connecting first and last point of cum_var curve)
+  - Returns pyri_hvg_sweep: results df, 2-panel line plot, best_n_hvgs, params
+  - print.pyri_hvg_sweep() gives tidy console summary
+  - Recommended before committing to n_hvgs in PYRI_select_hvg()
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -48,10 +63,12 @@ PLANNED / TODO
 DEPENDENCIES / NOTES
 ================================================================================
 - scater (Imports): logNormCounts, librarySizeFactors
-- scran (Imports): quickCluster, computeSumFactors, modelGeneVar, getTopHVGs
-- BiocGenerics (Imports): sizeFactors
+- scran (Imports): quickCluster, computeSumFactors, modelGeneVar, getTopHVGs, fitTrendVar
+- BiocGenerics (Imports): sizeFactors, t (for BPCells transpose)
+- irlba (Suggests): used by PYRI_tune_hvg for lightweight sweep PCA
 - Normalization must precede HVG selection and all downstream TALOS steps
 - HVG results stored in metadata(sce)$hvg for TALOS to consume
-- For multi-sample data, always pass block_col to PYRI_select_hvg
+- For multi-sample data, always pass block_col to PYRI_select_hvg and PYRI_tune_hvg
 - Batch correction (Harmony) applied at PCA embedding level in TALOS, not here
+- Recommended order: normalize → tune_hvg (inspect) → select_hvg → TALOS steps
 ================================================================================

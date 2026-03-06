@@ -112,8 +112,7 @@ TALARIA_load_h5ad <- function(path,
 
   if (.talaria_is_integer_matrix(assay(sce, "X"))) {
     assayNames(sce)[assayNames(sce) == "X"] <- "counts"
-    message("Note: assay 'X' contained raw integer counts and has been ",
-            "renamed to 'counts' (Bioconductor convention).")
+    cat("Note: assay 'X' contained raw integer counts and has been renamed to 'counts' (Bioconductor convention).\n")
   } else {
     stop(
       "Assay 'X' does not appear to contain raw integer counts — values are ",
@@ -340,9 +339,9 @@ TALARIA_to_bpcells <- function(sce,
   metadata(sce)$bpcells_dir    <- bpcells_dir
 
   if (isTRUE(verbose))
-    message("BPCells: '", assay_name, "' assay written to: ", bpcells_dir,
-            "\n  Class: ", class(bp_mat),
-            "\n  Dims : ", nrow(sce), " genes x ", ncol(sce), " cells")
+    cat("BPCells: '", assay_name, "' assay written to: ", bpcells_dir,
+        "\n  Class: ", class(bp_mat),
+        "\n  Dims : ", nrow(sce), " genes x ", ncol(sce), " cells\n", sep = "")
 
   sce
 }
@@ -393,8 +392,8 @@ TALARIA_to_seurat <- function(sce, counts = "counts", data = NULL) {
 
   sobj <- Seurat::as.Seurat(sce, counts = counts, data = data)
 
-  message("Converted SCE (", ncol(sce), " cells, ", nrow(sce),
-          " genes) to Seurat object.")
+  cat("Converted SCE (", ncol(sce), " cells, ", nrow(sce),
+      " genes) to Seurat object.\n", sep = "")
   sobj
 }
 
@@ -480,7 +479,7 @@ TALARIA_export_matrix <- function(sce,
     write.csv(mat, out_path)
 
     if (isTRUE(verbose))
-      message("Matrix written to: ", out_path)
+      cat("Matrix written to: ", out_path, "\n", sep = "")
     invisible(out_path)
 
   } else {
@@ -495,7 +494,7 @@ TALARIA_export_matrix <- function(sce,
                                   overwrite = TRUE)
 
     if (isTRUE(verbose))
-      message("MEX files written to: ", output_dir)
+      cat("MEX files written to: ", output_dir, "\n", sep = "")
     invisible(output_dir)
   }
 }
@@ -523,8 +522,8 @@ TALARIA_export_metadata <- function(sce, output_path, verbose = TRUE) {
   write.csv(meta, output_path, row.names = FALSE)
 
   if (isTRUE(verbose))
-    message("Metadata (", nrow(meta), " cells, ", ncol(meta) - 1L,
-            " columns) written to: ", output_path)
+    cat("Metadata (", nrow(meta), " cells, ", ncol(meta) - 1L,
+        " columns) written to: ", output_path, "\n", sep = "")
   invisible(output_path)
 }
 
@@ -549,8 +548,8 @@ TALARIA_save_sce <- function(sce, output_path, verbose = TRUE) {
   saveRDS(sce, output_path)
 
   if (isTRUE(verbose))
-    message("SCE (", ncol(sce), " cells, ", nrow(sce),
-            " genes) saved to: ", output_path)
+    cat("SCE (", ncol(sce), " cells, ", nrow(sce),
+        " genes) saved to: ", output_path, "\n", sep = "")
   invisible(output_path)
 }
 
@@ -606,14 +605,14 @@ TALARIA_load_sce <- function(path, verbose = TRUE) {
            " ... (", n_col_cols, " total)")
   }
 
-  message("\u2500\u2500 TALARIA: H5AD loaded ", bar)
-  message(sprintf("  File       : %s", basename(path)))
-  message(sprintf("  Cells      : %s", format(n_cells, big.mark = ",")))
-  message(sprintf("  Genes      : %s", format(n_genes, big.mark = ",")))
-  message(sprintf("  Assays     : %s",
+  cat("\u2500\u2500 TALARIA: H5AD loaded ", bar, "\n", sep = "")
+  cat(sprintf("  File       : %s\n", basename(path)))
+  cat(sprintf("  Cells      : %s\n", format(n_cells, big.mark = ",")))
+  cat(sprintf("  Genes      : %s\n", format(n_genes, big.mark = ",")))
+  cat(sprintf("  Assays     : %s\n",
                   if (length(assays)) paste(assays, collapse = ", ") else "(none)"))
-  message(sprintf("  Reductions : %s",
+  cat(sprintf("  Reductions : %s\n",
                   if (length(red_dims)) paste(red_dims, collapse = ", ") else "(none)"))
-  message(sprintf("  Metadata   : %s", col_preview))
-  message(bar)
+  cat(sprintf("  Metadata   : %s\n", col_preview))
+  cat(bar, "\n", sep = "")
 }

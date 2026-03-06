@@ -11,6 +11,7 @@ TALOS_tune_resolution(
   n_pcs = 30L,
   compute_silhouette = TRUE,
   max_cells_sil = 10000L,
+  n_runs = 5L,
   seed = 42L,
   verbose = TRUE
 )
@@ -35,30 +36,62 @@ disabled when \code{ncol(sce) > max_cells_sil}.  Default \code{TRUE}.}
 \item{max_cells_sil}{Integer.  Cell count above which silhouette is skipped.
 Default \code{10000}.}
 
-\item{seed}{Integer.  Random seed.  Default \code{42L}.}
+\item{n_runs}{Integer. Number of community-detection runs per
+method × resolution combination.  Modularity is averaged over all runs;
+the representative membership (closest to mean modularity) is used for
+silhouette and cluster-size metrics.  Default \code{5L}.}
+
+\item{seed}{Integer.  Random seed for the first run; subsequent runs use
+\code{seed + 1}, \code{seed + 2}, … Default \code{42L}.}
 
 \item{verbose}{Logical.  Print per-combination progress.  Default \code{TRUE}.}
 }
 \value{
-A \code{talos_resolution_sweep} list with \code{results},
-\code{plot}, \code{best_params}, \code{best_per_method}, and \code{params}.
+A \code{talos_resolution_sweep} list with:
+\describe{
+\item{\code{results}}{Data frame with one row per method × resolution
+combination: \code{method}, \code{resolution}, \code{n_clusters},
+\code{modularity} (mean over \code{n_runs}), \code{mean_sil}
+(\code{NA} if skipped), \code{min_cl_size}.}
+\item{\code{plot}}{Four-panel line plot (n_clusters, modularity,
+mean_sil, min_cl_size vs resolution), one coloured line per method,
+with dashed vertical lines at the best resolution per method.}
+\item{\code{best_params}}{Named list (\code{method}, \code{resolution})
+for the single combination with the highest score across all methods.}
+\item{\code{best_per_method}}{Data frame with the best-scoring row per
+clustering algorithm — useful when \code{method = "both"} to compare
+Leiden and Louvain optima side by side.}
+\item{\code{params}}{List of sweep parameters for reproducibility.}
+}
 }
 \description{
-Applies Leiden and/or Louvain community detection across a range of
-resolution values on the pre-built SNN graph, scoring each combination on
-four complementary metrics:
+Resolution controls the granularity of Leiden and Louvain community
+detection: higher values push the algorithm to accept smaller, more numerous
+clusters; lower values favour larger, coarser partitions.  This function
+sweeps a range of resolution values on the pre-built SNN graph and scores
+each partition on four complementary metrics:
 }
 \details{
 \describe{
-\item{n_clusters}{Number of clusters produced.}
-\item{modularity}{Graph modularity of the partition.}
-\item{mean_sil}{Mean silhouette width in PCA space.  Skipped when cell
-count exceeds \code{max_cells_sil}.}
-\item{min_cl_size}{Minimum cluster size — flags pathological resolutions
-producing singleton or near-singleton clusters.}
+\item{n_clusters}{Number of distinct clusters produced.  Rises
+monotonically with resolution; useful for anchoring biological
+expectations (e.g. known number of major cell types).}
+\item{modularity}{Graph modularity of the partition — how cleanly
+community boundaries separate relative to a random null.  Higher is
+better, but very high resolution can inflate modularity by fragmenting
+real populations.}
+\item{mean_sil}{Mean silhouette width in PCA space — how confidently each
+cell is assigned to its cluster vs the nearest alternative.  Ranges from
+\eqn{-1} (misassigned) to \eqn{+1} (well-separated).  The resolution
+per method with the highest mean silhouette is suggested.  Skipped when
+\code{ncol(sce) > max_cells_sil}; modularity is used instead.}
+\item{min_cl_size}{Size of the smallest cluster.  Near-zero values flag
+pathological resolutions that fragment cells into singletons or
+micro-clusters, typically a sign the resolution is too high.}
 }
 
-The PCA distance matrix for silhouette is computed once before the sweep
-loop, so runtime scales with the number of resolution values rather than
-the number of cells per iteration.
+When \code{method = "both"}, Leiden and Louvain are run at every resolution
+for direct comparison.  The PCA distance matrix for silhouette is computed
+once before the loop, so runtime scales with the number of resolution values,
+not the number of cells per iteration.
 }

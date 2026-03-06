@@ -1,14 +1,46 @@
 ================================================================================
 PANDORA STATUS - Cell Type Annotation
 ================================================================================
-Last Updated: 2026-02-26
+Last Updated: 2026-03-06
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
 pandora_annotation.R:
 ---------------------
-(none yet)
+PANDORA_list_references(source="all", db=NULL)
+  - Prints formatted table of available SingleR/celldex reference shorthands
+    and scType tissue types from the bundled ScTypeDB
+  - source: "all" | "singler" | "sctype"
+  - db: NULL (bundled), file path, or data.frame (scType only)
+  - Returns invisible list: $singler (data.frame), $sctype (character vector)
+
+PANDORA_annotate_singler(sce, reference, labels_col="label.main",
+                          cluster_col=NULL, assay_name="logcounts",
+                          label_col="singler_label", prune=TRUE, verbose=TRUE)
+  - Reference-based annotation via SingleR::SingleR()
+  - reference: pre-loaded SummarizedExperiment OR shorthand string
+    Shorthands: "HumanPrimaryCellAtlas", "BlueprintEncode", "DICE",
+                "Monaco", "Novershtern" (human); "ImmGen", "MouseRNAseq" (mouse)
+  - cluster_col=NULL: cell-level annotation
+  - cluster_col="cluster": aggregate per cluster, broadcast label to cells
+  - prune=TRUE: low-confidence labels set to NA via delta-score pruning
+  - Stores result in colData(sce)[[label_col]]
+  - Requires SingleR (Imports), celldex (Suggests, only for shorthands)
+
+PANDORA_annotate_sctype(sce, tissue, cluster_col="cluster", db=NULL,
+                         assay_name="logcounts", label_col="sctype_label",
+                         verbose=TRUE)
+  - Cluster-level annotation via scType scoring algorithm (implemented natively)
+  - tissue: string matching tissueType in scTypeDB (case-sensitive)
+  - db=NULL: uses bundled inst/extdata/ScTypeDB_full.xlsx (16 tissues, 268 rows)
+  - db: custom data.frame or path to .xlsx/.csv with same column structure
+  - Algorithm: scale per gene → score cells against marker sets →
+    aggregate by cluster → assign best-scoring cell type per cluster
+  - Scoring: (Σ pos markers - Σ neg markers) / sqrt(n_markers), capped ±10
+  - BPCells-aware: subsets to marker genes before converting to dense matrix
+  - Stores result in colData(sce)[[label_col]]
+  - Requires readxl (Suggests, for .xlsx DB reading)
 
 ================================================================================
 IN PROGRESS
@@ -18,19 +50,27 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- PANDORA_annotate_singler()    Reference-based annotation via SingleR
-- PANDORA_annotate_azimuth()    Reference-based annotation via Azimuth
-- PANDORA_score_markers()       Score cells against known marker gene sets
-- PANDORA_assign_labels()       Assign/overwrite cell type labels manually
-- PANDORA_build_hierarchy()     Define cell type hierarchy / ontology tree
-- PANDORA_summarise_labels()    Label frequency table per cluster / sample
-- PANDORA_plot_label_heatmap()  Heatmap of SingleR scores across cell types
+- PANDORA_assign_labels()     Manual cluster → cell type mapping (manual_curation)
+- PANDORA_find_markers()      Wrapper for scran::findMarkers() per cluster
+- PANDORA_summarise_labels()  Label frequency table per cluster / sample
+- PANDORA_plot_label_heatmap() Heatmap of SingleR scores across cell types
 
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- Key packages: SingleR, celldex (reference datasets), AzimuthR (optional)
-- Requires clustered data from TALOS
-- Labels stored in colLabels(sce) or colData(sce)$cell_type
+- SingleR (Imports): reference-based annotation
+- celldex (Suggests): celldex reference dataset retrieval (shorthand strings)
+  Install: BiocManager::install("celldex")
+- readxl (Suggests): reading bundled ScTypeDB_full.xlsx
+  Install: install.packages("readxl")
+- scType algorithm implemented natively — no GitHub source() dependency
+- Bundled DB: inst/extdata/ScTypeDB_full.xlsx
+  Columns: tissueType, cellName, geneSymbolmore1 (positive markers, comma-sep),
+           geneSymbolmore2 (negative markers, comma-sep; NA = none), shortName
+  Tissues: Adrenal, Brain, Eye, Heart, Hippocampus, Immune system, Intestine,
+           Kidney, Liver, Lung, Muscle, Pancreas, Placenta, Spleen, Stomach, Thymus
+- scTypeDB geneSymbolmore2 is NA for 256/268 rows (negative markers are rare)
+- Requires clustered data from TALOS (cluster assignments in colData)
+- Labels stored in colData(sce)$singler_label / $sctype_label (configurable)
 - Automated annotation should always be reviewed manually — treat as a
   starting point, not ground truth

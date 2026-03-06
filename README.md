@@ -48,3 +48,7 @@ ZERO_DAWN/
 ## Issues
 
 Feel free to open an issue for any found bugs or suggested improvements.
+
+## Personal notes
+
+Use of cat() instead of message() in order to enable console output and logging at the same time.

@@ -1,7 +1,7 @@
 ================================================================================
 TALARIA STATUS - Import, Export & Format Conversion
 ================================================================================
-Last Updated: 2026-03-04
+Last Updated: 2026-03-05
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -73,6 +73,54 @@ TALARIA_load_sce(path, verbose=TRUE)
   - If SCE was BPCells-backed, the lazy matrix reconnects automatically
     provided bpcells_dir is accessible at the stored path
 
+talaria_logging.R:
+------------------
+TALARIA_generate_log_filename(log_dir=NULL, prefix="log", extension=".log",
+                               format="compact")
+  - Generates a timestamp-based log filename (sortable, filesystem-safe)
+  - format="compact": YYYY_MM_DD__HH_MM; format="readable": YYYY-MM-DD_HH-MM-SS
+
+TALARIA_start_log(log_file, append=FALSE)
+  - Starts duplicating stdout to log_file via sink(split=TRUE)
+  - Writes header: start time, R version, platform, working directory
+  - Warnings/errors NOT captured (console-only for immediate visibility)
+  - Creates parent directories automatically
+
+TALARIA_stop_log()
+  - Stops sink, appends session info (end time, duration, sessionInfo())
+  - Closes file connection cleanly
+
+TALARIA_is_logging()   — returns TRUE if a log is currently active
+TALARIA_get_log_file() — returns current log path, or NULL if inactive
+
+talaria_export.R:
+-----------------
+TALARIA_export_first_steps(sce, output_dir, hvg_sweep=NULL, pc_sweep=NULL,
+                            k_sweep=NULL, resolution_sweep=NULL,
+                            umap_sweep=NULL, tsne_sweep=NULL,
+                            colour_by="cluster", sample_col=NULL,
+                            assay_name="logcounts", format="png", verbose=TRUE)
+  - Bundles all outputs of a first-steps pipeline run into a structured dir:
+      sce/        — sce.rds (RDS of the SCE object)
+      plots/      — all ggplot outputs at 600 DPI (PNG) or vector (PDF)
+      tables/     — CSVs: cell_metadata, analysis_parameters, sweep results
+  - Auto-detects SCE state: only exports what has been computed
+      (PCA, UMAP, TSNE in reducedDims; QC cols in colData; hvg in metadata)
+  - Sweep objects passed explicitly — all optional; omitting one simply skips
+    its plot and result table
+  - analysis_parameters.csv: 2-column table of key analysis choices
+      (n_hvgs, n_pcs_used, k, clustering_method, resolution, n_neighbors,
+       min_dist, perplexity); NA for parameters whose sweep was not provided
+  - BPCells-aware: saveRDS works for both backends (BPCells stores path ref);
+    prints a reminder to keep bpcells_dir alongside the RDS
+  - colour_by: falls back to first factor/character colData col if not found
+  - sample_col: if provided, exports an additional grouped QC plot
+  - format="png": 600 DPI; format="pdf": vector (no DPI)
+  - Plot sizes: QC 10×(3.5×nrows)"; elbow 8×5"; sweeps 6-7×8-11";
+    grids 14×12"; individual UMAP/tSNE 7×6"
+  - Returns invisible list: output_dir + files (manifest of all saved paths)
+  - Individual plots/tables still accessible via their respective functions
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -115,8 +163,9 @@ AEGIS_detect_doublets     | SKIP       | Skipped by default when BPCells detecte
 PYRI_normalize            | YES        | scater::logNormCounts produces lazy BPCells logcounts
 PYRI_select_hvg           | YES        | BPCells path via matrix_stats()+fitTrendVar();
                           |            | scran::modelGeneVar bypassed (beachmat incompat.)
-TALOS_run_pca             | YES        | BPCells path via irlba directly; scater::runPCA
-                          |            | bypassed (wraps in DelayedArray which needs
-                          |            | extract_array(), not implemented by BPCells)
+TALOS_run_pca             | YES        | Unified irlba path for ALL backends (.talos_irlba_pca);
+                          |            | scater::runPCA no longer used (its BiocSingular wrapper
+                          |            | uses different irlba defaults → different PC suggestions;
+                          |            | direct irlba gives identical results for memory + BPCells)
 TALOS_run_umap/tsne       | YES        | Operates on small dense PCA matrix
 TALOS_build_graph/cluster | YES        | Operates on small dense PCA matrix

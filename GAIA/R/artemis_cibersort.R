@@ -30,8 +30,7 @@
 #' @param mixture_name Character. Base name for the saved mixture file
 #'   (without extension). Default: "mixture". The file is saved as
 #'   `<output_dir>/cibersort/<mixture_name>.txt`.
-#' @param perm Number of permutations for p-value calculation. Default 0
-#'   (no p-values, fast). Set to 100+ for significance testing.
+#' @param perm Number of permutations for p-value calculation. Default 100
 #' @param QN Logical. Apply quantile normalization. Default TRUE for microarray
 #'   data. Set to FALSE for RNA-seq data.
 #' @param verbose Logical. Print progress messages. Default TRUE.
@@ -90,7 +89,7 @@ ARTEMIS_cibersort <- function(mixture,
                                sig_matrix,
                                output_dir = "data",
                                mixture_name = "mixture",
-                               perm = 0,
+                               perm = 100,
                                QN = TRUE,
                                verbose = TRUE) {
 

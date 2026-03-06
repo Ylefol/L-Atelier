@@ -38,3 +38,11 @@ Runs PCA on the normalised \code{logcounts} assay, restricted to HVGs
 selected by \code{\link{PYRI_select_hvg}} when available.  Results are
 stored in \code{reducedDims(sce)[["PCA"]]}.
 }
+\details{
+PCA is computed via \code{irlba::irlba} directly for all matrix backends
+(in-memory \code{dgCMatrix} and BPCells \code{IterableMatrix} alike).
+This ensures identical numerical behaviour regardless of the backend chosen
+at load time, making results comparable between the two modes.
+\code{BiocGenerics::t()} is used for the transpose so that S4 dispatch
+works correctly for all matrix classes.
+}

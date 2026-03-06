@@ -55,5 +55,8 @@ Suggests:
     ComplexHeatmap,
     gridExtra,
     data.table,
+    irlba,
     BPCells,
+    celldex,
+    readxl,
     testthat (>= 3.0.0)

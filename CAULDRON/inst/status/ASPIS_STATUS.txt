@@ -1,13 +1,30 @@
 ================================================================================
 ASPIS STATUS - Visualisation
 ================================================================================
-Last Updated: 2026-03-05
+Last Updated: 2026-03-05 (updated)
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
 aspis_visualization.R:
 ----------------------
+ASPIS_plot_qc(sce, metrics=c("sum","detected","subsets_mt_percent"),
+              group_by=NULL, thresholds=NULL, log_scale=c("sum","detected"),
+              show_points=TRUE, max_points=5000, point_size=0.3,
+              point_alpha=0.3, ncol=NULL)
+  - Violin + jitter plot of per-cell QC metrics from AEGIS_compute_qc_metrics
+  - metrics: any numeric colData column; defaults cover the key AEGIS outputs
+      sum                  — total UMI count (log-scaled by default)
+      detected             — number of detected genes (log-scaled by default)
+      subsets_mt_percent   — % mitochondrial counts (linear scale)
+      subsets_ribo_percent — % ribosomal counts (linear scale, if present)
+  - group_by: splits violins by a colData column (e.g. sample_id, condition)
+  - thresholds: named list draws red dashed lines at filtering cut-offs
+    (on the original scale; function handles log transform internally)
+  - log_scale: metrics to display as log10(x+1); axis labels updated
+  - show_points: jitter overlay; auto-subsampled to max_points cells
+  - Requires AEGIS_compute_qc_metrics() to have been run first
+
 ASPIS_plot_elbow(sce, n_show=50, n_pcs=NULL, show_cumulative=TRUE,
                   suggest=NULL, cum_threshold=80)
   - Elbow plot of % variance explained per PCA component
@@ -61,7 +78,7 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- ASPIS_plot_violin()        Violin plot of gene expression per cluster
+- ASPIS_plot_violin()        Violin plot of gene expression per cluster (distinct from plot_qc — gene-centric)
 - ASPIS_plot_dotplot()       Dot plot of marker gene expression
 - ASPIS_plot_feature()       Feature / gene expression overlay on embedding
 - ASPIS_plot_heatmap()       Heatmap of top marker genes per cluster

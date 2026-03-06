@@ -6,15 +6,31 @@ Last Updated: 2026-03-06
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+talos_tuning.R (PC sweep):
+--------------------------
+TALOS_tune_pc(sce, n_pcs_range=seq(5,50,by=5), k=20, type="rank",
+              method="leiden", resolution=1.0, n_runs=5, seed=42, verbose=TRUE)
+  - Sweeps n_pcs by building an SNN graph at each cutoff (no PCA recomputation)
+  - Metrics: cum_var (from stored percentVar) + graph modularity
+  - n_runs: runs community detection n_runs times per step, averages modularity
+    to dampen Leiden/Louvain stochasticity (representative run = closest to mean)
+  - Selection: kneedle elbow on modularity curve (downstream-validated)
+  - Distinct from ASPIS_plot_elbow: tests graph quality, not PCA statistics alone
+  - k/type/method/resolution held fixed — tune those separately afterwards
+  - Returns talos_pc_sweep: results df, 2-panel line plot, best_n_pcs, params
+  - print.talos_pc_sweep() gives tidy console summary
+
 talos_embedding.R:
 ------------------
 TALOS_run_pca(sce, n_pcs=50, use_hvg=TRUE, assay_name="logcounts",
               scale=FALSE, verbose=TRUE)
-  - Runs PCA via scater::runPCA(); BPCells-aware: if logcounts is a BPCells
-    IterableMatrix, uses irlba::irlba() directly — BPCells implements %*% so
-    irlba streams matrix-vector products from disk without loading full matrix
-    (scater::runPCA bypassed: wraps in DelayedArray which needs extract_array())
-  - BPCells path: 2 streaming passes (gene means + gene variances) then irlba
+  - Runs PCA via .talos_irlba_pca() for ALL matrix backends (unified path)
+  - BPCells IterableMatrix: 2 streaming passes for gene means + variances,
+    then irlba::irlba() via BiocGenerics::t() (streaming from disk, no RAM load)
+  - In-memory dgCMatrix: rowMeans() + one-pass variance, then irlba
+  - scater::runPCA() is no longer used — direct irlba ensures identical
+    numerical results regardless of backend (scater uses BiocSingular defaults
+    that differ from direct irlba, which caused backend-dependent PC suggestions)
   - use_hvg=TRUE uses metadata(sce)$hvg (set by PYRI_select_hvg); warns and
     falls back to all genes if HVGs not found
   - Prints variance explained by first 5 PCs
@@ -46,9 +62,11 @@ TALOS_cluster(sce, method="leiden", resolution=1.0, cluster_col="cluster",
 
 TALOS_tune_k(sce, k_range=seq(5,50,by=5), n_pcs=30, type="rank",
               method="leiden", resolution=1.0, compute_silhouette=TRUE,
-              max_cells_sil=10000, seed=42, verbose=TRUE)
+              max_cells_sil=10000, n_runs=5, seed=42, verbose=TRUE)
   - Sweeps k values for SNN graph construction; clusters at each k
-  - Metrics per k: n_clusters, modularity, mean silhouette width (PCA space)
+  - n_runs: community detection run n_runs times per k, modularity averaged
+    (representative run used for silhouette)
+  - Metrics per k: n_clusters, modularity (mean), mean silhouette (PCA space)
   - Silhouette skipped automatically when ncol(sce) > max_cells_sil
     (uses modularity for selection instead)
   - Returns talos_k_sweep object: results df, ggplot, best_k, params
@@ -69,9 +87,11 @@ TALOS_tune_umap(sce, n_neighbors_range=c(10,15,20,30,50),
 
 TALOS_tune_resolution(sce, resolution_range=seq(0.1,2.0,by=0.1),
                        method="both", n_pcs=30, compute_silhouette=TRUE,
-                       max_cells_sil=10000, seed=42, verbose=TRUE)
+                       max_cells_sil=10000, n_runs=5, seed=42, verbose=TRUE)
   - Sweeps resolution for Leiden and/or Louvain on the pre-built SNN graph
-  - Metrics: n_clusters, modularity, mean silhouette (PCA space), min_cl_size
+  - n_runs: community detection run n_runs times per combination, modularity
+    averaged (representative run used for silhouette and min_cl_size)
+  - Metrics: n_clusters, modularity (mean), mean silhouette (PCA), min_cl_size
   - method="both" runs both algorithms at every resolution for direct comparison
   - PCA distance matrix computed once before the loop (silhouette-efficient)
   - Silhouette skipped when ncol(sce) > max_cells_sil (modularity used instead)
@@ -106,7 +126,9 @@ PLANNED / TODO
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- scater (Imports): runPCA, runUMAP, runTSNE
+- scater (Imports): runUMAP, runTSNE  [runPCA no longer used — direct irlba path]
+- irlba (Imports): irlba — used by TALOS_run_pca() for all backends
+- BiocGenerics (Imports): t() — S4-aware transpose for IterableMatrix + dgCMatrix
 - scran (Imports): buildSNNGraph
 - igraph (Suggests): cluster_leiden, cluster_louvain, vcount, ecount, membership,
   modularity — always available in practice since scran depends on it

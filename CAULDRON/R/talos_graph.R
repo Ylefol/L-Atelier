@@ -43,8 +43,8 @@ TALOS_build_graph <- function(sce,
   metadata(sce)$snn_graph <- g
 
   if (isTRUE(verbose))
-    message(sprintf(
-      "\u2500\u2500 TALOS: SNN graph %s\n  Input      : PCA (%s components)\n  k          : %s  |  type: %s\n  Vertices   : %s  |  Edges: %s\n  Stored in  : metadata(sce)$snn_graph\n%s",
+    cat(sprintf(
+      "\u2500\u2500 TALOS: SNN graph %s\n  Input      : PCA (%s components)\n  k          : %s  |  type: %s\n  Vertices   : %s  |  Edges: %s\n  Stored in  : metadata(sce)$snn_graph\n%s\n",
       strrep("\u2500", 38),
       n_pcs, k, type,
       format(igraph::vcount(g), big.mark = ","),
@@ -102,8 +102,8 @@ TALOS_cluster <- function(sce,
     cl       <- colData(sce)[[cluster_col]]
     n_cl     <- nlevels(cl)
     cl_sizes <- sort(table(cl), decreasing = TRUE)
-    message(sprintf(
-      "\u2500\u2500 TALOS: Clustering (%s, resolution = %s) %s\n  Clusters   : %s\n  Sizes      : %s \u2013 %s (median %s)\n  Stored in  : colData(sce)[[\"%s\"]]\n%s",
+    cat(sprintf(
+      "\u2500\u2500 TALOS: Clustering (%s, resolution = %s) %s\n  Clusters   : %s\n  Sizes      : %s \u2013 %s (median %s)\n  Stored in  : colData(sce)[[\"%s\"]]\n%s\n",
       method, resolution, strrep("\u2500", 18),
       n_cl,
       format(min(cl_sizes), big.mark = ","),
@@ -120,16 +120,29 @@ TALOS_cluster <- function(sce,
 
 #' Sweep k values for SNN graph construction
 #'
-#' Builds an SNN graph and clusters cells across a range of \code{k} values,
-#' returning cluster count, modularity, and (for smaller datasets) mean
-#' silhouette width per k.  Use this to choose an appropriate \code{k} before
-#' running \code{\link{TALOS_build_graph}} and \code{\link{TALOS_cluster}}
-#' in your main workflow.
+#' The \code{k} parameter in \code{\link{TALOS_build_graph}} controls how many
+#' nearest neighbours each cell shares edges with.  Small \code{k} values
+#' produce fine-grained, loosely connected graphs that tend to over-fragment;
+#' large values produce coarser graphs that may merge distinct populations.
+#' This function sweeps a range of \code{k} values, builds an SNN graph and
+#' applies community detection at each, and scores the resulting partitions on
+#' two complementary metrics:
 #'
-#' Silhouette width is computed in PCA space using
-#' \code{cluster::silhouette()}.  Because pairwise distances are O(N²),
-#' silhouette is automatically skipped when \code{ncol(sce) > max_cells_sil};
-#' in that case modularity alone is used to select the suggested k.
+#' \describe{
+#'   \item{Modularity}{Graph modularity of the partition — measures how cleanly
+#'     communities separate relative to a random null graph.  Higher values
+#'     indicate more distinct cluster boundaries.  Always computed.}
+#'   \item{Mean silhouette width}{Average silhouette width in PCA space — for
+#'     each cell, how much more similar it is to its own cluster than to the
+#'     nearest other cluster.  Ranges from \eqn{-1} (misassigned) to \eqn{+1}
+#'     (well-separated).  The \code{k} with the highest mean silhouette is
+#'     suggested.  Automatically skipped when \code{ncol(sce) > max_cells_sil}
+#'     (pairwise distances are \eqn{O(N^2)}); modularity is used instead.}
+#' }
+#'
+#' Resolution and clustering method are held fixed during the sweep — they are
+#' not targets here.  Use \code{\link{TALOS_tune_resolution}} afterwards to
+#' optimise those parameters with the chosen \code{k}.
 #'
 #' @param sce A \code{SingleCellExperiment} with \code{"PCA"} in
 #'   \code{reducedDims} (run \code{\link{TALOS_run_pca}} first).
@@ -141,18 +154,34 @@ TALOS_cluster <- function(sce,
 #'   \code{"rank"} (default), \code{"number"}, or \code{"jaccard"}.
 #' @param method Character. Clustering algorithm: \code{"leiden"} (default)
 #'   or \code{"louvain"}.
-#' @param resolution Numeric. Clustering resolution. Default \code{1.0}.
+#' @param resolution Numeric. Clustering resolution (held fixed during sweep).
+#'   Default \code{1.0}.
 #' @param compute_silhouette Logical. Compute mean silhouette width.
 #'   Automatically disabled when \code{ncol(sce) > max_cells_sil}.
 #'   Default \code{TRUE}.
 #' @param max_cells_sil Integer. Cell count above which silhouette is skipped.
 #'   Default \code{10000}.
-#' @param seed Integer. Random seed. Default \code{42L}.
+#' @param n_runs Integer. Number of community-detection runs per k value.
+#'   Results are averaged over runs (modularity mean; representative membership
+#'   closest to the mean used for silhouette).  Increasing \code{n_runs}
+#'   dampens Leiden/Louvain stochasticity at the cost of proportionally longer
+#'   runtime.  Default \code{5L}.
+#' @param seed Integer. Random seed for the first run; subsequent runs use
+#'   \code{seed + 1}, \code{seed + 2}, … Default \code{42L}.
 #' @param verbose Logical. Print per-k progress and a final summary.
 #'   Default \code{TRUE}.
 #'
-#' @return A \code{talos_k_sweep} list with \code{results}, \code{plot},
-#'   \code{best_k}, and \code{params}.
+#' @return A \code{talos_k_sweep} list with:
+#'   \describe{
+#'     \item{\code{results}}{Data frame with one row per k: \code{k},
+#'       \code{n_clusters}, \code{modularity} (mean over \code{n_runs}),
+#'       \code{mean_sil} (\code{NA} if silhouette was skipped).}
+#'     \item{\code{plot}}{Multi-panel line plot (one panel per metric) with a
+#'       red dashed vertical line marking the suggested \code{k}.}
+#'     \item{\code{best_k}}{Suggested k — the value with the highest mean
+#'       silhouette (or highest modularity when silhouette is skipped).}
+#'     \item{\code{params}}{List of sweep parameters for reproducibility.}
+#'   }
 #' @export
 TALOS_tune_k <- function(sce,
                           k_range            = seq(5L, 50L, by = 5L),
@@ -162,6 +191,7 @@ TALOS_tune_k <- function(sce,
                           resolution         = 1.0,
                           compute_silhouette = TRUE,
                           max_cells_sil      = 10000L,
+                          n_runs             = 5L,
                           seed               = 42L,
                           verbose            = TRUE) {
 
@@ -176,8 +206,8 @@ TALOS_tune_k <- function(sce,
   # ── Silhouette feasibility ───────────────────────────────────────────────────
   do_sil <- isTRUE(compute_silhouette) && n_cells <= as.integer(max_cells_sil)
   if (isTRUE(compute_silhouette) && !do_sil)
-    message(sprintf(
-      "Silhouette skipped: %s cells exceeds max_cells_sil (%s). Using modularity.",
+    cat(sprintf(
+      "Silhouette skipped: %s cells exceeds max_cells_sil (%s). Using modularity.\n",
       format(n_cells, big.mark = ","),
       format(as.integer(max_cells_sil), big.mark = ",")))
 
@@ -185,12 +215,14 @@ TALOS_tune_k <- function(sce,
   pca_mat  <- reducedDim(sce, "PCA")[, seq_len(n_pcs), drop = FALSE]
   dist_mat <- if (do_sil) dist(pca_mat) else NULL
 
+  n_runs <- max(1L, as.integer(n_runs))
+
   if (verbose)
-    message(sprintf(
-      "\u2500\u2500 TALOS: k sweep %s\n  k values   : %s\n  n_pcs      : %s  |  type: %s\n  method     : %s  |  resolution: %s\n  Silhouette : %s\n%s",
+    cat(sprintf(
+      "\u2500\u2500 TALOS: k sweep %s\n  k values   : %s\n  n_pcs      : %s  |  type: %s\n  method     : %s  |  resolution: %s\n  n_runs     : %s\n  Silhouette : %s\n%s\n",
       strrep("\u2500", 40),
       paste(k_range, collapse = ", "),
-      n_pcs, type, method, resolution,
+      n_pcs, type, method, resolution, n_runs,
       if (do_sil) "yes" else "no (modularity used for selection)",
       strrep("\u2500", 56)))
 
@@ -199,30 +231,20 @@ TALOS_tune_k <- function(sce,
 
   for (i in seq_along(k_range)) {
     ki <- k_range[i]
-    if (verbose) message(sprintf("  Testing k = %d ...", ki))
+    if (verbose) cat(sprintf("  Testing k = %d ...\n", ki))
 
-    g <- scran::buildSNNGraph(t(pca_mat), k = ki, type = type)
-
-    set.seed(seed)
-    communities <- if (method == "leiden") {
-      igraph::cluster_leiden(g, resolution_parameter = resolution)
-    } else {
-      igraph::cluster_louvain(g, resolution = resolution)
-    }
-
-    labels <- as.integer(igraph::membership(communities))
-    n_cl   <- length(unique(labels))
-    modul  <- igraph::modularity(g, labels)
+    g    <- scran::buildSNNGraph(t(pca_mat), k = ki, type = type)
+    run  <- .talos_multi_run_communities(g, method, resolution, seed, n_runs)
 
     mean_sil <- if (do_sil) {
-      sil <- cluster::silhouette(labels, dist_mat)
+      sil <- cluster::silhouette(run$labels, dist_mat)
       mean(sil[, "sil_width"])
     } else NA_real_
 
     results[[i]] <- data.frame(
       k          = ki,
-      n_clusters = n_cl,
-      modularity = round(modul, 4),
+      n_clusters = run$n_clusters,
+      modularity = round(run$modularity, 4),
       mean_sil   = if (do_sil) round(mean_sil, 4) else NA_real_
     )
   }
@@ -235,8 +257,8 @@ TALOS_tune_k <- function(sce,
   p <- .talos_tune_k_plot(res_df, best_k, do_sil)
 
   if (verbose)
-    message(sprintf(
-      "%s\n  Suggested k: %d (%s)\n%s",
+    cat(sprintf(
+      "%s\n  Suggested k: %d (%s)\n%s\n",
       strrep("\u2500", 56),
       best_k,
       if (do_sil) "highest mean silhouette width" else "highest modularity",
@@ -251,6 +273,7 @@ TALOS_tune_k <- function(sce,
                         type       = type,
                         method     = method,
                         resolution = resolution,
+                        n_runs     = n_runs,
                         silhouette = do_sil)),
     class = "talos_k_sweep"
   )
@@ -271,22 +294,34 @@ print.talos_k_sweep <- function(x, ...) {
 
 #' Sweep clustering resolution
 #'
-#' Applies Leiden and/or Louvain community detection across a range of
-#' resolution values on the pre-built SNN graph, scoring each combination on
-#' four complementary metrics:
+#' Resolution controls the granularity of Leiden and Louvain community
+#' detection: higher values push the algorithm to accept smaller, more numerous
+#' clusters; lower values favour larger, coarser partitions.  This function
+#' sweeps a range of resolution values on the pre-built SNN graph and scores
+#' each partition on four complementary metrics:
 #'
 #' \describe{
-#'   \item{n_clusters}{Number of clusters produced.}
-#'   \item{modularity}{Graph modularity of the partition.}
-#'   \item{mean_sil}{Mean silhouette width in PCA space.  Skipped when cell
-#'     count exceeds \code{max_cells_sil}.}
-#'   \item{min_cl_size}{Minimum cluster size — flags pathological resolutions
-#'     producing singleton or near-singleton clusters.}
+#'   \item{n_clusters}{Number of distinct clusters produced.  Rises
+#'     monotonically with resolution; useful for anchoring biological
+#'     expectations (e.g. known number of major cell types).}
+#'   \item{modularity}{Graph modularity of the partition — how cleanly
+#'     community boundaries separate relative to a random null.  Higher is
+#'     better, but very high resolution can inflate modularity by fragmenting
+#'     real populations.}
+#'   \item{mean_sil}{Mean silhouette width in PCA space — how confidently each
+#'     cell is assigned to its cluster vs the nearest alternative.  Ranges from
+#'     \eqn{-1} (misassigned) to \eqn{+1} (well-separated).  The resolution
+#'     per method with the highest mean silhouette is suggested.  Skipped when
+#'     \code{ncol(sce) > max_cells_sil}; modularity is used instead.}
+#'   \item{min_cl_size}{Size of the smallest cluster.  Near-zero values flag
+#'     pathological resolutions that fragment cells into singletons or
+#'     micro-clusters, typically a sign the resolution is too high.}
 #' }
 #'
-#' The PCA distance matrix for silhouette is computed once before the sweep
-#' loop, so runtime scales with the number of resolution values rather than
-#' the number of cells per iteration.
+#' When \code{method = "both"}, Leiden and Louvain are run at every resolution
+#' for direct comparison.  The PCA distance matrix for silhouette is computed
+#' once before the loop, so runtime scales with the number of resolution values,
+#' not the number of cells per iteration.
 #'
 #' @param sce A \code{SingleCellExperiment} with \code{metadata(sce)$snn_graph}
 #'   populated (run \code{\link{TALOS_build_graph}} first).  PCA must also be
@@ -301,11 +336,30 @@ print.talos_k_sweep <- function(x, ...) {
 #'   disabled when \code{ncol(sce) > max_cells_sil}.  Default \code{TRUE}.
 #' @param max_cells_sil Integer.  Cell count above which silhouette is skipped.
 #'   Default \code{10000}.
-#' @param seed Integer.  Random seed.  Default \code{42L}.
+#' @param n_runs Integer. Number of community-detection runs per
+#'   method × resolution combination.  Modularity is averaged over all runs;
+#'   the representative membership (closest to mean modularity) is used for
+#'   silhouette and cluster-size metrics.  Default \code{5L}.
+#' @param seed Integer.  Random seed for the first run; subsequent runs use
+#'   \code{seed + 1}, \code{seed + 2}, … Default \code{42L}.
 #' @param verbose Logical.  Print per-combination progress.  Default \code{TRUE}.
 #'
-#' @return A \code{talos_resolution_sweep} list with \code{results},
-#'   \code{plot}, \code{best_params}, \code{best_per_method}, and \code{params}.
+#' @return A \code{talos_resolution_sweep} list with:
+#'   \describe{
+#'     \item{\code{results}}{Data frame with one row per method × resolution
+#'       combination: \code{method}, \code{resolution}, \code{n_clusters},
+#'       \code{modularity} (mean over \code{n_runs}), \code{mean_sil}
+#'       (\code{NA} if skipped), \code{min_cl_size}.}
+#'     \item{\code{plot}}{Four-panel line plot (n_clusters, modularity,
+#'       mean_sil, min_cl_size vs resolution), one coloured line per method,
+#'       with dashed vertical lines at the best resolution per method.}
+#'     \item{\code{best_params}}{Named list (\code{method}, \code{resolution})
+#'       for the single combination with the highest score across all methods.}
+#'     \item{\code{best_per_method}}{Data frame with the best-scoring row per
+#'       clustering algorithm — useful when \code{method = "both"} to compare
+#'       Leiden and Louvain optima side by side.}
+#'     \item{\code{params}}{List of sweep parameters for reproducibility.}
+#'   }
 #' @export
 TALOS_tune_resolution <- function(sce,
                                    resolution_range   = seq(0.1, 2.0, by = 0.1),
@@ -313,6 +367,7 @@ TALOS_tune_resolution <- function(sce,
                                    n_pcs              = 30L,
                                    compute_silhouette = TRUE,
                                    max_cells_sil      = 10000L,
+                                   n_runs             = 5L,
                                    seed               = 42L,
                                    verbose            = TRUE) {
 
@@ -324,15 +379,16 @@ TALOS_tune_resolution <- function(sce,
     stop("SNN graph not found. Run TALOS_build_graph() first.", call. = FALSE)
 
   resolution_range <- as.numeric(resolution_range)
-  n_runs           <- length(resolution_range) * length(methods_to_run)
+  n_combos         <- length(resolution_range) * length(methods_to_run)
+  n_runs           <- max(1L, as.integer(n_runs))
 
   # ── Silhouette setup ─────────────────────────────────────────────────────────
   n_cells <- ncol(sce)
   do_sil  <- isTRUE(compute_silhouette) && n_cells <= as.integer(max_cells_sil)
 
   if (isTRUE(compute_silhouette) && !do_sil)
-    message(sprintf(
-      "Silhouette skipped: %s cells exceeds max_cells_sil (%s). Using modularity.",
+    cat(sprintf(
+      "Silhouette skipped: %s cells exceeds max_cells_sil (%s). Using modularity.\n",
       format(n_cells, big.mark = ","),
       format(as.integer(max_cells_sil), big.mark = ",")))
 
@@ -342,52 +398,44 @@ TALOS_tune_resolution <- function(sce,
       stop("'PCA' not found. Run TALOS_run_pca() first.", call. = FALSE)
     n_pcs   <- min(as.integer(n_pcs), ncol(reducedDim(sce, "PCA")))
     pca_mat <- reducedDim(sce, "PCA")[, seq_len(n_pcs), drop = FALSE]
-    if (verbose) message("  Pre-computing distance matrix in PCA space ...")
+    if (verbose) cat("  Pre-computing distance matrix in PCA space ...\n")
     dist_mat <- dist(pca_mat)
   }
 
   if (verbose)
-    message(sprintf(
-      "\u2500\u2500 TALOS: resolution sweep %s\n  Resolutions: %s\n  Method(s)  : %s\n  Silhouette : %s\n%s",
+    cat(sprintf(
+      "\u2500\u2500 TALOS: resolution sweep %s\n  Resolutions: %s\n  Method(s)  : %s\n  n_runs     : %s\n  Silhouette : %s\n%s\n",
       strrep("\u2500", 31),
       paste(round(resolution_range, 2), collapse = ", "),
       paste(methods_to_run, collapse = " + "),
+      n_runs,
       if (do_sil) "yes" else "no",
       strrep("\u2500", 56)))
 
   # ── Sweep ────────────────────────────────────────────────────────────────────
-  results <- vector("list", n_runs)
+  results <- vector("list", n_combos)
   run_i   <- 0L
 
   for (m in methods_to_run) {
     for (res in resolution_range) {
       run_i <- run_i + 1L
       if (verbose)
-        message(sprintf("  (%d/%d) method = %s, resolution = %.2f ...",
-                        run_i, n_runs, m, res))
+        cat(sprintf("  (%d/%d) method = %s, resolution = %.2f ...\n",
+                        run_i, n_combos, m, res))
 
-      set.seed(seed)
-      communities <- if (m == "leiden") {
-        igraph::cluster_leiden(g, resolution_parameter = res)
-      } else {
-        igraph::cluster_louvain(g, resolution = res)
-      }
+      run      <- .talos_multi_run_communities(g, m, res, seed, n_runs)
+      min_size <- min(as.integer(table(run$labels)))
 
-      labels   <- as.integer(igraph::membership(communities))
-      n_cl     <- length(unique(labels))
-      modul    <- igraph::modularity(g, labels)
-      min_size <- min(as.integer(table(labels)))
-
-      mean_sil <- if (do_sil && n_cl > 1L) {
-        sil <- cluster::silhouette(labels, dist_mat)
+      mean_sil <- if (do_sil && run$n_clusters > 1L) {
+        sil <- cluster::silhouette(run$labels, dist_mat)
         mean(sil[, "sil_width"])
       } else NA_real_
 
       results[[run_i]] <- data.frame(
         method      = m,
         resolution  = res,
-        n_clusters  = n_cl,
-        modularity  = round(modul, 4),
+        n_clusters  = run$n_clusters,
+        modularity  = round(run$modularity, 4),
         mean_sil    = if (do_sil) round(mean_sil, 4) else NA_real_,
         min_cl_size = min_size
       )
@@ -414,8 +462,8 @@ TALOS_tune_resolution <- function(sce,
                                     methods_to_run)
 
   if (verbose)
-    message(sprintf(
-      "%s\n  Best overall: %s, resolution = %.2f (%s)\n%s",
+    cat(sprintf(
+      "%s\n  Best overall: %s, resolution = %.2f (%s)\n%s\n",
       strrep("\u2500", 56),
       best_params$method, best_params$resolution, criterion,
       strrep("\u2500", 56)))
@@ -428,6 +476,7 @@ TALOS_tune_resolution <- function(sce,
          params          = list(resolution_range   = resolution_range,
                                 method             = method,
                                 n_pcs              = n_pcs,
+                                n_runs             = n_runs,
                                 seed               = seed,
                                 silhouette         = do_sil)),
     class = "talos_resolution_sweep"
@@ -456,6 +505,38 @@ print.talos_resolution_sweep <- function(x, ...) {
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
+# Run community detection n_runs times (incrementing the seed) and return the
+# run whose modularity is closest to the mean — a simple way to dampen the
+# stochasticity of Leiden/Louvain without committing to a single seed.
+#
+# Returns a list with:
+#   modularity : mean modularity across runs
+#   n_clusters : n_clusters of the representative run
+#   labels     : membership of the representative run
+.talos_multi_run_communities <- function(g, method, resolution, seed, n_runs) {
+  runs <- lapply(seq_len(n_runs), function(r) {
+    set.seed(seed + r - 1L)
+    communities <- if (method == "leiden") {
+      igraph::cluster_leiden(g, resolution_parameter = resolution)
+    } else {
+      igraph::cluster_louvain(g, resolution = resolution)
+    }
+    labels <- as.integer(igraph::membership(communities))
+    list(modularity = igraph::modularity(g, labels),
+         n_clusters = length(unique(labels)),
+         labels     = labels)
+  })
+
+  modularities <- vapply(runs, `[[`, numeric(1L), "modularity")
+  mean_modul   <- mean(modularities)
+  rep_run      <- runs[[which.min(abs(modularities - mean_modul))]]
+
+  list(modularity = mean_modul,
+       n_clusters = rep_run$n_clusters,
+       labels     = rep_run$labels)
+}
+
 
 .talos_tune_k_plot <- function(res_df, best_k, do_sil) {
 

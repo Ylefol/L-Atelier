@@ -17,19 +17,19 @@ TALOS_tune_tsne(
 }
 \arguments{
 \item{sce}{A \code{SingleCellExperiment} with \code{"PCA"} in
-\code{reducedDims}.}
+\code{reducedDims} (run \code{\link{TALOS_run_pca}} first).}
 
 \item{perplexity_range}{Numeric vector of perplexity values to test.
-Invalid values (> N/3) are removed automatically.
+Values exceeding \eqn{N/3} are removed automatically.
 Default \code{c(10, 20, 30, 50, 100)}.}
 
-\item{n_pcs}{Integer. PCA components used for tSNE and KNN reference.
+\item{n_pcs}{Integer. PCA components used for tSNE input and KNN reference.
 Default \code{30}.}
 
-\item{max_iter}{Integer. tSNE iterations per run (fixed; not swept).
-Default \code{1000}.}
+\item{max_iter}{Integer. tSNE iterations per run (fixed; not a tuning
+target). Default \code{1000}.}
 
-\item{knn_k}{Integer. Nearest neighbours for KNN overlap metric.
+\item{knn_k}{Integer. Nearest neighbours for the KNN overlap metric.
 Default \code{15}.}
 
 \item{cluster_col}{Character. \code{colData} column for silhouette labels.
@@ -40,18 +40,54 @@ Default \code{"cluster"}.}
 \item{verbose}{Logical. Print progress messages. Default \code{TRUE}.}
 }
 \value{
-A \code{talos_embedding_sweep} list with \code{results},
-\code{plot}, \code{best_params}, and \code{params}.
+A \code{talos_embedding_sweep} list with:
+\describe{
+\item{\code{results}}{Data frame with one row per perplexity value:
+\code{perplexity}, \code{knn_overlap}, \code{mean_sil} (\code{NA} if
+cluster labels absent), \code{composite}.}
+\item{\code{embeddings}}{List of cells × 2 matrices — one tSNE
+embedding per perplexity value, in the same order as \code{results}.
+Passed directly to \code{ASPIS_plot_embedding_grid()} for visual
+comparison.}
+\item{\code{plot}}{Multi-panel line plot (KNN overlap, mean silhouette
+if available, composite vs perplexity), with a red dashed vertical
+line at the suggested value.}
+\item{\code{best_params}}{Named list (\code{perplexity}) for the value
+with the highest composite score.}
+\item{\code{params}}{List of sweep parameters for reproducibility.}
+}
 }
 \description{
-Tests a range of perplexity values and scores each tSNE embedding using
-the same two metrics as \code{\link{TALOS_tune_umap}}: KNN overlap (local
-structure preservation vs PCA space) and mean silhouette width in 2D
-embedding space.  Both are normalised to \eqn{[0, 1]} and averaged into a
-composite score.
+Perplexity is tSNE's primary parameter: it loosely controls how many
+neighbours each cell considers when constructing its local probability
+distribution.  Low perplexity values emphasise very local structure and can
+fragment continuous populations into disconnected islands; high values
+integrate broader context but may merge distinct clusters.  Typical
+effective ranges are 5–50 for most single-cell datasets.  This function
+tests a range of perplexity values and scores each embedding on two
+complementary metrics:
 }
 \details{
-Perplexity values that exceed \eqn{N / 3} (where \eqn{N} is the number of
-cells) are automatically removed before sweeping, as they are invalid for
-tSNE.
+\describe{
+\item{KNN overlap}{Mean Jaccard similarity between each cell's \code{k}
+nearest neighbours in PCA space and in the tSNE embedding.  Measures
+how faithfully local neighbourhood structure is preserved in the 2D
+layout.  A shared KNN reference in PCA space is computed once and
+reused across all perplexity values.  Ranges from 0 (no overlap) to
+1 (identical neighbourhoods).}
+\item{Mean silhouette width}{Mean silhouette width in 2D tSNE space
+using existing cluster labels from \code{cluster_col}.  Measures how
+visually well-separated the clusters are in the final embedding.  Ranges
+from \eqn{-1} (misassigned) to \eqn{+1} (well-separated).  Skipped
+when \code{cluster_col} is absent from \code{colData}.}
+}
+
+Both metrics are normalised to \eqn{[0, 1]} and averaged into a composite
+score.  The perplexity with the highest composite score is suggested.
+Perplexity values exceeding \eqn{N / 3} (where \eqn{N} is the number of
+cells) are invalid for tSNE and are silently removed before sweeping.
+
+This function returns the same \code{talos_embedding_sweep} class as
+\code{\link{TALOS_tune_umap}}, so \code{print} and downstream helpers work
+identically for both.
 }

@@ -16,6 +16,13 @@
 #' selected by \code{\link{PYRI_select_hvg}} when available.  Results are
 #' stored in \code{reducedDims(sce)[["PCA"]]}.
 #'
+#' PCA is computed via \code{irlba::irlba} directly for all matrix backends
+#' (in-memory \code{dgCMatrix} and BPCells \code{IterableMatrix} alike).
+#' This ensures identical numerical behaviour regardless of the backend chosen
+#' at load time, making results comparable between the two modes.
+#' \code{BiocGenerics::t()} is used for the transpose so that S4 dispatch
+#' works correctly for all matrix classes.
+#'
 #' @param sce A \code{SingleCellExperiment} with a \code{"logcounts"} assay.
 #' @param n_pcs Integer. Number of principal components to compute.
 #'   Default \code{50}.
@@ -53,30 +60,22 @@ TALOS_run_pca <- function(sce,
 
   n_pcs <- min(as.integer(n_pcs), length(hvg_genes) %||% nrow(sce) - 1L)
 
-  # BPCells IterableMatrix cannot be wrapped in DelayedArray (no extract_array()
-  # support), so scater::runPCA fails.  Use irlba directly instead — BPCells
-  # implements %*% so irlba streams matrix-vector multiplications from disk.
-  if (inherits(assay(sce, assay_name), "IterableMatrix")) {
-    mat <- assay(sce, assay_name)
-    if (!is.null(hvg_genes))
-      mat <- mat[hvg_genes, , drop = FALSE]
-    reducedDim(sce, "PCA") <- .talos_bpcells_pca(mat, n_pcs, scale)
-  } else {
-    sce <- scater::runPCA(sce,
-                           ncomponents = n_pcs,
-                           assay.type  = assay_name,
-                           subset_row  = hvg_genes,
-                           scale       = scale,
-                           name        = "PCA")
-  }
+  # Both BPCells IterableMatrix and in-memory dgCMatrix go through irlba
+  # directly so that numerical results are identical regardless of backend.
+  # (scater::runPCA wraps the matrix in a BiocSingular wrapper that applies
+  # slightly different irlba defaults, producing different singular values.)
+  mat <- assay(sce, assay_name)
+  if (!is.null(hvg_genes))
+    mat <- mat[hvg_genes, , drop = FALSE]
+  reducedDim(sce, "PCA") <- .talos_irlba_pca(mat, n_pcs, scale)
 
   if (isTRUE(verbose)) {
     pct_var  <- attr(reducedDim(sce, "PCA"), "percentVar")
     n_input  <- if (!is.null(hvg_genes)) length(hvg_genes) else nrow(sce)
     top5     <- head(round(pct_var, 1), 5)
     top5_str <- paste0("PC", seq_along(top5), " ", top5, "%", collapse = ", ")
-    message(sprintf(
-      "\u2500\u2500 TALOS: PCA %s\n  Input      : %s genes (%s)\n  Components : %s\n  Var. exp.  : %s ...\n%s",
+    cat(sprintf(
+      "\u2500\u2500 TALOS: PCA %s\n  Input      : %s genes (%s)\n  Components : %s\n  Var. exp.  : %s ...\n%s\n",
       strrep("\u2500", 44),
       format(n_input, big.mark = ","),
       if (!is.null(hvg_genes)) "HVGs" else "all genes",
@@ -130,8 +129,8 @@ TALOS_run_umap <- function(sce,
                           name        = "UMAP")
 
   if (isTRUE(verbose))
-    message(sprintf(
-      "\u2500\u2500 TALOS: UMAP %s\n  Input      : PCA (%s components)\n  n_neighbors: %s  |  min_dist: %s\n  Stored as  : reducedDims(sce)[[\"UMAP\"]]\n%s",
+    cat(sprintf(
+      "\u2500\u2500 TALOS: UMAP %s\n  Input      : PCA (%s components)\n  n_neighbors: %s  |  min_dist: %s\n  Stored as  : reducedDims(sce)[[\"UMAP\"]]\n%s\n",
       strrep("\u2500", 43),
       n_pcs, n_neighbors, min_dist,
       strrep("\u2500", 56)
@@ -179,8 +178,8 @@ TALOS_run_tsne <- function(sce,
                           name       = "TSNE")
 
   if (isTRUE(verbose))
-    message(sprintf(
-      "\u2500\u2500 TALOS: tSNE %s\n  Input      : PCA (%s components)\n  Perplexity : %s  |  Iterations: %s\n  Stored as  : reducedDims(sce)[[\"TSNE\"]]\n%s",
+    cat(sprintf(
+      "\u2500\u2500 TALOS: tSNE %s\n  Input      : PCA (%s components)\n  Perplexity : %s  |  Iterations: %s\n  Stored as  : reducedDims(sce)[[\"TSNE\"]]\n%s\n",
       strrep("\u2500", 43),
       n_pcs, perplexity, max_iter,
       strrep("\u2500", 56)
@@ -192,44 +191,61 @@ TALOS_run_tsne <- function(sce,
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
-# BPCells-native PCA via irlba.
+# Unified irlba PCA for all matrix backends.
 #
-# mat: BPCells IterableMatrix, genes x cells (already subsetted to HVGs).
+# mat    : genes x cells — BPCells IterableMatrix or in-memory dgCMatrix/matrix.
+#          Must already be subsetted to HVGs (if desired) before calling.
+# n_pcs  : number of components to compute.
+# scale  : logical; scale genes to unit variance before PCA.
+#
 # Returns a cells x n_pcs matrix with attributes "percentVar" and "rotation"
-# matching the format scater::runPCA produces, so the verbose block and all
+# matching the format produced by scater::runPCA, so the verbose block and all
 # downstream functions (TALOS_run_umap, TALOS_build_graph) work unchanged.
-.talos_bpcells_pca <- function(mat, n_pcs, scale) {
+#
+# Both backends go through the same irlba call so results are numerically
+# identical regardless of whether BPCells or in-memory storage is used.
+.talos_irlba_pca <- function(mat, n_pcs, scale) {
   if (!requireNamespace("irlba", quietly = TRUE))
-    stop("Package 'irlba' is required for BPCells PCA. ",
+    stop("Package 'irlba' is required for PCA. ",
          "Install via: install.packages(\"irlba\")", call. = FALSE)
 
   gene_names <- rownames(mat)
   cell_names <- colnames(mat)
   n_cells    <- ncol(mat)
+  n_genes    <- nrow(mat)
+  n_pcs      <- min(n_pcs, n_genes - 1L, n_cells - 1L)
 
-  # Two streaming passes: one for means (centering), one for variances
-  gene_means <- BPCells::matrix_stats(mat, row_stats = "mean")$row_stats["mean", ]
-  gene_vars  <- BPCells::matrix_stats(mat, row_stats = "variance")$row_stats["variance", ]
+  # ── Row statistics — two paths for streaming vs in-memory ───────────────────
+  if (inherits(mat, "IterableMatrix")) {
+    # BPCells: two streaming passes from disk (one stat per call)
+    gene_means <- BPCells::matrix_stats(mat, row_stats = "mean")$row_stats["mean", ]
+    gene_vars  <- BPCells::matrix_stats(mat, row_stats = "variance")$row_stats["variance", ]
+  } else {
+    # In-memory: standard one-pass approach
+    gene_means <- rowMeans(mat)
+    gene_vars  <- (rowMeans(mat * mat) - gene_means^2) * n_cells / (n_cells - 1L)
+  }
   names(gene_means) <- gene_names
   names(gene_vars)  <- gene_names
 
   scale_vec <- if (isTRUE(scale)) sqrt(pmax(gene_vars, .Machine$double.eps)) else FALSE
 
-  # irlba operates on cells x genes; BiocGenerics::t() dispatches the S4
-  # method registered by BPCells (base::t.default() fails on IterableMatrix)
+  # ── irlba SVD ───────────────────────────────────────────────────────────────
+  # BiocGenerics::t() dispatches S4 methods: correct for IterableMatrix
+  # (base::t.default() fails) and for dgCMatrix (returns correct dgCMatrix).
   result <- irlba::irlba(BiocGenerics::t(mat), nv = n_pcs,
                           center = gene_means, scale = scale_vec)
 
-  # Cell embeddings: U %*% diag(d)  →  rows = cells, cols = PCs
+  # ── Cell embeddings: U %*% diag(d) — rows = cells, cols = PCs ──────────────
   pca_coords           <- sweep(result$u, 2, result$d, "*")
   rownames(pca_coords) <- cell_names
   colnames(pca_coords) <- paste0("PC", seq_len(n_pcs))
 
-  # Percent variance: d_k^2 / (n-1) / total_var * 100
+  # ── Percent variance: d_k^2 / (n-1) / total_var * 100 ─────────────────────
   total_var <- sum(gene_vars)
   pct_var   <- (result$d^2 / (n_cells - 1L)) / total_var * 100
 
-  # Gene loadings (rotation)
+  # ── Gene loadings (rotation) ─────────────────────────────────────────────────
   rot           <- result$v
   rownames(rot) <- gene_names
   colnames(rot) <- paste0("PC", seq_len(n_pcs))
