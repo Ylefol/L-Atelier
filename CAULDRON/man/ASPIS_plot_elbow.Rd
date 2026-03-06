@@ -26,7 +26,7 @@ user's chosen cut-off. Default \code{NULL}.}
 line. Default \code{TRUE}.}
 
 \item{suggest}{Character or \code{NULL}.  Algorithmic cut-off suggestions to
-display.  One of \code{"elbow"}, \code{"cumulative"}, \code{"both"}, or
+display.  One of \code{"elbow"}, \code{"cumulative"}, \code{"all"}, or
 \code{NULL} (default, no suggestion).}
 
 \item{cum_threshold}{Numeric. Cumulative variance target (\%) for the

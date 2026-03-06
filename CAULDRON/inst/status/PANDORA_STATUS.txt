@@ -29,18 +29,52 @@ PANDORA_annotate_singler(sce, reference, labels_col="label.main",
   - Requires SingleR (Imports), celldex (Suggests, only for shorthands)
 
 PANDORA_annotate_sctype(sce, tissue, cluster_col="cluster", db=NULL,
+                         species="human", ortholog_method="homologene",
                          assay_name="logcounts", label_col="sctype_label",
                          verbose=TRUE)
   - Cluster-level annotation via scType scoring algorithm (implemented natively)
   - tissue: string matching tissueType in scTypeDB (case-sensitive)
   - db=NULL: uses bundled inst/extdata/ScTypeDB_full.xlsx (16 tissues, 268 rows)
   - db: custom data.frame or path to .xlsx/.csv with same column structure
+  - species="human": uses DB markers directly (all HGNC symbols)
+  - species!="human": converts human markers to target species orthologs via
+    orthogene before scoring; reports database used and mapping rate
+  - ortholog_method="homologene": offline, fast, common model organisms
+    use "gprofiler" for broader species coverage (requires internet)
   - Algorithm: scale per gene → score cells against marker sets →
     aggregate by cluster → assign best-scoring cell type per cluster
   - Scoring: (Σ pos markers - Σ neg markers) / sqrt(n_markers), capped ±10
   - BPCells-aware: subsets to marker genes before converting to dense matrix
+  - Verbose output for non-human: shows n_mapped/n_total, %, method used,
+    and a WARNING if mapping rate <50%
   - Stores result in colData(sce)[[label_col]]
   - Requires readxl (Suggests, for .xlsx DB reading)
+  - Requires orthogene (Suggests, only when species != "human")
+
+pandora_celltypist.R:
+---------------------
+PANDORA_list_celltypist_models()
+  - Fetches CellTypist model registry (requires internet) and prints all models
+  - Returns invisible data.frame of model info
+  - Runs via basilisk (isolated Python env, no user setup required)
+
+PANDORA_annotate_celltypist(sce, model, majority_voting=TRUE,
+                              force_update=FALSE,
+                              label_col="celltypist_label",
+                              conf_col="celltypist_conf", verbose=TRUE)
+  - Cell type annotation via CellTypist pre-trained models
+  - Requires "counts" assay (raw counts); normalisation performed in Python:
+    scanpy normalize_total(target_sum=1e4) + log1p — exactly what CellTypist
+    expects; R-side logcounts normalisation is NOT used or required
+  - model: model filename e.g. "Mouse_Whole_Brain.pkl"
+  - majority_voting=TRUE: consensus label per over-cluster (recommended)
+  - majority_voting=FALSE: per-cell probabilistic prediction + conf_score
+  - force_update=FALSE: use cached model; TRUE re-downloads
+  - Models cached in ~/.celltypist/ (celltypist default; first use downloads)
+  - BPCells-aware: converts to dgCMatrix before passing to Python
+  - Python env managed by basilisk (Python 3.11 + celltypist 1.6.3)
+  - Stores labels in colData(sce)[[label_col]]
+  - Stores confidence in colData(sce)[[conf_col]] when majority_voting=FALSE
 
 ================================================================================
 IN PROGRESS
@@ -59,10 +93,19 @@ PLANNED / TODO
 DEPENDENCIES / NOTES
 ================================================================================
 - SingleR (Imports): reference-based annotation
+- basilisk (Imports): isolated Python environment management for CellTypist
+  Install: BiocManager::install("basilisk")
+  First use creates a conda env (~2-3 min); all subsequent calls instant
+  Python env: Python 3.11 + celltypist==1.6.3 + scanpy==1.11.1 + anndata==0.11.4
+  Version suffix in env name (cauldron_celltypist_1): increment on pin updates
 - celldex (Suggests): celldex reference dataset retrieval (shorthand strings)
   Install: BiocManager::install("celldex")
 - readxl (Suggests): reading bundled ScTypeDB_full.xlsx
   Install: install.packages("readxl")
+- orthogene (Suggests): ortholog conversion for non-human species in scType
+  Install: BiocManager::install("orthogene")
+  Default method: "homologene" (offline); "gprofiler" for broader coverage
+  Warning threshold: <50% mapping rate triggers explicit caution message
 - scType algorithm implemented natively — no GitHub source() dependency
 - Bundled DB: inst/extdata/ScTypeDB_full.xlsx
   Columns: tissueType, cellName, geneSymbolmore1 (positive markers, comma-sep),

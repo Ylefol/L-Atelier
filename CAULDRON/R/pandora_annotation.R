@@ -228,6 +228,12 @@ PANDORA_annotate_singler <- function(sce,
 #' bundled \code{ScTypeDB_full.xlsx}), and the highest-scoring type is assigned
 #' to all cells in each cluster.
 #'
+#' The bundled ScTypeDB uses human HGNC gene symbols.  For non-human data,
+#' set \code{species} to the target organism and orthologous gene symbols will
+#' be resolved via \code{orthogene} before scoring.  The conversion report
+#' (database used, mapping rate) is printed to allow you to judge the
+#' reliability of the annotation before interpreting results.
+#'
 #' Use \code{\link{PANDORA_list_references}(source = "sctype")} to see
 #' available tissues and cell type counts before running.
 #'
@@ -242,6 +248,14 @@ PANDORA_annotate_singler <- function(sce,
 #'   \code{tissueType}, \code{cellName}, \code{geneSymbolmore1} (positive
 #'   markers, comma-separated), \code{geneSymbolmore2} (negative markers,
 #'   comma-separated; \code{NA} = none).
+#' @param species Character. Target organism.  \code{"human"} (default) uses
+#'   the DB markers directly.  Any other value (e.g. \code{"mouse"},
+#'   \code{"Mus musculus"}) triggers ortholog conversion via \code{orthogene}.
+#'   Accepts any species string recognised by \code{orthogene}.
+#' @param ortholog_method Character. Ortholog database passed to
+#'   \code{orthogene::convert_orthologs()}.  Default \code{"homologene"}
+#'   (offline, fast, covers common model organisms).  Use \code{"gprofiler"}
+#'   for broader species coverage (requires internet).
 #' @param assay_name Character. Assay to score. Default \code{"logcounts"}.
 #' @param label_col Character. \code{colData} column for the result.
 #'   Default \code{"sctype_label"}.
@@ -251,11 +265,13 @@ PANDORA_annotate_singler <- function(sce,
 #' @export
 PANDORA_annotate_sctype <- function(sce,
                                     tissue,
-                                    cluster_col = "cluster",
-                                    db          = NULL,
-                                    assay_name  = "logcounts",
-                                    label_col   = "sctype_label",
-                                    verbose     = TRUE) {
+                                    cluster_col      = "cluster",
+                                    db               = NULL,
+                                    species          = "human",
+                                    ortholog_method  = "homologene",
+                                    assay_name       = "logcounts",
+                                    label_col        = "sctype_label",
+                                    verbose          = TRUE) {
 
   if (!assay_name %in% assayNames(sce))
     stop("Assay '", assay_name, "' not found. Run PYRI_normalize() first.",
@@ -287,13 +303,28 @@ PANDORA_annotate_sctype <- function(sce,
                         })
   cell_types <- db_df$cellName
 
-  # ── Subset to marker genes (safe for BPCells — small subset) ────────────────
-  all_markers <- unique(c(unlist(pos_markers), unlist(neg_markers)))
-  all_markers <- intersect(all_markers, rownames(sce))
+  # ── Ortholog conversion (non-human species) ──────────────────────────────────
+  ortho_info <- NULL
+  if (!identical(tolower(trimws(species)), "human")) {
+    ortho_info  <- .pandora_convert_sctype_markers(
+      pos_markers, neg_markers, species, ortholog_method, verbose
+    )
+    pos_markers <- ortho_info$pos_markers
+    neg_markers <- ortho_info$neg_markers
+  }
 
-  if (length(all_markers) == 0)
-    stop("None of the DB marker genes are present in the SCE. ",
-         "Check that rownames(sce) are HGNC gene symbols.", call. = FALSE)
+  # ── Subset to marker genes (safe for BPCells — small subset) ────────────────
+  n_db_markers <- length(unique(c(unlist(pos_markers), unlist(neg_markers))))
+  all_markers  <- unique(c(unlist(pos_markers), unlist(neg_markers)))
+  all_markers  <- intersect(all_markers, rownames(sce))
+
+  if (length(all_markers) == 0) {
+    species_hint <- if (!is.null(ortho_info))
+      "Check species name and ortholog_method." else
+      "Check that rownames(sce) are HGNC gene symbols."
+    stop("None of the marker genes are present in the SCE. ", species_hint,
+         call. = FALSE)
+  }
 
   mat <- assay(sce, assay_name)[all_markers, , drop = FALSE]
   if (inherits(mat, "IterableMatrix"))
@@ -326,15 +357,27 @@ PANDORA_annotate_sctype <- function(sce,
 
   # ── Summary ──────────────────────────────────────────────────────────────────
   if (isTRUE(verbose)) {
-    n_queried <- length(unique(c(unlist(pos_markers), unlist(neg_markers))))
-    n_found   <- length(all_markers)
-    n_types   <- length(unique(cluster_labels))
+    n_types  <- length(unique(cluster_labels))
     cat(sprintf(
-      "\u2500\u2500 PANDORA: scType annotation %s\n  Tissue     : %s\n  Clusters   : %d  \u2192  %d unique cell types\n  Markers    : %d found in SCE (of %d queried)\n  Stored as  : colData(sce)[[\"%s\"]]\n%s\n",
-      strrep("\u2500", 27),
-      tissue,
+      "\u2500\u2500 PANDORA: scType annotation %s\n  Tissue     : %s\n  Species    : %s\n",
+      strrep("\u2500", 27), tissue, species
+    ))
+    if (!is.null(ortho_info)) {
+      cat(sprintf(
+        "  Orthologs  : %d / %d human markers mapped (%s%%)  |  DB: %s\n",
+        ortho_info$n_mapped, ortho_info$n_total,
+        ortho_info$pct, ortholog_method
+      ))
+      if (ortho_info$n_mapped < ortho_info$n_total)
+        cat(sprintf("  Unmapped   : %d markers excluded\n",
+                    ortho_info$n_total - ortho_info$n_mapped))
+      if (ortho_info$pct_num < 50)
+        cat("  WARNING    : Conversion rate <50% — interpret results with caution.\n")
+    }
+    cat(sprintf(
+      "  Clusters   : %d  \u2192  %d unique cell types\n  Markers    : %d found in SCE (of %d post-conversion)\n  Stored as  : colData(sce)[[\"%s\"]]\n%s\n",
       length(unique_clusters), n_types,
-      n_found, n_queried,
+      length(all_markers), n_db_markers,
       label_col,
       strrep("\u2500", 56)
     ))
@@ -402,6 +445,68 @@ PANDORA_annotate_sctype <- function(sce,
 
   fn <- getExportedValue("celldex", .pandora_celldex_refs$fn[idx])
   fn()
+}
+
+
+# Convert scType human marker lists to target species orthologs via orthogene.
+#
+# Returns a list:
+#   $pos_markers  — remapped positive marker lists (target species symbols)
+#   $neg_markers  — remapped negative marker lists (target species symbols)
+#   $n_total      — total unique human markers queried
+#   $n_mapped     — number successfully mapped to target species
+#   $pct          — mapping rate as formatted string ("87.1")
+#   $pct_num      — mapping rate as numeric (for threshold checks)
+.pandora_convert_sctype_markers <- function(pos_markers, neg_markers,
+                                            target_species, method, verbose) {
+  if (!requireNamespace("orthogene", quietly = TRUE))
+    stop("Package 'orthogene' is required for non-human species annotation.\n",
+         "  Install via: BiocManager::install(\"orthogene\")", call. = FALSE)
+
+  all_human <- unique(c(unlist(pos_markers), unlist(neg_markers)))
+  n_total   <- length(all_human)
+
+  ortho_df <- suppressMessages(
+    orthogene::convert_orthologs(
+      gene_df        = all_human,
+      input_species  = "human",
+      output_species = target_species,
+      method         = method,
+      drop_nonorths  = TRUE,
+      verbose        = FALSE
+    )
+  )
+
+  if (!is.data.frame(ortho_df) || nrow(ortho_df) == 0)
+    stop("orthogene returned no orthologs for '", target_species,
+         "' using method '", method, "'. ",
+         "Try ortholog_method = \"gprofiler\" for broader species coverage.",
+         call. = FALSE)
+
+  # Build human → ortholog mapping.
+  # orthogene output: rownames = target species symbols, "input_gene" col = human symbols.
+  if (!"input_gene" %in% colnames(ortho_df))
+    stop("Unexpected orthogene output format: 'input_gene' column not found. ",
+         "This may indicate an orthogene version incompatibility.", call. = FALSE)
+
+  gene_map <- stats::setNames(rownames(ortho_df), ortho_df[["input_gene"]])
+
+  n_mapped <- length(gene_map)
+  pct_num  <- round(100 * n_mapped / n_total, 1)
+
+  # Remap marker lists — genes without an ortholog are silently dropped
+  remap <- function(markers) {
+    lapply(markers, function(gs) unname(stats::na.omit(gene_map[gs])))
+  }
+
+  list(
+    pos_markers = remap(pos_markers),
+    neg_markers = remap(neg_markers),
+    n_total     = n_total,
+    n_mapped    = n_mapped,
+    pct         = format(pct_num, nsmall = 1),
+    pct_num     = pct_num
+  )
 }
 
 

@@ -50,7 +50,7 @@
 #' @param show_cumulative Logical. Overlay cumulative variance as a red dashed
 #'   line. Default \code{TRUE}.
 #' @param suggest Character or \code{NULL}.  Algorithmic cut-off suggestions to
-#'   display.  One of \code{"elbow"}, \code{"cumulative"}, \code{"both"}, or
+#'   display.  One of \code{"elbow"}, \code{"cumulative"}, \code{"all"}, or
 #'   \code{NULL} (default, no suggestion).
 #' @param cum_threshold Numeric. Cumulative variance target (%) for the
 #'   \code{"cumulative"} method. Default \code{80}.
@@ -74,7 +74,7 @@ ASPIS_plot_elbow <- function(sce,
          "Re-run TALOS_run_pca() to ensure it is stored.", call. = FALSE)
 
   if (!is.null(suggest))
-    suggest <- match.arg(suggest, c("elbow", "cumulative", "both"))
+    suggest <- match.arg(suggest, c("elbow", "cumulative", "all"))
 
   n_show <- min(as.integer(n_show), length(pct_var))
 
@@ -143,9 +143,9 @@ ASPIS_plot_elbow <- function(sce,
   caption_parts <- "Bars/blue: individual variance"
   if (isTRUE(show_cumulative))
     caption_parts <- paste0(caption_parts, "  |  Red dashed: cumulative variance")
-  if (!is.null(suggest) && suggest %in% c("elbow", "both"))
+  if (!is.null(suggest) && suggest %in% c("elbow", "all"))
     caption_parts <- paste0(caption_parts, "  |  Green dot-dash: elbow suggestion")
-  if (!is.null(suggest) && suggest %in% c("cumulative", "both"))
+  if (!is.null(suggest) && suggest %in% c("cumulative", "all"))
     caption_parts <- paste0(caption_parts,
                             "  |  Purple dot-dash: cumulative suggestion")
 
@@ -160,8 +160,10 @@ ASPIS_plot_elbow <- function(sce,
 #'
 #' @param sce A \code{SingleCellExperiment} with \code{"UMAP"} in
 #'   \code{reducedDims} (run \code{\link{TALOS_run_umap}} first).
-#' @param colour_by Character. A \code{colData} column name or a gene name
-#'   present in \code{rownames(sce)}.  Default \code{"cluster"}.
+#' @param colour_by Character scalar or vector.  One or more \code{colData}
+#'   column names or gene names present in \code{rownames(sce)}.  A single
+#'   value returns a \code{ggplot}; a vector produces one panel per element
+#'   arranged in a grid (requires \code{gridExtra}).  Default \code{"cluster"}.
 #' @param point_size Numeric. Point size. Default \code{0.8}.
 #' @param point_alpha Numeric. Point transparency (0–1). Default \code{0.6}.
 #' @param palette Character vector or \code{NULL}.  For discrete variables:
@@ -169,15 +171,35 @@ ASPIS_plot_elbow <- function(sce,
 #'   gene expression: a 2-element vector \code{c(low, high)}.
 #'   \code{NULL} (default) uses built-in palettes.
 #' @param title Character or \code{NULL}.  Plot title.  \code{NULL} auto-generates
-#'   \code{"UMAP — <colour_by>"}.
+#'   \code{"UMAP — <colour_by>"}.  Ignored when \code{colour_by} is a vector.
 #' @param label_clusters Logical.  Overlay cluster centroid labels.  Only
 #'   applied when \code{colour_by} resolves to a discrete variable.
 #'   Default \code{FALSE}.
 #' @param label_size Numeric.  Size of centroid labels.  Default \code{4}.
 #' @param assay_name Character.  Assay used when \code{colour_by} is a gene.
 #'   Default \code{"logcounts"}.
+#' @param ncol Integer or \code{NULL}.  Number of columns in the panel grid
+#'   when \code{colour_by} is a vector.  \code{NULL} (default) uses
+#'   \code{min(length(colour_by), 3)}.
+#' @param style Character.  Visual style: \code{"points"} (default, classic
+#'   scatter), \code{"contour"} (density ring lines only, no points), or
+#'   \code{"both"} (points with density ring lines overlaid).  Topographic
+#'   styles require a discrete \code{colour_by}.
+#' @param n_levels Integer or \code{"dynamic"}.  Number of contour levels when
+#'   using a fixed spacing.  Pass \code{"dynamic"} to compute per-cluster
+#'   normalised KDE contours — each cluster is contoured relative to its own
+#'   density range, avoiding smearing on dense clusters while still showing
+#'   structure in dispersed ones.  Default \code{8}.
+#' @param contour_alpha Numeric.  Opacity of the contour lines.  Default \code{0.7}.
+#' @param show_legend Logical.  Whether to display the colour legend.
+#'   Default \code{TRUE}.
+#' @param boundary_pad Numeric.  Fractional expansion of the plot boundaries
+#'   beyond the data range (e.g. \code{0.10} = 10\%).  Increase if contour
+#'   lines are clipped at the edges; decrease if there is too much whitespace.
+#'   Default \code{0.10}.
 #'
-#' @return A \code{ggplot} object.
+#' @return A \code{ggplot} (single \code{colour_by}) or a \code{gtable} grid
+#'   (multiple \code{colour_by}).
 #' @export
 ASPIS_plot_umap <- function(sce,
                              colour_by      = "cluster",
@@ -187,8 +209,15 @@ ASPIS_plot_umap <- function(sce,
                              title          = NULL,
                              label_clusters = FALSE,
                              label_size     = 4,
-                             assay_name     = "logcounts") {
+                             assay_name     = "logcounts",
+                             ncol           = NULL,
+                             style          = c("points", "contour", "both"),
+                             n_levels       = 8L,
+                             contour_alpha  = 0.7,
+                             show_legend    = TRUE,
+                             boundary_pad   = 0.10) {
 
+  style <- match.arg(style)
   if (!"UMAP" %in% reducedDimNames(sce))
     stop("UMAP not found. Run TALOS_run_umap() first.", call. = FALSE)
 
@@ -200,7 +229,13 @@ ASPIS_plot_umap <- function(sce,
                      title          = title,
                      label_clusters = label_clusters,
                      label_size     = label_size,
-                     assay_name     = assay_name)
+                     assay_name     = assay_name,
+                     ncol           = ncol,
+                     style          = style,
+                     n_levels       = n_levels,
+                     contour_alpha  = contour_alpha,
+                     show_legend    = show_legend,
+                     boundary_pad   = boundary_pad)
 }
 
 
@@ -211,8 +246,10 @@ ASPIS_plot_umap <- function(sce,
 #'
 #' @param sce A \code{SingleCellExperiment} with \code{"TSNE"} in
 #'   \code{reducedDims} (run \code{\link{TALOS_run_tsne}} first).
-#' @param colour_by Character. A \code{colData} column name or a gene name
-#'   present in \code{rownames(sce)}.  Default \code{"cluster"}.
+#' @param colour_by Character scalar or vector.  One or more \code{colData}
+#'   column names or gene names present in \code{rownames(sce)}.  A single
+#'   value returns a \code{ggplot}; a vector produces one panel per element
+#'   arranged in a grid (requires \code{gridExtra}).  Default \code{"cluster"}.
 #' @param point_size Numeric. Point size. Default \code{0.8}.
 #' @param point_alpha Numeric. Point transparency (0–1). Default \code{0.6}.
 #' @param palette Character vector or \code{NULL}.  For discrete variables:
@@ -220,15 +257,33 @@ ASPIS_plot_umap <- function(sce,
 #'   gene expression: a 2-element vector \code{c(low, high)}.
 #'   \code{NULL} (default) uses built-in palettes.
 #' @param title Character or \code{NULL}.  Plot title.  \code{NULL} auto-generates
-#'   \code{"tSNE — <colour_by>"}.
+#'   \code{"tSNE — <colour_by>"}.  Ignored when \code{colour_by} is a vector.
 #' @param label_clusters Logical.  Overlay cluster centroid labels.  Only
 #'   applied when \code{colour_by} resolves to a discrete variable.
 #'   Default \code{FALSE}.
 #' @param label_size Numeric.  Size of centroid labels.  Default \code{4}.
 #' @param assay_name Character.  Assay used when \code{colour_by} is a gene.
 #'   Default \code{"logcounts"}.
+#' @param ncol Integer or \code{NULL}.  Number of columns in the panel grid
+#'   when \code{colour_by} is a vector.  \code{NULL} (default) uses
+#'   \code{min(length(colour_by), 3)}.
+#' @param style Character.  Visual style: \code{"points"} (default, classic
+#'   scatter), \code{"contour"} (density ring lines only, no points), or
+#'   \code{"both"} (points with density ring lines overlaid).  Topographic
+#'   styles require a discrete \code{colour_by}.
+#' @param n_levels Integer or \code{"dynamic"}.  Number of contour levels when
+#'   using a fixed spacing.  Pass \code{"dynamic"} to compute per-cluster
+#'   normalised KDE contours.  Default \code{8}.
+#' @param contour_alpha Numeric.  Opacity of the contour lines.  Default \code{0.7}.
+#' @param show_legend Logical.  Whether to display the colour legend.
+#'   Default \code{TRUE}.
+#' @param boundary_pad Numeric.  Fractional expansion of the plot boundaries
+#'   beyond the data range (e.g. \code{0.10} = 10\%).  Increase if contour
+#'   lines are clipped at the edges; decrease if there is too much whitespace.
+#'   Default \code{0.10}.
 #'
-#' @return A \code{ggplot} object.
+#' @return A \code{ggplot} (single \code{colour_by}) or a \code{gtable} grid
+#'   (multiple \code{colour_by}).
 #' @export
 ASPIS_plot_tsne <- function(sce,
                              colour_by      = "cluster",
@@ -238,8 +293,15 @@ ASPIS_plot_tsne <- function(sce,
                              title          = NULL,
                              label_clusters = FALSE,
                              label_size     = 4,
-                             assay_name     = "logcounts") {
+                             assay_name     = "logcounts",
+                             ncol           = NULL,
+                             style          = c("points", "contour", "both"),
+                             n_levels       = 8L,
+                             contour_alpha  = 0.7,
+                             show_legend    = TRUE,
+                             boundary_pad   = 0.10) {
 
+  style <- match.arg(style)
   if (!"TSNE" %in% reducedDimNames(sce))
     stop("tSNE not found. Run TALOS_run_tsne() first.", call. = FALSE)
 
@@ -251,7 +313,13 @@ ASPIS_plot_tsne <- function(sce,
                      title          = title,
                      label_clusters = label_clusters,
                      label_size     = label_size,
-                     assay_name     = assay_name)
+                     assay_name     = assay_name,
+                     ncol           = ncol,
+                     style          = style,
+                     n_levels       = n_levels,
+                     contour_alpha  = contour_alpha,
+                     show_legend    = show_legend,
+                     boundary_pad   = boundary_pad)
 }
 
 
@@ -578,7 +646,7 @@ ASPIS_plot_qc <- function(sce,
   elbow_pc <- NULL
   cum_pc   <- NULL
 
-  if (method %in% c("elbow", "both")) {
+  if (method %in% c("elbow", "all")) {
     n <- length(pct_var)
     if (n > 2) {
       d2       <- diff(diff(pct_var))   # length n-2; d2[i] <-> PC i+1
@@ -588,7 +656,7 @@ ASPIS_plot_qc <- function(sce,
     }
   }
 
-  if (method %in% c("cumulative", "both")) {
+  if (method %in% c("cumulative", "all")) {
     hits   <- which(cumsum(pct_var) >= cum_threshold)
     cum_pc <- if (length(hits)) as.integer(hits[1L]) else as.integer(length(pct_var))
   }
@@ -600,7 +668,27 @@ ASPIS_plot_qc <- function(sce,
 # Shared embedding plot engine (UMAP and tSNE).
 .aspis_plot_dimred <- function(sce, dimred, colour_by, point_size, point_alpha,
                                 palette, title, label_clusters, label_size,
-                                assay_name) {
+                                assay_name, ncol = NULL,
+                                style = "points", n_levels = 8L,
+                                contour_alpha = 0.7, show_legend = TRUE,
+                                boundary_pad = 0.10) {
+
+  # ── Multi-panel: one plot per colour_by element ──────────────────────────────
+  if (length(colour_by) > 1L) {
+    if (!requireNamespace("gridExtra", quietly = TRUE))
+      stop("Package 'gridExtra' is required for multi-panel plots. ",
+           "Install via: install.packages(\"gridExtra\")", call. = FALSE)
+    plots    <- lapply(colour_by, function(cb)
+      .aspis_plot_dimred(sce, dimred, colour_by = cb, point_size = point_size,
+                         point_alpha = point_alpha, palette = palette,
+                         title = NULL, label_clusters = label_clusters,
+                         label_size = label_size, assay_name = assay_name,
+                         ncol = NULL, style = style, n_levels = n_levels,
+                         contour_alpha = contour_alpha, show_legend = show_legend,
+                         boundary_pad = boundary_pad))
+    ncol_use <- if (!is.null(ncol)) as.integer(ncol) else min(length(colour_by), 3L)
+    return(gridExtra::grid.arrange(grobs = plots, ncol = ncol_use))
+  }
 
   # ── Extract embedding ────────────────────────────────────────────────────────
   emb <- reducedDim(sce, dimred)
@@ -628,15 +716,28 @@ ASPIS_plot_qc <- function(sce,
       df$colour_val <- as.factor(df$colour_val)
   }
 
+  # ── Warn and fall back if topographic style requested for continuous data ─────
+  if (style %in% c("contour", "both") && !is_discrete) {
+    warning("Topographic style requires a discrete colour_by. ",
+            "Falling back to style = 'points'.", call. = FALSE)
+    style <- "points"
+  }
+
+  # ── Colour palette ───────────────────────────────────────────────────────────
+  if (is_discrete) {
+    n_lev <- nlevels(df$colour_val)
+    pal   <- rep(if (!is.null(palette)) palette else .aspis_discrete_palette(),
+                 length.out = n_lev)
+  }
+
   # ── Axis / title labels ──────────────────────────────────────────────────────
   display_name <- if (dimred == "UMAP") "UMAP" else "tSNE"
   dim_labels   <- paste(display_name, 1:2)
   auto_title   <- if (!is.null(title)) title else
                     sprintf("%s \u2014 %s", display_name, colour_by)
 
-  # ── Base plot ────────────────────────────────────────────────────────────────
+  # ── Base canvas (no geoms yet — layer order matters) ─────────────────────────
   p <- ggplot(df, aes(x = dim1, y = dim2, colour = colour_val)) +
-    geom_point(size = point_size, alpha = point_alpha) +
     labs(x      = dim_labels[1],
          y      = dim_labels[2],
          title  = auto_title,
@@ -646,16 +747,50 @@ ASPIS_plot_qc <- function(sce,
           axis.ticks = element_blank(),
           axis.text  = element_blank())
 
+  # ── Axis limits — pre-expand by boundary_pad to ensure contours aren't clipped
+  x_pad <- diff(range(df$dim1)) * boundary_pad
+  y_pad <- diff(range(df$dim2)) * boundary_pad
+  xlim  <- c(range(df$dim1)[1] - x_pad, range(df$dim1)[2] + x_pad)
+  ylim  <- c(range(df$dim2)[1] - y_pad, range(df$dim2)[2] + y_pad)
+
+  # ── Contour rings (drawn first so points render on top) ──────────────────────
+  if (style %in% c("contour", "both")) {
+    if (identical(n_levels, "dynamic")) {
+      contour_df <- .aspis_dynamic_contours(df, n_levels = 10L, pad = boundary_pad)
+      # Further extend to include actual contour coordinates if they exceed 15%
+      xlim <- range(c(xlim, contour_df$dim1))
+      ylim <- range(c(ylim, contour_df$dim2))
+      p <- p + geom_path(
+        data        = contour_df,
+        aes(x       = dim1,
+            y       = dim2,
+            colour  = colour_val,
+            group   = line_id),
+        linewidth   = 0.25,
+        alpha       = contour_alpha,
+        inherit.aes = FALSE
+      )
+    } else {
+      p <- p +
+        stat_density_2d(
+          aes(group = colour_val, colour = colour_val),
+          bins      = as.integer(n_levels),
+          linewidth = 0.25,
+          alpha     = contour_alpha
+        )
+    }
+  }
+
+  # ── Points layer ─────────────────────────────────────────────────────────────
+  if (style %in% c("points", "both")) {
+    pt_size  <- if (style == "both") point_size * 0.6 else point_size
+    pt_alpha <- if (style == "both") point_alpha * 0.7 else point_alpha
+    p <- p + geom_point(size = pt_size, alpha = pt_alpha)
+  }
+
   # ── Colour scale ─────────────────────────────────────────────────────────────
   if (is_discrete) {
-    n_lev <- nlevels(df$colour_val)
-    pal   <- if (!is.null(palette)) {
-      rep(palette, length.out = n_lev)
-    } else {
-      rep(.aspis_discrete_palette(), length.out = n_lev)
-    }
     p <- p + scale_color_manual(values = pal)
-
   } else {
     low  <- if (!is.null(palette) && length(palette) >= 1L) palette[1L] else "grey90"
     high <- if (!is.null(palette) && length(palette) >= 2L) palette[2L] else
@@ -675,7 +810,65 @@ ASPIS_plot_qc <- function(sce,
                        inherit.aes = FALSE)
   }
 
+  # ── Plot boundaries — add 3% breathing room around the computed limits ───────
+  x_pad <- diff(xlim) * 0.03
+  y_pad <- diff(ylim) * 0.03
+  p <- p + coord_cartesian(
+    xlim = c(xlim[1] - x_pad, xlim[2] + x_pad),
+    ylim = c(ylim[1] - y_pad, ylim[2] + y_pad)
+  )
+
+  # ── Legend ───────────────────────────────────────────────────────────────────
+  if (!isTRUE(show_legend))
+    p <- p + theme(legend.position = "none")
+
   p
+}
+
+
+# Per-cluster normalised KDE contours.
+# For each cluster: compute 2D KDE, normalise density to [0,1], extract
+# contour lines at evenly spaced quantiles.  Returns a data.frame suitable
+# for geom_path() with columns dim1, dim2, colour_val, line_id.
+.aspis_dynamic_contours <- function(df, n_levels = 10L, pad = 0.10) {
+  lvls    <- levels(df$colour_val)
+  breaks  <- seq(0.05, 0.95, length.out = as.integer(n_levels))
+
+  # Use global limits for all clusters so the KDE surface tapers to near-zero
+  # at the grid edges — prevents contour lines being cut off by a cluster-local
+  # rectangular boundary.  pad matches boundary_pad so the KDE grid and the
+  # plot window are always consistent.
+  x_pad  <- diff(range(df$dim1)) * pad
+  y_pad  <- diff(range(df$dim2)) * pad
+  g_lims <- c(range(df$dim1)[1] - x_pad, range(df$dim1)[2] + x_pad,
+              range(df$dim2)[1] - y_pad, range(df$dim2)[2] + y_pad)
+
+  out_list <- lapply(lvls, function(lv) {
+    sub <- df[df$colour_val == lv, c("dim1", "dim2")]
+    if (nrow(sub) < 10L) return(NULL)
+
+    kde    <- MASS::kde2d(sub$dim1, sub$dim2, n = 200L, lims = g_lims)
+    z      <- kde$z
+    z_norm <- (z - min(z)) / (max(z) - min(z))
+
+    clines <- grDevices::contourLines(kde$x, kde$y, z_norm, levels = breaks)
+    if (length(clines) == 0L) return(NULL)
+
+    do.call(rbind, lapply(seq_along(clines), function(i) {
+      cl <- clines[[i]]
+      data.frame(
+        dim1       = cl$x,
+        dim2       = cl$y,
+        colour_val = lv,
+        line_id    = paste0(lv, "_", i),
+        stringsAsFactors = FALSE
+      )
+    }))
+  })
+
+  out            <- do.call(rbind, Filter(Negate(is.null), out_list))
+  out$colour_val <- factor(out$colour_val, levels = lvls)
+  out
 }
 
 

@@ -9,6 +9,8 @@ PANDORA_annotate_sctype(
   tissue,
   cluster_col = "cluster",
   db = NULL,
+  species = "human",
+  ortholog_method = "homologene",
   assay_name = "logcounts",
   label_col = "sctype_label",
   verbose = TRUE
@@ -30,6 +32,16 @@ custom Excel or CSV, or a \code{data.frame} with columns
 markers, comma-separated), \code{geneSymbolmore2} (negative markers,
 comma-separated; \code{NA} = none).}
 
+\item{species}{Character. Target organism.  \code{"human"} (default) uses
+the DB markers directly.  Any other value (e.g. \code{"mouse"},
+\code{"Mus musculus"}) triggers ortholog conversion via \code{orthogene}.
+Accepts any species string recognised by \code{orthogene}.}
+
+\item{ortholog_method}{Character. Ortholog database passed to
+\code{orthogene::convert_orthologs()}.  Default \code{"homologene"}
+(offline, fast, covers common model organisms).  Use \code{"gprofiler"}
+for broader species coverage (requires internet).}
+
 \item{assay_name}{Character. Assay to score. Default \code{"logcounts"}.}
 
 \item{label_col}{Character. \code{colData} column for the result.
@@ -48,6 +60,12 @@ bundled \code{ScTypeDB_full.xlsx}), and the highest-scoring type is assigned
 to all cells in each cluster.
 }
 \details{
+The bundled ScTypeDB uses human HGNC gene symbols.  For non-human data,
+set \code{species} to the target organism and orthologous gene symbols will
+be resolved via \code{orthogene} before scoring.  The conversion report
+(database used, mapping rate) is printed to allow you to judge the
+reliability of the annotation before interpreting results.
+
 Use \code{\link{PANDORA_list_references}(source = "sctype")} to see
 available tissues and cell type counts before running.
 }

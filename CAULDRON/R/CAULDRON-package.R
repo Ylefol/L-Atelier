@@ -54,6 +54,7 @@
 #' @importFrom scuttle addPerCellQCMetrics perCellQCMetrics perCellQCFilters
 #' @importFrom scDblFinder scDblFinder
 #' @importFrom SingleR SingleR
+#' @importFrom basilisk BasiliskEnvironment basiliskRun
 
 # ============================================================================
 # Parallel computing

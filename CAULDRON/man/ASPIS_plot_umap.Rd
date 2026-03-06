@@ -13,15 +13,23 @@ ASPIS_plot_umap(
   title = NULL,
   label_clusters = FALSE,
   label_size = 4,
-  assay_name = "logcounts"
+  assay_name = "logcounts",
+  ncol = NULL,
+  style = c("points", "contour", "both"),
+  n_levels = 8L,
+  contour_alpha = 0.7,
+  show_legend = TRUE,
+  boundary_pad = 0.1
 )
 }
 \arguments{
 \item{sce}{A \code{SingleCellExperiment} with \code{"UMAP"} in
 \code{reducedDims} (run \code{\link{TALOS_run_umap}} first).}
 
-\item{colour_by}{Character. A \code{colData} column name or a gene name
-present in \code{rownames(sce)}.  Default \code{"cluster"}.}
+\item{colour_by}{Character scalar or vector.  One or more \code{colData}
+column names or gene names present in \code{rownames(sce)}.  A single
+value returns a \code{ggplot}; a vector produces one panel per element
+arranged in a grid (requires \code{gridExtra}).  Default \code{"cluster"}.}
 
 \item{point_size}{Numeric. Point size. Default \code{0.8}.}
 
@@ -33,7 +41,7 @@ gene expression: a 2-element vector \code{c(low, high)}.
 \code{NULL} (default) uses built-in palettes.}
 
 \item{title}{Character or \code{NULL}.  Plot title.  \code{NULL} auto-generates
-\code{"UMAP — <colour_by>"}.}
+\code{"UMAP — <colour_by>"}.  Ignored when \code{colour_by} is a vector.}
 
 \item{label_clusters}{Logical.  Overlay cluster centroid labels.  Only
 applied when \code{colour_by} resolves to a discrete variable.
@@ -43,9 +51,35 @@ Default \code{FALSE}.}
 
 \item{assay_name}{Character.  Assay used when \code{colour_by} is a gene.
 Default \code{"logcounts"}.}
+
+\item{ncol}{Integer or \code{NULL}.  Number of columns in the panel grid
+when \code{colour_by} is a vector.  \code{NULL} (default) uses
+\code{min(length(colour_by), 3)}.}
+
+\item{style}{Character.  Visual style: \code{"points"} (default, classic
+scatter), \code{"contour"} (density ring lines only, no points), or
+\code{"both"} (points with density ring lines overlaid).  Topographic
+styles require a discrete \code{colour_by}.}
+
+\item{n_levels}{Integer or \code{"dynamic"}.  Number of contour levels when
+using a fixed spacing.  Pass \code{"dynamic"} to compute per-cluster
+normalised KDE contours — each cluster is contoured relative to its own
+density range, avoiding smearing on dense clusters while still showing
+structure in dispersed ones.  Default \code{8}.}
+
+\item{contour_alpha}{Numeric.  Opacity of the contour lines.  Default \code{0.7}.}
+
+\item{show_legend}{Logical.  Whether to display the colour legend.
+Default \code{TRUE}.}
+
+\item{boundary_pad}{Numeric.  Fractional expansion of the plot boundaries
+beyond the data range (e.g. \code{0.10} = 10\\%).  Increase if contour
+lines are clipped at the edges; decrease if there is too much whitespace.
+Default \code{0.10}.}
 }
 \value{
-A \code{ggplot} object.
+A \code{ggplot} (single \code{colour_by}) or a \code{gtable} grid
+(multiple \code{colour_by}).
 }
 \description{
 Plots the UMAP embedding stored in \code{reducedDims(sce)[["UMAP"]]},
