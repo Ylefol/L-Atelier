@@ -58,7 +58,8 @@ TALOS_run_pca <- function(sce,
     }
   }
 
-  n_pcs <- min(as.integer(n_pcs), length(hvg_genes) %||% nrow(sce) - 1L)
+  n_genes <- if (!is.null(hvg_genes)) length(hvg_genes) else nrow(sce)
+  n_pcs   <- min(as.integer(n_pcs), n_genes - 1L)
 
   # Both BPCells IterableMatrix and in-memory dgCMatrix go through irlba
   # directly so that numerical results are identical regardless of backend.

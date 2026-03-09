@@ -1,13 +1,13 @@
 ================================================================================
 ASPIS STATUS - Visualisation
 ================================================================================
-Last Updated: 2026-03-05 (updated)
+Last Updated: 2026-03-09
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
-aspis_visualization.R:
-----------------------
+aspis_embedding.R:
+------------------
 ASPIS_plot_qc(sce, metrics=c("sum","detected","subsets_mt_percent"),
               group_by=NULL, thresholds=NULL, log_scale=c("sum","detected"),
               show_points=TRUE, max_points=5000, point_size=0.3,
@@ -70,10 +70,201 @@ ASPIS_plot_embedding_grid(sweep, sce, colour_by="cluster", point_size=0.3,
     discrete → categorical palette; continuous/gene → gradient
   - Requires talos_embedding_sweep object; works for both UMAP and tSNE
 
+aspis_atlas_v2.R:
+-----------------
+ASPIS_plot_atlas_v2(sce, colour_by, dimred=c("UMAP","tSNE"),
+                     point_size=0.5, point_alpha=0.5, palette=NULL,
+                     label_clusters=FALSE, label_size=3,
+                     style=c("points","contour","both"), n_levels=8,
+                     contour_alpha=0.7, boundary_pad=0.10, inner_pad=0.25,
+                     ring_pad=0.10, gap_size=0.05)
+  - Central embedding with colour-coded segmented donut ring (STABLE baseline)
+  - Ring: equal-width segments, one per cell type, clockwise from 12 o'clock
+  - inner_pad: expands scatter viewport so KDE contours don't overlap the ring
+  - gap_size: angular white gaps between ring segments (geom_col width trick)
+  - Requires cowplot; returns ggdraw composite; looks best on square canvas
+
+aspis_atlas_v5.R:
+-----------------
+ASPIS_plot_atlas_v5(sce, colour_by, dimred=c("UMAP","tSNE"),
+                     # scatter
+                     style=c("points","contour","both"), point_size=0.5,
+                     point_alpha=0.5, ring_palette=NULL,
+                     label_clusters=FALSE, label_size=3,
+                     n_levels=8, contour_alpha=0.7,
+                     boundary_pad=0.10, inner_pad=0.25,
+                     # layout
+                     gap_degrees=2, inner_scale=0.95,
+                     # label track (outermost)
+                     show_label_track=FALSE, label_track_height=0.12,
+                     label_track_cex=0.55, label_track_col="black",
+                     label_track_font=1L,
+                     # colour ring
+                     show_ring=TRUE, ring_height=0.15, ring_labels=TRUE,
+                     ring_label_cex=0.65, ring_label_col="white",
+                     ring_gap=0.01, ring_border_col=NA,
+                     min_seg_frac=NULL, bottom_gap_degrees=15,
+                     # metadata track labels
+                     show_meta_labels=FALSE, meta_label_names=NULL,
+                     meta_label_cex=0.65, meta_label_col="black",
+                     meta_label_lwd=0.5,
+                     # dendrogram
+                     show_dendrogram=TRUE, dend_height=0.15,
+                     dend_n_pcs=20, dend_max_cells=500,
+                     dend_col="grey30", dend_lwd=0.5,
+                     # binning
+                     n_bin=NULL,
+                     # metadata tracks
+                     meta_col=NULL, meta_assay="logcounts",
+                     meta_palette=NULL, meta_height=0.04,
+                     meta_style=c("dot","dot_border","heatmap"),
+                     meta_cex=0.3, meta_border_col="white",
+                     meta_border_lwd=0.3, meta_scale_q=c(0,1),
+                     # output
+                     output_file=NULL, width=8, height=8, res=150)
+  - Full circos atlas: label track → metadata tracks → colour ring →
+    dendrogram → central UMAP/tSNE scatter (grid viewport)
+  - ring_palette: colours for colour_by categories; applied consistently to
+    scatter AND ring segments (always match)
+  - Metadata tracks (meta_col): one ring per entry, outside→inside order
+      - discrete colData column → majority-vote per bin, categorical palette
+      - numeric colData column  → per-bin mean, colour gradient
+      - gene name (rownames)    → per-bin mean expression, colour gradient
+      meta_style: "dot" | "dot_border" (pch=21) | "heatmap" (circos.rect)
+      meta_scale_q: quantile clipping for continuous tracks e.g. c(0, 0.95)
+        prevents sparse-gene colour scales from washing out (default c(0,1))
+      meta_border_col=NULL/NA → no border on heatmap tiles or dot outlines
+  - Colour ring: proportional arc width; ring_border_col auto-inherits
+    meta_border_col when meta_style="heatmap" and ring_border_col=NA
+  - min_seg_frac: floor on sector arc fraction; uses sector.width in
+    circos.initialize() so xlim (dendrogram/dot x-axis) is unaffected
+  - bottom_gap_degrees: fixed large gap at 6 o'clock (270°); overrides the
+    embedding-alignment start.degree; sector ORDER from embedding is preserved
+  - show_meta_labels: draws track labels + short ticks in the bottom gap at
+    each track's radial level; meta_label_names overrides display text
+  - show_label_track: outermost text track; labels wrapped via strwrap()
+    using arc-width estimate (~2.2 chars/degree); multi-line support
+  - n_bin: bin cells by PC1, hclust on bin centroids; all tracks share
+    the same leaf order so dots/dendrogram always align
+  - Sector order: embedding centroid angle CW from top; start.degree
+    optimised by circular mean to mirror the embedding layout
+  - Requires circlize; grid viewport overlay for central scatter
+
+aspis_atlas.R (primary):
+------------------------
+ASPIS_plot_atlas(sce, colour_by, dimred=c("UMAP","tSNE"),
+                  # scatter
+                  style=c("points","contour","both"), point_size=0.5,
+                  point_alpha=0.5, ring_palette=NULL,
+                  label_clusters=FALSE, label_size=3,
+                  n_levels=8, contour_alpha=0.7,
+                  boundary_pad=0.10, inner_pad=0.25,
+                  # layout
+                  gap_degrees=2, inner_scale=0.95,
+                  # label track (outermost)
+                  show_label_track=FALSE, label_track_height=0.12,
+                  label_track_cex=0.55, label_track_col="black",
+                  label_track_font=1L,
+                  # colour ring
+                  show_ring=TRUE, ring_height=0.15, ring_labels=TRUE,
+                  ring_label_cex=0.65, ring_label_col="white",
+                  ring_gap=0.01, ring_border_col=NA,
+                  min_seg_frac=NULL, bottom_gap_degrees=15,
+                  # metadata track labels
+                  show_meta_labels=FALSE, meta_label_names=NULL,
+                  meta_label_cex=0.65, meta_label_col="black",
+                  meta_label_lwd=0.5,
+                  # scatter labels
+                  label_clusters=FALSE, label_size=3,
+                  label_split=FALSE, label_split_min_sil=0.35,
+                  label_split_k_max=5, label_split_size_scale=TRUE,
+                  label_split_size_range=NULL, label_split_min_cells=50L,
+                  label_split_nudge=0, label_split_angle=TRUE,
+                  # dendrogram
+                  show_dendrogram=TRUE, dend_height=0.15, dend_clip=1,
+                  dend_power=1, dend_n_pcs=20, dend_max_cells=500,
+                  dend_col="grey30", dend_lwd=0.5,
+                  # binning
+                  n_bin=NULL,
+                  # metadata tracks
+                  meta_col=NULL, meta_assay="logcounts",
+                  meta_palette=NULL, meta_height=0.04,
+                  meta_style=c("dot","dot_border","heatmap"),
+                  meta_cex=0.3, meta_border_col="white",
+                  meta_border_lwd=0.3, meta_scale_q=c(0,1),
+                  # satellite panels
+                  show_satellites=TRUE, sat_col=NULL, sat_size=0.22,
+                  sat_point_size=0.3, sat_point_alpha=0.5,
+                  show_sat_title=TRUE, sat_title_cex=0.7, sat_title_col="black",
+                  # output
+                  output_file=NULL, width=8, height=8, res=150)
+  - Current primary circos atlas; formerly aspis_atlas_v6.R
+  - Full circos atlas: label track → metadata tracks → colour ring →
+    dendrogram → central UMAP/tSNE scatter (grid viewport)
+  - ring_palette: colours for colour_by categories; applied consistently to
+    scatter AND ring segments (always match)
+  - Metadata tracks (meta_col): one ring per entry, outside→inside order
+      - discrete colData column → majority-vote per bin, categorical palette
+      - numeric colData column  → per-bin mean, colour gradient
+      - gene name (rownames)    → per-bin mean expression, colour gradient
+      meta_style: "dot" | "dot_border" (pch=21) | "heatmap" (circos.rect)
+      meta_scale_q: quantile clipping for continuous tracks e.g. c(0, 0.95)
+      meta_border_col=NULL/NA → no border on heatmap tiles or dot outlines
+  - Colour ring: proportional arc width; ring_border_col auto-inherits
+    meta_border_col when meta_style="heatmap" and ring_border_col=NA
+  - min_seg_frac: floor on sector arc fraction (xlim/dendrogram unaffected)
+  - bottom_gap_degrees: fixed large gap at 6 o'clock via gap.after named vector
+  - show_meta_labels: track labels + ticks drawn in bottom gap
+  - label_split=TRUE: density-aware sub-cluster labelling via k-means on
+    2D embedding coords per category; accepts split if mean silhouette >=
+    label_split_min_sil; one label per sub-cluster (same category name);
+    label_split_size_range=c(min,max): absolute ggplot size bounds (NULL→c(label_size*0.5, label_size));
+    label_split_size_scale: maps sqrt(n_sub/n_cat) linearly across size_range;
+    label_split_min_cells: skip category or sub-cluster if n < threshold (default 50);
+    label_split_nudge: shift label along PC2 in units of PC2 SD (default 0);
+      PC2 oriented to positive-y so positive = upward, negative = downward;
+    label_split_angle: text angle from PC1 of cluster's own covariance matrix;
+    helper: .aspis_split_labels() in aspis_atlas.R; uses cluster::silhouette()
+  - dend_clip (0–1, default 1): zooms into heights 0..clip×max_h,
+    stretching that region to fill the track; root clipped at boundary
+  - dend_power (>0, default 1): non-linear height transform
+    h_new=(h/max_h)^power*max_h before drawing; power<1 (e.g. 0.5)
+    compresses the root arch visually while expanding leaf-level forks;
+    root stays at max_h (not clipped); try 0.3–0.6 for tall roots
+  - Satellite panels (show_satellites): mini-embeddings in device corners
+    (TL, TR, BL, BR); same embedding as central, coloured by sat_col entries
+    sat_col: subset of meta_col (NULL = first 4); capped at 4
+    Colour scale matches circos track; transparent background
+    show_sat_title=FALSE hides the per-satellite title
+    sat_size=0.22 fits in default R margin area outside the outermost ring
+    sat_legend: FALSE/TRUE/character vector — controls which sats show legends
+    sat_legend_max_cats=10: auto-suppress discrete legends with >N categories
+    sat_legend_title_cex / sat_legend_text_cex: legend text sizes
+    Legend layout (semi-asymmetric):
+      TL/TR: legend below satellite, left/right-pinned (hangs down)
+      BL/BR: legend on inner edge, toward centre (points inward)
+    Helper: .aspis_sat_legend_grob() extracts guide-box via ggplotGrob()$layout
+  - Requires circlize; grid viewport overlay for central scatter + satellites
+
+aspis_atlas_v4.R:
+-----------------
+ASPIS_plot_atlas_v4 — predecessor; kept for reference.
+  - Multi-column dot_col, n_bin binning, per-sector dendrogram, circlize ring
+
+aspis_atlas_v3.R:
+-----------------
+ASPIS_plot_atlas_v3 — predecessor; kept for reference.
+  - Proportional ring + re-embedded satellite panels per broad category
+
+aspis_atlas_v2.R:
+-----------------
+ASPIS_plot_atlas_v2 — predecessor; kept for reference.
+  - Stable baseline: equal-width ring only, no tracks or satellites
+
 ================================================================================
 IN PROGRESS
 ================================================================================
-- None
+- None (ASPIS_plot_atlas considered feature-complete for current milestone)
 
 ================================================================================
 PLANNED / TODO
@@ -91,8 +282,18 @@ PLANNED / TODO
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- Key packages: ggplot2 (primary, Depends), scater (plotReducedDim),
-  ComplexHeatmap (heatmaps)
+- File structure:
+    aspis_embedding.R — elbow, UMAP, tSNE, embedding_grid, QC plots;
+                        shared helpers (.aspis_plot_dimred,
+                        .aspis_dynamic_contours, .aspis_discrete_palette)
+    aspis_atlas.R     — ASPIS_plot_atlas; current primary atlas function
+                        (circlize ring + tracks + corner satellites)
+    aspis_atlas_v2.R  — ASPIS_plot_atlas_v2; kept for reference
+    aspis_atlas_v3.R  — ASPIS_plot_atlas_v3; kept for reference
+    aspis_atlas_v4.R  — ASPIS_plot_atlas_v4; kept for reference
+    aspis_atlas_v5.R  — ASPIS_plot_atlas_v5; kept for reference
+- Key packages: ggplot2 (primary, Depends), circlize (atlas ring + tracks),
+  gridExtra (Suggests), cowplot (Suggests)
 - pheatmap / ComplexHeatmap plots draw on creation — use png()/dev.off()
   wrappers rather than ggsave() for these
 - Trajectory and communication plots delegate data preparation to

@@ -1,5 +1,5 @@
 # ==============================================================================
-# ASPIS - Visualisation
+# ASPIS - Embedding & QC Visualisation
 # CAULDRON: Single-Cell Analysis Toolkit
 # ==============================================================================
 # The Shield of Achilles, forged by Hephaestus and described in extraordinary
@@ -7,16 +7,14 @@
 # its surface: cities, fields, weddings, battles. The shield that shows
 # everything. ASPIS makes the invisible structure of data visible.
 #
-# Core responsibilities:
-#   - UMAP and tSNE plots (coloured by cluster, gene, condition, etc.)
-#   - Violin and ridge plots
-#   - Dot plots and bubble plots
-#   - Feature / gene expression plots
-#   - Heatmaps (marker genes, regulons, etc.)
-#   - Trajectory and pseudotime plots
-#   - Communication network plots
+# This file covers dimensionality-reduction and QC plots:
+#   - Elbow plot (PCA variance)
+#   - UMAP and tSNE scatter plots
+#   - Embedding parameter-sweep grids
+#   - QC metric violin plots
+#   - Shared internal helpers (.aspis_plot_dimred, .aspis_discrete_palette, …)
 #
-# All functions prefixed: ASPIS_
+# All public functions prefixed: ASPIS_
 # ==============================================================================
 
 
@@ -666,6 +664,7 @@ ASPIS_plot_qc <- function(sce,
 
 
 # Shared embedding plot engine (UMAP and tSNE).
+# Also called by ASPIS_plot_atlas() in aspis_atlas.R.
 .aspis_plot_dimred <- function(sce, dimred, colour_by, point_size, point_alpha,
                                 palette, title, label_clusters, label_size,
                                 assay_name, ncol = NULL,
