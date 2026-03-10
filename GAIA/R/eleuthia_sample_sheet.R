@@ -277,7 +277,9 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
                                 "\nThis indicates duplicate entries in the sample sheet."))
     }
   }
-
+  # Set rownames before returning
+  rownames(sample_sheet) <- sample_sheet$sample_id
+  
   # ---------------------------------------------------------------------------
   # Final validation status
   # ---------------------------------------------------------------------------
@@ -300,7 +302,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
       }
     }
   }
-
+  
   return(list(
     sample_sheet = sample_sheet,
     valid = valid,

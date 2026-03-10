@@ -1,7 +1,7 @@
 ================================================================================
 TALARIA STATUS - Import, Export & Format Conversion
 ================================================================================
-Last Updated: 2026-03-05
+Last Updated: 2026-03-10
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -95,6 +95,37 @@ TALARIA_get_log_file() — returns current log path, or NULL if inactive
 
 talaria_export.R:
 -----------------
+TALARIA_export_de(de_result, output_dir, prefix="de", plots=TRUE,
+                   top_n=10L, l2fc_thresh=1, plot_width=8, plot_height=6,
+                   verbose=TRUE)
+  - Writes one CSV per cluster/group + summary CSV + RDS object
+  - Accepts keraunos_markers, keraunos_contrast, or keraunos_pseudobulk
+  - plots=TRUE (pseudobulk only): volcano + MA per cluster as PDFs
+    (uses native .talaria_plot_volcano / .talaria_plot_ma helpers)
+    Labels top_n genes by significance; requires ggrepel (Suggests)
+  - Returns invisibly: character vector of file paths written
+
+TALARIA_export_gsea(result, output_dir, prefix="gsea", plots=TRUE,
+                     top_n=20L, plot_width=8, plot_height=6,
+                     enrich_plot_height=4, verbose=TRUE)
+  - Accepts keraunos_gsea or keraunos_gsea_multi
+  - Writes results CSV(s) + RDS + (if plots=TRUE):
+      dotplot (top_n/2 enriched + top_n/2 depleted by padj; NES on x,
+               dot size=gene set overlap, colour=-log10(padj))
+      enrichment score plots for top_n pathways (fgsea::plotEnrichment)
+  - Multi: per-cluster subdirectory layout
+  - Enrichment plots require ranked_genes + gene_sets stored in object
+    (stored automatically in keraunos_gsea since last KERAUNOS_gsea update)
+
+TALARIA_export_ora(result, output_dir, prefix="ora", plots=TRUE,
+                    top_n=20L, plot_width=8, plot_height=7, verbose=TRUE)
+  - Accepts keraunos_ora or keraunos_ora_multi
+  - Writes results CSV(s) + RDS + (if plots=TRUE):
+      dotplot (top_n terms across sources; fold enrichment on x,
+               dot size=intersection_size, colour=-log10(p_value),
+               faceted by source)
+  - Multi: per-cluster subdirectory; up and down exported separately
+
 TALARIA_export_first_steps(sce, output_dir, hvg_sweep=NULL, pc_sweep=NULL,
                             k_sweep=NULL, resolution_sweep=NULL,
                             umap_sweep=NULL, tsne_sweep=NULL,
@@ -129,7 +160,7 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- None (all planned I/O functions implemented)
+- None (all planned I/O + export functions implemented)
 
 ================================================================================
 DEPENDENCIES / NOTES
@@ -142,6 +173,15 @@ DEPENDENCIES / NOTES
 - BPCells (Suggests): on-disk bitpacked matrix backend for large datasets
   Install: devtools::install_github("bnprks/BPCells/r")
   All calls via requireNamespace() + BPCells:: prefix (no @importFrom)
+- ggrepel (Suggests): gene labels on volcano/MA plots in export_de
+- fgsea (Suggests): enrichment score plots in export_gsea (via plotEnrichment)
+- Internal helpers in talaria_export.R:
+    .talaria_plot_volcano(), .talaria_plot_ma() — native CAULDRON implementations
+    (inspired by GAIA/AETHER but no cross-package dependency)
+    .talaria_gsea_dotplot() — NES dotplot for fgsea results
+    .talaria_ora_dotplot()  — fold enrichment dotplot for gprofiler2 results
+    .talaria_gsea_enrichment_plot() — wraps fgsea::plotEnrichment()
+- TALARIA owns all CAULDRON exports, paralleling GAIA's ELEUTHIA module
 - Entry point for CAULDRON — all other modules depend on a properly loaded SCE
 - .talaria_normalise_assay_names(): ensures raw counts assay is named "counts"
   (Bioconductor convention); errors if X is continuous/log-normalised

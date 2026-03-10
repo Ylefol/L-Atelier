@@ -1,7 +1,7 @@
 ================================================================================
 PANDORA STATUS - Cell Type Annotation
 ================================================================================
-Last Updated: 2026-03-06
+Last Updated: 2026-03-10
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -76,6 +76,23 @@ PANDORA_annotate_celltypist(sce, model, majority_voting=TRUE,
   - Stores labels in colData(sce)[[label_col]]
   - Stores confidence in colData(sce)[[conf_col]] when majority_voting=FALSE
 
+PANDORA_assign_labels(sce, labels, cluster_col="cluster", label_col, verbose=TRUE)
+  - Manual mapping from cluster IDs to cell type labels
+  - labels: named character vector e.g. c("0"="T cell", "1"="B cell")
+  - label_col: required — name for the new colData column (no default to
+    prevent accidental overwrites)
+  - Clusters missing from labels receive NA with a warning
+  - Labels for non-existent clusters are reported as a message (not error)
+  - Stores result in colData(sce)[[label_col]]
+
+PANDORA_summarise_labels(sce, label_col, cluster_col=NULL, sample_col=NULL,
+                          verbose=TRUE)
+  - Frequency table of cell type labels (counts + proportions)
+  - cluster_col: optional — adds a breakdown of label composition per cluster
+  - sample_col: optional — adds a breakdown of label composition per sample
+  - Prints top 15 labels (overall) with cell counts and percentages
+  - Returns invisible list: $overall, $by_cluster (or NULL), $by_sample (or NULL)
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -84,10 +101,9 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- PANDORA_assign_labels()     Manual cluster → cell type mapping (manual_curation)
-- PANDORA_find_markers()      Wrapper for scran::findMarkers() per cluster
-- PANDORA_summarise_labels()  Label frequency table per cluster / sample
-- PANDORA_plot_label_heatmap() Heatmap of SingleR scores across cell types
+- PANDORA_find_markers()      MOVED → KERAUNOS_find_markers() (marker finding
+                               is statistics, not annotation)
+- PANDORA_plot_label_heatmap() Heatmap of SingleR scores — deferred to ASPIS
 
 ================================================================================
 DEPENDENCIES / NOTES

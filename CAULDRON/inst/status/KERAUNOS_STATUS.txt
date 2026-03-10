@@ -1,14 +1,141 @@
 ================================================================================
 KERAUNOS STATUS - Differential Expression & Gene Set Enrichment
 ================================================================================
-Last Updated: 2026-02-26
+Last Updated: 2026-03-10
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
 keraunos_expression.R:
 ----------------------
-(none yet)
+KERAUNOS_find_markers(sce, cluster_col="cluster", assay_name="logcounts",
+                       test_type="wilcox", pval_type="any", direction="up",
+                       min_prop=0.5, top_n=10L, fdr_threshold=0.05, verbose=TRUE)
+  - Pairwise cluster marker identification via scran::findMarkers()
+  - test_type: "wilcox" (default; AUC effect size), "t" (logFC), "binom"
+  - pval_type: "any" (significant in any pairwise comparison; most permissive),
+    "some" (>= min_prop), "all" (all comparisons; most stringent)
+  - direction: "up" (default — upregulated markers), "down", "any"
+  - Returns keraunos_markers: $markers (named list of DataFrames per cluster),
+    $top (tidy top-N table: cluster/gene/Top/p.value/FDR/mean_effect), $params
+  - mean_effect: mean AUC across pairwise comps (wilcox) or mean logFC (t)
+
+KERAUNOS_contrast_groups(sce, group_col, cluster_col=NULL, assay_name="logcounts",
+                          test_type="wilcox", direction="any",
+                          fdr_threshold=0.05, top_n=10L, verbose=TRUE)
+  - Cell-level contrast between conditions using scran::findMarkers()
+  - Quick path: no pseudobulk aggregation — pseudoreplication risk with
+    multi-sample data (a warning is always printed)
+  - cluster_col=NULL: global contrast (one result per group)
+  - cluster_col provided: per-cluster contrast (nested results)
+  - Returns keraunos_contrast: $results, $top, $params
+  - Clusters with < 2 cells per group are skipped with a message
+
+KERAUNOS_de_pseudobulk(sce, condition_col, sample_col, cluster_col="cluster",
+                         assay_name="counts", reference_level=NULL,
+                         min_cells=10L, min_samples=2L,
+                         fdr_threshold=0.05, pval_threshold=NULL,
+                         lfc_threshold=0, verbose=TRUE)
+  - Pseudobulk DE via DESeq2: aggregates raw counts per sample×cluster,
+    runs DESeq2 per cluster, extracts results with the specified contrast
+  - condition_col must have exactly 2 levels
+  - reference_level: denominator of the contrast; defaults to alphabetically first
+  - min_cells: drops samples with fewer cells from a cluster (per-cluster filtering)
+  - min_samples: skips clusters with insufficient replicates per condition
+  - fdr_threshold/pval_threshold: mutually exclusive; error if both non-NULL
+    fdr_threshold=0.05 (default) filters on padj; pval_threshold filters on
+    pvalue (niche use — raw p-value, no FDR adjustment); DESeq2 alpha for
+    independent filtering uses fdr_threshold when set, defaults to 0.1 otherwise
+  - BPCells-aware: materialises per-cluster slice only (not full matrix)
+  - Returns keraunos_pseudobulk:
+      $results  — named list of data.frames per cluster (DESeq2 columns +
+                  gene + cluster)
+      $dds      — named list of DESeqDataSet objects (for lfcShrink, etc.)
+      $summary  — data.frame: cluster/n_tested/n_sig/n_up/n_down
+      $skipped  — character vector of cluster names skipped
+      $params   — parameters including comparison string
+
+KERAUNOS_list_gene_sets(db_species=NULL, verbose=TRUE)
+  - Wraps msigdbr::msigdbr_collections() with formatted grouped output
+  - Groups by database: HS (human, plain codes H/C2/C5…) vs MM (mouse, MH/MC2/MC5…)
+  - db_species: NULL (both), "HS" (human only), "MM" (mouse only)
+  - Compatible with both old (gs_cat/gs_subcat) and new (gs_collection/gs_subcollection)
+    msigdbr column naming conventions
+
+KERAUNOS_list_species(verbose=TRUE)
+  - Wraps msigdbr::msigdbr_species(); prints available species and their db_species codes
+  - Prints "Code" (db_species value) and full species name side by side
+  - Column-name-agnostic: handles msigdbr version differences transparently
+  - Returns invisibly: the species data.frame
+  - Returns invisible data.frame with added 'database' column
+
+KERAUNOS_gsea(ranked_genes, gene_sets=NULL, species="Homo sapiens",
+               db_species=NULL, collection=c("H","C2","C5"), min_size=15L,
+               max_size=500L, fdr_threshold=0.05, verbose=TRUE)
+  - GSEA via fgsea::fgseaMultilevel() (eps=0 for precise p-values)
+  - ranked_genes: named numeric vector (names=gene IDs, values=ranking stat)
+    Typical stat: DESeq2 stat column, or sign(LFC)*(-log10(pvalue))
+  - gene_sets=NULL: fetches from MSigDB via msigdbr (requires msigdbr package)
+  - gene_sets as named list: uses user-supplied sets (bypasses msigdbr)
+  - db_species=NULL: human gene sets (default); db_species="MM": native mouse
+  - collection codes (human): "H" (hallmarks), "C2" (curated), "C5" (ontology)
+    subcategory with colon e.g. "C2:CP:REACTOME"
+  - collection codes (mouse, db_species="MM"): user must supply correct codes
+    (MH, MC2, MC5…); wrapper warns if plain human codes are detected but does
+    not auto-correct — use KERAUNOS_list_gene_sets(db_species="MM") to browse
+  - Deduplicates ranked_genes names (keeps first occurrence)
+  - Returns keraunos_gsea: $results (full df, ordered by padj),
+    $significant (filtered), $params
+
+KERAUNOS_ora(genes, background=NULL, organism="hsapiens",
+              sources=c("GO:BP","GO:MF","GO:CC","KEGG","REAC"),
+              fdr_threshold=0.05, verbose=TRUE)
+  - ORA via gprofiler2::gost() (FDR correction, returns all terms)
+  - genes: character vector of gene symbols/IDs
+  - background: custom background gene set (NULL = gprofiler2 reference genome)
+  - organism: gprofiler2 organism code ("hsapiens", "mmusculus", etc.)
+  - List columns (parents) are collapsed to comma-separated strings
+  - Returns keraunos_ora: $results, $significant, $params
+
+KERAUNOS_summarise_de(de_result, fdr_threshold=0.05, lfc_threshold=0)
+  - Accepts keraunos_markers, keraunos_contrast, or keraunos_pseudobulk
+  - Returns data.frame: cluster/group | n_tested | n_sig | [n_up | n_down]
+  - lfc_threshold only applied to pseudobulk (has log2FoldChange column)
+
+NOTE: Export functions for KERAUNOS results live in TALARIA (talaria_export.R)
+      in line with the CAULDRON architecture where TALARIA owns all I/O.
+      See: TALARIA_export_de(), TALARIA_export_gsea(), TALARIA_export_ora().
+
+KERAUNOS_ora_pseudobulk(de_result, organism="hsapiens",
+                         sources=c("GO:BP","GO:MF","GO:CC","KEGG","REAC"),
+                         lfc_threshold=0, background=c("tested","genome"),
+                         fdr_threshold=0.05, min_sig_genes=5L, verbose=TRUE)
+  - Multi-cluster ORA wrapper: accepts keraunos_pseudobulk; splits significant
+    DE genes per cluster into upregulated and downregulated sets; runs
+    KERAUNOS_ora() on each direction separately
+  - Significance resolved from de_result$params (respects fdr/pval_threshold)
+  - lfc_threshold: minimum |LFC| to classify a gene as directionally significant
+  - background="tested": uses all tested genes in each cluster as background
+    (statistically correct); background="genome" uses gprofiler2 reference
+  - min_sig_genes: skips a direction if fewer than N significant DE genes
+  - Returns keraunos_ora_multi: $results (cluster → list(up, down) of
+    keraunos_ora), $significant (same structure, sig tables only),
+    $summary (cluster df), $skipped, $params
+
+KERAUNOS_gsea_pseudobulk(de_result, gene_sets=NULL, species="Homo sapiens",
+                          db_species=NULL, collection=c("H","C2","C5"),
+                          rank_by=c("stat","lfc_pval"), min_ranked_genes=10L,
+                          min_size=15L, max_size=500L, fdr_threshold=0.05,
+                          verbose=TRUE)
+  - Multi-cluster GSEA wrapper: accepts keraunos_pseudobulk, runs GSEA per cluster
+  - Gene sets fetched ONCE from MSigDB (not per cluster) for efficiency
+  - rank_by="stat": DESeq2 Wald test statistic (default, recommended)
+    rank_by="lfc_pval": sign(LFC)*(-log10(p)) — fallback if stat has many NAs
+  - min_ranked_genes: skip clusters with insufficient non-NA ranked genes
+  - Same db_species/collection/warning behaviour as KERAUNOS_gsea()
+  - Returns keraunos_gsea_multi: $results (list of keraunos_gsea per cluster),
+    $significant (list of sig tables), $summary (cluster summary df),
+    $skipped, $params
 
 ================================================================================
 IN PROGRESS
@@ -18,20 +145,29 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- KERAUNOS_find_markers()       Cluster marker identification (scran/wilcox)
-- KERAUNOS_de_condition()       Condition-level DE within clusters
-- KERAUNOS_de_pseudobulk()      Pseudobulk DE (edgeR / DESeq2)
-- KERAUNOS_gsea()               Gene set enrichment analysis (fgsea)
-- KERAUNOS_ora()                Over-representation analysis
-- KERAUNOS_summarise_de()       Summary table of DE results
-- KERAUNOS_export_de()          Export DE results to CSV
+- None (all planned functions implemented)
 
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- Key packages: scran (findMarkers), edgeR, DESeq2 (pseudobulk),
-  fgsea (GSEA), clusterProfiler (ORA)
-- Pseudobulk DE is strongly preferred over single-cell DE for
-  condition comparisons — aggregates counts per sample per cluster
-  before testing, properly accounting for sample as the unit of replication
-- Single-cell level DE (findMarkers) appropriate for cluster marker discovery
+- scran (Imports): findMarkers — used by find_markers and contrast_groups
+- DESeq2 (Suggests): de_pseudobulk; accessed via requireNamespace() + DESeq2::
+- fgsea (Suggests): gsea; accessed via requireNamespace() + fgsea::
+- gprofiler2 (Suggests): ora; accessed via requireNamespace() + gprofiler2::
+- msigdbr (Suggests): optional gene set source for gsea; requireNamespace()
+- Matrix (Imports): rowSums for pseudobulk aggregation
+- Pseudobulk is the correct approach for multi-sample condition comparisons.
+  KERAUNOS_contrast_groups() is cell-level (quick/exploratory only).
+- ggrepel (Suggests): gene labels on volcano/MA plots in export_de
+- ORA uses gprofiler2 (consistent with GAIA's ARTEMIS module); GSEA uses fgsea.
+- S3 classes: keraunos_markers, keraunos_contrast, keraunos_pseudobulk,
+  keraunos_gsea, keraunos_gsea_multi, keraunos_ora, keraunos_ora_multi
+  — all have print() methods
+- keraunos_gsea now stores $ranked_genes (sorted named vector) and $gene_sets
+  (tested pathways only, subset of input gene_sets) to enable enrichment plots
+  without re-fetching; each cluster's keraunos_gsea inside gsea_multi inherits
+  these fields automatically
+- Internal: .keraunos_extract_top() shared helper for tidy top-N tables
+- Plot helpers for export live in talaria_export.R (.talaria_plot_volcano,
+  .talaria_plot_ma, .talaria_gsea_dotplot, .talaria_ora_dotplot,
+  .talaria_gsea_enrichment_plot) — native CAULDRON, no GAIA/AETHER dependency

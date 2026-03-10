@@ -387,6 +387,188 @@ PANDORA_annotate_sctype <- function(sce,
 }
 
 
+# ==============================================================================
+# Manual label assignment
+# ==============================================================================
+
+#' Manually assign cell type labels to clusters
+#'
+#' Maps cluster IDs to user-defined cell type labels using a named character
+#' vector, storing the result as a new \code{colData} column.  Clusters
+#' without a matching entry in \code{labels} receive \code{NA}.
+#'
+#' @param sce A \code{SingleCellExperiment}.
+#' @param labels Named character vector.  Names are cluster IDs (must match
+#'   levels in \code{cluster_col}); values are cell type labels.
+#'   Example: \code{c("0" = "T cell", "1" = "B cell", "2" = "Myeloid")}.
+#' @param cluster_col Character. \code{colData} column containing cluster IDs.
+#'   Default \code{"cluster"}.
+#' @param label_col Character. Name of the new \code{colData} column to create.
+#'   Must be supplied explicitly; no default to prevent accidental overwrites.
+#' @param verbose Logical. Print a summary. Default \code{TRUE}.
+#'
+#' @return SCE with \code{colData(sce)[[label_col]]} populated.
+#' @export
+PANDORA_assign_labels <- function(sce,
+                                   labels,
+                                   cluster_col = "cluster",
+                                   label_col,
+                                   verbose     = TRUE) {
+
+  if (!is.character(labels) || is.null(names(labels)))
+    stop("'labels' must be a named character vector.  ",
+         "Example: c('0' = 'T cell', '1' = 'B cell').", call. = FALSE)
+
+  if (!cluster_col %in% names(colData(sce)))
+    stop("cluster_col '", cluster_col, "' not found in colData(sce).",
+         call. = FALSE)
+
+  if (missing(label_col) || !nzchar(label_col))
+    stop("'label_col' must be specified — name for the new colData column.",
+         call. = FALSE)
+
+  clusters        <- as.character(colData(sce)[[cluster_col]])
+  unique_clusters <- sort(unique(clusters))
+
+  unmatched <- setdiff(unique_clusters, names(labels))
+  extra     <- setdiff(names(labels), unique_clusters)
+
+  if (length(unmatched) > 0)
+    warning("Clusters without labels (assigned NA): ",
+            paste(unmatched, collapse = ", "), call. = FALSE)
+
+  if (length(extra) > 0 && isTRUE(verbose))
+    message("  Note: labels provided for clusters not present in SCE: ",
+            paste(extra, collapse = ", "))
+
+  cell_labels         <- labels[clusters]
+  names(cell_labels)  <- colnames(sce)
+
+  colData(sce)[[label_col]] <- cell_labels
+
+  if (isTRUE(verbose)) {
+    n_assigned <- sum(!is.na(cell_labels))
+    n_types    <- length(unique(stats::na.omit(cell_labels)))
+    cat(sprintf(
+      "\u2500\u2500 PANDORA: assign_labels %s\n  Source    : %s  \u2192  %s\n  Assigned  : %s cells  |  NA: %s\n  Cell types: %d unique\n  Stored as : colData(sce)[[\"%s\"]]\n%s\n",
+      strrep("\u2500", 32),
+      cluster_col, label_col,
+      format(n_assigned, big.mark = ","),
+      format(sum(is.na(cell_labels)), big.mark = ","),
+      n_types,
+      label_col,
+      strrep("\u2500", 56)
+    ))
+  }
+
+  sce
+}
+
+
+#' Summarise cell type label composition
+#'
+#' Returns overall label frequencies and optionally a breakdown by cluster
+#' and/or sample.  Prints a formatted composition table to the console.
+#'
+#' @param sce A \code{SingleCellExperiment}.
+#' @param label_col Character. \code{colData} column with cell type labels
+#'   (output of any PANDORA annotation function or
+#'   \code{\link{PANDORA_assign_labels}}).
+#' @param cluster_col Character or \code{NULL}.  If provided, also tabulates
+#'   label composition within each cluster. Default \code{NULL}.
+#' @param sample_col Character or \code{NULL}.  If provided, also tabulates
+#'   label composition within each sample. Default \code{NULL}.
+#' @param verbose Logical. Print the composition table. Default \code{TRUE}.
+#'
+#' @return Invisibly returns a named list:
+#'   \itemize{
+#'     \item \code{$overall} — data.frame of overall label frequencies.
+#'     \item \code{$by_cluster} — data.frame or \code{NULL}.
+#'     \item \code{$by_sample} — data.frame or \code{NULL}.
+#'   }
+#' @export
+PANDORA_summarise_labels <- function(sce,
+                                      label_col,
+                                      cluster_col = NULL,
+                                      sample_col  = NULL,
+                                      verbose     = TRUE) {
+
+  if (!label_col %in% names(colData(sce)))
+    stop("label_col '", label_col, "' not found in colData(sce).",
+         call. = FALSE)
+
+  labels <- as.character(colData(sce)[[label_col]])
+
+  tbl    <- table(labels)
+  out_df <- data.frame(
+    label      = names(tbl),
+    n_cells    = as.integer(tbl),
+    proportion = as.numeric(tbl) / sum(tbl),
+    stringsAsFactors = FALSE
+  )
+  out_df <- out_df[order(-out_df$n_cells), , drop = FALSE]
+  rownames(out_df) <- NULL
+
+  # Optional cluster breakdown
+  cluster_df <- NULL
+  if (!is.null(cluster_col)) {
+    if (!cluster_col %in% names(colData(sce)))
+      stop("cluster_col '", cluster_col, "' not found in colData(sce).",
+           call. = FALSE)
+    clusters   <- as.character(colData(sce)[[cluster_col]])
+    ct         <- table(cluster = clusters, label = labels)
+    cluster_df <- as.data.frame(ct, stringsAsFactors = FALSE)
+    cluster_df$proportion <- cluster_df$Freq /
+      ave(cluster_df$Freq, cluster_df$cluster, FUN = sum)
+    cluster_df <- cluster_df[cluster_df$Freq > 0L, , drop = FALSE]
+    cluster_df <- cluster_df[order(cluster_df$cluster, -cluster_df$Freq), ,
+                              drop = FALSE]
+    rownames(cluster_df) <- NULL
+  }
+
+  # Optional sample breakdown
+  sample_df <- NULL
+  if (!is.null(sample_col)) {
+    if (!sample_col %in% names(colData(sce)))
+      stop("sample_col '", sample_col, "' not found in colData(sce).",
+           call. = FALSE)
+    samples   <- as.character(colData(sce)[[sample_col]])
+    st        <- table(sample = samples, label = labels)
+    sample_df <- as.data.frame(st, stringsAsFactors = FALSE)
+    sample_df$proportion <- sample_df$Freq /
+      ave(sample_df$Freq, sample_df$sample, FUN = sum)
+    sample_df <- sample_df[sample_df$Freq > 0L, , drop = FALSE]
+    sample_df <- sample_df[order(sample_df$sample, -sample_df$Freq), ,
+                            drop = FALSE]
+    rownames(sample_df) <- NULL
+  }
+
+  if (isTRUE(verbose)) {
+    cat(sprintf(
+      "\u2500\u2500 PANDORA: summarise_labels %s\n  Label col : %s\n  Cell types: %d unique (%s cells total)\n\n",
+      strrep("\u2500", 29),
+      label_col,
+      nrow(out_df),
+      format(ncol(sce), big.mark = ",")
+    ))
+    cat("  Overall composition:\n")
+    show_n <- min(nrow(out_df), 15L)
+    for (i in seq_len(show_n)) {
+      cat(sprintf("    %-32s %6s cells  (%4.1f%%)\n",
+                  out_df$label[i],
+                  format(out_df$n_cells[i], big.mark = ","),
+                  out_df$proportion[i] * 100))
+    }
+    if (nrow(out_df) > 15L)
+      cat("    ... and", nrow(out_df) - 15L, "more.\n")
+    cat(strrep("\u2500", 56), "\n")
+  }
+
+  invisible(list(overall = out_df, by_cluster = cluster_df,
+                 by_sample = sample_df))
+}
+
+
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 # Load scTypeDB from bundled file, user-supplied path, or data.frame.

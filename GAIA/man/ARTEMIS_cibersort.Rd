@@ -10,7 +10,7 @@ ARTEMIS_cibersort(
   sig_matrix,
   output_dir = "data",
   mixture_name = "mixture",
-  perm = 0,
+  perm = 100,
   QN = TRUE,
   verbose = TRUE
 )
@@ -34,8 +34,7 @@ Default: "data/cibersort".}
 (without extension). Default: "mixture". The file is saved as
 \verb{<output_dir>/cibersort/<mixture_name>.txt}.}
 
-\item{perm}{Number of permutations for p-value calculation. Default 0
-(no p-values, fast). Set to 100+ for significance testing.}
+\item{perm}{Number of permutations for p-value calculation. Default 100}
 
 \item{QN}{Logical. Apply quantile normalization. Default TRUE for microarray
 data. Set to FALSE for RNA-seq data.}

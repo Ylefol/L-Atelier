@@ -1,14 +1,51 @@
 ================================================================================
 KHALKOS STATUS - Shared Utilities
 ================================================================================
-Last Updated: 2026-02-26
+Last Updated: 2026-03-10
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
 khalkos_utils.R:
 ----------------
-(none yet)
+KHALKOS_validate_sce(sce, require_assays=NULL, require_reduceddims=NULL,
+                      require_coldata=NULL, require_metadata=NULL, verbose=TRUE)
+  - Validates SCE object: class check + required assays/reducedDims/colData/metadata
+  - Collects all failures and reports them together in one informative error
+  - Returns invisible TRUE on success
+
+KHALKOS_get_assay(sce, assay_name, error_if_missing=TRUE)
+  - Safe assay retrieval with informative error listing available assays
+  - Returns NULL silently if error_if_missing=FALSE
+
+KHALKOS_set_assay(sce, assay_name, value)
+  - Thin pipe-friendly wrapper for assay(sce, assay_name) <- value
+  - Returns modified SCE
+
+KHALKOS_default_palette(n, type=c("categorical","sequential","diverging"))
+  - categorical: 20-colour hand-curated set, extended via colorRampPalette for n>20
+  - sequential: purple → teal → yellow (viridis-inspired)
+  - diverging: blue → white → red
+  - Returns character vector of n hex colour codes
+
+KHALKOS_theme_cauldron(base_size=11, base_family="")
+  - Clean publication-ready ggplot2 theme (white background, subtle grey grid)
+  - Based on theme_bw; strips minor grid; bold titles; clean legend
+
+KHALKOS_log_message(msg, verbose=TRUE, level=c("info","warning","error"))
+  - Verbose-aware message dispatcher
+  - info: message() only if verbose=TRUE; warning: always warns; error: always stops
+
+KHALKOS_check_packages(packages, install_hint=NULL, error=TRUE)
+  - Batch requireNamespace() check with combined failure report
+  - error=TRUE: stops with informative message; error=FALSE: warns
+
+KHALKOS_merge_sce(sce_list, sample_col="sample_id", sample_names=NULL,
+                   verbose=TRUE)
+  - Column-binds a list of SCE objects into one merged SCE
+  - Adds sample_col to colData of each SCE before merging (tracks origin)
+  - Defaults sample_names to names(sce_list) or "sample_1", "sample_2", ...
+  - All SCEs must share the same genes (rows) in the same order
 
 ================================================================================
 IN PROGRESS
@@ -18,21 +55,14 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- KHALKOS_validate_sce()       Check SCE object has required slots/assays
-- KHALKOS_get_assay()          Safe assay retrieval with informative errors
-- KHALKOS_set_assay()          Safe assay assignment
-- KHALKOS_default_palette()    Return default colour palettes for cell types
-- KHALKOS_theme_cauldron()     Default ggplot2 theme for CAULDRON plots
-- KHALKOS_log_message()        Verbose-aware logging helper
-- KHALKOS_check_packages()     Check optional package availability with
-                                informative install instructions
-- KHALKOS_merge_sce()          Merge multiple SCE objects (cbind wrapper)
+- None (all planned utility functions implemented)
 
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- No dependencies on other CAULDRON modules — all other modules may
-  depend on KHALKOS, not the other way around
+- No external package dependencies (uses only Depends/Imports already in CAULDRON)
+- KHALKOS_theme_cauldron() uses ggplot2 (Depends — always attached)
+- KHALKOS_default_palette() uses grDevices::colorRampPalette (base R)
+- Internal constant: .khalkos_cat_palette_20 — 20 hand-curated hex colours
+- All other CAULDRON modules may depend on KHALKOS; KHALKOS must not depend on them
 - Direct parallel to GAIA's DEMETER module
-- Colour palettes should be consistent across all ASPIS plotting functions;
-  defaults defined here and overridable by the user

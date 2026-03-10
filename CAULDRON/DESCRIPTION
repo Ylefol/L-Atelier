@@ -64,4 +64,7 @@ Suggests:
     celldex,
     readxl,
     orthogene,
+    fgsea,
+    gprofiler2,
+    msigdbr,
     testthat (>= 3.0.0)

@@ -279,8 +279,12 @@ transformation).}
 Default \code{20}.}
 
 \item{dend_max_cells}{Integer or \code{NULL}.  Maximum cells per sector
-when not binning (\code{n_bin = NULL}).  \code{NULL} uses all cells.
-Default \code{500}.}
+used for dendrogram construction when \strong{not} binning
+(\code{n_bin = NULL}).  Sectors exceeding this count are randomly
+subsampled before \code{hclust()} to keep memory and runtime manageable
+(full \eqn{n \times n} distance matrix).  Has no effect when \code{n_bin}
+is set, because in that case clustering operates on bin centroids rather
+than individual cells.  \code{NULL} uses all cells.  Default \code{500}.}
 
 \item{dend_col}{Character.  Dendrogram line colour.  Default
 \code{"grey30"}.}
