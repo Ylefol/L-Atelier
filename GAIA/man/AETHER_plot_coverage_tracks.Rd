@@ -12,13 +12,17 @@ AETHER_plot_coverage_tracks(
   normalize = "CPM",
   bin_size = 10L,
   peak_bed = NULL,
+  annotation_tracks = NULL,
   group_colors = NULL,
   scale_y = "free",
   show_variance = FALSE,
   variance_type = "sd",
   track_height = 1,
-  annotation_height = 0.3,
+  annotation_height = 0.2,
   peak_color = "steelblue4",
+  vline = NULL,
+  vline_color = "black",
+  vline_type = "dotted",
   title = NULL,
   verbose = FALSE
 )
@@ -53,9 +57,47 @@ normalized in the file).}
 \item{bin_size}{Integer. Bin width in bp for BED mode only. Default \code{10}.
 Ignored in BigWig mode.}
 
-\item{peak_bed}{Optional. Peak annotation track displayed at the bottom.
-Either a path to a BED file or a data.frame with at least three columns
-(chr, start, end).}
+\item{peak_bed}{Optional. Peak annotation track displayed below coverage
+tracks. Either a path to a BED file or a data.frame with at least three
+columns (chr, start, end). Equivalent to adding a \code{"region"} type entry
+to \code{annotation_tracks} named \code{"Peaks"}.}
+
+\item{annotation_tracks}{Optional named list of additional annotation tracks
+to display below coverage tracks (and below \code{peak_bed} if provided). Each
+element is a named list describing one track. Two types are supported:
+\describe{
+\item{\code{type = "region"}}{Genomic intervals shown as filled rectangles
+(e.g. CpG islands, repeats). Required field: \code{data} (BED file path or
+data.frame with chr/start/end columns). Optional fields: \code{color}
+(fill colour, default \code{"steelblue4"}), \code{height} (relative patchwork
+height, default = \code{annotation_height}).}
+\item{\code{type = "score"}}{Per-site scores shown as a lollipop plot — a
+vertical segment from 0 to the score, capped with a point, both
+coloured by score value (e.g. methylation fractions). Required field:
+\code{data} (BigWig file path). Optional fields: \code{color_low} (colour at
+score=0, default \code{"steelblue"}), \code{color_high} (colour at score=1,
+default \code{"firebrick"}), \code{score_limits} (numeric(2), y-axis and colour
+scale limits; auto-detected from data if \code{NULL}), \code{height} (relative
+patchwork height, default = \code{annotation_height * 2}).}
+\item{\code{type = "genes"}}{Collapsed IGV-style gene model track. Shows
+the intron backbone, exon blocks (UTR height), CDS blocks (taller),
+strand direction arrows, and italic gene name labels. Multiple genes
+are automatically stacked into rows to avoid overlap. Required field:
+either \code{txdb} (TxDb object from \code{APOLLO_make_txdb()} — fast, preferred)
+or \code{gtf_file} (path to GTF — slower, reads genome-wide). Optional
+fields: \code{chr_mapping} (e.g. \code{"T2T"}, applied when using \code{gtf_file}),
+\code{show_cds} (logical, default \code{TRUE}), \code{label_genes} (logical, default
+\code{TRUE}), \code{label_size} (default \code{2.5}), \code{color} (default \code{"black"}),
+\code{height} (default = \code{annotation_height * 3}).}
+}
+Example:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{annotation_tracks = list(
+  "CpG Islands" = list(type="region", data="cpg.bed", color="darkgreen"),
+  "GpC Meth"    = list(type="score",  data="meth.bw",
+                       color_low="steelblue", color_high="firebrick")
+)
+}\if{html}{\out{</div>}}}
 
 \item{group_colors}{Optional named character vector mapping track names to
 colors. If \code{NULL}, colors are assigned automatically — known group names
@@ -76,11 +118,25 @@ Has no effect on single-file tracks.}
 \item{track_height}{Numeric. Relative height unit for each coverage track.
 Default \code{1}.}
 
-\item{annotation_height}{Numeric. Relative height unit for the peak
-annotation track. Default \code{0.3}.}
+\item{annotation_height}{Numeric. Default relative height unit for
+annotation tracks (\code{peak_bed} and \code{annotation_tracks} entries that do not
+specify their own \code{height}). Default \code{0.2}.}
 
 \item{peak_color}{Character. Fill color for peak rectangles in the
-annotation track. Default \code{"steelblue4"}.}
+\code{peak_bed} annotation track. Default \code{"steelblue4"}.}
+
+\item{vline}{Optional numeric vector of genomic positions (bp) at which to
+draw a vertical reference line through every track and annotation panel.
+Each position is drawn as an independent line within its panel, so panels
+are not visually connected. Accepts either plain numerics or
+\code{"chr:position"} strings (e.g. \code{"chr10:74073596"}) — the chromosome is
+ignored since all panels share the same region. Default \code{NULL} (no lines).}
+
+\item{vline_color}{Character. Colour of the vertical reference line(s).
+Default \code{"black"}.}
+
+\item{vline_type}{Character. Line type of the vertical reference line(s)
+(any value accepted by \code{linetype}). Default \code{"dotted"}.}
 
 \item{title}{Optional character string. Plot title placed above the first
 track.}
@@ -107,7 +163,9 @@ requested region directly from fragment-level BED files via
 is needed and BigWig files have not been pre-generated.
 }
 
-An optional peak annotation track can be added at the bottom.
+An optional peak annotation track can be added at the bottom. Additional
+annotation tracks (e.g. CpG islands, methylation sites) can be added via
+\code{annotation_tracks}.
 }
 \details{
 When multiple files are provided for a track, per-bin mean is computed

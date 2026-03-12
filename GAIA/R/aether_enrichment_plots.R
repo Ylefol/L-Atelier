@@ -985,3 +985,1095 @@ AETHER_plot_annotation_bar <- function(annotated_list,
 
   return(p)
 }
+
+
+###############################################################################
+########### GO Treemap via Semantic Similarity Reduction ###########
+###############################################################################
+
+#' Internal: map gprofiler2 organism to OrgDb package name
+#' @noRd
+.aether_gost_orgdb <- function(organism) {
+  map <- c(
+    hsapiens      = "org.Hs.eg.db",
+    mmusculus     = "org.Mm.eg.db",
+    rnorvegicus   = "org.Rn.eg.db",
+    drerio        = "org.Dr.eg.db",
+    dmelanogaster = "org.Dm.eg.db",
+    celegans      = "org.Ce.eg.db",
+    scerevisiae   = "org.Sc.sgd.db",
+    sscrofa       = "org.Ss.eg.db",
+    btaurus       = "org.Bt.eg.db",
+    cfamiliaris   = "org.Cf.eg.db",
+    ggallus       = "org.Gg.eg.db"
+  )
+  pkg <- map[tolower(trimws(organism))]
+  if (is.na(pkg))
+    stop("Organism '", organism, "' not recognised. ",
+         "Supported gprofiler2 organisms: ", paste(names(map), collapse = ", "),
+         ".\nIf your organism is not listed, open an issue or pass the OrgDb package ",
+         "name directly to rrvgo::calculateSimMatrix().")
+  unname(pkg)
+}
+
+
+#' Internal: generate n categorical colors for module labeling
+#' @noRd
+.aether_n_colors <- function(n) {
+  base_cols <- c(
+    "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00",
+    "#A65628", "#F781BF", "#999999", "#66C2A5", "#FC8D62",
+    "#8DA0CB", "#E78AC3", "#A6D854", "#FFD92F", "#E5C494",
+    "#B3B3B3", "#1B9E77", "#D95F02", "#7570B3", "#E7298A"
+  )
+  if (n <= length(base_cols)) return(base_cols[seq_len(n)])
+  grDevices::colorRampPalette(base_cols)(n)
+}
+
+
+#' GO Term Treemap via Semantic Similarity Reduction
+#'
+#' @description Reduces a set of enriched GO terms to representative clusters
+#' using semantic similarity (via \pkg{rrvgo}), then renders a treemap where
+#' each tile represents one GO term coloured by the module/gene-list that found
+#' it most significantly.  Tiles are grouped into larger semantic clusters
+#' (e.g., "immune response") based on GO hierarchy.
+#'
+#' @param enrichment_result A \code{gost_enrichment} object from
+#'   \code{\link{APOLLO_enrich_gost}} or \code{\link{DEMETER_load_enrichment}},
+#'   or a plain data.frame with at least the columns \code{term_id},
+#'   \code{source}, \code{p_value}, and \code{module}.
+#' @param orgdb An OrgDb object (e.g. \code{org.Hs.eg.db}) or a package name
+#'   string (e.g. \code{"org.Hs.eg.db"}) passed to
+#'   \code{rrvgo::calculateSimMatrix()} and \code{rrvgo::reduceSimMatrix()}.
+#'   Required — load the package first with
+#'   \code{library(org.Hs.eg.db)} (human) or
+#'   \code{library(org.Mm.eg.db)} (mouse), then pass the object.
+#' @param ont Character vector. GO ontology/ontologies to plot.
+#'   One or more of \code{"BP"}, \code{"MF"}, \code{"CC"}.
+#'   Multiple values produce one panel per ontology in a single figure.
+#'   Default: \code{"BP"}.
+#' @param top_n Integer. Top N GO terms per module (by p-value) pooled before
+#'   semantic reduction.  Higher values include more terms but may slow down
+#'   \code{rrvgo::calculateSimMatrix()}.  Default: \code{20L}.
+#' @param threshold Numeric (0–1). Similarity threshold for
+#'   \code{rrvgo::reduceSimMatrix()}.  Higher values → fewer, broader clusters;
+#'   lower values → more, finer clusters.  Default: \code{0.7}.
+#' @param method Character. Semantic similarity measure passed to
+#'   \code{rrvgo::calculateSimMatrix()}.  One of \code{"Rel"} (default),
+#'   \code{"Wang"}, \code{"Lin"}, \code{"Resnik"}, \code{"Jiang"}.
+#' @param show_shared Logical. If \code{FALSE} (default), each GO term is
+#'   assigned to the single module with the best (lowest) p-value for that
+#'   term ("winner takes all").  If \code{TRUE}, terms found in multiple modules
+#'   are assigned to a combined group labelled \code{"C1-C2"} (module names
+#'   joined by \code{"-"}, sorted alphabetically) and given a distinct color
+#'   automatically; useful for spotting convergent biology across modules.
+#' @param show_group_labels Logical. If \code{TRUE} (default), each large
+#'   parent-cluster tile shows the module group attribution beneath the semantic
+#'   cluster name, e.g. \code{"immune response\n(C7)"}.  The group shown is the
+#'   one assigned to the cluster's representative (highest-scoring) term.
+#'   Set to \code{FALSE} to display the semantic cluster name only.
+#' @param min_label_scale Numeric (0–1). Minimum text scaling fraction passed
+#'   to \code{treemap}'s \code{lowerbound.cex.labels}.  When a tile is too
+#'   small to fit text at the full \code{fontsize.labels}, treemap scales the
+#'   text down; if the required scale falls below this value the label is
+#'   suppressed entirely.  Default \code{0.1} is more permissive than
+#'   \code{treemap}'s own default of \code{0.4}, so more labels appear in
+#'   small tiles.  Set to \code{0} to force all labels regardless of tile size
+#'   (may produce very small text).  Opening a larger graphics device before
+#'   calling this function also helps, as larger tiles require less scaling.
+#' @param palette Named character vector. Module name → hex color mapping.
+#'   If \code{NULL} (default), colors are auto-assigned from an internal
+#'   20-color categorical palette.  Unknown modules fall back to auto-generated
+#'   colors.  The combined/shared group always uses \code{"#AAAAAA"} regardless
+#'   of the palette.
+#' @param title Character. Main plot title.  If \code{NULL} (default), the
+#'   ontology label is used (e.g., "GO Biological Process").  When multiple
+#'   ontologies are requested, the ontology label is appended automatically.
+#' @param verbose Logical. Print progress messages.  Default: \code{TRUE}.
+#'
+#' @return Invisibly returns a named list of \code{reducedTerms} data.frames
+#'   (one per ontology, named by ontology code: "BP", "MF", "CC").  The
+#'   primary output is the treemap rendered to the current graphics device.
+#'   Save with \code{png()} / \code{pdf()} wrappers before calling.
+#'
+#' @details
+#' **Workflow:**
+#' 1. Filters the combined enrichment table to the requested GO source(s).
+#' 2. Takes the top \code{top_n} terms per module by p-value and pools them.
+#' 3. For each unique GO term, uses the best (lowest) p-value across modules
+#'    as the rrvgo score (\code{-log10(p)}).
+#' 4. Computes a semantic similarity matrix via
+#'    \code{rrvgo::calculateSimMatrix()} (requires the relevant OrgDb package).
+#' 5. Reduces to representative clusters via \code{rrvgo::reduceSimMatrix()}.
+#' 6. Assigns each term a module group (winner or shared, per \code{show_shared}).
+#' 7. Renders via \code{treemap::treemap()} with parent clusters as outer
+#'    groupings and individual terms as inner tiles coloured by module group.
+#'
+#' **OrgDb auto-detection:** The organism is read from
+#' \code{enrichment_result$metadata$organism} (set automatically by
+#' \code{APOLLO_enrich_gost()}).  Supported organisms and their OrgDb packages:
+#' \code{hsapiens} → \code{org.Hs.eg.db};
+#' \code{mmusculus} → \code{org.Mm.eg.db};
+#' \code{rnorvegicus} → \code{org.Rn.eg.db};
+#' \code{drerio} → \code{org.Dr.eg.db};
+#' \code{dmelanogaster} → \code{org.Dm.eg.db};
+#' \code{celegans} → \code{org.Ce.eg.db};
+#' \code{scerevisiae} → \code{org.Sc.sgd.db};
+#' \code{sscrofa} → \code{org.Ss.eg.db};
+#' \code{btaurus} → \code{org.Bt.eg.db};
+#' \code{cfamiliaris} → \code{org.Cf.eg.db};
+#' \code{ggallus} → \code{org.Gg.eg.db}.
+#' The corresponding OrgDb package must be installed.
+#'
+#' **Required packages:** \pkg{rrvgo} (Bioconductor) and \pkg{treemap} (CRAN),
+#' plus the appropriate OrgDb package for the organism.
+#'
+#' @seealso \code{\link{APOLLO_enrich_gost}}, \code{\link{DEMETER_load_enrichment}}
+#'
+#' @examples
+#' \dontrun{
+#' library(org.Hs.eg.db)  # human; use org.Mm.eg.db for mouse
+#'
+#' # Basic GO:BP treemap
+#' AETHER_plot_go_treemap(gost_res, orgdb = org.Hs.eg.db)
+#'
+#' # Multiple ontologies side by side
+#' AETHER_plot_go_treemap(gost_res, orgdb = org.Hs.eg.db, ont = c("BP", "MF"))
+#'
+#' # Show shared terms across modules in grey
+#' AETHER_plot_go_treemap(gost_res, orgdb = org.Hs.eg.db, show_shared = TRUE)
+#'
+#' # Custom module palette + save to PNG
+#' my_pal <- c(C1 = "#E41A1C", C2 = "#377EB8", C3 = "#4DAF4A")
+#' png("treemap_BP.png", width = 10, height = 8, units = "in", res = 300)
+#' AETHER_plot_go_treemap(gost_res, orgdb = org.Hs.eg.db, ont = "BP", palette = my_pal)
+#' dev.off()
+#' }
+#' @export
+AETHER_plot_go_treemap <- function(enrichment_result,
+                                    orgdb,
+                                    ont               = "BP",
+                                    top_n             = 20L,
+                                    threshold         = 0.7,
+                                    method            = "Rel",
+                                    show_shared       = FALSE,
+                                    show_group_labels = TRUE,
+                                    min_label_scale   = 0.1,
+                                    palette           = NULL,
+                                    title             = NULL,
+                                    verbose           = TRUE) {
+
+  # ---------------------------------------------------------------------------
+  # Package checks
+  # ---------------------------------------------------------------------------
+  if (!requireNamespace("rrvgo", quietly = TRUE))
+    stop("Package 'rrvgo' is required. Install with: BiocManager::install('rrvgo')")
+  if (!requireNamespace("treemap", quietly = TRUE))
+    stop("Package 'treemap' is required. Install with: install.packages('treemap')")
+
+  # ---------------------------------------------------------------------------
+  # Extract data
+  # ---------------------------------------------------------------------------
+  if (inherits(enrichment_result, "gost_enrichment")) {
+    df <- enrichment_result$combined
+  } else if (is.data.frame(enrichment_result)) {
+    df <- enrichment_result
+  } else {
+    stop("enrichment_result must be a gost_enrichment object or data.frame")
+  }
+
+  if (nrow(df) == 0L) stop("No enrichment results to plot")
+
+  # ---------------------------------------------------------------------------
+  # Validate arguments
+  # ---------------------------------------------------------------------------
+  ont    <- match.arg(ont, c("BP", "MF", "CC"), several.ok = TRUE)
+  method <- match.arg(method, c("Rel", "Wang", "Lin", "Resnik", "Jiang"))
+  top_n  <- as.integer(top_n)
+
+  # ---------------------------------------------------------------------------
+  # Build base color palette for single modules.
+  # Shared groups (if show_shared = TRUE) are assigned additional colors inside
+  # the loop, extending this pool so all groups remain visually distinct.
+  # ---------------------------------------------------------------------------
+  all_modules <- sort(unique(as.character(df$module)))
+  if (is.null(palette)) {
+    mod_colors <- setNames(.aether_n_colors(length(all_modules)), all_modules)
+  } else {
+    mod_colors <- palette
+    extra_mods <- setdiff(all_modules, names(mod_colors))
+    if (length(extra_mods) > 0L) {
+      extra_cols <- .aether_n_colors(length(extra_mods))
+      mod_colors <- c(mod_colors, setNames(extra_cols, extra_mods))
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # Ontology metadata
+  # ---------------------------------------------------------------------------
+  ont_source <- c(BP = "GO:BP", MF = "GO:MF", CC = "GO:CC")
+  ont_label  <- c(
+    BP = "GO Biological Process",
+    MF = "GO Molecular Function",
+    CC = "GO Cellular Component"
+  )
+
+  # ---------------------------------------------------------------------------
+  # Filter to GO terms only
+  # ---------------------------------------------------------------------------
+  df_go_all <- df[grepl("^GO:", df$source), ]
+  if (nrow(df_go_all) == 0L)
+    stop("No GO terms found in enrichment results. ",
+         "Confirm GO:BP, GO:MF, or GO:CC were included as sources.")
+
+  # ---------------------------------------------------------------------------
+  # Multi-panel layout when multiple ontologies requested
+  # ---------------------------------------------------------------------------
+  n_ont <- length(ont)
+  if (n_ont > 1L) {
+    old_par <- graphics::par(mfrow = c(1L, n_ont))
+    on.exit(graphics::par(old_par), add = TRUE)
+  }
+
+  reduced_list <- list()
+
+  for (o in ont) {
+
+    df_ont <- df_go_all[df_go_all$source == ont_source[o], ]
+    if (nrow(df_ont) == 0L) {
+      if (verbose) message("No ", ont_source[o], " terms found — skipping.")
+      next
+    }
+
+    # -------------------------------------------------------------------------
+    # Pool top_n terms per module
+    # -------------------------------------------------------------------------
+    df_ont  <- df_ont[order(df_ont$p_value), ]
+    df_pool <- do.call(rbind, lapply(split(df_ont, df_ont$module),
+                                     function(x) utils::head(x, top_n)))
+    rownames(df_pool) <- NULL
+
+    # -------------------------------------------------------------------------
+    # Best p-value per unique GO term (rrvgo score)
+    # -------------------------------------------------------------------------
+    go_ids <- unique(df_pool$term_id)
+    best_p <- tapply(df_pool$p_value, df_pool$term_id, min)
+    scores <- setNames(-log10(as.numeric(best_p[go_ids])), go_ids)
+
+    # -------------------------------------------------------------------------
+    # Semantic similarity matrix + reduction
+    # -------------------------------------------------------------------------
+    if (verbose)
+      cat(sprintf("GO %s: computing semantic similarity for %d terms...\n",
+                  o, length(go_ids)))
+
+    sim_mat <- tryCatch(
+      rrvgo::calculateSimMatrix(go_ids, orgdb = orgdb,
+                                ont = o, method = method),
+      error = function(e) {
+        warning("calculateSimMatrix failed for GO:", o,
+                " — ", conditionMessage(e))
+        NULL
+      }
+    )
+    if (is.null(sim_mat)) next
+
+    # Align to terms present in OrgDb
+    common_ids <- intersect(rownames(sim_mat), names(scores))
+    if (length(common_ids) < 2L) {
+      if (verbose)
+        message("Too few GO:", o, " terms present in OrgDb after filtering — skipping.")
+      next
+    }
+    sim_mat  <- sim_mat[common_ids, common_ids]
+    scores   <- scores[common_ids]
+    df_pool  <- df_pool[df_pool$term_id %in% common_ids, ]
+
+    red <- rrvgo::reduceSimMatrix(sim_mat, scores = scores,
+                                  threshold = threshold,
+                                  orgdb = orgdb)
+
+    # -------------------------------------------------------------------------
+    # Assign module group to each reduced term
+    # -------------------------------------------------------------------------
+    red$module_group <- vapply(red$go, function(go_id) {
+      rows <- df_pool[df_pool$term_id == go_id, ]
+      mods <- unique(rows$module)
+      if (length(mods) == 0L) return("unknown")
+      if (length(mods) == 1L || !show_shared) {
+        # Winner takes all: module with best p-value for this term
+        as.character(rows$module[which.min(rows$p_value)])
+      } else {
+        paste(sort(mods), collapse = "-")
+      }
+    }, FUN.VALUE = character(1L))
+
+    # -------------------------------------------------------------------------
+    # Assign distinct colors to any shared groups not yet in mod_colors.
+    # Shared groups get colors continuing from index (n_single + 1) in the
+    # same .aether_n_colors() pool so all groups remain visually distinct.
+    # treemap::treemap() assigns palette colors POSITIONALLY by the
+    # alphabetically-sorted factor levels of vColor — sort all_groups to match.
+    # -------------------------------------------------------------------------
+    shared_groups <- sort(setdiff(unique(red$module_group), names(mod_colors)))
+    if (length(shared_groups) > 0L) {
+      n_existing   <- length(mod_colors)
+      all_extended <- .aether_n_colors(n_existing + length(shared_groups))
+      new_cols     <- all_extended[(n_existing + 1L):(n_existing + length(shared_groups))]
+      mod_colors   <- c(mod_colors, setNames(new_cols, shared_groups))
+    }
+
+    all_groups   <- sort(unique(red$module_group))
+    group_colors <- mod_colors[all_groups]
+
+    # -------------------------------------------------------------------------
+    # Optionally append the cluster representative's module group to the
+    # parentTerm label so each big tile shows both the semantic cluster name
+    # and which module/group it was found in.
+    # -------------------------------------------------------------------------
+    if (show_group_labels) {
+      rep_group  <- setNames(red$module_group, red$go)
+      red$parentTerm <- paste0(red$parentTerm, "\n(",
+                               rep_group[red$parent], ")")
+    }
+
+    # -------------------------------------------------------------------------
+    # Wrap term names for tile readability
+    # -------------------------------------------------------------------------
+    red$term_label <- vapply(red$term, function(x) {
+      paste(strwrap(x, width = 22L), collapse = "\n")
+    }, FUN.VALUE = character(1L))
+
+    # -------------------------------------------------------------------------
+    # Render treemap
+    # -------------------------------------------------------------------------
+    plot_title <- if (!is.null(title)) {
+      if (n_ont > 1L) paste(title, "\u2014", ont_label[o]) else title
+    } else {
+      ont_label[o]
+    }
+
+    if (verbose) cat("Rendering treemap:", plot_title, "\n")
+
+    treemap::treemap(
+      red,
+      index                  = c("parentTerm", "term_label"),
+      vSize                  = "score",
+      vColor                 = "module_group",
+      type                   = "categorical",
+      palette                = group_colors,
+      title                  = plot_title,
+      fontsize.title         = 14L,
+      fontsize.labels        = c(11L, 8L),
+      fontface.labels        = c("bold", "plain"),
+      fontcolor.labels       = c("white", "white"),
+      align.labels           = list(c("center", "top"), c("center", "center")),
+      overlap.labels         = 0.5,
+      border.col             = c("white", "white"),
+      border.lwds            = c(2, 0.5),
+      bg.labels              = 0L,
+      lowerbound.cex.labels  = min_label_scale,
+      aspRatio               = 1,
+      title.legend           = "Module",
+      position.legend        = "bottom"
+    )
+
+    reduced_list[[o]] <- red
+  }
+
+  invisible(reduced_list)
+}
+
+
+###############################################################################
+########### GO DAG Plot ###########
+###############################################################################
+
+#' Internal: return the GO.db parents environment for the given ontology
+#' @noRd
+.go_parents_env <- function(ont) {
+  switch(ont,
+    BP = GO.db::GOBPPARENTS,
+    MF = GO.db::GOMFPARENTS,
+    CC = GO.db::GOCCPARENTS
+  )
+}
+
+#' Internal: look up a GO term's display name; falls back to GO ID on failure
+#' @noRd
+.go_term_label <- function(go_id) {
+  tryCatch({
+    gt <- GO.db::GOTERM[[go_id]]
+    if (is.null(gt)) return(go_id)
+    GO.db::Term(gt)
+  }, error = function(e) go_id)
+}
+
+
+#' GO DAG Plot coloured by module
+#'
+#' @description Builds the GO Directed Acyclic Graph (DAG) induced by a set of
+#' enriched GO terms, traverses upward toward the root to include ancestor
+#' context nodes, and renders the result as a hierarchical network plot using
+#' \pkg{ggraph}.  Enriched nodes are coloured by module of origin; ancestor
+#' (non-enriched) context nodes are shown in grey.
+#'
+#' @param enrichment_result A \code{gost_enrichment} object from
+#'   \code{\link{APOLLO_enrich_gost}} / \code{\link{DEMETER_load_enrichment}},
+#'   or a plain data.frame with columns \code{term_id}, \code{source},
+#'   \code{p_value}, \code{module}.
+#' @param ont Character. GO ontology: \code{"BP"} (default), \code{"MF"}, or
+#'   \code{"CC"}.  Only one ontology per call.
+#' @param top_n Integer. Top N enriched GO terms per module (by p-value) to
+#'   include before building the DAG.  Default: \code{20L}.
+#' @param min_ancestor_freq Integer. Minimum number of enriched terms an
+#'   ancestor node must be an ancestor of in order to be retained.  Enriched
+#'   terms themselves are always kept.  Lowering this value shows more
+#'   context; raising it focuses on shared hubs only.  Default: \code{2L}.
+#' @param max_depth Integer or \code{NULL}.  Maximum number of levels to
+#'   traverse upward from enriched terms.  \code{NULL} traverses all the way
+#'   to the ontology root.  Default: \code{4L}.
+#' @param show_shared Logical.  If \code{FALSE} (default), each enriched term
+#'   is coloured by its single best-p module.  If \code{TRUE}, terms found
+#'   in multiple modules get a combined label (e.g., \code{"C1-C2"}) and a
+#'   distinct auto-assigned colour.
+#' @param edge_types Character vector.  GO relationship types to include as
+#'   edges.  Any combination of \code{"is_a"}, \code{"part_of"},
+#'   \code{"regulates"}, \code{"positively_regulates"},
+#'   \code{"negatively_regulates"}.  Default: all five.
+#' @param node_size_range Numeric vector of length 2.  Min and max point sizes
+#'   for enriched nodes (scaled by \code{-log10(p)}).  Default: \code{c(3, 10)}.
+#' @param palette Named character vector.  Module name → hex color mapping.
+#'   \code{NULL} (default) auto-assigns from internal palette.
+#' @param title Character.  Plot title.  \code{NULL} (default) auto-generates.
+#' @param verbose Logical.  Print progress messages.  Default: \code{TRUE}.
+#'
+#' @return A \code{ggplot} / \code{ggraph} object.  Save with
+#'   \code{ggplot2::ggsave()}.
+#'
+#' @details
+#' **Algorithm:**
+#' 1. Filters \code{enrichment_result$combined} to the requested ontology and
+#'    takes the top \code{top_n} terms per module by p-value.
+#' 2. Traverses the GO DAG upward (child → parent) from enriched terms using
+#'    \code{GO.db::GOBPPARENTS} (or MF/CC), up to \code{max_depth} levels.
+#' 3. For each ancestor node, counts how many enriched terms it is an ancestor
+#'    of.  Ancestors below \code{min_ancestor_freq} are removed.
+#' 4. Renders the filtered DAG with \pkg{ggraph} using the Sugiyama
+#'    (layered/hierarchical) layout.  Enriched nodes are coloured by module
+#'    group; ancestor nodes are grey.  Edge line type encodes GO relationship.
+#'
+#' **Required packages:** \pkg{GO.db} (Bioconductor), \pkg{ggraph},
+#' \pkg{igraph} (both already in Suggests).
+#'
+#' @seealso \code{\link{APOLLO_enrich_gost}}, \code{\link{AETHER_plot_go_treemap}}
+#'
+#' @examples
+#' \dontrun{
+#' # Basic GO:BP DAG
+#' p <- AETHER_plot_go_dag(gost_res, ont = "BP")
+#' ggplot2::ggsave("go_dag_bp.png", p, width = 14, height = 10)
+#'
+#' # Tighter focus: only high-frequency hubs, shallow traversal
+#' p <- AETHER_plot_go_dag(gost_res, ont = "BP",
+#'                          min_ancestor_freq = 3, max_depth = 3)
+#'
+#' # is_a edges only (cleaner)
+#' p <- AETHER_plot_go_dag(gost_res, ont = "BP", edge_types = "is_a")
+#' }
+#' @export
+AETHER_plot_go_dag <- function(enrichment_result,
+                                ont               = "BP",
+                                top_n             = 20L,
+                                min_ancestor_freq = 2L,
+                                max_depth         = 4L,
+                                show_shared       = FALSE,
+                                edge_types        = c("is_a", "part_of", "regulates",
+                                                      "positively_regulates",
+                                                      "negatively_regulates"),
+                                node_size_range   = c(3, 10),
+                                palette           = NULL,
+                                title             = NULL,
+                                verbose           = TRUE) {
+
+  # ---------------------------------------------------------------------------
+  # Package checks
+  # ---------------------------------------------------------------------------
+  for (pkg in c("GO.db", "ggraph", "igraph")) {
+    if (!requireNamespace(pkg, quietly = TRUE))
+      stop("Package '", pkg, "' is required. Install with: BiocManager::install('", pkg, "')")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Extract and validate
+  # ---------------------------------------------------------------------------
+  if (inherits(enrichment_result, "gost_enrichment")) {
+    df <- enrichment_result$combined
+  } else if (is.data.frame(enrichment_result)) {
+    df <- enrichment_result
+  } else {
+    stop("enrichment_result must be a gost_enrichment object or data.frame")
+  }
+  if (nrow(df) == 0L) stop("No enrichment results to plot")
+
+  ont               <- match.arg(ont, c("BP", "MF", "CC"))
+  top_n             <- as.integer(top_n)
+  min_ancestor_freq <- as.integer(min_ancestor_freq)
+  max_depth         <- if (!is.null(max_depth)) as.integer(max_depth) else NULL
+
+  ont_source <- c(BP = "GO:BP", MF = "GO:MF", CC = "GO:CC")
+  df_go <- df[df$source == ont_source[ont], ]
+  if (nrow(df_go) == 0L)
+    stop("No ", ont_source[ont], " terms found in enrichment results.")
+
+  # ---------------------------------------------------------------------------
+  # Pool top_n per module
+  # ---------------------------------------------------------------------------
+  df_go   <- df_go[order(df_go$p_value), ]
+  df_pool <- do.call(rbind, lapply(split(df_go, df_go$module),
+                                   function(x) utils::head(x, top_n)))
+  rownames(df_pool) <- NULL
+  enriched_ids <- unique(df_pool$term_id)
+  if (verbose) cat(sprintf("GO %s DAG: %d enriched terms\n", ont, length(enriched_ids)))
+
+  # ---------------------------------------------------------------------------
+  # Module group + color assignment (same logic as treemap)
+  # ---------------------------------------------------------------------------
+  all_modules <- sort(unique(as.character(df$module)))
+  if (is.null(palette)) {
+    mod_colors <- setNames(.aether_n_colors(length(all_modules)), all_modules)
+  } else {
+    mod_colors <- palette
+    extra_mods <- setdiff(all_modules, names(mod_colors))
+    if (length(extra_mods) > 0L)
+      mod_colors <- c(mod_colors,
+                      setNames(.aether_n_colors(length(extra_mods)), extra_mods))
+  }
+
+  term_group <- vapply(enriched_ids, function(go_id) {
+    rows <- df_pool[df_pool$term_id == go_id, ]
+    mods <- unique(rows$module)
+    if (length(mods) == 0L) return("unknown")
+    if (length(mods) == 1L || !show_shared)
+      as.character(rows$module[which.min(rows$p_value)])
+    else
+      paste(sort(mods), collapse = "-")
+  }, FUN.VALUE = character(1L))
+
+  shared_groups <- sort(setdiff(unique(term_group), names(mod_colors)))
+  if (length(shared_groups) > 0L) {
+    n_ex     <- length(mod_colors)
+    new_cols <- .aether_n_colors(n_ex + length(shared_groups))
+    mod_colors <- c(mod_colors,
+                    setNames(new_cols[(n_ex + 1L):(n_ex + length(shared_groups))],
+                             shared_groups))
+  }
+
+  best_p <- tapply(df_pool$p_value, df_pool$term_id, min)
+
+  # ---------------------------------------------------------------------------
+  # BFS upward through the GO DAG from enriched terms
+  # Tracks, for each ancestor, the set of enriched terms that "found" it
+  # (used later for min_ancestor_freq filtering).
+  # ---------------------------------------------------------------------------
+  # Pre-convert the bimap to a plain R list once — avoids S4 dispatch issues
+  # with [[]] on Go3AnnDbBimap objects and is faster for repeated lookups.
+  # Format: names(entry) = relationship types; values = parent GO IDs.
+  if (verbose) cat("Loading GO", ont, "parent mappings...\n")
+  parents_list  <- as.list(.go_parents_env(ont))
+
+  all_node_ids  <- enriched_ids
+  depth_map     <- setNames(rep(0L, length(enriched_ids)), enriched_ids)
+  # ancestor_seeds: node_id -> set of enriched IDs that are descendants
+  anc_seeds     <- setNames(as.list(enriched_ids), enriched_ids)
+  edge_rows     <- list()
+  frontier      <- enriched_ids
+
+  while (length(frontier) > 0L) {
+    new_frontier <- character(0)
+    for (child_id in frontier) {
+      child_depth <- depth_map[[child_id]]
+      if (!is.null(max_depth) && child_depth >= max_depth) next
+
+      parents_raw <- parents_list[[child_id]]
+      if (is.null(parents_raw) || length(parents_raw) == 0L) next
+
+      # names = relationship types; values = parent GO IDs
+      rel_types  <- names(parents_raw)
+      parent_ids <- as.character(parents_raw)
+
+      for (i in seq_along(parent_ids)) {
+        pid <- parent_ids[[i]]
+        rel <- rel_types[[i]]
+        if (pid == "all") next  # GO root sentinel
+        # GO.db stores "isa" (no underscore); normalise to "is_a"
+        rel <- sub("^isa$", "is_a", rel)
+        if (!rel %in% edge_types) next  # filtered relationship type
+
+        edge_rows[[length(edge_rows) + 1L]] <- c(pid, child_id, rel)
+
+        child_seeds <- anc_seeds[[child_id]]
+        if (!pid %in% all_node_ids) {
+          all_node_ids    <- c(all_node_ids, pid)
+          depth_map[[pid]] <- child_depth + 1L
+          anc_seeds[[pid]] <- child_seeds
+          new_frontier     <- c(new_frontier, pid)
+        } else {
+          # Merge enriched seeds for this ancestor (union)
+          anc_seeds[[pid]] <- union(anc_seeds[[pid]], child_seeds)
+        }
+      }
+    }
+    frontier <- unique(new_frontier)
+  }
+
+  if (length(edge_rows) == 0L) {
+    warning("No edges found in GO DAG. Check GO.db is installed and GO IDs are valid.")
+    return(invisible(NULL))
+  }
+
+  edges_df           <- as.data.frame(do.call(rbind, edge_rows), stringsAsFactors = FALSE)
+  colnames(edges_df) <- c("from", "to", "rel_type")
+  edges_df           <- unique(edges_df)
+
+  # ---------------------------------------------------------------------------
+  # Apply min_ancestor_freq: drop non-enriched ancestors that connect to fewer
+  # than min_ancestor_freq enriched terms. Enriched nodes are always kept.
+  # ---------------------------------------------------------------------------
+  anc_freq <- vapply(all_node_ids, function(nid) {
+    if (nid %in% enriched_ids) return(.Machine$integer.max)
+    length(anc_seeds[[nid]])
+  }, FUN.VALUE = integer(1L))
+
+  keep_nodes <- names(anc_freq)[anc_freq >= min_ancestor_freq]
+  if (length(keep_nodes) < 2L) {
+    warning("min_ancestor_freq = ", min_ancestor_freq,
+            " left fewer than 2 nodes. Lowering to keep all nodes.")
+    keep_nodes <- all_node_ids
+  }
+
+  edges_df     <- edges_df[edges_df$from %in% keep_nodes &
+                             edges_df$to   %in% keep_nodes, ]
+  all_node_ids <- unique(c(enriched_ids,
+                           intersect(all_node_ids, keep_nodes)))
+
+  if (nrow(edges_df) == 0L) {
+    warning("No edges remain after filtering. Try lowering min_ancestor_freq.")
+    return(invisible(NULL))
+  }
+
+  # ---------------------------------------------------------------------------
+  # Node attribute table
+  # ---------------------------------------------------------------------------
+  enr_name_map <- setNames(df_pool$term_name, df_pool$term_id)
+  enr_name_map <- enr_name_map[!duplicated(names(enr_name_map))]
+
+  raw_labels <- vapply(all_node_ids, function(nid) {
+    if (nid %in% names(enr_name_map))
+      enr_name_map[[nid]]
+    else
+      .go_term_label(nid)
+  }, FUN.VALUE = character(1L))
+
+  node_labels <- vapply(raw_labels, function(x) {
+    paste(strwrap(x, width = 20L), collapse = "\n")
+  }, FUN.VALUE = character(1L))
+
+  node_group <- vapply(all_node_ids, function(nid) {
+    if (nid %in% names(term_group)) term_group[[nid]] else "ancestor"
+  }, FUN.VALUE = character(1L))
+
+  # Node size: scaled -log10(p) for enriched; fixed small for ancestors
+  node_size_raw <- vapply(all_node_ids, function(nid) {
+    if (nid %in% names(best_p)) -log10(as.numeric(best_p[[nid]])) else NA_real_
+  }, FUN.VALUE = numeric(1L))
+
+  enr_idx  <- !is.na(node_size_raw)
+  enr_vals <- node_size_raw[enr_idx]
+  rng      <- range(enr_vals, na.rm = TRUE)
+  if (diff(rng) > 0) {
+    node_size_raw[enr_idx] <- node_size_range[1] +
+      (enr_vals - rng[1]) / diff(rng) * diff(node_size_range)
+  } else {
+    node_size_raw[enr_idx] <- mean(node_size_range)
+  }
+  node_size_raw[!enr_idx] <- node_size_range[1] * 0.6  # ancestors: smaller
+
+  node_df <- data.frame(
+    name       = all_node_ids,
+    label      = node_labels,
+    node_group = node_group,
+    node_size  = node_size_raw,
+    stringsAsFactors = FALSE
+  )
+
+  # ---------------------------------------------------------------------------
+  # Build igraph (edges_df cols: from, to, rel_type)
+  # ---------------------------------------------------------------------------
+  g <- igraph::graph_from_data_frame(
+    d        = edges_df,
+    directed = TRUE,
+    vertices = node_df
+  )
+
+  # ---------------------------------------------------------------------------
+  # Color and linetype scales
+  # ---------------------------------------------------------------------------
+  present_groups <- sort(unique(node_group))
+  enr_groups     <- present_groups[present_groups != "ancestor"]
+  fill_colors    <- c(
+    setNames(vapply(enr_groups, function(g_) mod_colors[[g_]],
+                    FUN.VALUE = character(1L)),
+             enr_groups),
+    ancestor = "#CCCCCC"
+  )
+
+  # Edge colour palette: distinct colours per relationship type
+  all_edge_rel  <- sort(unique(edges_df$rel_type))
+  edge_col_pool <- c("is_a"                   = "#888888",
+                     part_of                  = "#4477AA",
+                     regulates                = "#EE6677",
+                     positively_regulates     = "#228833",
+                     negatively_regulates     = "#CC3311")
+  # Fall back for any unexpected types
+  fallback_cols <- grDevices::hcl.colors(length(all_edge_rel), "Dark 2")
+  edge_colors   <- stats::setNames(
+    vapply(seq_along(all_edge_rel), function(i) {
+      rel <- all_edge_rel[[i]]
+      if (rel %in% names(edge_col_pool)) edge_col_pool[[rel]] else fallback_cols[[i]]
+    }, character(1L)),
+    all_edge_rel
+  )
+
+  # ---------------------------------------------------------------------------
+  # Render
+  # ---------------------------------------------------------------------------
+  plot_title <- title %||% paste0(
+    "GO ", c(BP = "Biological Process",
+             MF = "Molecular Function",
+             CC = "Cellular Component")[ont], " DAG"
+  )
+
+  if (verbose) cat("Rendering GO DAG (", igraph::vcount(g), "nodes,",
+                   igraph::ecount(g), "edges)\n")
+
+  p <- ggraph::ggraph(g, layout = "sugiyama") +
+    ggraph::geom_edge_link(
+      ggplot2::aes(color = rel_type),
+      arrow     = grid::arrow(length = grid::unit(2, "mm"), type = "closed"),
+      end_cap   = ggraph::circle(3, "mm"),
+      linewidth = 0.4
+    ) +
+    ggraph::geom_node_point(
+      ggplot2::aes(fill = node_group, size = node_size),
+      shape  = 21,
+      color  = "white",
+      stroke = 0.5
+    ) +
+    ggraph::geom_node_text(
+      ggplot2::aes(label = label),
+      size   = 2.5,
+      repel  = TRUE,
+      family = "sans"
+    ) +
+    ggraph::scale_edge_color_manual(values = edge_colors, name = "Relationship") +
+    ggplot2::scale_fill_manual(
+      values = fill_colors,
+      name   = "Module",
+      breaks = enr_groups
+    ) +
+    ggplot2::scale_size_identity() +
+    ggplot2::labs(title = plot_title) +
+    ggplot2::theme_void() +
+    ggplot2::theme(
+      plot.title  = ggplot2::element_text(face = "bold", size = 14, hjust = 0.5),
+      legend.position = "right",
+      plot.margin = ggplot2::margin(10, 10, 10, 10)
+    )
+
+  return(p)
+}
+
+
+# =============================================================================
+# AETHER_plot_enrichment_map
+# =============================================================================
+
+#' Enrichment Map (Term-Term Network)
+#'
+#' @description
+#' Visualises enriched pathway/GO terms as a network where nodes are terms and
+#' edges connect terms that share a substantial fraction of their gene sets
+#' (Jaccard similarity \eqn{\ge} \code{jaccard_threshold}).  Node size encodes
+#' the best \eqn{-\log_{10}(p)} across all modules; node fill encodes the
+#' primary module (lowest p-value).  Edge width is proportional to Jaccard
+#' similarity.  A force-directed layout naturally clusters related terms into
+#' "super-groups", making it easy to spot shared biology across modules.
+#'
+#' Terms with no edges above the threshold still appear as isolated nodes —
+#' they represent module-specific biology not shared with other enriched terms.
+#'
+#' @details
+#' Jaccard similarity is computed from the \code{intersection} gene lists in
+#' the \code{gost_enrichment} object (requires \code{evcodes = TRUE} in
+#' \code{APOLLO_enrich_gost}).  The union of intersection gene sets across all
+#' modules is used per term, so similarity reflects shared biology rather than
+#' query-specific overlap.
+#'
+#' Requires \pkg{ggraph} and \pkg{igraph} (both already in Suggests).
+#'
+#' @param enrichment_result A \code{gost_enrichment} object from
+#'   \code{APOLLO_enrich_gost()} or a plain data.frame with columns
+#'   \code{term_id}, \code{term_name}, \code{source}, \code{module},
+#'   \code{p_value}, and optionally \code{intersection}.
+#' @param source Character(1).  Database to display.  Default \code{"REAC"}.
+#' @param top_n Integer.  Top N terms per module (by p-value) pooled before
+#'   deduplication.  Default \code{20L}.  Reduce to 10–15 for cleaner graphs.
+#' @param jaccard_threshold Numeric in \code{[0, 1]}.  Minimum Jaccard
+#'   similarity to draw an edge.  Default \code{0.2}.  Increase to reduce
+#'   edge density; decrease if too few edges appear.
+#' @param layout Character.  igraph/ggraph layout algorithm.  \code{"fr"}
+#'   (Fruchterman-Reingold, default) and \code{"kk"} (Kamada-Kawai) both work
+#'   well; \code{"fr"} tends to produce rounder, more separated clusters.
+#' @param node_size_range Numeric(2).  Min and max point size for nodes.
+#'   Default \code{c(3, 12)}.
+#' @param edge_width_range Numeric(2).  Min and max edge linewidth.
+#'   Default \code{c(0.3, 2)}.
+#' @param max_label_width Integer.  Maximum label characters before truncation.
+#'   Default \code{40L}.
+#' @param label_size Numeric.  \code{ggrepel} text size.  Default \code{2.5}.
+#' @param palette Named character vector of colours, one per module.
+#'   \code{NULL} (default) auto-assigns from the internal 20-colour palette.
+#' @param title Character.  Plot title.  \code{NULL} auto-generates.
+#' @param verbose Logical.  Default \code{TRUE}.
+#'
+#' @return A \code{ggplot} object (ggsave-compatible).
+#'
+#' @examples
+#' \dontrun{
+#' p <- AETHER_plot_enrichment_map(enrich, source = "REAC", top_n = 20)
+#' ggplot2::ggsave("emap.png", p, width = 12, height = 10)
+#'
+#' # Fewer terms, tighter edges
+#' p <- AETHER_plot_enrichment_map(enrich, top_n = 10, jaccard_threshold = 0.3)
+#' }
+#' @export
+AETHER_plot_enrichment_map <- function(enrichment_result,
+                                        source            = "REAC",
+                                        top_n             = 20L,
+                                        jaccard_threshold = 0.2,
+                                        layout            = "fr",
+                                        node_size_range   = c(3, 12),
+                                        edge_width_range  = c(0.3, 2),
+                                        max_label_width   = 40L,
+                                        label_size        = 2.5,
+                                        palette           = NULL,
+                                        title             = NULL,
+                                        verbose           = TRUE) {
+
+  # ---------------------------------------------------------------------------
+  # Package checks
+  # ---------------------------------------------------------------------------
+  for (pkg in c("ggraph", "igraph")) {
+    if (!requireNamespace(pkg, quietly = TRUE))
+      stop("Package '", pkg, "' is required. Install with: install.packages('", pkg, "')")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Input normalisation
+  # ---------------------------------------------------------------------------
+  if (inherits(enrichment_result, "gost_enrichment")) {
+    combined <- enrichment_result$combined
+  } else if (is.data.frame(enrichment_result)) {
+    combined <- enrichment_result
+  } else {
+    stop("enrichment_result must be a gost_enrichment object or data.frame")
+  }
+
+  req_cols <- c("term_id", "term_name", "source", "module", "p_value")
+  missing  <- setdiff(req_cols, colnames(combined))
+  if (length(missing) > 0L)
+    stop("Missing required columns: ", paste(missing, collapse = ", "))
+
+  if (!source %in% combined$source) {
+    avail <- paste(sort(unique(combined$source)), collapse = ", ")
+    stop("Source '", source, "' not found. Available: ", avail)
+  }
+
+  df      <- combined[combined$source == source, , drop = FALSE]
+  modules <- sort(unique(df$module))
+  if (length(modules) == 0L)
+    stop("No modules found for source '", source, "'")
+
+  # ---------------------------------------------------------------------------
+  # Module colours
+  # ---------------------------------------------------------------------------
+  if (!is.null(palette)) {
+    if (is.null(names(palette)))
+      stop("palette must be a named vector")
+    mod_colors <- palette[modules]
+  } else {
+    mod_colors <- stats::setNames(.aether_n_colors(length(modules)), modules)
+  }
+
+  # ---------------------------------------------------------------------------
+  # Select top N per module, deduplicate
+  # ---------------------------------------------------------------------------
+  top_df <- do.call(rbind, lapply(modules, function(m) {
+    sub <- df[df$module == m, , drop = FALSE]
+    sub <- sub[order(sub$p_value), , drop = FALSE]
+    utils::head(sub, as.integer(top_n))
+  }))
+
+  all_term_ids <- unique(top_df$term_id)
+  n_terms      <- length(all_term_ids)
+  if (verbose) cat(source, "emap:", n_terms, "unique terms across",
+                   length(modules), "modules\n")
+
+  # ---------------------------------------------------------------------------
+  # Gene sets per term (union of intersections across modules)
+  # ---------------------------------------------------------------------------
+  has_evcodes <- "intersection" %in% colnames(top_df) &&
+                 any(nchar(as.character(top_df$intersection)) > 0, na.rm = TRUE)
+
+  if (!has_evcodes)
+    stop("No 'intersection' column found. ",
+         "AETHER_plot_enrichment_map requires evcodes=TRUE in APOLLO_enrich_gost.")
+
+  gene_sets <- lapply(all_term_ids, function(tid) {
+    rows  <- top_df[top_df$term_id == tid, , drop = FALSE]
+    genes <- unique(unlist(strsplit(as.character(rows$intersection), ",")))
+    trimws(genes[nchar(trimws(genes)) > 0])
+  })
+  names(gene_sets) <- all_term_ids
+
+  # ---------------------------------------------------------------------------
+  # Pairwise Jaccard → edge list
+  # ---------------------------------------------------------------------------
+  if (verbose) cat("Computing pairwise Jaccard similarity...\n")
+
+  edge_rows <- list()
+  for (i in seq_len(n_terms - 1L)) {
+    a <- gene_sets[[i]]
+    for (j in seq(i + 1L, n_terms)) {
+      b   <- gene_sets[[j]]
+      uni <- length(union(a, b))
+      if (uni == 0L) next
+      jacc <- length(intersect(a, b)) / uni
+      if (jacc >= jaccard_threshold)
+        edge_rows[[length(edge_rows) + 1L]] <-
+          c(all_term_ids[[i]], all_term_ids[[j]], jacc)
+    }
+  }
+
+  if (length(edge_rows) == 0L) {
+    warning("No edges found at jaccard_threshold = ", jaccard_threshold,
+            ". Try lowering the threshold.")
+    # Still proceed — isolated-node graph is informative
+    edge_df <- data.frame(from = character(0), to = character(0),
+                           weight = numeric(0), stringsAsFactors = FALSE)
+  } else {
+    edge_mat <- do.call(rbind, edge_rows)
+    edge_df  <- data.frame(from   = edge_mat[, 1],
+                            to     = edge_mat[, 2],
+                            weight = as.numeric(edge_mat[, 3]),
+                            stringsAsFactors = FALSE)
+  }
+
+  if (verbose) cat(nrow(edge_df), "edges above Jaccard threshold",
+                   jaccard_threshold, "\n")
+
+  # ---------------------------------------------------------------------------
+  # Node attributes
+  # ---------------------------------------------------------------------------
+  # Best -log10(p) per term (across all modules)
+  best_nlp <- vapply(all_term_ids, function(tid) {
+    sub <- top_df[top_df$term_id == tid, , drop = FALSE]
+    -log10(min(sub$p_value))
+  }, numeric(1L))
+
+  # Primary module (lowest p)
+  primary_module <- vapply(all_term_ids, function(tid) {
+    sub <- top_df[top_df$term_id == tid, , drop = FALSE]
+    sub$module[which.min(sub$p_value)]
+  }, character(1L))
+
+  # Number of modules that found this term
+  n_mods <- vapply(all_term_ids, function(tid) {
+    length(unique(top_df$module[top_df$term_id == tid]))
+  }, integer(1L))
+
+  # Truncated labels
+  term_labels <- vapply(all_term_ids, function(tid) {
+    nm <- top_df$term_name[top_df$term_id == tid][1L]
+    if (is.na(nm) || nm == "") return(tid)
+    w <- as.integer(max_label_width)
+    if (nchar(nm) > w) paste0(substr(nm, 1L, w - 3L), "...") else nm
+  }, character(1L))
+
+  node_df <- data.frame(
+    name           = all_term_ids,
+    label          = term_labels,
+    primary_module = primary_module,
+    best_nlp       = best_nlp,
+    n_modules      = n_mods,
+    stringsAsFactors = FALSE
+  )
+
+  # ---------------------------------------------------------------------------
+  # Build igraph
+  # ---------------------------------------------------------------------------
+  g <- igraph::graph_from_data_frame(edge_df, directed = FALSE, vertices = node_df)
+
+  # ---------------------------------------------------------------------------
+  # Render
+  # ---------------------------------------------------------------------------
+  plot_title <- title %||% paste0(source, " Enrichment Map")
+
+  # Node border: thicker stroke for multi-module terms
+  stroke_vals <- ifelse(igraph::V(g)$n_modules > 1L, 1.2, 0.4)
+
+  if (verbose) cat("Rendering enrichment map (", igraph::vcount(g), "nodes,",
+                   igraph::ecount(g), "edges)...\n")
+
+  p <- ggraph::ggraph(g, layout = layout) +
+    ggraph::geom_edge_link(
+      ggplot2::aes(width = weight),
+      color = "grey30",
+      alpha = 0.6
+    ) +
+    ggraph::geom_node_point(
+      ggplot2::aes(fill = primary_module, size = best_nlp),
+      shape  = 21,
+      color  = "white",
+      stroke = stroke_vals
+    ) +
+    ggraph::geom_node_text(
+      ggplot2::aes(label = label),
+      size   = label_size,
+      repel  = TRUE,
+      family = "sans",
+      color  = "grey20"
+    ) +
+    ggraph::scale_edge_width_continuous(
+      range = edge_width_range,
+      name  = "Jaccard"
+    ) +
+    ggplot2::scale_fill_manual(
+      values = unname(mod_colors[modules]),
+      labels = modules,
+      name   = "Module"
+    ) +
+    ggplot2::scale_size_continuous(range = node_size_range, guide = "none") +
+    ggplot2::labs(title = plot_title) +
+    ggplot2::theme_void() +
+    ggplot2::theme(
+      plot.title      = ggplot2::element_text(face = "bold", size = 14, hjust = 0.5),
+      legend.position = "right",
+      plot.margin     = ggplot2::margin(10, 10, 10, 10)
+    )
+
+  return(p)
+}
+

@@ -1,11 +1,30 @@
 ================================================================================
 AETHER STATUS - Visualization
 ================================================================================
-Last Updated: 2026-02-20
+Last Updated: 2026-03-13
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+
+aether_coverage_tracks.R:
+--------------------------
+AETHER_plot_coverage_tracks(bigwig_files=NULL, bed_files=NULL, region, ...)
+  - Stacked multi-sample coverage plot from BigWig/BED files over a genomic region
+  - normalize="CPM"|"none"; bin_size controls resolution; scale_y="free"|"fixed"
+  - show_variance=TRUE overlays ±SD/SE ribbon on signal tracks
+  - peak_bed: BED file/data.frame of peaks; drawn as filled bar track
+  - annotation_tracks: named list of additional annotation panels, each with:
+      type="region"  — BED intervals as filled rectangles (e.g. CpG islands)
+      type="score"   — BigWig per-site values as lollipop plot (e.g. methylation)
+      type="genes"   — IGV-style collapsed gene models (TxDb or GTF source)
+        - show_cds=TRUE draws taller CDS blocks over UTR exons
+        - Greedy row-stacking prevents gene label/body overlap
+        - Direction arrows (▸/◂) on intron backbone regions only
+  - vline: numeric or "chr:pos" string(s) for vertical reference lines across all panels
+  - vline_color, vline_type: aesthetics for vlines
+  - track_height, annotation_height: relative panel heights (genes default 3×annotation_height)
+  - Returns a patchwork-assembled ggplot
 
 aether_activity_plots.R:
 ------------------------
@@ -76,6 +95,16 @@ AETHER_plot_volcano(dea_result, ...)
 AETHER_plot_ma(dea_result, ...)
   - Four-category MA plot (log2FC vs log2 baseMean)
   - Same category/legend scheme as AETHER_plot_volcano
+AETHER_plot_deg_peak_scatter(deg_peaks, ...)
+  - Scatter of DEG log2FC vs signed distance to TSS from APOLLO_link_degs_to_peaks()
+  - Points: one per peak-DEG pair; colour=direction, size=-log10(padj)
+  - ggrepel labels for top N genes by padj; TSS and LFC=0 reference lines
+AETHER_plot_enrichment_map(enrichment_result, source="REAC", top_n=20L, jaccard_threshold=0.2, ...)
+  - Term-term network (enrichment map): nodes=terms, edges=Jaccard gene-overlap >= threshold
+  - Node size=-log10(best p across modules), node colour=primary module, edge width=Jaccard
+  - Force-directed layout (fr/kk) clusters related terms into visible super-groups
+  - Multi-module terms shown with thicker node border; isolated nodes = module-specific biology
+  - Returns ggplot object (ggsave-compatible)
 
 aether_enrichment_plots.R:
 ---------------------------
@@ -87,6 +116,35 @@ AETHER_plot_enrichment_bar(enrichment_result, ...)
   - Bar plot for enrichment results
 AETHER_plot_annotation_bar(annotation_result, ...)
   - Genomic annotation distribution bar plot
+AETHER_plot_go_dag(enrichment_result, ont="BP", top_n=20L, min_ancestor_freq=2L,
+                    max_depth=4L, show_shared=FALSE,
+                    edge_types=c("is_a","part_of","regulates",...), ...)
+  - GO DAG plot coloured by module/cluster of origin
+  - Accepts gost_enrichment or data.frame (same interface as treemap)
+  - Traverses GO hierarchy upward via GO.db::GOBPPARENTS/GOMFPARENTS/GOCCPARENTS
+  - min_ancestor_freq: keep ancestor nodes shared by >= N enriched terms (noise filter)
+  - max_depth: limit upward traversal from enriched terms (default 4 levels)
+  - edge_types: filter GO relationship types shown as edges
+  - Enriched nodes: coloured by module, sized by -log10(p); ancestors: grey, small
+  - Layout: ggraph Sugiyama (hierarchical); returns ggplot object (ggsave compatible)
+  - No orgdb needed (GO structure from GO.db, not OrgDb)
+
+AETHER_plot_go_treemap(enrichment_result, orgdb, ont="BP", top_n=20L, threshold=0.7,
+                        method="Rel", show_shared=FALSE, show_group_labels=TRUE,
+                        palette=NULL, ...)
+  - GO term treemap via semantic similarity reduction (rrvgo)
+  - Accepts gost_enrichment (APOLLO_enrich_gost / DEMETER_load_enrichment) or data.frame
+  - ont: "BP", "MF", "CC" or any combination; one panel per ontology
+  - top_n terms per module pooled; best p-value per term used as rrvgo score (tile area)
+  - Tiles coloured by module (winner = lowest p); show_shared=TRUE assigns shared terms
+    (found in 2+ modules) to a combined label e.g. "C1-C2" with a distinct color
+    (colors extended from the same pool, continuing after single-module colors)
+  - show_group_labels=TRUE (default): parent tiles show semantic name + module group
+    attribution e.g. "immune response\n(C7)"; toggle off for label-only display
+  - orgdb: required OrgDb object or package name string (e.g. org.Hs.eg.db)
+  - Renders via treemap::treemap() to current device; save with png()/pdf() wrappers
+  - Returns invisible list of reducedTerms data.frames (one per ontology)
+  - Requires: rrvgo (Bioconductor), treemap (CRAN), OrgDb package for organism
 
 aether_famd_plots.R:
 --------------------
@@ -174,4 +232,7 @@ DEPENDENCIES / NOTES
 - No inter-module dependencies (Aether is visualization only)
 - External: ggplot2 (Depends), ComplexHeatmap, circlize, plotly, visNetwork,
   ggraph, igraph, pheatmap, RColorBrewer, ggrepel, gridExtra
+- GO treemap: rrvgo (Bioconductor), treemap (CRAN), OrgDb pkg for organism
+  (org.Hs.eg.db for human, org.Mm.eg.db for mouse, etc.)
+- GO DAG: GO.db (Bioconductor), ggraph, igraph (both already in Suggests)
 - WGCNA plot functions require WGCNA package (Imports)

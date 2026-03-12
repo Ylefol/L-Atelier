@@ -1,7 +1,7 @@
 ================================================================================
 DEMETER STATUS - Utilities
 ================================================================================
-Last Updated: 2026-02-19
+Last Updated: 2026-03-12
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -58,6 +58,11 @@ DEMETER_filter_circos_clusters(circos_data, clusters, ...)
   - Filter circos data to selected PART clusters
 DEMETER_rename_circos_modules(circos_data, rename_map, ...)
   - Rename modules for display in circos plot
+DEMETER_load_enrichment(file_path, verbose=TRUE)
+  - Load a saved gost_enrichment object from RDS (full fidelity) or CSV (partial)
+  - RDS restores complete object: $results, $combined, $summary, $metadata
+  - CSV restores $combined only; metadata inferred from data columns
+  - Coerces plain list to gost_enrichment if structure matches
 
 demeter_simulate_data.R:
 ------------------------

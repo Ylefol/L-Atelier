@@ -1832,3 +1832,132 @@ DEMETER_rename_circos_modules <- function(circos_data,
 
   return(circos_data)
 }
+
+
+# ==============================================================================
+# ENRICHMENT RESULT LOADER
+# ==============================================================================
+
+#' Load saved enrichment results
+#'
+#' Loads a \code{gost_enrichment} object (from \code{APOLLO_enrich_gost()})
+#' that was saved by the user via \code{saveRDS()}, or reconstructs a partial
+#' object from a flat CSV export.  RDS is the recommended format: it preserves
+#' the complete object including per-module gost objects and metadata.  CSV
+#' reconstruction is provided as a fallback — only the \code{$combined}
+#' data.frame is restored; per-module gost objects and \code{$metadata} are
+#' unavailable.
+#'
+#' @param file_path Character. Path to an \code{.rds} or \code{.csv} file.
+#'   For CSV, the file must contain at minimum the columns:
+#'   \code{term_id}, \code{term_name}, \code{source}, \code{p_value},
+#'   \code{module} (i.e., the \code{$combined} output from
+#'   \code{APOLLO_enrich_gost()}).
+#' @param verbose Logical. Print loading summary. Default: \code{TRUE}.
+#'
+#' @return A \code{gost_enrichment} S3 object (list) with elements:
+#'   \describe{
+#'     \item{results}{Named list of raw gprofiler2 gost objects (RDS only;
+#'       empty list when loading from CSV)}
+#'     \item{combined}{Combined data.frame of all results across all modules}
+#'     \item{summary}{Summary data.frame of term counts (RDS only; NULL from CSV)}
+#'     \item{metadata}{List of analysis parameters including organism and
+#'       sources (RDS only; partially inferred from CSV)}
+#'   }
+#'
+#' @seealso \code{\link{APOLLO_enrich_gost}}, \code{\link{AETHER_plot_go_treemap}}
+#'
+#' @examples
+#' \dontrun{
+#' # Save enrichment result after running the analysis
+#' gost_res <- APOLLO_enrich_gost(gene_lists, sources = c("GO:BP", "KEGG"))
+#' saveRDS(gost_res, "results/enrichment/gost_results.rds")
+#'
+#' # Reload in a fresh session
+#' gost_res <- DEMETER_load_enrichment("results/enrichment/gost_results.rds")
+#'
+#' # Plot GO treemap from reloaded object
+#' AETHER_plot_go_treemap(gost_res, ont = "BP")
+#' }
+#' @export
+DEMETER_load_enrichment <- function(file_path, verbose = TRUE) {
+
+  if (!file.exists(file_path))
+    stop("File not found: ", file_path)
+
+  ext <- tolower(tools::file_ext(file_path))
+
+  # ---------------------------------------------------------------------------
+  # RDS path — full fidelity
+  # ---------------------------------------------------------------------------
+  if (ext == "rds") {
+    if (verbose) cat("Loading enrichment results from RDS:", file_path, "\n")
+    result <- readRDS(file_path)
+
+    if (!inherits(result, "gost_enrichment")) {
+      if (is.list(result) &&
+          all(c("results", "combined", "summary", "metadata") %in% names(result))) {
+        class(result) <- c("gost_enrichment", "list")
+        if (verbose) cat("  Coerced plain list to gost_enrichment\n")
+      } else {
+        warning("Loaded object is not a gost_enrichment (class: ",
+                paste(class(result), collapse = ", "), "). Returning as-is.")
+        return(result)
+      }
+    }
+
+    if (verbose) {
+      cat("  Modules   :", paste(names(result$results), collapse = ", "), "\n")
+      cat("  Total terms:", nrow(result$combined), "\n")
+      if (!is.null(result$metadata$organism))
+        cat("  Organism   :", result$metadata$organism, "\n")
+      if (!is.null(result$metadata$sources))
+        cat("  Sources    :", paste(result$metadata$sources, collapse = ", "), "\n")
+    }
+    return(result)
+  }
+
+  # ---------------------------------------------------------------------------
+  # CSV path — partial reconstruction
+  # ---------------------------------------------------------------------------
+  if (ext == "csv") {
+    if (verbose) {
+      cat("Loading enrichment results from CSV:", file_path, "\n")
+      cat("  Note: CSV reconstruction is partial.",
+          "Per-module gost objects and metadata are not available.\n")
+    }
+
+    combined <- tryCatch(
+      read.csv(file_path, stringsAsFactors = FALSE),
+      error = function(e) stop("Failed to read CSV: ", conditionMessage(e))
+    )
+
+    required <- c("term_id", "term_name", "source", "p_value", "module")
+    missing_cols <- setdiff(required, colnames(combined))
+    if (length(missing_cols) > 0)
+      stop("CSV missing required columns: ", paste(missing_cols, collapse = ", "),
+           ".\nExpected columns from the $combined element of APOLLO_enrich_gost() output.")
+
+    result <- list(
+      results  = list(),
+      combined = combined,
+      summary  = NULL,
+      metadata = list(
+        organism = NULL,
+        sources  = unique(combined$source),
+        note     = paste("Reconstructed from CSV —",
+                         "per-module gost objects and metadata not available.")
+      )
+    )
+    class(result) <- c("gost_enrichment", "list")
+
+    if (verbose) {
+      cat("  Modules   :", paste(sort(unique(combined$module)), collapse = ", "), "\n")
+      cat("  Total terms:", nrow(combined), "\n")
+      cat("  Sources    :", paste(unique(combined$source), collapse = ", "), "\n")
+    }
+    return(result)
+  }
+
+  stop("Unsupported file format: '.", ext, "'. Expected .rds or .csv")
+}

@@ -68,4 +68,7 @@ Suggests:
     preprocessCore,
     rtracklayer,
     patchwork,
+    rrvgo,
+    treemap,
+    GO.db,
     testthat (>= 3.0.0)

@@ -61,8 +61,25 @@ APOLLO_filter_motifs(homer_result, ...)
 
 apollo_peak_annotation.R:
 --------------------------
+APOLLO_make_txdb(gtf_path, ...)
+  - Create/cache TxDb from GTF; supports chr_mapping="T2T"
+APOLLO_annotate_peaks(regions, txdb, ...)
+  - ChIPseeker peak annotation (promoter/exon/intron/intergenic + nearest gene)
+APOLLO_enrich_go(annotated_peaks, ...)
+  - GO enrichment via clusterProfiler on annotated peak gene lists
 APOLLO_enrich_kegg(genes, ...)
   - KEGG pathway enrichment for gene lists
+
+apollo_peak_deg_link.R:
+------------------------
+APOLLO_link_degs_to_peaks(deg_result, peaks, gtf_file, txdb, distance=50000, ...)
+  - Links genes to ATAC peaks within a distance window of their TSS
+  - Many-to-many: all peak-gene pairs within range, not just nearest
+  - Accepts artemis_dea S3 or plain data.frame; peaks as data.frame or GRanges
+  - Caller is responsible for pre-filtering deg_result (e.g. to sig DEGs only)
+  - chr_mapping="T2T" for NCBI→UCSC renaming when using gtf_file
+  - Returns apollo_deg_peaks S3 object with $linked, $deg_summary, $peak_summary,
+    $stats, $params
 
 ================================================================================
 IN PROGRESS
@@ -72,7 +89,6 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- Peak-to-gene linking (ChIPseeker-based annotation not yet fully implemented)
 - Broader peak annotation functions beyond KEGG
 
 ================================================================================

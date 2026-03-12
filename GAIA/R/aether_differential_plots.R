@@ -629,3 +629,139 @@ AETHER_plot_ma <- function(dea_result,
 
   return(p)
 }
+
+
+# ==============================================================================
+# DEG-Peak Scatter Plot
+# ==============================================================================
+
+#' Scatter Plot of DEG LFC vs Distance to Nearest ATAC Peak
+#'
+#' @description Visualises the output of \code{APOLLO_link_degs_to_peaks()} as
+#' a scatter plot of log2 fold change against signed distance to the TSS
+#' (negative = upstream, positive = downstream). Each point is one peak-DEG
+#' pair. Point size encodes statistical significance (-log10 padj); colour
+#' encodes expression direction.
+#'
+#' @param deg_peaks An \code{apollo_deg_peaks} object from
+#'   \code{APOLLO_link_degs_to_peaks()}.
+#' @param color_up Character. Colour for upregulated DEGs.
+#'   Default \code{"#D6604D"} (red).
+#' @param color_down Character. Colour for downregulated DEGs.
+#'   Default \code{"#2166AC"} (blue).
+#' @param alpha Numeric. Point transparency. Default \code{0.7}.
+#' @param size_range Numeric vector of length 2. Min and max point sizes
+#'   (mapped to -log10 padj). Default \code{c(1, 5)}.
+#' @param label_top Integer. Number of top genes (by padj) to label with
+#'   \code{ggrepel}. Default \code{10}. Set to \code{0} to suppress labels.
+#' @param label_col Character. Column in \code{$linked} used for labels.
+#'   Default \code{NULL} (uses the \code{gene_col} from the linking step).
+#' @param show_tss_line Logical. Draw a vertical dashed line at distance = 0
+#'   (the TSS). Default \code{TRUE}.
+#' @param show_lfc_line Logical. Draw a horizontal dashed line at LFC = 0.
+#'   Default \code{TRUE}.
+#' @param title Character. Plot title. Default \code{NULL} (auto-generated).
+#' @param x_limits Numeric vector of length 2 or \code{NULL}. X-axis limits
+#'   in bp. Default \code{NULL} (auto from data).
+#'
+#' @return A \code{ggplot} object.
+#'
+#' @export
+AETHER_plot_deg_peak_scatter <- function(deg_peaks,
+                                          color_up      = "#D6604D",
+                                          color_down    = "#2166AC",
+                                          alpha         = 0.7,
+                                          size_range    = c(1, 5),
+                                          label_top     = 10,
+                                          label_col     = NULL,
+                                          show_tss_line = TRUE,
+                                          show_lfc_line = TRUE,
+                                          title         = NULL,
+                                          x_limits      = NULL) {
+
+  if (!inherits(deg_peaks, "apollo_deg_peaks"))
+    stop("deg_peaks must be an apollo_deg_peaks object from ",
+         "APOLLO_link_degs_to_peaks()", call. = FALSE)
+
+  df <- deg_peaks$linked
+
+  if (nrow(df) == 0)
+    stop("No peak-DEG pairs in deg_peaks$linked. Nothing to plot.", call. = FALSE)
+
+  gene_col <- deg_peaks$params$gene_col
+  if (is.null(label_col)) label_col <- gene_col
+  if (!label_col %in% colnames(df))
+    stop("label_col '", label_col, "' not found in deg_peaks$linked", call. = FALSE)
+
+  if (!"log2FoldChange" %in% colnames(df))
+    stop("deg_peaks$linked must contain 'log2FoldChange'", call. = FALSE)
+  if (!"padj" %in% colnames(df))
+    stop("deg_peaks$linked must contain 'padj'", call. = FALSE)
+
+  df$.direction <- ifelse(df$log2FoldChange >= 0, "Up", "Down")
+  df$.neg_log_p <- -log10(pmax(df$padj, 1e-300))
+  df$.label     <- df[[label_col]]
+
+  if (is.null(title)) {
+    dist_kb <- round(deg_peaks$params$distance / 1000)
+    title <- paste0("DEG LFC vs distance to TSS  (\u00B1", dist_kb,
+                    " kb)  \u2014  ",
+                    deg_peaks$stats$n_pairs, " peak-DEG pairs")
+  }
+
+  p <- ggplot(df, aes(x = .data$distance_to_tss,
+                      y = .data$log2FoldChange)) +
+    geom_point(
+      aes(color = .data$.direction, size = .data$.neg_log_p),
+      alpha = alpha
+    ) +
+    scale_color_manual(values = c("Up" = color_up, "Down" = color_down),
+                       name   = "Direction") +
+    scale_size_continuous(range = size_range,
+                          name  = expression(-log[10](padj))) +
+    scale_x_continuous(
+      labels = function(x) format(x, big.mark = ",", scientific = FALSE),
+      limits = x_limits
+    ) +
+    labs(
+      x     = paste0("Signed distance to TSS (bp)\n",
+                     "\u25C4 upstream  |  downstream \u25BA"),
+      y     = expression(log[2]~"Fold Change"),
+      title = title
+    ) +
+    theme_bw() +
+    theme(
+      panel.grid.minor = element_blank(),
+      legend.position  = "right",
+      plot.title       = element_text(size = 10)
+    )
+
+  if (show_tss_line)
+    p <- p + geom_vline(xintercept = 0, linetype = "dashed",
+                        color = "grey40", linewidth = 0.4)
+  if (show_lfc_line)
+    p <- p + geom_hline(yintercept = 0, linetype = "dashed",
+                        color = "grey40", linewidth = 0.4)
+
+  # Label top genes by padj — one label per gene, placed at its closest peak
+  if (label_top > 0 && requireNamespace("ggrepel", quietly = TRUE)) {
+    df_genes <- df[order(df$abs_distance), ]
+    df_genes <- df_genes[!duplicated(df_genes[[gene_col]]), ]
+    df_genes <- df_genes[order(df_genes$padj), ]
+    labs_df  <- head(df_genes, label_top)
+
+    if (nrow(labs_df) > 0) {
+      p <- p + ggrepel::geom_text_repel(
+        data        = labs_df,
+        mapping     = aes(label = .data$.label),
+        size        = 3,
+        color       = "black",
+        show.legend = FALSE,
+        box.padding = 0.3,
+        max.overlaps = 20
+      )
+    }
+  }
+
+  p
+}

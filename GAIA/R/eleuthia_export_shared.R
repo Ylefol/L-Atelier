@@ -310,6 +310,72 @@ ELEUTHIA_export_enrichment <- function(enrichment,
     }
 
     if (verbose) cat("Plots saved to:", plot_dir, "/\n")
+
+    # ------------------------------------------------------------------------
+    # GO DAG plots (BP, MF, CC) — one per ontology if present in results
+    # ------------------------------------------------------------------------
+    go_ont_map <- c("GO:BP" = "BP", "GO:MF" = "MF", "GO:CC" = "CC")
+    for (go_src in names(go_ont_map)) {
+      if (!go_src %in% sources) next
+      ont <- go_ont_map[[go_src]]
+      if (verbose) cat("Generating GO DAG (", ont, ")...\n", sep = "")
+
+      p_dag <- tryCatch(
+        AETHER_plot_go_dag(enrichment, ont = ont, verbose = FALSE),
+        error = function(e) {
+          if (verbose) cat("  Warning: GO DAG (", ont, ") failed - ", e$message, "\n", sep = "")
+          NULL
+        }
+      )
+
+      if (!is.null(p_dag)) {
+        dag_base <- file.path(plot_dir, paste0("go_dag_", tolower(ont)))
+        if (plot_format %in% c("png", "both")) {
+          f <- paste0(dag_base, ".png")
+          ggplot2::ggsave(f, p_dag, width = 14, height = 10, dpi = 150, bg = "white")
+          files_created <- c(files_created, f)
+        }
+        if (plot_format %in% c("pdf", "both")) {
+          f <- paste0(dag_base, ".pdf")
+          ggplot2::ggsave(f, p_dag, width = 14, height = 10)
+          files_created <- c(files_created, f)
+        }
+        if (verbose) cat("  GO DAG (", ont, ") saved\n", sep = "")
+      }
+    }
+
+    # ------------------------------------------------------------------------
+    # Enrichment map per non-GO source
+    # ------------------------------------------------------------------------
+    non_go_sources <- sources[!grepl("^GO:", sources)]
+    for (src in non_go_sources) {
+      if (nrow(combined[combined$source == src, ]) == 0L) next
+      if (verbose) cat("Generating enrichment map (", src, ")...\n", sep = "")
+      src_clean <- gsub(":", "_", src)
+
+      p_emap <- tryCatch(
+        AETHER_plot_enrichment_map(enrichment, source = src, verbose = FALSE),
+        error = function(e) {
+          if (verbose) cat("  Warning: EMAP (", src, ") failed - ", e$message, "\n", sep = "")
+          NULL
+        }
+      )
+
+      if (!is.null(p_emap)) {
+        emap_base <- file.path(plot_dir, paste0("emap_", src_clean))
+        if (plot_format %in% c("png", "both")) {
+          f <- paste0(emap_base, ".png")
+          ggplot2::ggsave(f, p_emap, width = 12, height = 10, dpi = 150, bg = "white")
+          files_created <- c(files_created, f)
+        }
+        if (plot_format %in% c("pdf", "both")) {
+          f <- paste0(emap_base, ".pdf")
+          ggplot2::ggsave(f, p_emap, width = 12, height = 10)
+          files_created <- c(files_created, f)
+        }
+        if (verbose) cat("  EMAP (", src, ") saved\n", sep = "")
+      }
+    }
   }
 
   # --------------------------------------------------------------------------
