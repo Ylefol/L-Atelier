@@ -1,39 +1,193 @@
 ================================================================================
 TRIPODES STATUS - Trajectory & Pseudotime Analysis
 ================================================================================
-Last Updated: 2026-02-26
+Last Updated: 2026-03-16 (session 2)
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
-tripodes_trajectory.R:
-----------------------
-(none yet)
+tripodes_velocity.R:
+--------------------
+TRIPODES_check_velocity_ready(sce, spliced_assay="spliced", unspliced_assay="unspliced", verbose=TRUE)
+  - Fast, non-destructive SCE validation before running RNA velocity
+  - Detects alternate naming conventions (Ms/Mu = scVelo moments, not raw counts;
+    counts_spliced/counts_unspliced) and advises renaming
+  - Hard errors (block pipeline): missing assays, dimension mismatch, continuous data
+  - Soft warnings (inform only, do not block): unusual splicing ratio, low unspliced UMI
+    Low splicing ratio (~20% spliced) expected for Parse Biosciences random hexamer priming
+  - Reports: n_cells, n_genes, median spliced/unspliced UMI, global splicing ratio
+  - Returns invisibly: named list ($ready, $spliced_assay, $unspliced_assay, $n_cells,
+    $n_genes, $median_spliced, $median_unspliced, $splicing_ratio, $issues, $warnings)
+
+TRIPODES_assess_splicing(sce, spliced_assay="spliced", unspliced_assay="unspliced",
+                          min_unspliced_mean=0.01, ratio_range=c(0.05, 0.99), verbose=TRUE)
+  - Detailed per-cell and per-gene splicing QC; run after check_velocity_ready
+  - Per-cell metrics added to colData: splicing_ratio, total_spliced, total_unspliced
+  - Per-gene metrics added to rowData: mean_spliced, mean_unspliced,
+    gene_splicing_ratio, velocity_reliable (logical flag)
+  - velocity_reliable=TRUE: mean_unspliced >= min_unspliced_mean AND
+    gene_splicing_ratio within ratio_range (genes with extreme ratios unreliable)
+  - Reports: median cell splicing ratio, % cells with <10% spliced,
+    n velocity-reliable genes; warns if <20% genes are reliable
+  - Sets metadata(sce)$splicing_assessed = TRUE
+  - Returns modified SCE; data consumed by ASPIS_plot_splicing (not yet implemented)
+  - BPCells-aware (uses matrix_stats for col/row means)
+
+TRIPODES_run_velocity(sce, spliced_assay="spliced", unspliced_assay="unspliced",
+                       mode="deterministic", use_dimred="PCA", n_pcs=30L,
+                       n_neighbors=30L, verbose=TRUE)
+  - RNA velocity via CAULDRON-managed Python env + inst/python/scvelo_run.py
+  - NO velociraptor dependency — scVelo called directly via basilisk
+  - Basilisk env: .cauldron_scvelo_env (Python 3.12, scvelo==0.3.3, numpy==2.2.5,
+    scanpy==1.11.1, anndata==0.11.4, scipy==1.15.2, matplotlib==3.10.1,
+    legacy-api-wrap==1.4.1)
+  - All three modes confirmed working: deterministic (default), stochastic, dynamical
+  - use_dimred="PCA": PCA coords passed to Python so scVelo neighbour graph is
+    consistent with UMAP embedding; n_pcs auto-capped to available components
+  - Warns (does not error) if TRIPODES_assess_splicing not yet run
+  - Subsets to velocity_reliable genes before running (avoids degenerate matrices)
+  - Coerces spliced/unspliced to dgCMatrix float (read-only reticulate memory issue
+    resolved by explicit .data/.indices/.indptr copy in Python before in-place ops)
+  - sc.pp.neighbors called explicitly before scv.pp.moments (scVelo 0.3.x deprecation)
+  - UMAP and TSNE coords also passed if present; velocity projected onto all embeddings
+  - Stored in SCE:
+      assay "velocity"         — full gene space; non-reliable genes = NA
+      colData $velocity_confidence, $velocity_length
+      reducedDim "velocity_PCA"  (if PCA present)
+      reducedDim "velocity_UMAP" (if UMAP present at run time)
+      reducedDim "velocity_tSNE" (if tSNE present at run time)
+  - Sets metadata(sce)$velocity_run=TRUE, metadata(sce)$velocity_mode=mode
+
+aspis_trajectory.R:
+--------------------
+ASPIS_plot_velocity(sce, dimred="UMAP", colour_by="cluster", arrow_scale=1,
+                     arrow_density=0.3, arrow_alpha=0.9, arrow_size=0.4,
+                     arrow_length=0.08, circle_size=3, circle_alpha=0.2,
+                     point_size=0.5, point_alpha=0.8, palette=NULL,
+                     assay_name="logcounts", title=NULL)
+  - Per-cell coloured arrows + semi-transparent origin circle (scv.pl.velocity_embedding style)
+  - Each arrow and its origin circle share the cell's colour_by colour
+  - arrow_density: subsamples arrow/circle layer (default 0.3); dots always shown in full
+  - Shared internal helpers: .aspis_vel_prep(), .aspis_build_cs(), .aspis_vel_theme()
+
+ASPIS_plot_velocity_stream(sce, dimred="UMAP", colour_by="cluster", grid_res=30,
+                            n_streams=200, stream_length=50, stream_colour="black",
+                            stream_size=0.4, stream_alpha=0.8, bandwidth=NULL,
+                            blob_alpha=0.25, blob_bins=4, show_points=FALSE,
+                            point_size=0.3, point_alpha=0.3, min_vel_frac=0.05,
+                            palette=NULL, assay_name="logcounts", title=NULL)
+  - KDE blob background per cluster (stat_density_2d polygon, one layer per cluster)
+  - Streamlines via Gaussian-weighted velocity field on regular grid + Euler integration
+  - stream_colour="black": fixed colour; NULL: each streamline coloured by nearest cell cluster
+  - Requires discrete colour_by (errors on continuous)
+  - Needs further testing on a larger/denser dataset
+
+tripodes_cytotrace.R:
+---------------------
+TRIPODES_score_cytotrace_v1(sce, assay_name="logcounts", n_top_genes=200L,
+                              n_neighbours=10L, use_dimred="PCA", n_pcs=30L,
+                              recompute_graph=FALSE, score_col="cytotrace_v1",
+                              verbose=TRUE)
+  - Pure R CytoTRACE v1 algorithm (Gulati et al. 2020)
+  - Stemness score per cell: 1 = stem-like / undifferentiated, 0 = differentiated
+  - Step 1: gene diversity per cell (colSums > 0)
+  - Step 2: Spearman correlation of each gene vs gene diversity (matrixStats::rowRanks,
+    vectorised Pearson-of-ranks — no transpose of full matrix required)
+  - Step 3: top n_top_genes by |correlation|
+  - Step 4: raw score = mean expression of top genes per cell
+  - Step 5: neighbourhood smoothing
+      Default: reuses metadata(sce)$snn_graph from TALOS_build_graph()
+               (row-normalised adjacency matrix × raw scores)
+      Fallback: builds fresh kNN via BiocNeighbors::findKNN() if no graph found
+               or recompute_graph=TRUE (prominent warning issued when forced)
+  - Step 6: normalise [0,1] + invert
+  - BPCells-aware: materialises IterableMatrix with clear message before computation
+  - Stored: colData(sce)[[score_col]], metadata(sce)$cytotrace_v1_run=TRUE,
+    metadata(sce)$cytotrace_v1_col
+  - CytoTRACE v2 deferred (requires Python/basilisk)
+  - Score can be plotted immediately via ASPIS_plot_umap(colour_by="cytotrace_v1")
 
 ================================================================================
 IN PROGRESS
 ================================================================================
-- None
+- ASPIS_plot_velocity_stream: implemented and functional; pending validation on
+  a larger/denser dataset (current test data too sparse/fragmented to evaluate)
 
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- TRIPODES_run_monocle()        Pseudotime inference via Monocle3
-- TRIPODES_run_velocity()       RNA velocity estimation (scVelo / velociraptor)
-- TRIPODES_score_cytotrace()    Stemness scoring via CytoTRACE
-- TRIPODES_infer_lineage()      Lineage/branching structure inference
-- TRIPODES_plot_trajectory()    Trajectory overlaid on UMAP embedding
-- TRIPODES_plot_pseudotime()    Pseudotime gradient on UMAP
-- TRIPODES_plot_velocity()      RNA velocity arrows on UMAP
+- TRIPODES_score_cytotrace_v1()  DONE (2026-03-16)
+- CytoTRACE v2                   Deferred (requires Python/basilisk)
+- TRIPODES_run_monocle()         DONE (2026-03-16)
+- TRIPODES_run_chronocell()      PLANNED (HIGH priority) — see to_process/chronocell_implementation_plan.md
+    Process time inference via EM on raw U/S counts; user-supplied differentiation
+    topology; AIC model selection (trajectory vs cluster); kinetic param output.
+    Requires vendoring Chronocell source into inst/python/chronocell/.
+    ASPIS: ASPIS_plot_process_time(), ASPIS_plot_lineage_probs()
+- TRIPODES_run_cellrank()        PLANNED (LOW priority) — see to_process/cellrank_implementation_plan.md
+    Fate probability inference via Markov chain / GPCCA; multiple kernel support
+    (velocity, CytoTRACE, pseudotime, combined); macrostate identification.
+    Defer until Chronocell is complete and a clear fate-probability use case arises.
+    ASPIS: ASPIS_plot_fate_probs(), ASPIS_plot_macrostates()
+- TRIPODES_infer_lineage()       Pinned — gene dynamics via tradeSeq (future session)
+- ASPIS_plot_splicing()          Companion plot for assess_splicing output
+
+tripodes_monocle.R:
+--------------------
+TRIPODES_run_monocle(sce, root_cells=NULL, root_cluster=NULL,
+                      root_by_cytotrace=FALSE, cytotrace_top_pct=5,
+                      cytotrace_col="cytotrace_v1", cluster_col="cluster",
+                      use_dimred="UMAP", use_partition=TRUE, close_loop=FALSE,
+                      pseudotime_col="monocle_pseudotime", branch_col="monocle_branch",
+                      verbose=TRUE)
+  - Monocle3 trajectory inference; re-uses pre-computed CAULDRON embedding
+  - Exactly one root mode must be active: root_cells (barcodes), root_cluster
+    (TALOS cluster label), or root_by_cytotrace (top N% by CytoTRACE score)
+  - Bypasses monocle3::preprocess_cds() — injects embedding directly into
+    reducedDims(cds); cluster_cells() runs on injected embedding for partitions
+  - Monocle3 partitions ≠ TALOS clusters; root_cluster uses TALOS labels
+  - Inf pseudotime (cells in rootless partitions) converted to NA
+  - BPCells counts materialised to dgCMatrix before new_cell_data_set()
+  - Stored: colData $monocle_pseudotime, $monocle_branch;
+    metadata $monocle_run, $monocle_graph (igraph), $monocle_graph_nodes
+    (node coords in embedding space, nodes×2), $monocle_dimred
+
+aspis_trajectory.R (additions):
+---------------------------------
+ASPIS_plot_pseudotime(sce, dimred=NULL, pseudotime_col="monocle_pseudotime",
+                       na_colour="grey80", palette=NULL, point_size=0.5,
+                       point_alpha=0.7, title=NULL)
+  - Viridis gradient (option C) coloured by pseudotime value
+  - dimred=NULL uses metadata(sce)$monocle_dimred automatically
+  - NA cells drawn in na_colour as a separate bottom layer (not legend noise)
+
+ASPIS_plot_trajectory(sce, dimred=NULL, colour_by="monocle_pseudotime",
+                       na_colour="grey80", edge_colour="black", edge_size=0.8,
+                       edge_alpha=0.8, point_size=0.5, point_alpha=0.7,
+                       palette=NULL, assay_name="logcounts", title=NULL)
+  - Principal graph edges overlaid as geom_segment on cell scatter
+  - colour_by: any colData column or gene (discrete or continuous)
+  - Default colour_by="monocle_pseudotime" gives pseudotime + trajectory in one plot
+  - Warns if dimred differs from the embedding used in run_monocle (graph misalignment)
+- TRIPODES_infer_lineage()       Pinned — gene dynamics via tradeSeq (future session)
+- ASPIS_plot_splicing()          Companion plot for assess_splicing output
+- ASPIS_plot_splicing()          Companion plot for assess_splicing output
 
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- Key packages: monocle3, velociraptor (R interface to scVelo), CytoTRACE
-- Requires annotated, embedded data (TALOS + PANDORA) before trajectory
-  inference is meaningful
-- RNA velocity requires spliced/unspliced count matrices — these must be
-  generated at the alignment stage (STARsolo, alevin-fry) and loaded via
-  TALARIA
-- TRIPODES was split from the original combined Dynamics module to separate
-  trajectory inference from cell-cell communication (now DIKTYON)
+- scVelo: CAULDRON-managed basilisk env (.cauldron_scvelo_env, cauldron_scvelo_3)
+  Python logic in inst/python/scvelo_run.py (same pattern as CellTypist)
+  All three velocity modes work (stochastic fixed in scVelo 0.3.x)
+  No velociraptor dependency
+- monocle3 (Suggests, Step 5): BiocManager::install("cole-trapnell-lab/monocle3")
+- CytoTRACE v1 is pure R — no new dependency
+- RNA velocity requires spliced/unspliced count matrices generated at alignment
+  (STARsolo velocyto output or alevin-fry); loaded via TALARIA
+- use_dimred="PCA" is critical for embedding consistency — neighbours built in
+  PCA space match the UMAP layout
+- Parse Biosciences data: expect ~20% spliced / 80% unspliced (random hexamer
+  priming captures pre-mRNA); low splicing ratio warning is expected, not an error
+- Requires embedded + clustered data (TALOS) before velocity is meaningful
+- Python integration pattern (inst/python/ + named R helpers) applies to all
+  Python-backed CAULDRON functions — see PANDORA CellTypist for reference

@@ -145,7 +145,7 @@ TALOS_run_umap <- function(sce,
 #'
 #' Computes a 2-dimensional tSNE embedding from the PCA reduced dimensions.
 #' Requires \code{\link{TALOS_run_pca}} to have been run first.  Results are
-#' stored in \code{reducedDims(sce)[["TSNE"]]}.
+#' stored in \code{reducedDims(sce)[["tSNE"]]}.
 #'
 #' @param sce A \code{SingleCellExperiment} with a \code{"PCA"} reduced
 #'   dimension.
@@ -157,7 +157,7 @@ TALOS_run_umap <- function(sce,
 #' @param seed Integer. Random seed. Default \code{42L}.
 #' @param verbose Logical. Print a summary. Default \code{TRUE}.
 #'
-#' @return SCE with \code{reducedDims(sce)[["TSNE"]]} populated.
+#' @return SCE with \code{reducedDims(sce)[["tSNE"]]} populated.
 #' @export
 TALOS_run_tsne <- function(sce,
                             n_pcs      = 30L,
@@ -176,11 +176,11 @@ TALOS_run_tsne <- function(sce,
                           n_dimred   = n_pcs,
                           perplexity = perplexity,
                           max_iter   = as.integer(max_iter),
-                          name       = "TSNE")
+                          name       = "tSNE")
 
   if (isTRUE(verbose))
     cat(sprintf(
-      "\u2500\u2500 TALOS: tSNE %s\n  Input      : PCA (%s components)\n  Perplexity : %s  |  Iterations: %s\n  Stored as  : reducedDims(sce)[[\"TSNE\"]]\n%s\n",
+      "\u2500\u2500 TALOS: tSNE %s\n  Input      : PCA (%s components)\n  Perplexity : %s  |  Iterations: %s\n  Stored as  : reducedDims(sce)[[\"tSNE\"]]\n%s\n",
       strrep("\u2500", 43),
       n_pcs, perplexity, max_iter,
       strrep("\u2500", 56)

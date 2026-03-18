@@ -634,7 +634,7 @@ ASPIS_plot_atlas <- function(sce,
          call. = FALSE)
 
   dimred     <- match.arg(dimred)
-  dimred_key <- if (dimred == "UMAP") "UMAP" else "TSNE"
+  dimred_key <- if (dimred == "UMAP") "UMAP" else "tSNE"
   if (!dimred_key %in% reducedDimNames(sce))
     stop(dimred, " not found. Run TALOS_run_", tolower(dimred), "() first.",
          call. = FALSE)

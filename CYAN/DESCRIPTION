@@ -1,0 +1,23 @@
+Package: CYAN
+Title: Niche Genomic Analyses — RNA Editing and Variant Calling
+Version: 0.1.0
+Authors@R: person("Yohan", "L", role = c("aut", "cre"), email = "placeholder@placeholder.com")
+Description: Specialised genomic analyses sitting between upstream processing
+    (HORIZON) and expression-level analysis (GAIA/CAULDRON). Provides RNA
+    editing detection via REDItools2 and somatic variant calling via GATK
+    MuTect2. Designed for single-sample workflows with configurable working
+    and output directories.
+Depends: R (>= 4.3)
+Imports:
+    basilisk,
+    reticulate,
+    methods
+Suggests:
+    VariantAnnotation,
+    GenomicRanges,
+    BiocManager
+SystemRequirements: Python (>= 3.8); GATK >= 4.0 (for MuTect2 functions)
+License: GPL-3
+Encoding: UTF-8
+RoxygenNote: 7.3.3
+biocViews: Sequencing, RNASeq, VariantAnnotation, SNP

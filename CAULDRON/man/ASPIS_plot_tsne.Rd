@@ -23,7 +23,7 @@ ASPIS_plot_tsne(
 )
 }
 \arguments{
-\item{sce}{A \code{SingleCellExperiment} with \code{"TSNE"} in
+\item{sce}{A \code{SingleCellExperiment} with \code{"tSNE"} in
 \code{reducedDims} (run \code{\link{TALOS_run_tsne}} first).}
 
 \item{colour_by}{Character scalar or vector.  One or more \code{colData}
@@ -80,6 +80,6 @@ A \code{ggplot} (single \code{colour_by}) or a \code{gtable} grid
 (multiple \code{colour_by}).
 }
 \description{
-Plots the tSNE embedding stored in \code{reducedDims(sce)[["TSNE"]]},
+Plots the tSNE embedding stored in \code{reducedDims(sce)[["tSNE"]]},
 coloured by a \code{colData} column or gene expression value.
 }

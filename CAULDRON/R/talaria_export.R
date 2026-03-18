@@ -131,7 +131,7 @@ TALARIA_export_first_steps <- function(sce,
   has_qc     <- all(c("sum", "detected") %in% names(colData(sce)))
   has_pca    <- "PCA"  %in% reducedDimNames(sce)
   has_umap   <- "UMAP" %in% reducedDimNames(sce)
-  has_tsne   <- "TSNE" %in% reducedDimNames(sce)
+  has_tsne   <- "tSNE" %in% reducedDimNames(sce)
   has_hvgs   <- !is.null(metadata(sce)$hvg)
 
   # Resolve colour_by — fall back gracefully if missing

@@ -45,7 +45,7 @@ TALOS_run_umap(sce, n_pcs=30, n_neighbors=15, min_dist=0.1, seed=42,
 TALOS_run_tsne(sce, n_pcs=30, perplexity=30, max_iter=1000, seed=42,
                verbose=TRUE)
   - Runs tSNE via scater::runTSNE() on PCA space
-  - Stored as reducedDims(sce)[["TSNE"]]
+  - Stored as reducedDims(sce)[["tSNE"]]
 
 TALOS_build_graph(sce, n_pcs=30, k=20, type="rank", verbose=TRUE)
   - Builds SNN graph via scran::buildSNNGraph() on PCA space

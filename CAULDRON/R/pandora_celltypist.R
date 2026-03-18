@@ -23,12 +23,12 @@
 #' @export
 PANDORA_list_celltypist_models <- function() {
 
+  script <- system.file("python", "celltypist_list_models.py", package = "CAULDRON")
+
   models_df <- basilisk::basiliskRun(
-    env = .cauldron_celltypist_env,
-    fun = function() {
-      ct_models <- reticulate::import("celltypist.models")
-      reticulate::py_to_r(ct_models$models_description())
-    }
+    env  = .cauldron_celltypist_env,
+    fun  = .pandora_celltypist_list_models,
+    script = script
   )
 
   if (!is.data.frame(models_df))
@@ -124,15 +124,18 @@ PANDORA_annotate_celltypist <- function(sce,
     ))
 
   # ── Run CellTypist via basilisk ──────────────────────────────────────────────
+  script <- system.file("python", "celltypist_run.py", package = "CAULDRON")
+
   result_df <- basilisk::basiliskRun(
-    env = .cauldron_celltypist_env,
-    fun = .pandora_celltypist_run,
-    mat_t          = mat_t,
-    genes          = genes,
-    cells          = cells,
-    model_name     = model,
+    env             = .cauldron_celltypist_env,
+    fun             = .pandora_celltypist_run,
+    script          = script,
+    mat_t           = mat_t,
+    genes           = genes,
+    cells           = cells,
+    model_name      = model,
     majority_voting = majority_voting,
-    force_update   = force_update
+    force_update    = force_update
   )
 
   # ── Attach labels to colData ─────────────────────────────────────────────────
@@ -156,38 +159,27 @@ PANDORA_annotate_celltypist <- function(sce,
 }
 
 
-# ── Internal helpers ──────────────────────────────────────────────────────────
+# ── Internal helpers ───────────────────────────────────────────────────────────
+# Named package-level functions so that the CAULDRON namespace is in scope
+# (ensures reticulate:: resolves correctly inside basiliskRun).
+# Variables are injected into Python's __main__ via py_set_attr rather than
+# reticulate::py$  to avoid S3 dispatch issues in the basilisk subprocess.
 
-# Runs inside basiliskRun — only reticulate and base R available here.
-# mat_t        : cells x genes raw count matrix (dgCMatrix → scipy csc_matrix)
-# Normalisation: normalize_total(target_sum=1e4) + log1p performed here in
-#                Python so that input exactly matches CellTypist's expectation.
-# Returns a data.frame with cell barcodes as rownames and at minimum a
-# "predicted_labels" column; "conf_score" present when majority_voting=FALSE.
-.pandora_celltypist_run <- function(mat_t, genes, cells,
+.pandora_celltypist_run <- function(script, mat_t, genes, cells,
                                     model_name, majority_voting, force_update) {
-  ct     <- reticulate::import("celltypist")
-  models <- reticulate::import("celltypist.models")
-  ad     <- reticulate::import("anndata")
-  sc     <- reticulate::import("scanpy")
+  main <- reticulate::import("__main__")
+  reticulate::py_set_attr(main, "r_mat_t",           mat_t)
+  reticulate::py_set_attr(main, "r_genes",            genes)
+  reticulate::py_set_attr(main, "r_cells",            cells)
+  reticulate::py_set_attr(main, "r_model_name",       model_name)
+  reticulate::py_set_attr(main, "r_majority_voting",  majority_voting)
+  reticulate::py_set_attr(main, "r_force_update",     force_update)
+  reticulate::py_run_file(script)
+  reticulate::py_to_r(reticulate::py_get_attr(main, "result_df"))
+}
 
-  # Download model to celltypist cache if not already present
-  models$download_models(force_update = force_update, model = model_name)
-
-  # Build AnnData — reticulate converts dgCMatrix → scipy csc_matrix automatically
-  adata           <- ad$AnnData(X = mat_t)
-  adata$obs_names <- cells
-  adata$var_names <- genes
-
-  # Normalise to 10,000 counts per cell then log1p — required by CellTypist
-  sc$pp$normalize_total(adata, target_sum = 1e4)
-  sc$pp$log1p(adata)
-
-  # Annotate
-  predictions <- ct$annotate(adata,
-                              model           = model_name,
-                              majority_voting = majority_voting)
-
-  # predicted_labels is a pandas DataFrame; py_to_r gives an R data.frame
-  reticulate::py_to_r(predictions$predicted_labels)
+.pandora_celltypist_list_models <- function(script) {
+  main <- reticulate::import("__main__")
+  reticulate::py_run_file(script)
+  reticulate::py_to_r(reticulate::py_get_attr(main, "result_df"))
 }

@@ -33,7 +33,8 @@ Imports:
     scDblFinder,
     SingleR,
     BiocParallel,
-    basilisk
+    basilisk,
+    matrixStats
 Suggests:
     cluster,
     zellkonverter,

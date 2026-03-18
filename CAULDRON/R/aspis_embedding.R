@@ -239,10 +239,10 @@ ASPIS_plot_umap <- function(sce,
 
 #' tSNE embedding plot
 #'
-#' Plots the tSNE embedding stored in \code{reducedDims(sce)[["TSNE"]]},
+#' Plots the tSNE embedding stored in \code{reducedDims(sce)[["tSNE"]]},
 #' coloured by a \code{colData} column or gene expression value.
 #'
-#' @param sce A \code{SingleCellExperiment} with \code{"TSNE"} in
+#' @param sce A \code{SingleCellExperiment} with \code{"tSNE"} in
 #'   \code{reducedDims} (run \code{\link{TALOS_run_tsne}} first).
 #' @param colour_by Character scalar or vector.  One or more \code{colData}
 #'   column names or gene names present in \code{rownames(sce)}.  A single
@@ -300,10 +300,10 @@ ASPIS_plot_tsne <- function(sce,
                              boundary_pad   = 0.10) {
 
   style <- match.arg(style)
-  if (!"TSNE" %in% reducedDimNames(sce))
+  if (!"tSNE" %in% reducedDimNames(sce))
     stop("tSNE not found. Run TALOS_run_tsne() first.", call. = FALSE)
 
-  .aspis_plot_dimred(sce, "TSNE",
+  .aspis_plot_dimred(sce, "tSNE",
                      colour_by      = colour_by,
                      point_size     = point_size,
                      point_alpha    = point_alpha,

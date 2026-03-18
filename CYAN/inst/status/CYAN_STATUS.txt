@@ -1,0 +1,99 @@
+================================================================================
+CYAN STATUS — Niche Genomic Analyses (RNA Editing & Variant Calling)
+================================================================================
+Last Updated: 2026-03-17
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+cyan_utils.R:
+-------------
+CYAN_check_bam(bam)
+  - Validates BAM file exists and has a .bai index
+  - Returns normalised absolute path invisibly
+
+CYAN_check_references(reference, ...)
+  - Validates reference FASTA exists and has .fai index
+  - Optional extra file paths (...) checked for existence
+  - Returns normalised reference path invisibly
+
+CYAN_resolve_gatk(gatk_path = NULL)
+  - Resolves GATK executable: explicit arg → GATK_PATH env var → PATH
+  - Not yet called by any function (MuTect2 not implemented)
+
+cyan_reditools.R:
+-----------------
+CYAN_run_reditools(bam, reference, output_dir, work_dir, sample_name,
+                   strand_mode, min_coverage, min_base_quality,
+                   min_read_quality, min_read_length, min_edits, strict,
+                   region, omopolymeric_file, splicing_file, bed_file,
+                   keep_tmp, save_rds, verbose)
+  - Detects RNA editing events via REDItools2 (Python, basilisk env)
+  - Defaults match REDItools2 native defaults (min_coverage=1, min_edits=0,
+    strict=FALSE) — full unfiltered output returned for post-hoc filtering
+  - Validates inputs, creates dirs, builds CLI args, runs via system2
+  - Checkpoint behaviour: skips REDItools2 if raw output already exists
+  - Parses REDItools2 tab-delimited output → cyan_editing_result data.frame
+  - Saves three files to output_dir: full .txt checkpoint, subs-only .txt,
+    optional .rds
+  - Cleans work_dir intermediates if keep_tmp = FALSE
+  - Returns: cyan_editing_result (data.frame + params attribute)
+
+print.cyan_editing_result(x, ...)
+  - S3 print method: shows n positions, n with substitutions, freq range
+
+CYAN_run_reditools_batch(bam, reference, output_dir, ..., verbose)
+  - Batch wrapper: iterates over a vector of BAM paths
+  - Named vector → names forwarded as sample_name (controls output file prefixes)
+  - Unnamed vector → sample names derived from BAM filenames as usual
+  - Per-sample error handling: failed samples warn and record NULL; batch continues
+  - Checkpoint behaviour inherited: re-run skips already-completed samples
+  - Returns: cyan_batch_result (named list of cyan_editing_result / NULL)
+
+print.cyan_batch_result(x, ...)
+  - S3 print method: shows succeeded/failed counts + per-sample position summary
+
+================================================================================
+IN PROGRESS
+================================================================================
+- Nothing currently active
+
+================================================================================
+PLANNED / TODO
+================================================================================
+
+cyan_mutect2.R:
+---------------
+CYAN_run_mutect2(tumor_bam, reference, output_dir, normal_bam,
+                 germline_resource, panel_of_normals, work_dir,
+                 java_mem, extra_args, keep_tmp, verbose)
+  - Somatic variant calling via GATK MuTect2
+  - Steps: MuTect2 → raw VCF → FilterMutectCalls → filtered VCF → output_dir
+  - Returns: path to filtered VCF invisibly
+
+CYAN_read_vcf(vcf_path, genome = NULL)
+  - Thin wrapper around VariantAnnotation::readVcf()
+  - Returns: CollapsedVCF object
+
+Plotting (cyan_plots.R — deferred):
+------------------------------------
+CYAN_plot_editing_spectrum(result, group = NULL)
+  - 12-substitution bar chart with biological colour scheme
+  - Informed by to_process/RNA_editing/plot_REDI_results.R
+
+CYAN_plot_editing_frequency(result)
+  - Distribution of editing frequencies across detected sites
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- Python env (.cyan_reditools_env): python==3.10.14, pysam==0.22.1,
+  sortedcontainers==2.4.0, psutil==6.0.0, netifaces==0.11.0
+  channels: bioconda, conda-forge, defaults
+- REDItools2 vendored in inst/python/reditools.py (original script, unmodified)
+- Test data in to_process/RNA_editing/test/ (chr21 + SRR2135332 BAM)
+- MuTect2 requires GATK >= 4.0 (system2 approach, no basilisk)
+- Checkpoint behaviour in CYAN_run_reditools: if raw output .txt already exists,
+  REDItools2 is skipped entirely and the existing file is re-parsed
+- All verbose output prefixed [CYAN]

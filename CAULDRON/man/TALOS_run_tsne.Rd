@@ -30,10 +30,10 @@ of effective nearest neighbours.  Typical range 5–50. Default \code{30}.}
 \item{verbose}{Logical. Print a summary. Default \code{TRUE}.}
 }
 \value{
-SCE with \code{reducedDims(sce)[["TSNE"]]} populated.
+SCE with \code{reducedDims(sce)[["tSNE"]]} populated.
 }
 \description{
 Computes a 2-dimensional tSNE embedding from the PCA reduced dimensions.
 Requires \code{\link{TALOS_run_pca}} to have been run first.  Results are
-stored in \code{reducedDims(sce)[["TSNE"]]}.
+stored in \code{reducedDims(sce)[["tSNE"]]}.
 }

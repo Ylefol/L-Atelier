@@ -492,9 +492,9 @@ TALOS_tune_tsne <- function(sce,
                                 n_dimred   = n_pcs,
                                 perplexity = perp,
                                 max_iter   = as.integer(max_iter),
-                                name       = "TSNE_sweep")
+                                name       = "tSNE_sweep")
 
-    emb_mat      <- reducedDim(sce_tmp, "TSNE_sweep")
+    emb_mat      <- reducedDim(sce_tmp, "tSNE_sweep")
     embeddings[[i]] <- emb_mat
     knn_ov       <- .talos_knn_overlap(knn_ref, emb_mat, knn_k)
 
