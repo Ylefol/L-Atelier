@@ -1,10 +1,10 @@
 # ZERO_DAWN
 
-A private multi-omics analysis toolkit for RNAseq, ATACseq, CUT&TAG, and proteomics data. The repository houses three companion R packages that together cover the full analysis lifecycle — from raw sequencing files to integrated multi-omics results.
+A private multi-omics analysis toolkit for RNAseq, ATACseq, CUT&TAG, and proteomics data. The repository houses four companion R packages that together cover the full analysis lifecycle — from raw sequencing files to integrated multi-omics results.
 
 This toolkit was developed with the aid of Claude Code as a means to test and familiarise with a new coding workflow.
 
-> **Naming note:** The repository name ZERO_DAWN is temporary and will be updated before any public release. Package names (GAIA, HORIZON, CAULDRON) are permanent.
+> **Naming note:** The repository name ZERO_DAWN is temporary and will be updated before any public release. Package names (GAIA, HORIZON, CAULDRON, CYAN) are permanent.
 
 ---
 
@@ -28,6 +28,12 @@ Handles the computational work that sits upstream of GAIA and CAULDRON: QC, adap
 
 → See [`HORIZON/README.md`](HORIZON/README.md) for installation and the processing workflow.
 
+### [CYAN](CYAN/) — Niche Genomic Analyses
+
+A focused package for specialised genomic analyses that sit outside the scope of the main pipeline. Currently implements RNA editing detection via REDItools2 (basilisk-managed Python environment, system2 invocation). Somatic variant calling via GATK MuTect2 is planned. Like HORIZON, CYAN is a flat collection of functions with no sub-modules; all functions are prefixed `CYAN_`.
+
+→ See [`CYAN/inst/status/CYAN_STATUS.txt`](CYAN/inst/status/CYAN_STATUS.txt) for current implementation status.
+
 ---
 
 ## Repository Structure
@@ -37,6 +43,7 @@ ZERO_DAWN/
 ├── GAIA/               # Bulk multi-omics analysis package
 ├── HORIZON/            # Upstream processing package
 ├── CAULDRON/           # Single-cell analysis package (early development)
+├── CYAN/               # Niche genomic analyses (RNA editing, variant calling)
 ├── STATUS/             # Per-module implementation tracking files
 ├── projects/           # Individual analysis projects (git-ignored)
 ├── data/               # Shared reference data (git-ignored)

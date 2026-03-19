@@ -89,6 +89,22 @@ ELEUTHIA_peaks_to_saf(peaks, ...)
   - Convert peak set to SAF format for featureCounts
 ELEUTHIA_call_regions_from_fragments(fragments, chrom_sizes, ...)
   - Call accessible regions from fragment files
+ELEUTHIA_merge_fragments(bed_files, merge_distance, min_fragments, extend, chrom_sizes, ...)
+  - Pool fragments from all samples, extend ±extend bp, merge within merge_distance,
+    filter by min_fragments; returns candidate regions with n_fragments, n_samples, width
+  - n_samples: number of distinct samples that contributed ≥1 fragment to each region
+    (tracked during sweep via per-region logical vector — no post-hoc overlap step)
+ELEUTHIA_select_regions(candidate_regions, min_fragments, quantile_threshold, max_width, min_samples, by_density, min_density, ...)
+  - Filter candidate regions from ELEUTHIA_merge_fragments()
+  - Filter order: max_width → min_samples → count/density threshold
+  - max_width: hard cap on region width (removes broad, diffuse accumulations)
+  - min_samples: require ≥N samples to have contributed fragments (cross-sample consistency)
+    quantile computed AFTER min_samples filter — prevents low-support regions diluting distribution
+  - by_density=TRUE: filters on n_fragments/width (fragments per bp) instead of raw count
+  - Always outputs fragment_density and n_samples columns for inspection
+  - Default (by_density=FALSE, no min_samples, no max_width) is fully backward-compatible
+ELEUTHIA_quantify_bed(sample_sheet, regions, omics, ...)
+  - Quantify fragment overlaps from BED files against a set of regions
 
 eleuthia_quantification.R:
 ---------------------------
