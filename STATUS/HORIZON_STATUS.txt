@@ -1,7 +1,7 @@
 ================================================================================
 HORIZON STATUS - Upstream Bioinformatics Processing Package
 ================================================================================
-Last Updated: 2026-03-03 (added HORIZON_rename_chromosomes)
+Last Updated: 2026-03-23
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -61,33 +61,148 @@ HORIZON_sort_index_bam(sample_sheet, sample_id, threads=4,
 bigwig.R:
 ---------
 HORIZON_bam_to_bigwig(sample_sheet, sample_id, effective_genome_size,
-                      threads=4L, bin_size=10L,
-                      ignore_for_normalization=c("X","M"),
+                      scale_factor=NULL, threads=4L, bin_size=10L,
+                      ignore_for_normalization=c("chrX","chrM"),
                       ignore_duplicates=TRUE, extend_reads=TRUE)
-  - Wraps deeptools bamCoverage (must be on PATH)
-  - RPKM normalisation; bin_size=10 matches bamCoverage default
-  - effective_genome_size: numeric value OR assembly name string
-    Built-in: "GRCh38" (2913022398), "GRCm38" (2652783500),
-              "WBcel235" (100272607), "T2TCHM13" (3117292070)
-  - ignore_for_normalization: use c("chrX","chrM") for UCSC-style genomes
-  - Writes <sample_id>_RPKM.bw alongside the BAM in aligned/
-  - Checks PATH for bamCoverage and BAI index before running
+  - Wraps deeptools bamCoverage via user conda env (.horizon_run_cli)
+  - Uses .latest_bam() to select most downstream BAM automatically
+  - scale_factor=NULL: RPKM normalisation (default)
+  - scale_factor=<numeric>: spike-in calibration (--normalizeUsing None
+    --scaleFactor <value>); supply from HORIZON_compute_spike_in_factors()
+  - Output filename: <sample_id>_RPKM.bw or <sample_id>_spikein.bw
+  - effective_genome_size: numeric OR built-in name:
+    "GRCh38" (2913022398), "GRCm38" (2652783500),
+    "WBcel235" (100272607), "T2TCHM13" (3117292070)
+
+basilisk.R:
+-----------
+No basilisk/reticulate. All tools use user-managed conda env via system2().
+.horizon_run_cli(tool, args, stdout, stderr)
+  - Resolves <horizon.conda_env>/bin/<tool> and calls system2() directly
+  - Requires HORIZON_set_conda_env() to have been called first
+
+HORIZON_set_conda_env(path)
+  - Registers user's conda env containing all HORIZON CLI tools
+  - Stores path in options("horizon.conda_env") for the session
+  - User creates env once: conda create -n horizon_cli -c bioconda -c conda-forge
+      samtools=1.23.1 bedtools=2.31.1 macs3=3.0.2 deeptools=3.5.5
+
+bowtie2_index.R:
+----------------
+HORIZON_build_bowtie2_index(reference, index_dir, index_name=NULL,
+                             threads=4L, force=FALSE, ...)
+  - Wraps Rbowtie2::bowtie2_build()
+  - index_name defaults to filename of reference[1] without extension
+  - Skips rebuild if .1.bt2 index exists (force=TRUE to override)
+  - Returns full index basename path invisibly
+
+bowtie2_align.R:
+----------------
+HORIZON_run_bowtie2(sample_sheet, sample_id, index, max_insert=2000L,
+                    use_trimmed=TRUE, threads=4L, min_mapq=30L, ...)
+  - Wraps Rbowtie2::bowtie2(); paired-end only
+  - --no-mixed --no-discordant --no-unal applied to all assays
+  - max_insert: recommend 2000 for ATAC-seq, 1000 for ChIP/CUT&RUN/CUT&TAG
+  - SAM -> BAM via Rsamtools::asBam(); MAPQ filter via Rsamtools::filterBam
+  - Output: <sample_id>_mapq_filtered.bam
+
+bam_atac_chip.R:
+----------------
+HORIZON_process_bam(sample_sheet, sample_id, threads=4L,
+                    memory_per_thread=2000L, remove_chrM=TRUE, remove_tmp=TRUE)
+  - samtools collate -> fixmate -> sort -> markdup -r (removes duplicates)
+  - Optional chrM removal; writes _flagstat.txt + _markdup_stats.txt
+  - Output: <sample_id>_processed.bam
+
+HORIZON_filter_blacklist(sample_sheet, sample_id, blacklist_bed, threads=4L)
+  - bedtools intersect -v to remove blacklist-overlapping reads
+  - NULL blacklist_bed -> warn and return current BAM unchanged
+  - Output: <sample_id>_blacklist_filtered.bam
+
+HORIZON_downsample_bam(sample_sheet, sample_id, scale_factor, seed=42L,
+                       threads=4L, remove_input=FALSE)
+  - Subsamples the most downstream BAM using samtools view -s (seed.fraction)
+  - scale_factor: value from HORIZON_compute_spike_in_factors()$scale_factor_bw
+  - scale_factor=1: no reads discarded; BAM copied under _downsampled.bam name
+    for pipeline consistency (all samples have same output regardless)
+  - Output: <sample_id>_downsampled.bam (highest priority in .latest_bam())
+
+.latest_bam(sample_sheet, sample_id)  [internal]
+  - Returns most downstream BAM:
+    downsampled > blacklist_filtered > processed > host > mapq_filtered
+
+qualimap.R:
+-----------
+HORIZON_run_qualimap — REMOVED (qualimap conda dependencies too heavy/conflicting)
+  BAM QC covered by flagstat (HORIZON_process_bam) + fragment size (below)
+
+HORIZON_run_fragment_size(sample_sheet, sample_id, threads=4L,
+                           max_length=1000L)
+  - deeptools bamPEFragmentSize; nucleosomal periodicity diagnostic for ATAC
+  - Output: <sample_id>_fragment_size.png
+
+bed_convert.R:
+--------------
+HORIZON_bam_to_bed(sample_sheet, sample_id, shift_reads=TRUE,
+                   threads=4L, remove_tmp=TRUE)
+  - BAM -> name-sorted BAM -> BEDPE (bedtools) -> fragment BED (R)
+  - shift_reads=TRUE: Tn5 shift +4/-5 bp (ATAC-seq only)
+  - shift_reads=FALSE: no shift (ChIP/CUT&RUN/CUT&TAG)
+  - Output: <sample_id>_fragments.bed (6-col, GAIA-compatible)
+
+peak_calling.R:
+---------------
+HORIZON_call_peaks(treatment_bed, control_bed=NULL, output_dir,
+                   sample_name, genome_size="hs", q_value=0.05,
+                   broad=FALSE, nomodel=FALSE, shift=NULL,
+                   extsize=NULL, extra_flags=character(0))
+  - macs3 callpeak via .horizon_run_cli (user conda env)
+  - nomodel/shift/extsize: replaces old assay_type enum; user-controlled
+  - Recommended: ATAC nomodel=TRUE shift=-100 extsize=200;
+    ChIP-TF defaults; ChIP-histone broad=TRUE;
+    CUT&RUN/CUT&TAG nomodel=TRUE
+  - Warns if shift/extsize set without nomodel=TRUE
+  - Output: <sample_name>_peaks.narrowPeak (or .broadPeak)
+
+HORIZON_call_peaks_seacr — REMOVED
+  - SEACR conda dependencies caused unresolvable conflicts; MACS3 covers
+    all supported assay types (ATAC, ChIP, CUT&RUN, CUT&TAG)
+  - .horizon_bam_to_bedgraph internal helper also removed
+
+spikein.R:
+----------
+HORIZON_build_combined_index(host_fasta, spikein_fasta, combined_dir,
+                              index_dir=combined_dir, index_name="combined",
+                              spikein_prefix="spikein_", threads=4L,
+                              memory=8000L, overwrite=FALSE)
+  - Concatenates host + spike-in FASTAs; prefixes spike-in chr names
+  - Streams spike-in FASTA in chunks (no large host FASTA in R memory)
+  - Builds Bowtie2 index via HORIZON_build_bowtie2_index()
+  - Combined FASTA reused on subsequent calls (overwrite=FALSE)
+  - Returns index basename invisibly
+
+HORIZON_separate_spike_in(sample_sheet, sample_id,
+                           spikein_prefix="spikein_", threads=4L,
+                           remove_combined=TRUE)
+  - Splits _mapq_filtered.bam into host + spike-in BAMs by chr prefix
+  - Host BAM picked up automatically by .latest_bam() downstream
+  - Output: <sample_id>_host.bam + <sample_id>_spikein.bam
+
+HORIZON_compute_spike_in_factors(spikein_bams, output_file=NULL, threads=4L)
+  - Counts aligned read pairs per spike-in BAM (-f 64 -F 4)
+  - Returns data.frame: sample_id, spikein_reads, scale_factor_bw,
+    size_factor_deseq2
+  - scale_factor_bw:    min/count (≤1) — for bamCoverage --scaleFactor
+  - size_factor_deseq2: count/min (≥1) — for DESeq2 sizeFactors()
+    (bypass DESeq2 normalization: sizeFactors(dds) <- sf[colnames(dds)])
+  - output_file: optionally write CSV for later DESeq2 use
 
 rename_chromosomes.R:
 ---------------------
 HORIZON_rename_chromosomes(sample_sheet, sample_id, chr_map, file_suffix,
                            overwrite=FALSE, rename_suffix="_chrrenamed")
-  - Scans output_dir/sample_id/ recursively for files ending with file_suffix
-  - Renames chromosome identifiers according to chr_map for each matched file
-  - file_type derived from file_suffix extension (bam/bed/bw)
-  - chr_map: named character vector (old->new), path to 2-col TSV, or
-    "T2TCHM13" for built-in T2T-CHM13v2.0 NCBI-to-UCSC map (NC_060925.1->chr1
-    through NC_060948.1->chrY + NC_012920.1->chrM)
-  - file_suffix: trailing filename fragment to match, e.g. "RPKM.bw"
-  - BAM: rewrites @SQ SN: header fields via samtools reheader + re-indexes
-  - BED: line-by-line replacement of column 1; preserves header/comment lines
-  - BigWig: rtracklayer import -> renameSeqlevels -> export
-  - overwrite=FALSE: output written with rename_suffix before extension
+  - Renames chromosome identifiers in BAM/BED/BigWig files
+  - chr_map: named vector, 2-col TSV, or "T2TCHM13" built-in map
   - Returns character vector of output paths invisibly
 
 count.R:
@@ -96,27 +211,19 @@ HORIZON_run_count(sample_sheet, sample_id, annotation, feature_type="exon",
                   attribute_type="gene_id", threads=4,
                   min_mapping_quality=10, ...)
   - Wraps Rsubread::featureCounts()
-  - Strandedness read from sample sheet and auto-mapped (unstranded=0,
-    forward=1, reverse=2)
-  - Writes <sample_id>_counts.txt (gene_id + count TSV)
-  - Writes <sample_id>_featurecounts.rds (full result object)
+  - Strandedness auto-mapped from sample sheet
 
 aggregate.R:
 ------------
 HORIZON_aggregate_counts(sample_sheet, output_root=NULL, save_rds=TRUE,
                          save_metadata=TRUE)
-  - Reads per-sample _counts.txt files and builds genes x samples matrix
-  - Skips samples with missing count files (warning)
-  - output_root inferred from first sample if NULL
+  - Builds genes x samples count matrix from per-sample count files
   - Writes count_matrix.csv, count_matrix.rds, sample_metadata.csv
-    to <output_root>/aggregated/counts/
 
 internals.R (not exported):
 ----------------------------
 .get_sample_row(sample_sheet, sample_id)
-  - Extracts single row from sample sheet; stops if not found
 .strand_to_int(strandedness)
-  - Maps "unstranded"/"forward"/"reverse" to 0/1/2 for featureCounts
 
 ================================================================================
 IN PROGRESS
@@ -126,34 +233,33 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- HORIZON_infer_strandedness(bam, annotation, threads=4)
-  - Runs featureCounts with strandSpecific = 0, 1, 2 on a single BAM
-  - Returns named vector of assigned read % per setting
-  - Prints recommendation (forward/reverse/unstranded) based on results
-  - Useful when library prep kit documentation is ambiguous
-- Additional assay types: ChIP-seq, ATAC-seq, CUT&TAG alignment wrappers
-  (Rbowtie2 instead of Rsubread for these)
-- BAM filtering functions (remove duplicates, blacklist regions)
+- HORIZON_infer_strandedness() — featureCounts with all strandedness modes
 - MultiQC-style QC summary across all samples
-- BigWig generation from sorted BAMs (rtracklayer) [DONE — see bigwig.R]
 - Single-cell/nuclei variant (CAULDRON upstream)
+- macs3: confirm conda env installs correctly (macs3==3.0.2 via bioconda)
+- Differential accessibility: consensus peak set + DESeq2 with spike-in
+  size factors (to be built in GAIA/ARTEMIS)
 
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- Rsubread: alignment (align()) + counting (featureCounts()) + index (buildindex())
-- Rfastp: QC + trimming (rfastp()) — bundles fastp binary, cross-platform
-- Rsamtools: BAM sorting (sortBam()) + indexing (indexBam()) + BAM scanning
-- deeptools bamCoverage (external, not an R package) — required by HORIZON_bam_to_bigwig
-  Install: conda install -c bioconda deeptools
-- samtools (external) — required by HORIZON_rename_chromosomes for BAM files
-  Install: conda install -c bioconda samtools
-- rtracklayer + GenomeInfoDb (Bioconductor, Suggests) — required by
-  HORIZON_rename_chromosomes for BigWig files
-  Install: BiocManager::install("rtracklayer")
+- Rsubread: alignment + counting + index
+- Rfastp: QC + trimming
+- Rsamtools: BAM sorting + indexing + filtering
+- Rbowtie2: Bowtie2 alignment (bundles bowtie2 binary)
+- User conda env (not managed by HORIZON): samtools=1.23.1, bedtools=2.31.1,
+  macs3=3.0.2, deeptools=3.5.5
+  Register with HORIZON_set_conda_env() at session start
+  Create once: conda create -n horizon_cli -c bioconda -c conda-forge \
+    samtools=1.23.1 bedtools=2.31.1 macs3=3.0.2 deeptools=3.5.5
+- No basilisk or reticulate dependency in HORIZON
+- rtracklayer + GenomeInfoDb (Bioconductor, Suggests): BigWig rename
 - All Bioconductor packages: install via BiocManager::install()
-- Output directory structure: <output_dir>/<sample_id>/{qc,aligned,counts}/
-- Aggregated output: <output_root>/aggregated/counts/
-- Functions process one sample at a time by design (RAM-conservative)
-- Workflow: devtools::document("HORIZON") then devtools::install("HORIZON")
+- Output directory structure: <output_dir>/<sample_id>/{qc,aligned,peaks}/
+- Spike-in workflow: build combined index once; separate per sample;
+  compute factors after all samples processed; feed to BigWig + DESeq2
+- strandedness column unused by chromatin pipeline steps (ATAC/ChIP/CUT&RUN
+  are always unstranded); carried as metadata only
+- assay_type removed from run_bowtie2/bam_to_bed/call_peaks — user now
+  sets parameters directly; see per-function docs for per-assay recipes
 ================================================================================

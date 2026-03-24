@@ -8,7 +8,6 @@ HORIZON_rename_chromosomes(
   sample_sheet,
   sample_id,
   chr_map,
-  file_type,
   file_suffix,
   overwrite = FALSE,
   rename_suffix = "_chrrenamed"
@@ -26,14 +25,12 @@ column 1 = old, column 2 = new), or \code{"T2TCHM13"} for the built-in
 T2T-CHM13v2.0 NCBI-to-UCSC map
 (\code{NC_060925.1} \eqn{\to} \code{chr1}, \ldots).}
 
-\item{file_type}{Character. One of \code{"bam"}, \code{"bed"}, or
-\code{"bw"}.  Determines the renaming strategy applied to each matched
-file.}
-
 \item{file_suffix}{Character. Files whose basenames end with this string
 (case-sensitive) are processed.  Use a specific trailing fragment to target
 one file (e.g. \code{"RPKM.bw"}, \code{"_sorted.bam"}) or a broader
-ending to match several files of the same type.}
+ending to match several files of the same type.  The file type
+(\code{bam}, \code{bed}, or \code{bw}) is derived from the extension of
+\code{file_suffix} and determines the renaming strategy.}
 
 \item{overwrite}{Logical. If \code{TRUE}, the renamed file replaces the
 original (via a safe temp-file swap).  Default \code{FALSE}: a new file is

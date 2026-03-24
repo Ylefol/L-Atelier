@@ -2,17 +2,19 @@
 % Please edit documentation in R/bigwig.R
 \name{HORIZON_bam_to_bigwig}
 \alias{HORIZON_bam_to_bigwig}
-\title{Convert a sorted BAM to an RPKM-normalised BigWig using bamCoverage}
+\title{Convert a processed BAM to a BigWig using bamCoverage}
 \usage{
 HORIZON_bam_to_bigwig(
   sample_sheet,
   sample_id,
   effective_genome_size,
+  scale_factor = NULL,
   threads = 4L,
   bin_size = 10L,
-  ignore_for_normalization = c("X", "M"),
+  ignore_for_normalization = c("chrX", "chrM"),
   ignore_duplicates = TRUE,
-  extend_reads = TRUE
+  extend_reads = TRUE,
+  force = FALSE
 )
 }
 \arguments{
@@ -23,8 +25,7 @@ HORIZON_bam_to_bigwig(
 
 \item{effective_genome_size}{Integer, numeric, or character. The effective
 (mappable) genome size passed to \code{--effectiveGenomeSize}.  Pass a
-numeric value directly, or one of the following genome assembly names for
-a built-in lookup:
+numeric value directly, or one of the following assembly names:
 \itemize{
 \item \code{"GRCh38"}   — 2913022398
 \item \code{"GRCm38"}   — 2652783500
@@ -32,35 +33,51 @@ a built-in lookup:
 \item \code{"T2TCHM13"} — 3117292070
 }}
 
+\item{scale_factor}{Numeric or \code{NULL}.  When \code{NULL} (default),
+RPKM normalisation is used.  When a numeric value is supplied (e.g. from
+\code{\link{HORIZON_compute_spike_in_factors}}), spike-in calibration
+normalisation is used instead (\code{--normalizeUsing None
+  --scaleFactor <value>}).}
+
 \item{threads}{Integer. Number of parallel threads (\code{-p}). Default 4.}
 
 \item{bin_size}{Integer. Bin width in base pairs (\code{--binSize}).
-Default 10, matching the bamCoverage default.}
+Default 10.}
 
 \item{ignore_for_normalization}{Character vector. Chromosome names excluded
-when computing the total read count for RPKM normalisation
-(\code{--ignoreForNormalization}). Default \code{c("X", "M")} for
-Ensembl-style chromosome names; use \code{c("chrX", "chrM")} for
-UCSC-style genomes.}
+from total read count during RPKM normalisation
+(\code{--ignoreForNormalization}).  Ignored when \code{scale_factor} is
+set.  Default \code{c("chrX", "chrM")}.}
 
 \item{ignore_duplicates}{Logical. Skip duplicate reads
-(\code{--ignoreDuplicates}). Default TRUE.}
+(\code{--ignoreDuplicates}). Default \code{TRUE}.}
 
-\item{extend_reads}{Logical. Extend reads to fragment size for paired-end
-data, or to the estimated fragment size for single-end
-(\code{--extendReads}). Default TRUE.}
+\item{extend_reads}{Logical. Extend reads to fragment size
+(\code{--extendReads}). Default \code{TRUE}.}
+
+\item{force}{Logical. If \code{FALSE} (default), skip BigWig generation
+when the output file already exists.  Set \code{TRUE} to regenerate.}
 }
 \value{
 Character. Path to the BigWig file, invisibly.
 }
 \description{
-Wraps the deeptools \code{bamCoverage} command-line tool to produce an
-RPKM-normalised BigWig from a sorted, indexed BAM file.  The BigWig is
-written alongside the BAM in the
-\code{<output_dir>/<sample_id>/aligned/} directory.
+Wraps the deeptools \code{bamCoverage} command-line tool.  Supports two
+normalization modes:
+\itemize{
+\item \strong{RPKM} (default) — suitable for ATAC-seq and ChIP-seq
+without a spike-in control.
+\item \strong{Spike-in} — pass a numeric \code{scale_factor} from
+\code{\link{HORIZON_compute_spike_in_factors}}.  Uses
+\code{--normalizeUsing None --scaleFactor <value>}, which preserves
+absolute differences in chromatin occupancy across samples.
+}
 }
 \details{
-\code{bamCoverage} must be installed and available on \code{PATH}.
-Install via conda (\code{conda install -c bioconda deeptools}) or
-pip (\code{pip install deeptools}).
+The most downstream available BAM is used automatically via
+\code{.latest_bam()} (priority: blacklist-filtered > processed > host >
+mapq-filtered).
+
+\code{bamCoverage} is provided via the user-managed conda environment
+registered with \code{\link{HORIZON_set_conda_env}}.
 }

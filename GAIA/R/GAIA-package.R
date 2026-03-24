@@ -19,10 +19,11 @@
 # ggplot2 imports (listed in Imports)
 # ============================================================================
 
-#' @importFrom ggplot2 ggplot aes geom_bar geom_boxplot geom_col geom_errorbar
-#'   geom_hline geom_jitter geom_line geom_path geom_point geom_polygon
-#'   geom_rect geom_segment geom_smooth geom_text geom_tile geom_violin
-#'   geom_vline annotate arrow coord_cartesian coord_fixed coord_flip
+#' @importFrom ggplot2 ggplot aes geom_area geom_bar geom_boxplot geom_col
+#'   geom_errorbar geom_hline geom_jitter geom_line geom_path geom_point
+#'   geom_polygon geom_raster geom_rect geom_segment geom_smooth geom_text
+#'   geom_tile geom_violin geom_vline annotate arrow coord_cartesian
+#'   coord_fixed coord_flip
 #'   element_blank element_line element_rect element_text expansion facet_grid
 #'   facet_wrap guide_legend guides labs margin position_stack
 #'   scale_color_discrete scale_color_gradient scale_color_gradient2
@@ -46,7 +47,7 @@
 #'   design "design<-"
 #' @importFrom SummarizedExperiment colData "colData<-"
 #' @importFrom GenomicRanges seqinfo seqnames GRanges start end coverage
-#'   tileGenome binnedAverage distanceToNearest
+#'   tileGenome binnedAverage distanceToNearest findOverlaps
 #' @importFrom IRanges IRanges
 #' @importFrom rtracklayer import.bw export.bw BigWigFile
 

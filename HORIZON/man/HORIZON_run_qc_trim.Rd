@@ -10,6 +10,7 @@ HORIZON_run_qc_trim(
   threads = 4,
   adapter_r1 = NULL,
   adapter_r2 = NULL,
+  force = FALSE,
   ...
 )
 }
@@ -28,6 +29,10 @@ NULL (auto-detect via \code{adapterSequenceRead1 = "auto"}).}
 \item{adapter_r2}{Character or NULL. Explicit R2 adapter sequence. Default
 NULL (auto-detect). Ignored for single-end samples.}
 
+\item{force}{Logical. If \code{FALSE} (default), skip trimming when the
+output FASTQs already exist and return their paths directly.  Set to
+\code{TRUE} to re-run and overwrite existing files.}
+
 \item{...}{Additional arguments passed directly to
 \code{\link[Rfastp]{rfastp}} (e.g., \code{qualityFiltering},
 \code{qualityFilterPhred}, \code{lengthFiltering}, \code{minReadLength}).}
@@ -39,7 +44,8 @@ Named list with elements:
 \item{trimmed_r2}{Path to trimmed R2 FASTQ, or NULL for single-end.}
 \item{report_html}{Path to HTML QC report.}
 \item{report_json}{Path to JSON QC report.}
-\item{json_data}{The JSON report object returned by rfastp.}
+\item{json_data}{The JSON report object returned by rfastp, or NULL
+when skipped.}
 }
 }
 \description{

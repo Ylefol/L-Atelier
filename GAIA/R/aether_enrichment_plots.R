@@ -1030,6 +1030,16 @@ AETHER_plot_annotation_bar <- function(annotated_list,
   grDevices::colorRampPalette(base_cols)(n)
 }
 
+# Internal: override "up"/"down" module colours to red/blue respectively.
+# Applied after auto-assignment so directional comparisons use intuitive colours.
+# Case-insensitive: matches "up", "Up", "UP", "down", "Down", "DOWN".
+.aether_updown_override <- function(mod_colors) {
+  nms_lower <- tolower(names(mod_colors))
+  if ("up"   %in% nms_lower) mod_colors[nms_lower == "up"]   <- "#E41A1C"  # red
+  if ("down" %in% nms_lower) mod_colors[nms_lower == "down"] <- "#377EB8"  # blue
+  mod_colors
+}
+
 
 #' GO Term Treemap via Semantic Similarity Reduction
 #'
@@ -1200,6 +1210,7 @@ AETHER_plot_go_treemap <- function(enrichment_result,
   all_modules <- sort(unique(as.character(df$module)))
   if (is.null(palette)) {
     mod_colors <- setNames(.aether_n_colors(length(all_modules)), all_modules)
+    mod_colors <- .aether_updown_override(mod_colors)
   } else {
     mod_colors <- palette
     extra_mods <- setdiff(all_modules, names(mod_colors))
@@ -1543,6 +1554,7 @@ AETHER_plot_go_dag <- function(enrichment_result,
   all_modules <- sort(unique(as.character(df$module)))
   if (is.null(palette)) {
     mod_colors <- setNames(.aether_n_colors(length(all_modules)), all_modules)
+    mod_colors <- .aether_updown_override(mod_colors)
   } else {
     mod_colors <- palette
     extra_mods <- setdiff(all_modules, names(mod_colors))
@@ -1915,6 +1927,7 @@ AETHER_plot_enrichment_map <- function(enrichment_result,
     mod_colors <- palette[modules]
   } else {
     mod_colors <- stats::setNames(.aether_n_colors(length(modules)), modules)
+    mod_colors <- .aether_updown_override(mod_colors)
   }
 
   # ---------------------------------------------------------------------------

@@ -28,10 +28,26 @@ AETHER_plot_coverage_tracks(
 )
 }
 \arguments{
-\item{bigwig_files}{Named list of character vectors, one element per track.
-Each element is a character vector of BigWig file paths to merge into
-that track. A named character vector is accepted as shorthand where each
-track contains a single file. Mutually exclusive with \code{bed_files}.}
+\item{bigwig_files}{Track input. Two formats are accepted:
+\itemize{
+\item \strong{Flat} (current default): a named list or named character vector where
+each element is a character vector of BigWig file paths for one track.
+All tracks share a common y-axis when \code{scale_y = "fixed"}.
+\item \strong{Grouped}: a named list of named lists/character vectors. Each outer
+element defines a group of tracks (e.g. one omics type). When
+\code{scale_y = "fixed"}, the y-axis is fixed \emph{within} each group but
+allowed to differ across groups, so tracks of different dynamic range
+(e.g. ATAC vs RNA) are not forced onto the same scale.
+Example:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{list(
+  ATAC = list(ATAC_WT = c("wt1.bw","wt2.bw"), ATAC_KO = "ko.bw"),
+  RNA  = list(RNA_WT  = "rna_wt.bw",           RNA_KO  = "rna_ko.bw")
+)
+}\if{html}{\out{</div>}}
+}
+
+Mutually exclusive with \code{bed_files}.}
 
 \item{bed_files}{Named list of character vectors, one element per track.
 Each element is a character vector of fragment-level BED file paths.
@@ -104,8 +120,9 @@ colors. If \code{NULL}, colors are assigned automatically — known group names
 (WT, KO, etc.) use the AETHER default palette; others are generated.}
 
 \item{scale_y}{Character. Y-axis scaling: \code{"free"} (default, each track
-autoscales independently) or \code{"fixed"} (all tracks share the same
-y-axis maximum).}
+autoscales independently) or \code{"fixed"} (tracks share the same y-axis
+maximum — globally when \code{bigwig_files} is flat, or within each group when
+\code{bigwig_files} is grouped).}
 
 \item{show_variance}{Logical. When a track contains multiple files, display
 a shaded ribbon showing the spread across replicates. Default \code{FALSE}.

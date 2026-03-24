@@ -18,7 +18,8 @@ Depends:
 Imports:
     Rsubread,
     Rfastp,
-    Rsamtools
+    Rsamtools,
+    Rbowtie2
 Suggests:
     rtracklayer,
     GenomeInfoDb

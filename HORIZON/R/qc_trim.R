@@ -20,6 +20,9 @@
 #'   NULL (auto-detect via \code{adapterSequenceRead1 = "auto"}).
 #' @param adapter_r2 Character or NULL. Explicit R2 adapter sequence. Default
 #'   NULL (auto-detect). Ignored for single-end samples.
+#' @param force Logical. If \code{FALSE} (default), skip trimming when the
+#'   output FASTQs already exist and return their paths directly.  Set to
+#'   \code{TRUE} to re-run and overwrite existing files.
 #' @param ... Additional arguments passed directly to
 #'   \code{\link[Rfastp]{rfastp}} (e.g., \code{qualityFiltering},
 #'   \code{qualityFilterPhred}, \code{lengthFiltering}, \code{minReadLength}).
@@ -30,7 +33,8 @@
 #'     \item{trimmed_r2}{Path to trimmed R2 FASTQ, or NULL for single-end.}
 #'     \item{report_html}{Path to HTML QC report.}
 #'     \item{report_json}{Path to JSON QC report.}
-#'     \item{json_data}{The JSON report object returned by rfastp.}
+#'     \item{json_data}{The JSON report object returned by rfastp, or NULL
+#'       when skipped.}
 #'   }
 #' @export
 HORIZON_run_qc_trim <- function(sample_sheet,
@@ -38,6 +42,7 @@ HORIZON_run_qc_trim <- function(sample_sheet,
                                 threads    = 4,
                                 adapter_r1 = NULL,
                                 adapter_r2 = NULL,
+                                force      = FALSE,
                                 ...) {
   row    <- .get_sample_row(sample_sheet, sample_id)
   paired <- as.logical(row$paired_end)
@@ -48,6 +53,22 @@ HORIZON_run_qc_trim <- function(sample_sheet,
   # rfastp takes a path prefix; it appends _R1.fastq.gz / _R2.fastq.gz
   # and generates <prefix>.html / <prefix>.json automatically
   out_prefix <- file.path(out_dir, paste0(sample_id, "_trimmed"))
+  r1_out <- paste0(out_prefix, "_R1.fastq.gz")
+  r2_out <- paste0(out_prefix, "_R2.fastq.gz")
+
+  # Skip if outputs already exist and force=FALSE
+  outputs_exist <- file.exists(r1_out) && (!paired || file.exists(r2_out))
+  if (!isTRUE(force) && outputs_exist) {
+    message("Trimmed FASTQs already exist for: ", sample_id,
+            " — skipping (use force=TRUE to overwrite)")
+    return(invisible(list(
+      trimmed_r1  = r1_out,
+      trimmed_r2  = if (paired) r2_out else NULL,
+      report_html = paste0(out_prefix, ".html"),
+      report_json = paste0(out_prefix, ".json"),
+      json_data   = NULL
+    )))
+  }
 
   message("Running fastp QC + trimming for: ", sample_id)
 

@@ -27,10 +27,23 @@
 #' annotation tracks (e.g. CpG islands, methylation sites) can be added via
 #' `annotation_tracks`.
 #'
-#' @param bigwig_files Named list of character vectors, one element per track.
-#'   Each element is a character vector of BigWig file paths to merge into
-#'   that track. A named character vector is accepted as shorthand where each
-#'   track contains a single file. Mutually exclusive with `bed_files`.
+#' @param bigwig_files Track input. Two formats are accepted:
+#'   - **Flat** (current default): a named list or named character vector where
+#'     each element is a character vector of BigWig file paths for one track.
+#'     All tracks share a common y-axis when `scale_y = "fixed"`.
+#'   - **Grouped**: a named list of named lists/character vectors. Each outer
+#'     element defines a group of tracks (e.g. one omics type). When
+#'     `scale_y = "fixed"`, the y-axis is fixed *within* each group but
+#'     allowed to differ across groups, so tracks of different dynamic range
+#'     (e.g. ATAC vs RNA) are not forced onto the same scale.
+#'     Example:
+#'     ```r
+#'     list(
+#'       ATAC = list(ATAC_WT = c("wt1.bw","wt2.bw"), ATAC_KO = "ko.bw"),
+#'       RNA  = list(RNA_WT  = "rna_wt.bw",           RNA_KO  = "rna_ko.bw")
+#'     )
+#'     ```
+#'   Mutually exclusive with `bed_files`.
 #'
 #' @param bed_files Named list of character vectors, one element per track.
 #'   Each element is a character vector of fragment-level BED file paths.
@@ -94,8 +107,9 @@
 #'   colors. If `NULL`, colors are assigned automatically — known group names
 #'   (WT, KO, etc.) use the AETHER default palette; others are generated.
 #' @param scale_y Character. Y-axis scaling: `"free"` (default, each track
-#'   autoscales independently) or `"fixed"` (all tracks share the same
-#'   y-axis maximum).
+#'   autoscales independently) or `"fixed"` (tracks share the same y-axis
+#'   maximum — globally when `bigwig_files` is flat, or within each group when
+#'   `bigwig_files` is grouped).
 #' @param show_variance Logical. When a track contains multiple files, display
 #'   a shaded ribbon showing the spread across replicates. Default `FALSE`.
 #'   Has no effect on single-file tracks.
@@ -185,24 +199,68 @@ AETHER_plot_coverage_tracks <- function(bigwig_files      = NULL,
   }
 
   # --- Normalise input --------------------------------------------------------
-  # Accept named character vector as shorthand for single-file list
-  .normalise_files <- function(x, arg) {
+  # Handles two formats:
+  #   Flat:    named list/vector of file-path vectors  → one group (current)
+  #   Grouped: named list of named lists/vectors       → one group per element
+  # Returns list(files = flat named list, group_idx = integer vector)
+  .parse_file_groups <- function(x, arg) {
+    if (!is.list(x) && !is.character(x))
+      stop(arg, " must be a named list or named character vector", call. = FALSE)
+
+    # Flat shorthand: named character vector
     if (is.character(x)) {
       if (is.null(names(x)) || any(names(x) == ""))
         stop(arg, " must be a fully named character vector or named list",
              call. = FALSE)
-      x <- as.list(x)
+      return(list(files = as.list(x), group_idx = rep(1L, length(x))))
     }
-    if (!is.list(x) || is.null(names(x)) || any(names(x) == ""))
-      stop(arg, " must be a named list or named character vector", call. = FALSE)
-    x
+
+    top_is_list <- vapply(x, is.list, logical(1))
+
+    if (!any(top_is_list)) {
+      # Flat: each element is a character vector of file paths
+      if (is.null(names(x)) || any(names(x) == ""))
+        stop(arg, " must be a named list or named character vector", call. = FALSE)
+      return(list(files = x, group_idx = rep(1L, length(x))))
+    }
+
+    # Grouped: every top-level element must be a list (no mixing)
+    if (!all(top_is_list))
+      stop(arg, ": cannot mix grouped (list) and flat (character vector) ",
+           "elements at the top level", call. = FALSE)
+    if (is.null(names(x)) || any(names(x) == ""))
+      stop(arg, ": grouped input requires a fully named outer list", call. = FALSE)
+
+    flat_files <- list()
+    group_idx  <- integer(0)
+
+    for (g in seq_along(x)) {
+      grp     <- x[[g]]
+      grp_nm  <- names(x)[g]
+      if (is.null(names(grp)) || any(names(grp) == ""))
+        stop(arg, "[['", grp_nm, "']]: group elements must be fully named",
+             call. = FALSE)
+      # Normalise inner elements to character vectors
+      grp <- lapply(grp, function(el) {
+        if (!is.character(el))
+          stop(arg, "[['", grp_nm, "']]: file paths must be character vectors",
+               call. = FALSE)
+        el
+      })
+      flat_files <- c(flat_files, grp)
+      group_idx  <- c(group_idx, rep(g, length(grp)))
+    }
+
+    list(files = flat_files, group_idx = group_idx)
   }
 
-  source_files  <- if (use_bed) {
-    .normalise_files(bed_files,    "bed_files")
+  parsed       <- if (use_bed) {
+    .parse_file_groups(bed_files,    "bed_files")
   } else {
-    .normalise_files(bigwig_files, "bigwig_files")
+    .parse_file_groups(bigwig_files, "bigwig_files")
   }
+  source_files <- parsed$files
+  group_idx    <- parsed$group_idx
 
   scale_y       <- match.arg(scale_y,       c("free", "fixed"))
   variance_type <- match.arg(variance_type, c("sd", "range"))
@@ -324,18 +382,27 @@ AETHER_plot_coverage_tracks <- function(bigwig_files      = NULL,
     }
   }
 
-  # --- Shared y-axis limit if fixed -------------------------------------------
-  y_lim <- NULL
+  # --- Per-group y-axis limits when scale_y == "fixed" ------------------------
+  # Flat input: one group → same as the old global fixed behaviour.
+  # Grouped input: each group gets its own y_max; tracks in different groups
+  # are allowed to differ in scale.
+  y_lim_per_track <- NULL
   if (scale_y == "fixed") {
-    y_max <- max(sapply(cov_list, function(df) {
-      if (show_variance && !all(is.na(df$sd_score))) {
-        if (variance_type == "sd")    max(df$mean_score + df$sd_score, na.rm = TRUE)
-        else                          max(df$max_score,                 na.rm = TRUE)
-      } else {
-        max(df$mean_score, na.rm = TRUE)
-      }
-    }), na.rm = TRUE)
-    y_lim <- c(0, y_max * 1.05)
+    n_groups   <- max(group_idx)
+    group_lims <- lapply(seq_len(n_groups), function(g) {
+      g_names <- names(source_files)[group_idx == g]
+      y_max   <- max(vapply(g_names, function(nm) {
+        df <- cov_list[[nm]]
+        if (show_variance && !all(is.na(df$sd_score))) {
+          if (variance_type == "sd") max(df$mean_score + df$sd_score, na.rm = TRUE)
+          else                       max(df$max_score,                 na.rm = TRUE)
+        } else {
+          max(df$mean_score, na.rm = TRUE)
+        }
+      }, numeric(1)), na.rm = TRUE)
+      c(0, y_max * 1.05)
+    })
+    y_lim_per_track <- group_lims[group_idx]   # one entry per track
   }
 
   # --- Build unified annotation track list ------------------------------------
@@ -430,8 +497,9 @@ AETHER_plot_coverage_tracks <- function(bigwig_files      = NULL,
         plot.margin      = margin(1, 5, 1, 5)
       )
 
-    if (!is.null(y_lim)) {
-      p <- p + scale_y_continuous(limits = y_lim, expand = c(0, 0))
+    y_lim_i <- if (!is.null(y_lim_per_track)) y_lim_per_track[[i]] else NULL
+    if (!is.null(y_lim_i)) {
+      p <- p + scale_y_continuous(limits = y_lim_i, expand = c(0, 0))
     } else {
       p <- p + scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
     }
