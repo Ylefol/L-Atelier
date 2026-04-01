@@ -1,11 +1,33 @@
 ================================================================================
 AETHER STATUS - Visualization
 ================================================================================
-Last Updated: 2026-03-13
+Last Updated: 2026-03-26
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+
+aether_pca_qc.R:
+-----------------
+AETHER_plot_pc_association(assoc_result, p_threshold=0.05, order_vars=TRUE,
+                            max_log10p=NULL, color_low="white",
+                            color_high="#b2182b", show_values=FALSE,
+                            font_size=9, title="PC-Metadata Association")
+  - Heatmap of -log10(p-values) from ARTEMIS_pc_metadata_association()
+  - Rows=PCs (labelled with % variance explained), cols=metadata variables
+  - Black cell borders mark associations passing p_threshold
+  - order_vars=TRUE sorts columns by mean association strength
+  - Returns ggplot object
+
+aether_olink_plots.R:
+---------------------
+AETHER_plot_olink_qc(olink_data, plate_col="PlateID", colour_by=NULL,
+                     plot_warn_proteins=FALSE, warn_threshold=0.1,
+                     top_n_warn=30, font_size=9, title=NULL)
+  - Per-plate NPX distributions (violin + boxplot), SampleQC bar chart (broken
+    out by SampleType if available), optional AssayQC warn protein barplot
+  - warn barplot: proteins with warn_fraction >= warn_threshold, top_n_warn shown
+  - Returns named list: $npx_distributions, $sample_qc, $warn_proteins (optional)
 
 aether_coverage_tracks.R:
 --------------------------

@@ -1,9 +1,12 @@
 #' Align FASTQ reads with Bowtie2
 #'
-#' Wraps \code{Rbowtie2::bowtie2()} to align paired-end FASTQ files against a
-#' Bowtie2 index.  Applies \code{--no-mixed --no-discordant} by default
-#' (appropriate for all paired-end chromatin assays) and filters low-MAPQ
-#' alignments immediately after conversion to BAM.
+#' Aligns paired-end FASTQ files against a Bowtie2 index, piping output
+#' directly through \code{samtools view} for MAPQ filtering without writing
+#' an intermediate SAM file to disk. Applies \code{--no-mixed --no-discordant}
+#' by default (appropriate for all paired-end chromatin assays).
+#'
+#' Requires \code{bowtie2} and \code{samtools} to be available in \code{PATH}.
+#' Both can be installed via conda: \code{conda install -c bioconda bowtie2 samtools}.
 #'
 #' All chromatin assay processing assumes \strong{paired-end} sequencing.
 #' Single-end data is not supported.
@@ -24,14 +27,15 @@
 #' @param use_trimmed Logical. If \code{TRUE} (default), use Rfastp-trimmed
 #'   FASTQs from \code{<output_dir>/<sample_id>/qc/}.  If \code{FALSE}, use
 #'   the raw FASTQs from the sample sheet (\code{fastq_r1} / \code{fastq_r2}).
-#' @param threads Integer. Number of threads. Default 4.
-#' @param min_mapq Integer. Minimum mapping quality for post-alignment
-#'   filtering via \code{Rsamtools::filterBam}.  Reads below this threshold
-#'   are discarded.  Default 30.
+#' @param threads Integer. Number of threads passed to bowtie2 (\code{--threads}).
+#'   Default 4.
+#' @param min_mapq Integer. Minimum mapping quality. Reads below this threshold
+#'   are discarded by \code{samtools view -q}. Default 30.
 #' @param force Logical. If \code{FALSE} (default), skip alignment when the
 #'   output \code{_mapq_filtered.bam} already exists.  Set \code{TRUE} to
 #'   re-align and overwrite.
-#' @param ... Additional flags passed to \code{Rbowtie2::bowtie2}.
+#' @param ... Additional bowtie2 flags as character strings (e.g.
+#'   \code{"--very-sensitive"}). Appended verbatim to the bowtie2 command.
 #'
 #' @return Character. Path to the MAPQ-filtered BAM file, invisibly.
 #'   Pass to \code{\link{HORIZON_process_bam}}.
@@ -46,11 +50,12 @@ HORIZON_run_bowtie2 <- function(sample_sheet,
                                  force       = FALSE,
                                  ...) {
 
-  if (!requireNamespace("Rbowtie2", quietly = TRUE))
-    stop("Package 'Rbowtie2' is required. Install via BiocManager::install('Rbowtie2').",
+  if (Sys.which("bowtie2") == "")
+    stop("bowtie2 not found in PATH. Install via conda: conda install -c bioconda bowtie2",
          call. = FALSE)
-  if (!requireNamespace("Rsamtools", quietly = TRUE))
-    stop("Package 'Rsamtools' is required.", call. = FALSE)
+  if (Sys.which("samtools") == "")
+    stop("samtools not found in PATH. Install via conda: conda install -c bioconda samtools",
+         call. = FALSE)
 
   row     <- .get_sample_row(sample_sheet, sample_id)
   out_dir <- file.path(row$output_dir, sample_id, "aligned")
@@ -73,11 +78,11 @@ HORIZON_run_bowtie2 <- function(sample_sheet,
   }
 
   # Skip if output already exists ----------------------------------------------
-  filt_bam_check <- file.path(out_dir, paste0(sample_id, "_mapq_filtered.bam"))
-  if (!isTRUE(force) && file.exists(filt_bam_check)) {
+  filt_bam <- file.path(out_dir, paste0(sample_id, "_mapq_filtered.bam"))
+  if (!isTRUE(force) && file.exists(filt_bam)) {
     message("Aligned BAM already exists for: ", sample_id,
             " — skipping (use force=TRUE to re-align)")
-    return(invisible(filt_bam_check))
+    return(invisible(filt_bam))
   }
 
   # Check index ----------------------------------------------------------------
@@ -85,44 +90,33 @@ HORIZON_run_bowtie2 <- function(sample_sheet,
     stop("Bowtie2 index not found: ", index,
          ". Run HORIZON_build_bowtie2_index() first.", call. = FALSE)
 
-  # Paths ----------------------------------------------------------------------
-  sam_path <- file.path(out_dir, paste0(sample_id, "_raw.sam"))
-  raw_bam  <- file.path(out_dir, paste0(sample_id, "_raw.bam"))
-  filt_bam <- file.path(out_dir, paste0(sample_id, "_mapq_filtered.bam"))
+  # Build and run pipeline: bowtie2 | samtools view (no SAM written to disk) --
+  extra_flags <- paste(c(...), collapse = " ")
 
-  # Align: Rbowtie2 writes a SAM file -----------------------------------------
+  cmd <- paste(
+    "bowtie2",
+    "-x", shQuote(index),
+    "-1", shQuote(r1),
+    "-2", shQuote(r2),
+    "--threads", as.integer(threads),
+    "--no-mixed",
+    "--no-discordant",
+    "--no-unal",
+    "-X", as.integer(max_insert),
+    if (nzchar(extra_flags)) extra_flags else "",
+    "|",
+    "samtools view -bS",
+    "-q", as.integer(min_mapq),
+    "-o", shQuote(filt_bam)
+  )
+
   message("Running Bowtie2 alignment for: ", sample_id,
-          " [max_insert=", max_insert, "]")
+          " [max_insert=", max_insert, ", min_mapq=", min_mapq, "]")
 
-  Rbowtie2::bowtie2(
-    bt2Index  = index,
-    samOutput = sam_path,
-    seq1      = r1,
-    seq2      = r2,
-    paste0("--threads ", as.integer(threads)),
-    "--no-mixed",        # discard reads where only one mate aligns
-    "--no-discordant",   # discard pairs aligning in unexpected orientation
-    "--no-unal",         # suppress unaligned reads from SAM output
-    paste0("-X ", as.integer(max_insert)),
-    ...
-  )
-
-  # SAM → BAM ------------------------------------------------------------------
-  Rsamtools::asBam(sam_path, destination = tools::file_path_sans_ext(raw_bam),
-                   overwrite = TRUE)
-  file.remove(sam_path)
-
-  # MAPQ filter ----------------------------------------------------------------
-  message("Filtering MAPQ < ", min_mapq, " for: ", sample_id)
-  filter_param <- Rsamtools::ScanBamParam(
-    mapqFilter = as.integer(min_mapq)
-  )
-  Rsamtools::filterBam(raw_bam, destination = filt_bam,
-                       param = filter_param)
-  file.remove(raw_bam)
-  # Remove accompanying index if created
-  bai <- paste0(raw_bam, ".bai")
-  if (file.exists(bai)) file.remove(bai)
+  ret <- system(cmd)
+  if (ret != 0L)
+    stop("Bowtie2/samtools pipeline failed for sample: ", sample_id,
+         " (exit code ", ret, ")", call. = FALSE)
 
   message("Bowtie2 alignment complete for: ", sample_id,
           "\n  Output: ", filt_bam)

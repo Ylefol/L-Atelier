@@ -1,11 +1,31 @@
 ================================================================================
 HADES STATUS - Quality Control & Filtering
 ================================================================================
-Last Updated: 2026-02-18
+Last Updated: 2026-03-31
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+
+hades_olink.R:
+--------------
+HADES_filter_olink(olink_data, keep_controls=FALSE, filter_qc=TRUE, verbose=TRUE)
+  - Filters an olink_data object from ELEUTHIA_load_olink()
+  - keep_controls=FALSE: removes non-SAMPLE SampleTypes (controls)
+  - filter_qc=TRUE: removes samples with SampleQC == "FAIL"
+  - Updates $data, $wide, $sample_meta to retained samples
+  - $assay_meta unchanged (warn_fraction reflects original load)
+  - Returns olink_data S3 object of the same class
+HADES_detect_outliers_olink(olink_data, n_pcs=5, threshold=3, method="sd", filter=FALSE, verbose=TRUE)
+  - PCA-based multivariate outlier detection on $wide matrix
+  - Mean-imputes NAs and scales proteins internally (does NOT modify data)
+  - Adds outlier_distance and outlier columns to $sample_meta
+  - filter=TRUE removes flagged samples from $data, $wide, $sample_meta
+  - method="sd": centre + threshold*sd; method="mad": median + threshold*mad
+HADES_filter_olink_proteins(olink_data, max_na_fraction=0.2, verbose=TRUE)
+  - Removes proteins with NA fraction > max_na_fraction across samples
+  - Updates $wide, $data, $assay_meta to retained proteins
+  - $sample_meta unchanged
 
 hades_qc_mixed_data.R:
 -----------------------

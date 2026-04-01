@@ -7,7 +7,9 @@
 AETHER_plot_pca(
   counts,
   sample_info = NULL,
+  sample_col = NULL,
   group_col = "group",
+  var_type = "categorical",
   shape_col = NULL,
   dims = c(1, 2),
   ntop = 500,
@@ -28,8 +30,18 @@ must match the column names of the count matrix. If counts is an
 artemis_norm/artemis_ts_norm object, this is extracted automatically
 (but can be overridden).}
 
+\item{sample_col}{Character or NULL. Column in \code{sample_info} holding
+sample IDs matching \code{colnames(counts)}. When provided, this column is
+used as rownames for matching instead of the existing rownames. Required
+when \code{sample_info} has sequential integer rownames (e.g. from
+\code{$sample_meta} of an \code{olink_data} object). Default: NULL.}
+
 \item{group_col}{Character. Column in sample_info to use for point color.
 Default: "group".}
+
+\item{var_type}{Character. How to treat \code{group_col}: \code{"categorical"}
+uses a discrete colour scale (values coerced to factor); \code{"continuous"}
+uses a viridis gradient (values kept numeric). Default: \code{"categorical"}.}
 
 \item{shape_col}{Character or NULL. Column in sample_info to use for point
 shape. Default: NULL (all points same shape).}

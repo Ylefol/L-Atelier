@@ -32,29 +32,33 @@ Default \code{2000L}.}
 FASTQs from \code{<output_dir>/<sample_id>/qc/}.  If \code{FALSE}, use
 the raw FASTQs from the sample sheet (\code{fastq_r1} / \code{fastq_r2}).}
 
-\item{threads}{Integer. Number of threads. Default 4.}
+\item{threads}{Integer. Number of threads passed to bowtie2 (\code{--threads}).
+Default 4.}
 
-\item{min_mapq}{Integer. Minimum mapping quality for post-alignment
-filtering via \code{Rsamtools::filterBam}.  Reads below this threshold
-are discarded.  Default 30.}
+\item{min_mapq}{Integer. Minimum mapping quality. Reads below this threshold
+are discarded by \code{samtools view -q}. Default 30.}
 
 \item{force}{Logical. If \code{FALSE} (default), skip alignment when the
 output \code{_mapq_filtered.bam} already exists.  Set \code{TRUE} to
 re-align and overwrite.}
 
-\item{...}{Additional flags passed to \code{Rbowtie2::bowtie2}.}
+\item{...}{Additional bowtie2 flags as character strings (e.g.
+\code{"--very-sensitive"}). Appended verbatim to the bowtie2 command.}
 }
 \value{
 Character. Path to the MAPQ-filtered BAM file, invisibly.
 Pass to \code{\link{HORIZON_process_bam}}.
 }
 \description{
-Wraps \code{Rbowtie2::bowtie2()} to align paired-end FASTQ files against a
-Bowtie2 index.  Applies \code{--no-mixed --no-discordant} by default
-(appropriate for all paired-end chromatin assays) and filters low-MAPQ
-alignments immediately after conversion to BAM.
+Aligns paired-end FASTQ files against a Bowtie2 index, piping output
+directly through \code{samtools view} for MAPQ filtering without writing
+an intermediate SAM file to disk. Applies \code{--no-mixed --no-discordant}
+by default (appropriate for all paired-end chromatin assays).
 }
 \details{
+Requires \code{bowtie2} and \code{samtools} to be available in \code{PATH}.
+Both can be installed via conda: \code{conda install -c bioconda bowtie2 samtools}.
+
 All chromatin assay processing assumes \strong{paired-end} sequencing.
 Single-end data is not supported.
 

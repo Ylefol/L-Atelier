@@ -40,7 +40,7 @@ HORIZON_process_bam <- function(sample_sheet,
   row     <- .get_sample_row(sample_sheet, sample_id)
   out_dir <- file.path(row$output_dir, sample_id, "aligned")
 
-  input_bam   <- file.path(out_dir, paste0(sample_id, "_mapq_filtered.bam"))
+  input_bam   <- .latest_bam(sample_sheet, sample_id)
   collate_bam <- file.path(out_dir, paste0(sample_id, "_collated.bam"))
   fixmate_bam <- file.path(out_dir, paste0(sample_id, "_fixmate.bam"))
   sorted_bam  <- file.path(out_dir, paste0(sample_id, "_sorted.bam"))
@@ -55,10 +55,6 @@ HORIZON_process_bam <- function(sample_sheet,
     return(invisible(final_bam))
   }
 
-  if (!file.exists(input_bam))
-    stop("MAPQ-filtered BAM not found: ", input_bam,
-         ". Run HORIZON_run_bowtie2() first.", call. = FALSE)
-
   thr <- as.integer(threads)
   mem <- paste0(as.integer(memory_per_thread), "M")
 
@@ -72,7 +68,7 @@ HORIZON_process_bam <- function(sample_sheet,
 
   # Step 1: collate (name-sort) ------------------------------------------------
   message("[", sample_id, "] samtools collate")
-  .run_samtools("collate", "-O", "-u",
+  .run_samtools("collate", "-u",
                 "--threads", thr,
                 input_bam,
                 file.path(out_dir, paste0(sample_id, "_collate_tmp")),

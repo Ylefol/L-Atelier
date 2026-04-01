@@ -13,8 +13,16 @@
 #'   must match the column names of the count matrix. If counts is an
 #'   artemis_norm/artemis_ts_norm object, this is extracted automatically
 #'   (but can be overridden).
+#' @param sample_col Character or NULL. Column in \code{sample_info} holding
+#'   sample IDs matching \code{colnames(counts)}. When provided, this column is
+#'   used as rownames for matching instead of the existing rownames. Required
+#'   when \code{sample_info} has sequential integer rownames (e.g. from
+#'   \code{$sample_meta} of an \code{olink_data} object). Default: NULL.
 #' @param group_col Character. Column in sample_info to use for point color.
 #'   Default: "group".
+#' @param var_type Character. How to treat \code{group_col}: \code{"categorical"}
+#'   uses a discrete colour scale (values coerced to factor); \code{"continuous"}
+#'   uses a viridis gradient (values kept numeric). Default: \code{"categorical"}.
 #' @param shape_col Character or NULL. Column in sample_info to use for point
 #'   shape. Default: NULL (all points same shape).
 #' @param dims Integer vector of length 2. Which PCs to plot. Default: c(1, 2).
@@ -48,8 +56,10 @@
 #' @export
 AETHER_plot_pca <- function(counts,
                              sample_info = NULL,
-                             group_col = "group",
-                             shape_col = NULL,
+                             sample_col  = NULL,
+                             group_col   = "group",
+                             var_type    = "categorical",
+                             shape_col   = NULL,
                              dims = c(1, 2),
                              ntop = 500,
                              log_transform = TRUE,
@@ -83,6 +93,13 @@ AETHER_plot_pca <- function(counts,
 
   if (!is.null(shape_col) && !shape_col %in% colnames(sample_info)) {
     stop("shape_col '", shape_col, "' not found in sample_info")
+  }
+
+  # If sample_col is provided, use it as rownames for matching
+  if (!is.null(sample_col)) {
+    if (!sample_col %in% colnames(sample_info))
+      stop("sample_col '", sample_col, "' not found in sample_info")
+    rownames(sample_info) <- as.character(sample_info[[sample_col]])
   }
 
   # Match sample order between counts and sample_info
@@ -133,10 +150,19 @@ AETHER_plot_pca <- function(counts,
   pc1 <- dims[1]
   pc2 <- dims[2]
 
+  var_type <- match.arg(var_type, c("categorical", "continuous"))
+
+  group_vals <- sample_info[[group_col]]
+  if (var_type == "categorical") {
+    group_vals <- factor(group_vals)
+  } else {
+    group_vals <- as.numeric(group_vals)
+  }
+
   plot_df <- data.frame(
-    PC_x = pca$x[, pc1],
-    PC_y = pca$x[, pc2],
-    group = factor(sample_info[[group_col]]),
+    PC_x   = pca$x[, pc1],
+    PC_y   = pca$x[, pc2],
+    group  = group_vals,
     sample = rownames(sample_info),
     stringsAsFactors = FALSE
   )
@@ -174,8 +200,10 @@ AETHER_plot_pca <- function(counts,
     p <- p + ggplot2::labs(shape = shape_col)
   }
 
-  # Custom colors
-  if (!is.null(colors)) {
+  # Colour scale
+  if (var_type == "continuous") {
+    p <- p + ggplot2::scale_color_viridis_c(option = "viridis")
+  } else if (!is.null(colors)) {
     p <- p + ggplot2::scale_color_manual(values = colors)
   }
 

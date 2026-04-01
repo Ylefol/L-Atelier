@@ -1,11 +1,34 @@
 ================================================================================
 ELEUTHIA STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-02-20
+Last Updated: 2026-03-31
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+
+eleuthia_olink.R:
+-----------------
+ELEUTHIA_load_olink(npx_file, metadata_file=NULL, metadata_sheet=1,
+                    sample_col="SampleID", npx_col="NPX",
+                    restrict_to_metadata=FALSE, verbose=TRUE)
+  - Reads Olink Explore NPX parquet (or CSV); optionally joins plate layout metadata
+  - Parses out AssayType!="assay" instrument control rows (structural, not QC filtering)
+  - Returns ALL samples as-loaded (biological + controls, all QC statuses)
+  - Returns olink_data S3 object: $data (long), $wide (features x samples matrix),
+    $sample_meta, $assay_meta (OlinkID + warn_fraction per protein), $params
+  - restrict_to_metadata=TRUE: removes NPX samples absent from the metadata file
+  - No filtering performed — pass result to HADES_filter_olink() for QC/filtering
+  - Requires arrow for .parquet; requires readxl for .xlsx metadata
+ELEUTHIA_export_olink_qc(olink_data, assoc, qc_plots, output_dir,
+                          top_n_vars=5, p_threshold=0.05,
+                          heatmap_top_n=NULL, ntop_pca=NULL, verbose=TRUE)
+  - Exports full Olink QC/exploration pipeline outputs to structured directory
+  - data/: olink_filtered.rds, sample_meta.csv, assay_meta.csv
+  - qc/: npx_distributions.png, sample_qc.csv, warn_proteins.png (if present), summary.txt
+  - association/: pc_metadata_heatmap.png (generated internally from assoc)
+  - pca/: one PNG per selected variable, using the 2 most significant PCs for that variable
+  - top_n_vars controls how many variables per PC are included in the PCA loop
 
 eleuthia_activity_export.R:
 ----------------------------
@@ -174,3 +197,4 @@ DEPENDENCIES / NOTES
   Eleuthia export modules (all in same namespace, no source() needed)
 - Peak loading functions depend on GenomicRanges, IRanges (Suggests)
 - Quantification depends on Rsubread/Rsamtools (Suggests)
+- Olink loader depends on arrow (parquet) and readxl (.xlsx metadata) — both Suggests

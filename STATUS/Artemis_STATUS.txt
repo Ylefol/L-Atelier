@@ -1,11 +1,41 @@
 ================================================================================
 ARTEMIS STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-02-19
+Last Updated: 2026-03-26
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+
+artemis_limma.R:
+-----------------
+ARTEMIS_limma_de(matrix, sample_meta, group_col, reference, experiment,
+                 sample_col=NULL, covariates=NULL, block_col=NULL,
+                 feature_meta=NULL, feature_id_col=NULL, fdr=0.05, lfc=0, verbose=TRUE)
+  - Linear model DE for any log2-scale matrix (Olink NPX, log2 mass spec, microarray)
+  - Do NOT use for count-based data (RNA-seq, ATAC-seq) — use ARTEMIS_differential_counts()
+  - block_col: repeated measures via limma::duplicateCorrelation() (e.g. SubjectID for
+    longitudinal Olink data)
+  - feature_meta: joined onto results; matched first by rownames, then by column value
+  - feature_id_col: column in feature_meta to use as feature_id (e.g. "Assay" for Olink
+    gene symbols); original matrix rownames retained as original_id
+  - Returns artemis_limma S3 object:
+    $results (feature_id, [original_id], logFC, AveExpr, t, P.Value, adj.P.Val, B, sig),
+    $fit (MArrayLM), $summary, $comparison, $norm_matrix, $params
+  - sig = adj.P.Val < fdr & |logFC| >= lfc; all features retained for ORA background
+  - Requires limma (Suggests)
+
+artemis_pca_qc.R:
+------------------
+ARTEMIS_pc_metadata_association(matrix, sample_meta, n_pcs=10, ntop=NULL,
+                                 sample_col=NULL, metadata_cols=NULL,
+                                 scale=TRUE, categorical_threshold=10, verbose=TRUE)
+  - Tests PC-metadata associations on any log2-scale matrix
+  - ntop=NULL uses all features; ntop=N selects top N most variable features for PCA
+  - Categorical variables (<=categorical_threshold unique values): Kruskal-Wallis + eta-sq
+  - Continuous variables: Spearman correlation + rho
+  - Returns artemis_pc_assoc S3: $pvalues, $effect_sizes, $test_used,
+    $var_explained, $pca, $params
 
 artemis_anchor_analysis.R:
 ---------------------------
@@ -134,8 +164,6 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- Full DESeq2 differential expression pipeline (currently only normalization
-  and gene selection are implemented; pairwise/multi-group DEA wrappers planned)
 - Time series: additional pattern detection methods
 
 ================================================================================
@@ -144,6 +172,7 @@ DEPENDENCIES / NOTES
 - DESeq2, SummarizedExperiment: in Imports (loaded with library(GAIA))
 - WGCNA: in Imports (loaded with library(GAIA)); cor() override handled
   automatically in ARTEMIS_wgcna_detect_modules
+- limma: in Suggests; required for ARTEMIS_limma_de()
 - decoupleR, OmnipathR: in Suggests (load manually)
 - FactoMineR, missMDA: in Suggests (load manually for FAMD)
 - grpreg, nnet: in Suggests (load manually for discriminative analysis)

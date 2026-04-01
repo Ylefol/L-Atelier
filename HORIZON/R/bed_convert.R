@@ -11,8 +11,8 @@
 #' \enumerate{
 #'   \item Name-sorts the BAM (\code{samtools sort -n}).
 #'   \item Converts to BEDPE (\code{bedtools bamtobed -bedpe}).
-#'   \item Reads the BEDPE in R, builds fragment coordinates, optionally
-#'         applies the Tn5 shift, then writes a sorted 6-column BED.
+#'   \item Streams the BEDPE through \code{awk} to build fragment coordinates
+#'         and optionally apply the Tn5 shift, then sorts with \code{sort}.
 #' }
 #'
 #' \strong{When to use \code{shift_reads}:}
@@ -77,53 +77,50 @@ HORIZON_bam_to_bed <- function(sample_sheet,
 
   if (isTRUE(remove_tmp)) file.remove(ns_bam)
 
-  # Step 3: R: BEDPE → fragment BED -------------------------------------------
-  message("[", sample_id, "] Building fragment BED")
-  bedpe <- utils::read.table(bedpe_f, header = FALSE, sep = "\t",
-                              stringsAsFactors = FALSE,
-                              col.names = c("chr1", "start1", "end1",
-                                            "chr2", "start2", "end2",
-                                            "name", "score",
-                                            "strand1", "strand2"))
-  if (isTRUE(remove_tmp)) file.remove(bedpe_f)
+  # Step 3: awk — BEDPE → fragment BED (streaming, no R memory) ---------------
+  # Writes an awk script to a temp file to avoid shell-quoting issues, then
+  # streams the BEDPE through awk into an unsorted temp BED.
+  message("[", sample_id, "] Building fragment BED (streaming awk)")
 
-  # Keep only concordant pairs (same chromosome)
-  bedpe <- bedpe[bedpe$chr1 == bedpe$chr2, ]
-
-  # Fragment coordinates: span both mates
-  frag <- data.frame(
-    chr    = bedpe$chr1,
-    start  = pmin(bedpe$start1, bedpe$start2),
-    end    = pmax(bedpe$end1,   bedpe$end2),
-    name   = seq_len(nrow(bedpe)),
-    score  = 0L,
-    strand = bedpe$strand1,
-    stringsAsFactors = FALSE
-  )
-
-  # Step 4: Tn5 shift (optional) -----------------------------------------------
+  awk_script <- tempfile(fileext = ".awk")
   if (isTRUE(shift_reads)) {
-    plus_idx  <- frag$strand == "+"
-    minus_idx <- frag$strand == "-"
-    frag$start[plus_idx] <- frag$start[plus_idx] + 4L
-    frag$end[plus_idx]   <- frag$end[plus_idx]   + 4L
-    frag$start[minus_idx] <- pmax(0L, frag$start[minus_idx] - 5L)
-    frag$end[minus_idx]   <- pmax(0L, frag$end[minus_idx]   - 5L)
+    writeLines(c(
+      'BEGIN { FS="\t"; OFS="\t" }',
+      '$1 == $4 {',
+      '  start = ($2 < $5) ? $2 : $5',
+      '  end   = ($3 > $6) ? $3 : $6',
+      '  if ($9 == "+") { start += 4; end += 4 }',
+      '  else { start = (start >= 5) ? start - 5 : 0; end = (end >= 5) ? end - 5 : 0 }',
+      '  if (end > start) print $1, start, end, NR, 0, $9',
+      '}'
+    ), awk_script)
+  } else {
+    writeLines(c(
+      'BEGIN { FS="\t"; OFS="\t" }',
+      '$1 == $4 {',
+      '  start = ($2 < $5) ? $2 : $5',
+      '  end   = ($3 > $6) ? $3 : $6',
+      '  if (end > start) print $1, start, end, NR, 0, $9',
+      '}'
+    ), awk_script)
   }
 
-  # Remove any zero-width or negative-width fragments after shift
-  frag <- frag[frag$end > frag$start, ]
+  tmp_bed <- file.path(out_dir, paste0(sample_id, "_unsorted.bed"))
+  exit <- system2("awk", args = c("-f", awk_script, bedpe_f),
+                  stdout = tmp_bed, stderr = "")
+  file.remove(awk_script)
+  if (exit != 0) stop("awk fragment conversion failed.", call. = FALSE)
+  if (isTRUE(remove_tmp)) file.remove(bedpe_f)
 
-  # Step 5: sort by chr, start -------------------------------------------------
-  frag <- frag[order(frag$chr, frag$start), ]
-
-  # Write 6-column BED ---------------------------------------------------------
-  utils::write.table(frag, file = out_bed, quote = FALSE,
-                     sep = "\t", row.names = FALSE, col.names = FALSE)
+  # Step 4: sort by chr, start -------------------------------------------------
+  message("[", sample_id, "] Sorting fragment BED")
+  exit <- system2("sort", args = c("-k1,1", "-k2,2n", tmp_bed),
+                  stdout = out_bed, stderr = "")
+  file.remove(tmp_bed)
+  if (exit != 0) stop("sort failed for fragment BED.", call. = FALSE)
 
   message("Fragment BED complete for: ", sample_id,
-          "\n  Output: ", out_bed,
-          "\n  Fragments: ", nrow(frag))
+          "\n  Output: ", out_bed)
   invisible(out_bed)
 }
 

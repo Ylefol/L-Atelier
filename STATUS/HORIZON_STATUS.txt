@@ -1,7 +1,7 @@
 ================================================================================
 HORIZON STATUS - Upstream Bioinformatics Processing Package
 ================================================================================
-Last Updated: 2026-03-23
+Last Updated: 2026-04-01
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -99,11 +99,12 @@ HORIZON_build_bowtie2_index(reference, index_dir, index_name=NULL,
 bowtie2_align.R:
 ----------------
 HORIZON_run_bowtie2(sample_sheet, sample_id, index, max_insert=2000L,
-                    use_trimmed=TRUE, threads=4L, min_mapq=30L, ...)
-  - Wraps Rbowtie2::bowtie2(); paired-end only
+                    use_trimmed=TRUE, threads=4L, min_mapq=30L, force=FALSE, ...)
+  - Calls system bowtie2 piped to samtools view (no SAM intermediate on disk)
+  - Requires bowtie2 and samtools in PATH (conda install -c bioconda bowtie2 samtools)
   - --no-mixed --no-discordant --no-unal applied to all assays
   - max_insert: recommend 2000 for ATAC-seq, 1000 for ChIP/CUT&RUN/CUT&TAG
-  - SAM -> BAM via Rsamtools::asBam(); MAPQ filter via Rsamtools::filterBam
+  - MAPQ filtering via samtools view -q in the same pipe
   - Output: <sample_id>_mapq_filtered.bam
 
 bam_atac_chip.R:
@@ -219,6 +220,27 @@ HORIZON_aggregate_counts(sample_sheet, output_root=NULL, save_rds=TRUE,
                          save_metadata=TRUE)
   - Builds genes x samples count matrix from per-sample count files
   - Writes count_matrix.csv, count_matrix.rds, sample_metadata.csv
+
+logging.R:
+----------
+HORIZON_generate_log_filename(log_dir=NULL, prefix="log", extension=".log",
+                               format="compact")
+  - Returns timestamped log filename; format "compact" = YYYY_MM_DD__HH_MM,
+    "readable" = YYYY-MM-DD_HH-MM-SS
+
+HORIZON_start_log(log_file, append=FALSE)
+  - Duplicates stdout to log file (sink split=TRUE); writes header with
+    timestamp, R version, working directory
+  - message()/warnings remain console-only; cat() step banners are captured
+
+HORIZON_stop_log()
+  - Closes sink; appends session info (sessionInfo, duration) and LOG END footer
+
+HORIZON_is_logging()
+  - Returns TRUE if a log is currently active
+
+HORIZON_get_log_file()
+  - Returns the active log file path, or NULL
 
 internals.R (not exported):
 ----------------------------

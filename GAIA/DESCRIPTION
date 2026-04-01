@@ -17,6 +17,7 @@ Imports:
     stats,
     grDevices,
     utils,
+    tools,
     rlang,
     circlize,
     ComplexHeatmap,
@@ -71,4 +72,6 @@ Suggests:
     rrvgo,
     treemap,
     GO.db,
+    arrow,
+    readxl,
     testthat (>= 3.0.0)

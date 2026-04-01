@@ -46,8 +46,8 @@ Internally:
 \enumerate{
 \item Name-sorts the BAM (\code{samtools sort -n}).
 \item Converts to BEDPE (\code{bedtools bamtobed -bedpe}).
-\item Reads the BEDPE in R, builds fragment coordinates, optionally
-applies the Tn5 shift, then writes a sorted 6-column BED.
+\item Streams the BEDPE through \code{awk} to build fragment coordinates
+and optionally apply the Tn5 shift, then sorts with \code{sort}.
 }
 
 \strong{When to use \code{shift_reads}:}
