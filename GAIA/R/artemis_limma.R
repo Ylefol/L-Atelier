@@ -189,14 +189,14 @@ ARTEMIS_limma_de <- function(matrix,
   n_exp <- sum(grp == experiment)
 
   if (verbose) {
-    cat("Differential analysis (limma):\n")
-    cat("  Reference : ", reference,  " (n = ", n_ref, ")\n", sep = "")
-    cat("  Experiment: ", experiment, " (n = ", n_exp, ")\n", sep = "")
+    cat("[ARTEMIS] Differential analysis (limma):\n")
+    cat("    Reference : ", reference,  " (n = ", n_ref, ")\n", sep = "")
+    cat("    Experiment: ", experiment, " (n = ", n_exp, ")\n", sep = "")
     if (!is.null(covariates)) {
-      cat("  Covariates:", paste(covariates, collapse = ", "), "\n")
+      cat("    Covariates:", paste(covariates, collapse = ", "), "\n")
     }
     if (!is.null(block_col)) {
-      cat("  Block     :", block_col,
+      cat("    Block     :", block_col,
           "(repeated measures via duplicateCorrelation)\n")
     }
   }
@@ -260,10 +260,10 @@ ARTEMIS_limma_de <- function(matrix,
 
   if (!is.null(block_col)) {
     block_vec <- meta[[block_col]]
-    if (verbose) cat("  Estimating within-block correlation...\n")
+    if (verbose) cat("    Estimating within-block correlation...\n")
     corfit <- limma::duplicateCorrelation(mat, design, block = block_vec)
     if (verbose) {
-      cat("  Consensus correlation:", round(corfit$consensus, 3), "\n")
+      cat("    Consensus correlation:", round(corfit$consensus, 3), "\n")
     }
     fit <- limma::lmFit(mat, design,
                         block       = block_vec,
@@ -375,17 +375,17 @@ ARTEMIS_limma_de <- function(matrix,
   )
 
   if (verbose) {
-    cat("\nResults (FDR < ", fdr, if (lfc > 0) paste0(", |log2FC| >= ", lfc) else "",
+    cat("\n[ARTEMIS] Results (FDR < ", fdr, if (lfc > 0) paste0(", |log2FC| >= ", lfc) else "",
         "):\n", sep = "")
-    cat("  Features tested:", summary_stats$n_tested, "\n")
-    cat("  Significant    :", n_sig_up + n_sig_down,
+    cat("    Features tested:", summary_stats$n_tested, "\n")
+    cat("    Significant    :", n_sig_up + n_sig_down,
         " (up: ", n_sig_up, ", down: ", n_sig_down, ")\n", sep = "")
     if ((n_sig_up + n_sig_down) > 0) {
-      cat("  Top hits:\n")
+      cat("    Top hits:\n")
       sig_hits <- head(results_df[results_df$sig, ], 5)
       for (i in seq_len(nrow(sig_hits))) {
         dir <- if (sig_hits$log2FoldChange[i] > 0) "UP" else "DOWN"
-        cat("    ", sig_hits$feature_id[i],
+        cat("        ", sig_hits$feature_id[i],
             ": log2FC = ", round(sig_hits$log2FoldChange[i], 2),
             " (", dir, "), padj = ",
             format(sig_hits$padj[i], digits = 2, scientific = TRUE),
@@ -425,8 +425,8 @@ ARTEMIS_limma_de <- function(matrix,
 #' @method print artemis_limma
 #' @export
 print.artemis_limma <- function(x, ...) {
-  cat("ARTEMIS limma DE Result\n")
-  cat("-----------------------\n")
+  cat("limma DE Result\n")
+  cat("------------------------------\n")
   cat("Comparison : ", x$comparison, "\n", sep = "")
   cat("Features   : ", x$summary$n_features, "\n", sep = "")
   n_sig <- x$summary$n_sig_up + x$summary$n_sig_down
@@ -439,7 +439,7 @@ print.artemis_limma <- function(x, ...) {
     cat("Covariates : ", paste(x$params$covariates, collapse = ", "), "\n", sep = "")
   }
   if (!is.null(x$params$block_col)) {
-    cat("Block      : ", x$params$block_col, "\n", sep = "")
+    cat("Block: ", x$params$block_col, "\n", sep = "")
   }
   cat("\nSlots: $results, $fit, $summary, $comparison, $norm_matrix, $params\n")
   invisible(x)

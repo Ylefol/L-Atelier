@@ -81,7 +81,7 @@ ELEUTHIA_load_rnaseq_from_sheet <- function(sample_sheet,
   }
 
   if (verbose) {
-    cat("Loading", nrow(subset_df), omics, "count files...\n")
+    cat("[ELEUTHIA] Loading", nrow(subset_df), omics, "count files...\n")
   }
 
   # Load all count files
@@ -92,7 +92,7 @@ ELEUTHIA_load_rnaseq_from_sheet <- function(sample_sheet,
     file_path <- file.path(subset_df$file_loc[i], subset_df$file_name[i])
 
     if (verbose) {
-      cat("  Loading:", sample_id, "\n")
+      cat("    Loading:", sample_id, "\n")
     }
 
     count_list[[sample_id]] <- ELEUTHIA_load_count_file(file_path)
@@ -122,10 +122,10 @@ ELEUTHIA_load_rnaseq_from_sheet <- function(sample_sheet,
   rownames(targets) <- targets$sample_id
 
   if (verbose) {
-    cat("\nRNA-seq loading complete:\n")
-    cat("  Genes:", nrow(counts), "\n")
-    cat("  Samples:", ncol(counts), "\n")
-    cat("  Total counts:", format(sum(counts), big.mark = ","), "\n")
+    cat("[ELEUTHIA] RNA-seq loading complete:\n")
+    cat("    Genes:", nrow(counts), "\n")
+    cat("    Samples:", ncol(counts), "\n")
+    cat("    Total counts:", format(sum(counts), big.mark = ","), "\n")
   }
 
   return(list(
@@ -170,11 +170,11 @@ ELEUTHIA_filter_low_expression <- function(rna_data,
   n_after <- sum(keep)
 
   if (verbose) {
-    cat("Filtering low-expression genes:\n")
-    cat("  Before:", n_before, "genes\n")
-    cat("  After:", n_after, "genes\n")
-    cat("  Removed:", n_before - n_after, "genes\n")
-    cat("  (min_count =", min_count, ", min_samples =", min_samples, ")\n")
+    cat("[ELEUTHIA] Filtering low-expression genes:\n")
+    cat("    Before:", n_before, "genes\n")
+    cat("    After:", n_after, "genes\n")
+    cat("    Removed:", n_before - n_after, "genes\n")
+    cat("    (min_count =", min_count, ", min_samples =", min_samples, ")\n")
   }
 
   rna_data$counts <- counts[keep, , drop = FALSE]

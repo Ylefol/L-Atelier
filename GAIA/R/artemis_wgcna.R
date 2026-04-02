@@ -69,7 +69,7 @@ ARTEMIS_wgcna_prepare <- function(counts,
                                    remove_zero_variance = TRUE,
                                    verbose = TRUE) {
 
-  if (verbose) cat("=== ARTEMIS WGCNA Data Preparation ===\n")
+  if (verbose) cat("[ARTEMIS] ARTEMIS WGCNA Data Preparation \n")
 
   # --------------------------------------------------------------------------
 
@@ -79,7 +79,7 @@ ARTEMIS_wgcna_prepare <- function(counts,
   removed_samples <- character(0)
 
   if (is.character(counts) && length(counts) == 1) {
-    if (verbose) cat("Loading counts from path:", counts, "\n")
+    if (verbose) cat("    Loading counts from path:", counts, "\n")
     counts <- .wgcna_load_counts(counts, counts_format, gene_col, verbose)
   }
 
@@ -103,7 +103,7 @@ ARTEMIS_wgcna_prepare <- function(counts,
   # Load traits if path provided
   # --------------------------------------------------------------------------
   if (is.character(traits) && length(traits) == 1 && file.exists(traits)) {
-    if (verbose) cat("Loading traits from path:", traits, "\n")
+    if (verbose) cat("    Loading traits from path:", traits, "\n")
     traits <- read.csv(traits, stringsAsFactors = FALSE)
   }
 
@@ -154,16 +154,16 @@ ARTEMIS_wgcna_prepare <- function(counts,
 
   if (length(missing_from_expr) > 0) {
     if (verbose) {
-      cat("Samples in traits but not in expression data (removed):\n")
-      cat("  ", paste(missing_from_expr, collapse = ", "), "\n")
+      cat("    Samples in traits but not in expression data (removed):\n")
+      cat("    ", paste(missing_from_expr, collapse = ", "), "\n")
     }
     removed_samples <- c(removed_samples, missing_from_expr)
   }
 
   if (length(missing_from_traits) > 0) {
     if (verbose) {
-      cat("Samples in expression but not in traits (removed):\n")
-      cat("  ", paste(missing_from_traits, collapse = ", "), "\n")
+      cat("    Samples in expression but not in traits (removed):\n")
+      cat("        ", paste(missing_from_traits, collapse = ", "), "\n")
     }
     removed_samples <- c(removed_samples, missing_from_traits)
   }
@@ -186,7 +186,7 @@ ARTEMIS_wgcna_prepare <- function(counts,
 
     if (length(zero_var_genes) > 0) {
       if (verbose) {
-        cat("Removing", length(zero_var_genes), "genes with zero variance\n")
+        cat("    Removing", length(zero_var_genes), "genes with zero variance\n")
       }
       datExpr <- datExpr[, !colnames(datExpr) %in% zero_var_genes, drop = FALSE]
       removed_genes <- zero_var_genes
@@ -209,15 +209,15 @@ ARTEMIS_wgcna_prepare <- function(counts,
   class(result) <- c("wgcna_data", "list")
 
   if (verbose) {
-    cat("\n--- Data Summary ---\n")
-    cat("Samples:", result$n_samples, "\n")
-    cat("Genes/Features:", result$n_genes, "\n")
-    cat("Traits:", ncol(datTraits), "\n")
+    cat("\n[ARTEMIS] Data Summary ---\n")
+    cat("    Samples:", result$n_samples, "\n")
+    cat("    Genes/Features:", result$n_genes, "\n")
+    cat("    Traits:", ncol(datTraits), "\n")
     if (length(removed_genes) > 0) {
-      cat("Genes removed (zero variance):", length(removed_genes), "\n")
+      cat("    Genes removed (zero variance):", length(removed_genes), "\n")
     }
     if (length(removed_samples) > 0) {
-      cat("Samples removed (unmatched):", length(removed_samples), "\n")
+      cat("    Samples removed (unmatched):", length(removed_samples), "\n")
     }
   }
 
@@ -262,7 +262,7 @@ ARTEMIS_wgcna_prepare <- function(counts,
       stop("No count files found in directory: ", path)
     }
 
-    if (verbose) cat("Found", length(count_files), "count files\n")
+    if (verbose) cat("[ARTEMIS] Found", length(count_files), "count files\n")
 
     # Load and merge
     merged <- NULL
@@ -310,14 +310,14 @@ ARTEMIS_wgcna_prepare <- function(counts,
         # Successful conversion (at least some values)
         traits[[col]] <- x_numeric
         if (verbose && any(is.na(x_numeric) & !is.na(x))) {
-          cat("Note: Some non-numeric values in '", col, "' converted to NA\n")
+          cat("[ARTEMIS] Note: Some non-numeric values in '", col, "' converted to NA\n")
         }
       } else {
         # Categorical - convert to numeric factor codes
         x_factor <- as.factor(x)
         traits[[col]] <- as.numeric(x_factor)
         if (verbose) {
-          cat("Converted '", col, "' to numeric codes: ",
+          cat("[ARTEMIS] Converted '", col, "' to numeric codes: ",
               paste(levels(x_factor), "=", seq_along(levels(x_factor)),
                     collapse = ", "), "\n")
         }
@@ -336,7 +336,7 @@ ARTEMIS_wgcna_prepare <- function(counts,
 #' @export
 print.wgcna_data <- function(x, ...) {
   cat("WGCNA Data Object\n")
-  cat("-----------------\n")
+  cat("------------------------------\n")
   cat("Samples:", x$n_samples, "\n")
   cat("Genes:", x$n_genes, "\n")
   cat("Traits:", ncol(x$datTraits), "-",
@@ -383,7 +383,7 @@ print.wgcna_data <- function(x, ...) {
 #' @export
 ARTEMIS_wgcna_qc <- function(wgcna_data, verbose = TRUE) {
 
-  if (verbose) cat("=== ARTEMIS WGCNA Quality Control ===\n")
+  if (verbose) cat("[ARTEMIS] WGCNA Quality Control \n")
 
 
   # Extract expression matrix
@@ -408,11 +408,11 @@ ARTEMIS_wgcna_qc <- function(wgcna_data, verbose = TRUE) {
     if (sum(!gsg$goodGenes) > 0) {
       removed_genes_qc <- colnames(datExpr)[!gsg$goodGenes]
       if (verbose) {
-        cat("Removing", length(removed_genes_qc), "genes that failed QC\n")
+        cat("    Removing", length(removed_genes_qc), "genes that failed QC\n")
         if (length(removed_genes_qc) <= 10) {
-          cat("  ", paste(removed_genes_qc, collapse = ", "), "\n")
+          cat("        ", paste(removed_genes_qc, collapse = ", "), "\n")
         } else {
-          cat("  ", paste(head(removed_genes_qc, 10), collapse = ", "), "...\n")
+          cat("        ", paste(head(removed_genes_qc, 10), collapse = ", "), "...\n")
         }
       }
     }
@@ -420,21 +420,21 @@ ARTEMIS_wgcna_qc <- function(wgcna_data, verbose = TRUE) {
     if (sum(!gsg$goodSamples) > 0) {
       removed_samples_qc <- rownames(datExpr)[!gsg$goodSamples]
       if (verbose) {
-        cat("Removing", length(removed_samples_qc), "samples that failed QC:\n")
-        cat("  ", paste(removed_samples_qc, collapse = ", "), "\n")
+        cat("    Removing", length(removed_samples_qc), "samples that failed QC:\n")
+        cat("        ", paste(removed_samples_qc, collapse = ", "), "\n")
       }
     }
 
     # Apply filtering
     datExpr <- datExpr[gsg$goodSamples, gsg$goodGenes]
   } else {
-    if (verbose) cat("All samples and genes passed QC checks\n")
+    if (verbose) cat("[ARTEMIS] All samples and genes passed QC checks\n")
   }
 
   if (verbose) {
-    cat("\n--- Post-QC Summary ---\n")
-    cat("Samples:", nrow(datExpr), "\n")
-    cat("Genes:", ncol(datExpr), "\n")
+    cat("\n[ARTEMIS] Post-QC Summary ---\n")
+    cat("    Samples:", nrow(datExpr), "\n")
+    cat("    Genes:", ncol(datExpr), "\n")
   }
 
   # Return appropriate object type
@@ -502,7 +502,7 @@ ARTEMIS_wgcna_cluster_samples <- function(wgcna_data,
                                            plot = TRUE,
                                            verbose = TRUE) {
 
-  if (verbose) cat("=== ARTEMIS WGCNA Sample Clustering ===\n")
+  if (verbose) cat("[ARTEMIS] WGCNA Sample Clustering \n")
 
   # Extract data
   if (inherits(wgcna_data, "wgcna_data")) {
@@ -514,14 +514,14 @@ ARTEMIS_wgcna_cluster_samples <- function(wgcna_data,
   }
 
   # Perform hierarchical clustering
-  if (verbose) cat("Clustering samples using method:", method, "\n")
+  if (verbose) cat("    Clustering samples using method:", method, "\n")
   sample_tree <- hclust(dist(datExpr), method = method)
 
   outliers_removed <- character(0)
 
   # Optional outlier removal based on height cutoff
   if (!is.null(cut_height)) {
-    if (verbose) cat("Applying cut height:", cut_height, "\n")
+    if (verbose) cat("    Applying cut height:", cut_height, "\n")
 
     clust <- cutreeStatic(sample_tree, cutHeight = cut_height,
                           minSize = min_cluster_size)
@@ -533,8 +533,8 @@ ARTEMIS_wgcna_cluster_samples <- function(wgcna_data,
     if (sum(!keep_samples) > 0) {
       outliers_removed <- rownames(datExpr)[!keep_samples]
       if (verbose) {
-        cat("Removing", length(outliers_removed), "outlier samples:\n")
-        cat("  ", paste(outliers_removed, collapse = ", "), "\n")
+        cat("    Removing", length(outliers_removed), "outlier samples:\n")
+        cat("        ", paste(outliers_removed, collapse = ", "), "\n")
       }
 
       datExpr <- datExpr[keep_samples, , drop = FALSE]
@@ -545,7 +545,7 @@ ARTEMIS_wgcna_cluster_samples <- function(wgcna_data,
       # Re-cluster without outliers
       sample_tree <- hclust(dist(datExpr), method = method)
     } else {
-      if (verbose) cat("No outliers detected at this cut height\n")
+      if (verbose) cat("    No outliers detected at this cut height\n")
     }
   }
 
@@ -565,11 +565,11 @@ ARTEMIS_wgcna_cluster_samples <- function(wgcna_data,
   }
 
   if (verbose) {
-    cat("\n--- Clustering Summary ---\n")
-    cat("Samples:", nrow(datExpr), "\n")
-    cat("Method:", method, "\n")
+    cat("\n[ARTEMIS] Clustering Summary \n")
+    cat("    Samples:", nrow(datExpr), "\n")
+    cat("    Method:", method, "\n")
     if (length(outliers_removed) > 0) {
-      cat("Outliers removed:", length(outliers_removed), "\n")
+      cat("    Outliers removed:", length(outliers_removed), "\n")
     }
   }
 
@@ -651,7 +651,7 @@ ARTEMIS_wgcna_pick_power <- function(wgcna_data,
                                       plot = TRUE,
                                       verbose = TRUE) {
 
-  if (verbose) cat("=== ARTEMIS WGCNA Power Selection ===\n")
+  if (verbose) cat("[ARTEMIS] WGCNA Power Selection \n")
 
   # Default powers
   if (is.null(powers)) {
@@ -668,8 +668,8 @@ ARTEMIS_wgcna_pick_power <- function(wgcna_data,
   }
 
   # Calculate soft threshold
-  if (verbose) cat("Testing powers:", paste(powers, collapse = ", "), "\n")
-  if (verbose) cat("Network type:", network_type, "\n")
+  if (verbose) cat("    Testing powers:", paste(powers, collapse = ", "), "\n")
+  if (verbose) cat("    Network type:", network_type, "\n")
 
   sft <- pickSoftThreshold(
     datExpr,
@@ -697,7 +697,7 @@ ARTEMIS_wgcna_pick_power <- function(wgcna_data,
       if (length(idx) > 0 && signed_r2[idx] >= r2_cutoff) {
         selected_power <- sft$powerEstimate
         selection_method <- "WGCNA_powerEstimate"
-        if (verbose) cat("Using WGCNA's powerEstimate:", selected_power, "\n")
+        if (verbose) cat("    Using WGCNA's powerEstimate:", selected_power, "\n")
       }
     }
 
@@ -708,7 +708,7 @@ ARTEMIS_wgcna_pick_power <- function(wgcna_data,
         selected_power <- fit_indices$Power[above_threshold[1]]
         selection_method <- "first_above_r2_threshold"
         if (verbose) {
-          cat("Selected first power with R^2 >=", r2_cutoff, ":",
+          cat("    Selected first power with R^2 >=", r2_cutoff, ":",
               selected_power, "\n")
         }
       }
@@ -738,7 +738,7 @@ ARTEMIS_wgcna_pick_power <- function(wgcna_data,
           selected_power <- fit_indices$Power[acceptable[1]]
           selection_method <- "connectivity_adjusted"
           if (verbose) {
-            cat("Adjusted for connectivity. New power:", selected_power, "\n")
+            cat("    Adjusted for connectivity. New power:", selected_power, "\n")
           }
         }
       }
@@ -807,9 +807,9 @@ ARTEMIS_wgcna_pick_power <- function(wgcna_data,
   }
 
   if (verbose) {
-    cat("\n--- Power Selection Summary ---\n")
-    cat(recommendation, "\n")
-    cat("Selection method:", selection_method, "\n")
+    cat("\n[ARTEMIS] Power Selection Summary \n")
+    cat("    ", recommendation, "\n")
+    cat("     Selection method:", selection_method, "\n")
   }
 
   # Build result
@@ -837,7 +837,7 @@ ARTEMIS_wgcna_pick_power <- function(wgcna_data,
 #' @export
 print.wgcna_power <- function(x, ...) {
   cat("WGCNA Power Selection\n")
-  cat("---------------------\n")
+  cat("------------------------------\n")
   cat("Selected power:", x$power, "\n")
   cat("Selection method:", x$selection_method, "\n")
   cat("R^2 at power:", round(x$r2_at_power, 3), "\n")
@@ -924,7 +924,7 @@ ARTEMIS_wgcna_detect_modules <- function(wgcna_data,
                                           tom_file_base = "TOM",
                                           verbose = TRUE) {
 
-  if (verbose) cat("=== ARTEMIS WGCNA Module Detection ===\n")
+  if (verbose) cat("[ARTEMIS] WGCNA Module Detection \n")
 
   # --------------------------------------------------------------------------
   # Check for WGCNA cor() masking issue
@@ -940,8 +940,7 @@ ARTEMIS_wgcna_detect_modules <- function(wgcna_data,
 
   if (!wgcna_cor_ok) {
     if (verbose) {
-      message("Note: WGCNA::cor() not found on search path. ",
-              "Assigning WGCNA::cor to global environment for blockwiseModules.")
+      cat("    Note: WGCNA::cor() not found on search path. Assigning WGCNA::cor to global environment for blockwiseModules.\n")
     }
     assign("cor", WGCNA::cor, envir = .GlobalEnv)
   }
@@ -968,7 +967,7 @@ ARTEMIS_wgcna_detect_modules <- function(wgcna_data,
   # Handle power parameter
   # --------------------------------------------------------------------------
   if (is.null(power)) {
-    if (verbose) cat("Power not specified, auto-selecting...\n")
+    if (verbose) cat("    Power not specified, auto-selecting...\n")
     power_result <- ARTEMIS_wgcna_pick_power(datExpr,
                                               network_type = network_type,
                                               verbose = verbose)
@@ -983,19 +982,19 @@ ARTEMIS_wgcna_detect_modules <- function(wgcna_data,
     stop("Could not determine power value. Please specify manually.")
   }
 
-  if (verbose) cat("Using power:", power_value, "\n")
+  if (verbose) cat("    Using power:", power_value, "\n")
 
   # --------------------------------------------------------------------------
   # Run blockwiseModules
   # --------------------------------------------------------------------------
   if (verbose) {
-    cat("Detecting modules...\n")
-    cat("  Network type:", network_type, "\n")
-    cat("  TOM type:", tom_type, "\n")
-    cat("  Min module size:", min_module_size, "\n")
-    cat("  Merge cut height:", merge_cut_height, "\n")
-    cat("  Max block size:", max_block_size, "\n")
-    if (n_threads > 1) cat("  Threads:", n_threads, "\n")
+    cat("[ARTEMIS] Detecting modules...\n")
+    cat("    Network type:", network_type, "\n")
+    cat("    TOM type:", tom_type, "\n")
+    cat("    Min module size:", min_module_size, "\n")
+    cat("    Merge cut height:", merge_cut_height, "\n")
+    cat("    Max block size:", max_block_size, "\n")
+    if (n_threads > 1) cat("        Threads:", n_threads, "\n")
   }
 
   net <- blockwiseModules(
@@ -1090,10 +1089,10 @@ ARTEMIS_wgcna_detect_modules <- function(wgcna_data,
   n_modules <- length(unique(module_names[module_names != "module_0"]))
 
   if (verbose) {
-    cat("\n--- Module Detection Summary ---\n")
-    cat("Total genes:", ncol(datExpr), "\n")
-    cat("Modules detected:", n_modules, "(plus module_0/unassigned)\n")
-    cat("\nModule sizes:\n")
+    cat("\n[ARTEMIS] Module Detection Summary \n")
+    cat("    Total genes:", ncol(datExpr), "\n")
+    cat("    Modules detected:", n_modules, "(plus module_0/unassigned)\n")
+    cat("    \nModule sizes:\n")
     print(module_summary, row.names = FALSE)
   }
 
@@ -1178,7 +1177,7 @@ ARTEMIS_wgcna_module_traits <- function(modules,
                                          p_adjust = "BH",
                                          verbose = TRUE) {
 
-  if (verbose) cat("=== ARTEMIS WGCNA Module-Trait Correlation ===\n")
+  if (verbose) cat("[ARTEMIS] WGCNA Module-Trait Correlation \n")
 
   # --------------------------------------------------------------------------
   # Extract data
@@ -1213,7 +1212,7 @@ ARTEMIS_wgcna_module_traits <- function(modules,
 
   if (length(common_samples) < nrow(MEs)) {
     if (verbose) {
-      cat("Using", length(common_samples), "of", nrow(MEs), "samples\n")
+      cat("    Using", length(common_samples), "of", nrow(MEs), "samples\n")
     }
   }
 
@@ -1225,7 +1224,7 @@ ARTEMIS_wgcna_module_traits <- function(modules,
   # --------------------------------------------------------------------------
   # Calculate correlations
   # --------------------------------------------------------------------------
-  if (verbose) cat("Calculating correlations using method:", cor_method, "\n")
+  if (verbose) cat("    Calculating correlations using method:", cor_method, "\n")
 
   if (cor_method == "pearson") {
     cor_matrix <- cor(MEs, datTraits, use = "pairwise.complete.obs")
@@ -1299,13 +1298,13 @@ ARTEMIS_wgcna_module_traits <- function(modules,
   n_significant <- nrow(significant_associations)
 
   if (verbose) {
-    cat("\n--- Module-Trait Correlation Summary ---\n")
-    cat("Modules:", nrow(cor_matrix), "\n")
-    cat("Traits:", ncol(cor_matrix), "\n")
-    cat("Significant associations (padj < 0.05):", n_significant, "\n")
+    cat("[ARTEMIS] Module-Trait Correlation Summary \n")
+    cat("    Modules:", nrow(cor_matrix), "\n")
+    cat("    Traits:", ncol(cor_matrix), "\n")
+    cat("    Significant associations (padj < 0.05):", n_significant, "\n")
 
     if (n_significant > 0) {
-      cat("\nTop significant associations:\n")
+      cat("    Top significant associations:\n")
       print(head(significant_associations, 10), row.names = FALSE)
     }
   }
@@ -1400,7 +1399,7 @@ ARTEMIS_wgcna_gene_significance <- function(modules,
                                              cor_method = "pearson",
                                              verbose = TRUE) {
 
-  if (verbose) cat("=== ARTEMIS WGCNA Gene Significance ===\n")
+  if (verbose) cat("[ARTEMIS] WGCNA Gene Significance \n")
 
   # --------------------------------------------------------------------------
   # Extract data
@@ -1440,16 +1439,16 @@ ARTEMIS_wgcna_gene_significance <- function(modules,
   n_samples <- nrow(datExpr)
 
   if (verbose) {
-    cat("Samples:", n_samples, "\n")
-    cat("Genes:", ncol(datExpr), "\n")
-    cat("Traits:", ncol(datTraits), "-",
+    cat("    Samples:", n_samples, "\n")
+    cat("    Genes:", ncol(datExpr), "\n")
+    cat("    Traits:", ncol(datTraits), "-",
         paste(colnames(datTraits), collapse = ", "), "\n")
   }
 
   # --------------------------------------------------------------------------
   # Calculate Module Membership (MM)
   # --------------------------------------------------------------------------
-  if (verbose) cat("Calculating module membership...\n")
+  if (verbose) cat("    Calculating module membership...\n")
 
   # MM = correlation of each gene with each module eigengene
   MM <- cor(datExpr, MEs, use = "pairwise.complete.obs",
@@ -1463,7 +1462,7 @@ ARTEMIS_wgcna_gene_significance <- function(modules,
   # --------------------------------------------------------------------------
   # Calculate Gene Significance (GS)
   # --------------------------------------------------------------------------
-  if (verbose) cat("Calculating gene significance...\n")
+  if (verbose) cat("    Calculating gene significance...\n")
 
   GS <- cor(datExpr, datTraits, use = "pairwise.complete.obs",
             method = cor_method)
@@ -1519,18 +1518,18 @@ ARTEMIS_wgcna_gene_significance <- function(modules,
   })
 
   if (verbose) {
-    cat("\n--- Gene Significance Summary ---\n")
-    cat("Total genes analyzed:", nrow(gene_info), "\n")
+    cat("[ARTEMIS] Gene Significance Summary \n")
+    cat("    Total genes analyzed:", nrow(gene_info), "\n")
 
     # Count significant genes per module (for first trait)
     p_col <- paste0("p.GS.", colnames(datTraits)[1])
     sig_genes <- gene_info[gene_info[[p_col]] < 0.05, ]
-    cat("Genes with significant GS (p < 0.05) for",
+    cat("    Genes with significant GS (p < 0.05) for",
         colnames(datTraits)[1], ":", nrow(sig_genes), "\n")
 
     if (nrow(sig_genes) > 0) {
       sig_by_mod <- table(sig_genes$module)
-      cat("\nSignificant genes by module:\n")
+      cat("    Significant genes by module:\n")
       print(sort(sig_by_mod, decreasing = TRUE))
     }
   }
@@ -1623,7 +1622,7 @@ ARTEMIS_wgcna_hub_genes <- function(modules,
                                      gs_threshold = 0.2,
                                      verbose = TRUE) {
 
-  if (verbose) cat("=== ARTEMIS WGCNA Hub Gene Identification ===\n")
+  if (verbose) cat("[ARTEMIS] WGCNA Hub Gene Identification \n")
 
   # --------------------------------------------------------------------------
   # Extract data
@@ -1638,7 +1637,7 @@ ARTEMIS_wgcna_hub_genes <- function(modules,
 
   # Calculate MM if gene_sig not provided
   if (is.null(gene_sig)) {
-    if (verbose) cat("Calculating module membership...\n")
+    if (verbose) cat("    Calculating module membership...\n")
     MM <- cor(datExpr, MEs, use = "pairwise.complete.obs")
     colnames(MM) <- gsub("^ME", "", colnames(MM))
     GS <- NULL
@@ -1673,9 +1672,9 @@ ARTEMIS_wgcna_hub_genes <- function(modules,
   }
 
   if (verbose) {
-    cat("MM threshold:", mm_threshold, "\n")
+    cat("    MM threshold:", mm_threshold, "\n")
     if (!is.null(GS)) {
-      cat("GS threshold:", gs_threshold, "(trait:", trait_name, ")\n")
+      cat("    GS threshold:", gs_threshold, "(trait:", trait_name, ")\n")
     }
   }
 
@@ -1749,9 +1748,9 @@ ARTEMIS_wgcna_hub_genes <- function(modules,
   rownames(hub_summary) <- NULL
 
   if (verbose) {
-    cat("\n--- Hub Gene Summary ---\n")
-    cat("Total hub genes identified:", nrow(actual_hubs), "\n")
-    cat("\nHubs per module:\n")
+    cat("[ARTEMIS] Hub Gene Summary \n")
+    cat("    Total hub genes identified:", nrow(actual_hubs), "\n")
+    cat("    Hubs per module:\n")
     print(hub_summary, row.names = FALSE)
   }
 

@@ -74,8 +74,8 @@ DEMETER_load_wgcna <- function(results_dir,
     stop("Directory not found: ", results_dir)
   }
 
-  if (verbose) cat("=== Loading WGCNA Results ===\n")
-  if (verbose) cat("Directory:", results_dir, "\n")
+  if (verbose) cat("[DEMETER] Loading WGCNA Results ===\n")
+  if (verbose) cat("    Directory:", results_dir, "\n")
 
   # Parse 'what' argument
   valid_types <- c("modules", "trait_cor", "gene_sig", "hubs", "enrichment")
@@ -143,7 +143,7 @@ DEMETER_load_wgcna <- function(results_dir,
 
   # --- Strip Ensembl version suffixes if requested ---
   if (strip_version) {
-    if (verbose) cat("Stripping Ensembl version suffixes from gene IDs...\n")
+    if (verbose) cat("    Stripping Ensembl version suffixes from gene IDs...\n")
 
     if (!is.null(results$modules)) {
       m <- results$modules
@@ -187,8 +187,8 @@ DEMETER_load_wgcna <- function(results_dir,
   }
 
   if (verbose) {
-    cat("\n--- Loaded ---\n")
-    cat("Objects:", paste(names(results), collapse = ", "), "\n")
+    cat("\n[DEMETER] Loaded \n")
+    cat("    Objects:", paste(names(results), collapse = ", "), "\n")
   }
 
   return(results)
@@ -206,14 +206,14 @@ DEMETER_load_wgcna <- function(results_dir,
   # Try RDS first
   rds_file <- file.path(results_dir, paste0(prefix, "_modules.rds"))
   if (file.exists(rds_file)) {
-    if (verbose) cat("Loading modules from RDS...\n")
+    if (verbose) cat("[DEMETER] Loading modules from RDS...\n")
     modules <- readRDS(rds_file)
-    if (verbose) cat("  Loaded wgcna_modules object\n")
+    if (verbose) cat("    Loaded wgcna_modules object\n")
     return(modules)
   }
 
   # Fall back to CSV reconstruction
-  if (verbose) cat("Loading modules from CSV (RDS not found)...\n")
+  if (verbose) cat("[DEMETER] Loading modules from CSV (RDS not found)...\n")
 
   # Required files
   me_file <- file.path(results_dir, paste0(prefix, "_module_eigengenes.csv"))
@@ -221,7 +221,7 @@ DEMETER_load_wgcna <- function(results_dir,
   summary_file <- file.path(results_dir, paste0(prefix, "_module_summary.csv"))
 
   if (!file.exists(me_file)) {
-    if (verbose) cat("  Module eigengenes CSV not found, skipping modules\n")
+    if (verbose) cat("    Module eigengenes CSV not found, skipping modules\n")
     return(NULL)
   }
 
@@ -288,7 +288,7 @@ DEMETER_load_wgcna <- function(results_dir,
 
   class(modules) <- c("wgcna_modules", "list")
 
-  if (verbose) cat("  Reconstructed wgcna_modules from CSV\n")
+  if (verbose) cat("    Reconstructed wgcna_modules from CSV\n")
   return(modules)
 }
 
@@ -300,14 +300,14 @@ DEMETER_load_wgcna <- function(results_dir,
   # Try RDS first
   rds_file <- file.path(results_dir, paste0(prefix, "_trait_cor.rds"))
   if (file.exists(rds_file)) {
-    if (verbose) cat("Loading trait correlations from RDS...\n")
+    if (verbose) cat("[DEMETER] Loading trait correlations from RDS...\n")
     trait_cor <- readRDS(rds_file)
     if (verbose) cat("  Loaded wgcna_trait_cor object\n")
     return(trait_cor)
   }
 
   # Fall back to CSV reconstruction
-  if (verbose) cat("Loading trait correlations from CSV...\n")
+  if (verbose) cat("[DEMETER] Loading trait correlations from CSV...\n")
 
   cor_file <- file.path(results_dir, paste0(prefix, "_trait_correlations.csv"))
   pval_file <- file.path(results_dir, paste0(prefix, "_trait_pvalues.csv"))
@@ -351,7 +351,7 @@ DEMETER_load_wgcna <- function(results_dir,
 
   class(trait_cor) <- c("wgcna_trait_cor", "list")
 
-  if (verbose) cat("  Reconstructed wgcna_trait_cor from CSV\n")
+  if (verbose) cat("[DEMETER] Reconstructed wgcna_trait_cor from CSV\n")
   return(trait_cor)
 }
 
@@ -363,14 +363,14 @@ DEMETER_load_wgcna <- function(results_dir,
   # Try RDS first
   rds_file <- file.path(results_dir, paste0(prefix, "_gene_sig.rds"))
   if (file.exists(rds_file)) {
-    if (verbose) cat("Loading gene significance from RDS...\n")
+    if (verbose) cat("[DEMETER] Loading gene significance from RDS...\n")
     gene_sig <- readRDS(rds_file)
     if (verbose) cat("  Loaded wgcna_gene_sig object\n")
     return(gene_sig)
   }
 
   # Fall back to CSV
-  if (verbose) cat("Loading gene significance from CSV...\n")
+  if (verbose) cat("[DEMETER] Loading gene significance from CSV...\n")
 
   gs_file <- file.path(results_dir, paste0(prefix, "_gene_significance.csv"))
   if (!file.exists(gs_file)) {
@@ -387,7 +387,7 @@ DEMETER_load_wgcna <- function(results_dir,
 
   class(gene_sig) <- c("wgcna_gene_sig", "list")
 
-  if (verbose) cat("  Reconstructed wgcna_gene_sig from CSV\n")
+  if (verbose) cat("[DEMETER] Reconstructed wgcna_gene_sig from CSV\n")
   return(gene_sig)
 }
 
@@ -399,14 +399,14 @@ DEMETER_load_wgcna <- function(results_dir,
   # Try RDS first
   rds_file <- file.path(results_dir, paste0(prefix, "_hubs.rds"))
   if (file.exists(rds_file)) {
-    if (verbose) cat("Loading hub genes from RDS...\n")
+    if (verbose) cat("[DEMETER] Loading hub genes from RDS...\n")
     hubs <- readRDS(rds_file)
     if (verbose) cat("  Loaded wgcna_hubs object\n")
     return(hubs)
   }
 
   # Fall back to CSV
-  if (verbose) cat("Loading hub genes from CSV...\n")
+  if (verbose) cat("[DEMETER] Loading hub genes from CSV...\n")
 
   hub_file <- file.path(results_dir, paste0(prefix, "_hub_genes.csv"))
   summary_file <- file.path(results_dir, paste0(prefix, "_hub_summary.csv"))
@@ -430,7 +430,7 @@ DEMETER_load_wgcna <- function(results_dir,
 
   class(hubs) <- c("wgcna_hubs", "list")
 
-  if (verbose) cat("  Reconstructed wgcna_hubs from CSV\n")
+  if (verbose) cat("[DEMETER] Reconstructed wgcna_hubs from CSV\n")
   return(hubs)
 }
 
@@ -445,7 +445,7 @@ DEMETER_load_wgcna <- function(results_dir,
   # Try RDS in enrichment subdirectory
   rds_file <- file.path(enrich_dir, "enrichment.rds")
   if (file.exists(rds_file)) {
-    if (verbose) cat("Loading enrichment from RDS...\n")
+    if (verbose) cat("[DEMETER] Loading enrichment from RDS...\n")
     enrichment <- readRDS(rds_file)
     if (verbose) cat("  Loaded gost_enrichment object\n")
     return(enrichment)
@@ -454,7 +454,7 @@ DEMETER_load_wgcna <- function(results_dir,
   # Try loading combined CSV (partial reconstruction)
   combined_file <- file.path(enrich_dir, "enrichment_combined.csv")
   if (file.exists(combined_file)) {
-    if (verbose) cat("Loading enrichment from CSV (limited reconstruction)...\n")
+    if (verbose) cat("[DEMETER] Loading enrichment from CSV (limited reconstruction)...\n")
     combined <- read.csv(combined_file, stringsAsFactors = FALSE)
 
     enrichment <- list(
@@ -465,11 +465,11 @@ DEMETER_load_wgcna <- function(results_dir,
     )
 
     class(enrichment) <- c("gost_enrichment", "list")
-    if (verbose) cat("  Reconstructed gost_enrichment from CSV (limited)\n")
+    if (verbose) cat("[DEMETER] Reconstructed gost_enrichment from CSV (limited)\n")
     return(enrichment)
   }
 
-  if (verbose) cat("  Enrichment results not found\n")
+  if (verbose) cat("[DEMETER] Enrichment results not found\n")
   return(NULL)
 }
 
@@ -556,7 +556,7 @@ DEMETER_top_activities <- function(result,
   top_sources <- names(sort(scores, decreasing = TRUE))[1:n]
 
   if (verbose) {
-    cat("Selected top", n, "sources by", metric_name, "\n")
+    cat("[DEMETER] Selected top", n, "sources by", metric_name, "\n")
     cat("  Range:", round(min(scores[top_sources]), 3), "to",
         round(max(scores[top_sources]), 3), "\n")
   }
@@ -607,7 +607,7 @@ DEMETER_load_activity <- function(file_path, verbose = TRUE) {
     stop("File not found: ", file_path)
   }
 
-  if (verbose) cat("Loading activity results from:", file_path, "\n")
+  if (verbose) cat("[DEMETER] Loading activity results from:", file_path, "\n")
 
   result <- readRDS(file_path)
 
@@ -697,9 +697,9 @@ DEMETER_load_dea_genes <- function(dea_dir,
     stop("'source' must be one of: ", paste(valid_sources, collapse = ", "))
   }
 
-  if (verbose) cat("=== Loading DEA Genes ===\n")
-  if (verbose) cat("Directory:", dea_dir, "\n")
-  if (verbose) cat("Source:", source, "\n")
+  if (verbose) cat("[DEMETER] Loading DEA Genes \n")
+  if (verbose) cat("  Directory:", dea_dir, "\n")
+  if (verbose) cat("  Source:", source, "\n")
 
   # ---- Identify experiment subdirectories ----
   all_dirs <- list.dirs(dea_dir, full.names = FALSE, recursive = FALSE)
@@ -784,9 +784,9 @@ DEMETER_load_dea_genes <- function(dea_dir,
   all_genes <- unique(unlist(per_experiment, use.names = FALSE))
 
   if (verbose) {
-    cat("\n--- Summary ---\n")
-    cat("Experiments loaded:", length(per_experiment), "/", length(all_dirs), "\n")
-    cat("Total unique genes:", length(all_genes), "\n")
+    cat("\n[DEMETER] Summary \n")
+    cat("  Experiments loaded:", length(per_experiment), "/", length(all_dirs), "\n")
+    cat("  Total unique genes:", length(all_genes), "\n")
   }
 
   # Attach metadata as attributes
@@ -880,9 +880,9 @@ DEMETER_load_dea <- function(dea_dir,
   dea_only <- load_dea && !load_part
 
   if (verbose) {
-    cat("=== Loading DEA Results ===\n")
-    cat("Directory:", dea_dir, "\n")
-    cat("Loading:", paste(what, collapse = ", "), "\n")
+    cat("[DEMETER] Loading DEA Results \n")
+    cat("  Directory:", dea_dir, "\n")
+    cat("  Loading:", paste(what, collapse = ", "), "\n")
   }
 
   # Identify subdirectories
@@ -974,8 +974,8 @@ DEMETER_load_dea <- function(dea_dir,
 
   if (verbose) {
     if (strip_version) cat("Ensembl version suffixes stripped\n")
-    cat("\n--- Summary ---\n")
-    cat("Experiments loaded:", length(results), "/", length(all_dirs), "\n")
+    cat("\n[DEMETER] Summary \n")
+    cat("  Experiments loaded:", length(results), "/", length(all_dirs), "\n")
   }
 
   return(results)
@@ -989,18 +989,18 @@ DEMETER_load_dea <- function(dea_dir,
   # Try RDS first
   rds_file <- file.path(exp_dir, paste0(prefix, "_dea_result.rds"))
   if (file.exists(rds_file)) {
-    if (verbose) cat("  DEA: loaded from RDS\n")
+    if (verbose) cat("[DEMETER] DEA: loaded from RDS\n")
     return(readRDS(rds_file))
   }
 
   # Fall back to CSV reconstruction
   csv_file <- file.path(exp_dir, paste0(prefix, "_all_results.csv"))
   if (!file.exists(csv_file)) {
-    if (verbose) cat("  DEA: not found (no RDS or CSV)\n")
+    if (verbose) cat("[DEMETER] DEA: not found (no RDS or CSV)\n")
     return(NULL)
   }
 
-  if (verbose) cat("  DEA: reconstructed from CSV\n")
+  if (verbose) cat("[DEMETER] DEA: reconstructed from CSV\n")
 
   results_df <- read.csv(csv_file, stringsAsFactors = FALSE)
 
@@ -1075,18 +1075,18 @@ DEMETER_load_part_result <- function(exp_dir, prefix, verbose = TRUE) {
   # Try RDS
   rds_file <- file.path(exp_dir, paste0(prefix, "_part_result.rds"))
   if (file.exists(rds_file)) {
-    if (verbose) cat("  PART: loaded from RDS\n")
+    if (verbose) cat("[DEMETER] PART: loaded from RDS\n")
     return(readRDS(rds_file))
   }
 
   # CSV reconstruction (limited — no dendrogram or full data matrix)
   clusters_file <- file.path(exp_dir, paste0(prefix, "_part_clusters.csv"))
   if (!file.exists(clusters_file)) {
-    if (verbose) cat("  PART: not found\n")
+    if (verbose) cat("[DEMETER] PART: not found\n")
     return(NULL)
   }
 
-  if (verbose) cat("  PART: reconstructed from CSV (limited)\n")
+  if (verbose) cat("[DEMETER] PART: reconstructed from CSV (limited)\n")
 
   cluster_df <- read.csv(clusters_file, stringsAsFactors = FALSE)
 
@@ -1095,7 +1095,7 @@ DEMETER_load_part_result <- function(exp_dir, prefix, verbose = TRUE) {
   clust_col <- intersect(c("cluster"), colnames(cluster_df))[1]
 
   if (is.na(gene_col) || is.na(clust_col)) {
-    if (verbose) cat("  PART: could not identify gene/cluster columns\n")
+    if (verbose) cat("[DEMETER] PART: could not identify gene/cluster columns\n")
     return(NULL)
   }
 
@@ -1265,7 +1265,7 @@ DEMETER_prepare_part_wgcna_circos <- function(part_result,
     stop("'wgcna_modules' must be a wgcna_modules object")
   }
 
-  if (verbose) cat("=== Preparing PART-WGCNA Circos Data ===\n")
+  if (verbose) cat("[DEMETER] Preparing PART-WGCNA Circos Data \n")
 
   # --- Extract PART info ---
   cluster_map <- part_result$cluster_map
@@ -1361,7 +1361,7 @@ DEMETER_prepare_part_wgcna_circos <- function(part_result,
 
   if (verbose) {
     n_matched <- sum(!is.na(PART_df$module))
-    cat("Gene matching:\n")
+    cat("[DEMETER] Gene matching:\n")
     cat("  PART genes:", length(part_genes), "\n")
     cat("  WGCNA genes:", nrow(module_gene), "\n")
     cat("  Matched:", n_matched, "(", round(100 * n_matched / length(part_genes), 1), "%)\n")
@@ -1471,7 +1471,7 @@ DEMETER_prepare_part_wgcna_circos <- function(part_result,
 
   if (verbose) {
     sample_cols <- setdiff(colnames(PART_df), c("cluster", "module"))
-    cat("\nCircos data ready:\n")
+    cat("\n[DEMETER] Circos data ready:\n")
     cat("  Clusters:", length(cluster_names), "\n")
     cat("  Modules:", length(all_modules), "\n")
     cat("  DEA comparisons:", length(sample_cols), "\n")
@@ -1557,15 +1557,15 @@ DEMETER_select_circos_modules <- function(circos_data,
   keep <- rep(TRUE, length(all_modules))
   names(keep) <- all_modules
 
-  if (verbose) cat("=== Selecting Circos Modules ===\n")
-  if (verbose) cat("Starting modules:", length(all_modules), "\n")
+  if (verbose) cat("[DEMETER] Selecting Circos Modules \n")
+  if (verbose) cat("  Starting modules:", length(all_modules), "\n")
 
   # --- 1. Exclude grey / dummy ---
   if (exclude_grey) {
     grey_modules <- intersect(all_modules, c("grey", "dummy", "module_0"))
     keep[grey_modules] <- FALSE
     if (verbose && length(grey_modules) > 0) {
-      cat("Excluded grey/dummy:", length(grey_modules), "->",
+      cat("  Excluded grey/dummy:", length(grey_modules), "->",
           sum(keep), "remaining\n")
     }
   }
@@ -1574,8 +1574,8 @@ DEMETER_select_circos_modules <- function(circos_data,
   if (min_size > 0 && "size" %in% colnames(module_df)) {
     too_small <- all_modules[module_df$size < min_size]
     keep[too_small] <- FALSE
-    if (verbose) cat("Min size (", min_size, "):", sum(!keep[too_small]),
-                     "removed ->", sum(keep), "remaining\n", sep = "")
+    if (verbose) cat("  Min size (", min_size, "):", sum(!keep[too_small]),
+                     "  removed ->", sum(keep), "remaining\n", sep = "")
   }
 
   # --- 3. PART overlap ---
@@ -1588,7 +1588,7 @@ DEMETER_select_circos_modules <- function(circos_data,
     not_in_assoc <- setdiff(all_modules, colnames(assoc))
     no_overlap <- union(no_overlap, not_in_assoc)
     keep[no_overlap] <- FALSE
-    if (verbose) cat("Min overlap (", min_overlap, "): ",
+    if (verbose) cat("  Min overlap (", min_overlap, "): ",
                      length(no_overlap), " removed -> ",
                      sum(keep), " remaining\n", sep = "")
   }
@@ -1607,7 +1607,7 @@ DEMETER_select_circos_modules <- function(circos_data,
       max_abs_cor <- apply(abs(module_df[, trait_cols, drop = FALSE]), 1, max, na.rm = TRUE)
       weak_cor <- all_modules[max_abs_cor < min_cor]
       keep[weak_cor] <- FALSE
-      if (verbose) cat("Min |cor| (", min_cor, "): ",
+      if (verbose) cat("  Min |cor| (", min_cor, "): ",
                        length(weak_cor), " removed -> ",
                        sum(keep), " remaining\n", sep = "")
     }
@@ -1617,12 +1617,12 @@ DEMETER_select_circos_modules <- function(circos_data,
       any_sig <- apply(module_df[, sig_cols, drop = FALSE], 1, any, na.rm = TRUE)
       not_sig <- all_modules[!any_sig]
       keep[not_sig] <- FALSE
-      if (verbose) cat("Significant correlation: ",
+      if (verbose) cat("  Significant correlation: ",
                        length(not_sig), " removed -> ",
                        sum(keep), " remaining\n", sep = "")
     }
   } else if (verbose) {
-    cat("No trait data available, skipping correlation filters\n")
+    cat("[DEMETER] No trait data available, skipping correlation filters\n")
   }
 
   # --- 5. Enrichment ---
@@ -1642,7 +1642,7 @@ DEMETER_select_circos_modules <- function(circos_data,
   selected <- names(keep[keep])
 
   if (verbose) {
-    cat("---\nSelected:", length(selected), "of", length(all_modules), "modules\n")
+    cat("\n[DEMETER] Selected:", length(selected), "of", length(all_modules), "modules\n")
     if (length(selected) > 0) cat("Modules:", paste(selected, collapse = ", "), "\n")
   }
 
@@ -1891,7 +1891,7 @@ DEMETER_load_enrichment <- function(file_path, verbose = TRUE) {
   # RDS path — full fidelity
   # ---------------------------------------------------------------------------
   if (ext == "rds") {
-    if (verbose) cat("Loading enrichment results from RDS:", file_path, "\n")
+    if (verbose) cat("[DEMETER] Loading enrichment results from RDS:", file_path, "\n")
     result <- readRDS(file_path)
 
     if (!inherits(result, "gost_enrichment")) {
@@ -1922,7 +1922,7 @@ DEMETER_load_enrichment <- function(file_path, verbose = TRUE) {
   # ---------------------------------------------------------------------------
   if (ext == "csv") {
     if (verbose) {
-      cat("Loading enrichment results from CSV:", file_path, "\n")
+      cat("[DEMETER] Loading enrichment results from CSV:", file_path, "\n")
       cat("  Note: CSV reconstruction is partial.",
           "Per-module gost objects and metadata are not available.\n")
     }

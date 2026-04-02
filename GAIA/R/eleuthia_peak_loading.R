@@ -120,7 +120,7 @@ ELEUTHIA_load_peaks_from_sheet <- function(sample_sheet,
   }
 
   if (verbose) {
-    cat("Loading", nrow(subset_df), omics, "peak files...\n")
+    cat("[ELEUTHIA] Loading", nrow(subset_df), omics, "peak files...\n")
   }
 
   # Load each file
@@ -132,7 +132,7 @@ ELEUTHIA_load_peaks_from_sheet <- function(sample_sheet,
     file_path <- file.path(subset_df$file_loc[i], subset_df$file_name[i])
 
     if (verbose) {
-      cat("  Loading:", sample_id, "\n")
+      cat("    Loading:", sample_id, "\n")
     }
 
     # Determine file type from format or extension
@@ -149,9 +149,9 @@ ELEUTHIA_load_peaks_from_sheet <- function(sample_sheet,
   }
 
   if (verbose) {
-    cat("Loaded", length(peak_list), "peak files.\n")
+    cat("[ELEUTHIA] Loaded", length(peak_list), "peak files.\n")
     total_peaks <- sum(sapply(peak_list, nrow))
-    cat("Total peaks across all samples:", total_peaks, "\n")
+    cat("[ELEUTHIA] Total peaks across all samples:", total_peaks, "\n")
   }
 
   return(peak_list)
@@ -249,7 +249,7 @@ ELEUTHIA_create_consensus_peaks <- function(peak_list,
   }
 
   if (verbose) {
-    cat("Creating consensus peak set from", length(peak_list), "samples...\n")
+    cat("[ELEUTHIA] Creating consensus peak set from", length(peak_list), "samples...\n")
   }
 
   # Combine all peaks with sample source
@@ -260,7 +260,7 @@ ELEUTHIA_create_consensus_peaks <- function(peak_list,
   }))
 
   if (verbose) {
-    cat("  Total peaks before merging:", nrow(all_peaks), "\n")
+    cat("[ELEUTHIA]   Total peaks before merging:", nrow(all_peaks), "\n")
   }
 
   # Sort by chromosome and position
@@ -341,7 +341,7 @@ ELEUTHIA_create_consensus_peaks <- function(peak_list,
     n_before <- nrow(consensus)
     consensus <- consensus[consensus$n_samples >= min_overlap, ]
     if (verbose) {
-      cat("  Filtered from", n_before, "to", nrow(consensus),
+      cat("[ELEUTHIA]   Filtered from", n_before, "to", nrow(consensus),
           "peaks (min_overlap =", min_overlap, ")\n")
     }
   }
@@ -356,8 +356,8 @@ ELEUTHIA_create_consensus_peaks <- function(peak_list,
   consensus <- consensus[, c("chr", "start", "end", "peak_id", "n_samples")]
 
   if (verbose) {
-    cat("  Final consensus peaks:", nrow(consensus), "\n")
-    cat("  Chromosomes with peaks:", length(unique(consensus$chr)), "\n")
+    cat("[ELEUTHIA]   Final consensus peaks:", nrow(consensus), "\n")
+    cat("[ELEUTHIA]   Chromosomes with peaks:", length(unique(consensus$chr)), "\n")
   }
 
   return(consensus)
@@ -439,7 +439,7 @@ ELEUTHIA_merge_fragments <- function(bed_files,
 
   # Load BED files if paths provided
   if (is.character(bed_files)) {
-    if (verbose) cat("Loading", length(bed_files), "BED files...\n")
+    if (verbose) cat("[ELEUTHIA] Loading", length(bed_files), "BED files...\n")
 
     bed_list <- lapply(bed_files, function(f) {
       if (!file.exists(f)) stop("File not found: ", f)
@@ -454,12 +454,12 @@ ELEUTHIA_merge_fragments <- function(bed_files,
 
   total_frags <- sum(sapply(bed_list, nrow))
   if (verbose) {
-    cat("  Total fragments:", format(total_frags, big.mark = ","), "\n")
+    cat("[ELEUTHIA]   Total fragments:", format(total_frags, big.mark = ","), "\n")
   }
 
   # Pool or process separately
   if (pool_samples) {
-    if (verbose) cat("Pooling fragments from all samples...\n")
+    if (verbose) cat("[ELEUTHIA] Pooling fragments from all samples...\n")
 
     all_frags <- do.call(rbind, lapply(seq_along(bed_list), function(i) {
       df <- bed_list[[i]][, c("chr", "start", "end")]
@@ -471,7 +471,7 @@ ELEUTHIA_merge_fragments <- function(bed_files,
   }
 
   if (verbose) {
-    cat("Merging regions (merge_distance =", merge_distance,
+    cat("[ELEUTHIA] Merging regions (merge_distance =", merge_distance,
         ", extend =", extend, ", min_fragments =", min_fragments, ")...\n")
   }
 
@@ -490,7 +490,7 @@ ELEUTHIA_merge_fragments <- function(bed_files,
       stop("chrom_sizes must be a named numeric vector or data.frame with 'chr' and 'size' columns")
     }
     if (verbose) {
-      cat("  Chromosome sizes provided for", length(chrom_size_vec), "chromosomes\n")
+      cat("[ELEUTHIA]   Chromosome sizes provided for", length(chrom_size_vec), "chromosomes\n")
     }
   }
 
@@ -509,7 +509,7 @@ ELEUTHIA_merge_fragments <- function(bed_files,
     }
     n_clamped <- sum(all_frags$end_ext < (all_frags$end + extend))
     if (verbose && n_clamped > 0) {
-      cat("  Fragments clamped at chromosome boundaries:", n_clamped, "\n")
+      cat("[ELEUTHIA]   Fragments clamped at chromosome boundaries:", n_clamped, "\n")
     }
   }
 
@@ -612,15 +612,15 @@ ELEUTHIA_merge_fragments <- function(bed_files,
   regions$width <- regions$end - regions$start
 
   if (verbose) {
-    cat("\nMerging complete:\n")
-    cat("  Candidate regions:", nrow(regions), "\n")
-    cat("  Mean width:", round(mean(regions$width)), "bp\n")
-    cat("  Fragment count range:", min(regions$n_fragments), "-",
+    cat("[ELEUTHIA] Merging complete:\n")
+    cat("    Candidate regions:", nrow(regions), "\n")
+    cat("    Mean width:", round(mean(regions$width)), "bp\n")
+    cat("    Fragment count range:", min(regions$n_fragments), "-",
         max(regions$n_fragments), "\n")
-    cat("  Median fragments:", median(regions$n_fragments), "\n")
-    cat("  Sample coverage: regions in all", n_samp, "samples:",
+    cat("    Median fragments:", median(regions$n_fragments), "\n")
+    cat("    Sample coverage: regions in all", n_samp, "samples:",
         sum(regions$n_samples == n_samp), "\n")
-    cat("  Total fragments in regions:",
+    cat("    Total fragments in regions:",
         format(sum(regions$n_fragments), big.mark = ","),
         sprintf("(%.1f%% of input)\n", 100 * sum(regions$n_fragments) / total_frags))
   }
@@ -797,10 +797,10 @@ ELEUTHIA_select_regions <- function(candidate_regions,
     candidate_regions <- candidate_regions[candidate_regions$width <= max_width, ]
     n_removed <- n_before - nrow(candidate_regions)
     if (verbose) {
-      cat("Width filter (max_width =", max_width, "bp):\n")
-      cat("  Removed:", n_removed, "regions",
+      cat("[ELEUTHIA] Width filter (max_width =", max_width, "bp):\n")
+      cat("    Removed:", n_removed, "regions",
           sprintf("(%.1f%% of candidates)\n", 100 * n_removed / n_candidates))
-      cat("  Remaining:", nrow(candidate_regions), "\n\n")
+      cat("    Remaining:", nrow(candidate_regions), "\n\n")
     }
     if (nrow(candidate_regions) == 0) {
       warning("No regions remain after max_width filter. ",
@@ -825,10 +825,10 @@ ELEUTHIA_select_regions <- function(candidate_regions,
       candidate_regions$n_samples >= min_samples, ]
     n_removed <- n_before - nrow(candidate_regions)
     if (verbose) {
-      cat("Sample support filter (min_samples =", min_samples, "):\n")
-      cat("  Removed:", n_removed, "regions",
+      cat("[ELEUTHIA] Sample support filter (min_samples =", min_samples, "):\n")
+      cat("    Removed:", n_removed, "regions",
           sprintf("(%.1f%% of candidates)\n", 100 * n_removed / n_candidates))
-      cat("  Remaining:", nrow(candidate_regions), "\n\n")
+      cat("    Remaining:", nrow(candidate_regions), "\n\n")
     }
     if (nrow(candidate_regions) == 0) {
       warning("No regions remain after min_samples filter. ",
@@ -858,16 +858,16 @@ ELEUTHIA_select_regions <- function(candidate_regions,
     effective_threshold <- max(abs_threshold, quant_threshold)
 
     if (verbose) {
-      cat("Region selection (by density):\n")
-      cat("  Candidate regions:", nrow(candidate_regions), "\n")
+      cat("[ELEUTHIA] Region selection (by density):\n")
+      cat("    Candidate regions:", nrow(candidate_regions), "\n")
       if (!is.null(min_density)) {
-        cat("  Absolute density threshold:", min_density, "fragments/bp\n")
+        cat("    Absolute density threshold:", min_density, "fragments/bp\n")
       }
       if (!is.null(quantile_threshold)) {
-        cat("  Quantile threshold:", quantile_threshold,
+        cat("    Quantile threshold:", quantile_threshold,
             "(=", round(quant_threshold, 4), "fragments/bp)\n")
       }
-      cat("  Effective threshold:", round(effective_threshold, 4),
+      cat("    Effective threshold:", round(effective_threshold, 4),
           "fragments/bp\n")
     }
 
@@ -884,16 +884,16 @@ ELEUTHIA_select_regions <- function(candidate_regions,
     effective_threshold <- max(abs_threshold, quant_threshold)
 
     if (verbose) {
-      cat("Region selection (by fragment count):\n")
-      cat("  Candidate regions:", nrow(candidate_regions), "\n")
+      cat("[ELEUTHIA] Region selection (by fragment count):\n")
+      cat("    Candidate regions:", nrow(candidate_regions), "\n")
       if (!is.null(min_fragments)) {
-        cat("  Absolute threshold:", min_fragments, "fragments\n")
+        cat("    Absolute threshold:", min_fragments, "fragments\n")
       }
       if (!is.null(quantile_threshold)) {
-        cat("  Quantile threshold:", quantile_threshold,
+        cat("    Quantile threshold:", quantile_threshold,
             "(=", round(quant_threshold, 1), "fragments)\n")
       }
-      cat("  Effective threshold:", round(effective_threshold, 1), "fragments\n")
+      cat("    Effective threshold:", round(effective_threshold, 1), "fragments\n")
     }
 
     regions <- candidate_regions[metric >= effective_threshold, ]
@@ -924,16 +924,16 @@ ELEUTHIA_select_regions <- function(candidate_regions,
   regions <- regions[, c(base_cols, "fragment_density", "width")]
 
   if (verbose) {
-    cat("\nSelection complete:\n")
-    cat("  Regions selected:", nrow(regions),
+    cat("[ELEUTHIA] Selection complete:\n")
+    cat("    Regions selected:", nrow(regions),
         sprintf("(%.1f%% of candidates)\n", 100 * nrow(regions) / n_candidates))
-    cat("  Mean width:", round(mean(regions$width)), "bp\n")
-    cat("  Fragment count range:", min(regions$n_fragments), "-",
+    cat("    Mean width:", round(mean(regions$width)), "bp\n")
+    cat("    Fragment count range:", min(regions$n_fragments), "-",
         max(regions$n_fragments), "\n")
-    cat("  Density range:", round(min(regions$fragment_density), 4), "-",
+    cat("    Density range:", round(min(regions$fragment_density), 4), "-",
         round(max(regions$fragment_density), 4), "fragments/bp\n")
     if (has_n_samples) {
-      cat("  Sample support range:", min(regions$n_samples), "-",
+      cat("    Sample support range:", min(regions$n_samples), "-",
           max(regions$n_samples), "samples\n")
     }
   }
@@ -1006,15 +1006,15 @@ ELEUTHIA_plot_region_distribution <- function(candidate_regions,
   quant_df$pct_above <- round(100 * quant_df$n_above / n_total, 1)
 
   # Print summary
-  cat("Fragment count distribution:\n")
-  cat("  Total candidate regions:", n_total, "\n")
-  cat("  Range:", min(frags), "-", max(frags), "\n")
-  cat("  Mean:", round(mean(frags), 1), "\n")
-  cat("  Median:", median(frags), "\n\n")
+  cat("[ELEUTHIA] Fragment count distribution:\n")
+  cat("    Total candidate regions:", n_total, "\n")
+  cat("    Range:", min(frags), "-", max(frags), "\n")
+  cat("    Mean:", round(mean(frags), 1), "\n")
+  cat("    Median:", median(frags), "\n\n")
 
-  cat("Quantile thresholds:\n")
+  cat("[ELEUTHIA] Quantile thresholds:\n")
   for (i in seq_len(nrow(quant_df))) {
-    cat(sprintf("  %5.1f%% quantile: >= %6.0f fragments -> %5d regions (%5.1f%%)\n",
+    cat(sprintf("    %5.1f%% quantile: >= %6.0f fragments -> %5d regions (%5.1f%%)\n",
                 100 * quant_df$quantile[i],
                 quant_df$threshold[i],
                 quant_df$n_above[i],
@@ -1200,7 +1200,7 @@ ELEUTHIA_load_bed_from_sheet <- function(sample_sheet,
   }
 
   if (verbose) {
-    cat("Loading", nrow(subset_df), omics, "BED files...\n")
+    cat("[ELEUTHIA] Loading", nrow(subset_df), omics, "BED files...\n")
   }
 
   bed_list <- list()
@@ -1210,7 +1210,7 @@ ELEUTHIA_load_bed_from_sheet <- function(sample_sheet,
     file_path <- file.path(subset_df$file_loc[i], subset_df$file_name[i])
 
     if (verbose) {
-      cat("  Loading:", sample_id, "\n")
+      cat("    Loading:", sample_id, "\n")
     }
 
     bed_list[[sample_id]] <- ELEUTHIA_load_bed(file_path)
@@ -1218,8 +1218,8 @@ ELEUTHIA_load_bed_from_sheet <- function(sample_sheet,
 
   if (verbose) {
     total_frags <- sum(sapply(bed_list, nrow))
-    cat("Loaded", length(bed_list), "BED files.\n")
-    cat("Total fragments:", format(total_frags, big.mark = ","), "\n")
+    cat("[ELEUTHIA] Loaded", length(bed_list), "BED files.\n")
+    cat("[ELEUTHIA] Total fragments:", format(total_frags, big.mark = ","), "\n")
   }
 
   return(bed_list)
@@ -1388,16 +1388,16 @@ ELEUTHIA_expand_regions <- function(regions,
 
   if (verbose) {
     new_widths <- expanded$end - expanded$start
-    cat("Region expansion complete:\n")
-    cat("  Regions:", n_regions, "\n")
-    cat("  Window size: +/-", window_size, "bp\n")
-    cat("  Original mean width:", round(mean(expanded$original_width)), "bp\n")
-    cat("  Expanded mean width:", round(mean(new_widths)), "bp\n")
+    cat("[ELEUTHIA] Region expansion complete:\n")
+    cat("    Regions:", n_regions, "\n")
+    cat("    Window size: +/-", window_size, "bp\n")
+    cat("    Original mean width:", round(mean(expanded$original_width)), "bp\n")
+    cat("    Expanded mean width:", round(mean(new_widths)), "bp\n")
 
     # Report any regions that hit chromosome start boundary
     n_clamped_start <- sum(regions$start - window_size < 0)
     if (n_clamped_start > 0) {
-      cat("  Regions clamped at chromosome start:", n_clamped_start, "\n")
+      cat("    Regions clamped at chromosome start:", n_clamped_start, "\n")
     }
 
     if (!is.null(chrom_size_vec)) {
@@ -1410,7 +1410,7 @@ ELEUTHIA_expand_regions <- function(regions,
       }, regions$chr, regions$end, expanded$end))
 
       if (n_clamped_end > 0) {
-        cat("  Regions clamped at chromosome end:", n_clamped_end, "\n")
+        cat("    Regions clamped at chromosome end:", n_clamped_end, "\n")
       }
     }
   }
@@ -1517,8 +1517,8 @@ ELEUTHIA_quantify_bed <- function(sample_sheet,
   n_regions <- nrow(regions)
 
   if (verbose) {
-    cat("Quantifying", n_samples, omics, "samples against", n_regions, "regions...\n")
-    cat("(Memory-efficient mode with fast interval overlaps)\n\n")
+    cat("[ELEUTHIA] Quantifying", n_samples, omics, "samples against", n_regions, "regions...\n")
+    cat("[ELEUTHIA] (Memory-efficient mode with fast interval overlaps)\n\n")
   }
 
   # Initialize count matrix
@@ -1542,7 +1542,7 @@ ELEUTHIA_quantify_bed <- function(sample_sheet,
     bed_path <- subset_df$bed_loc[s]
 
     if (verbose) {
-      cat("  [", s, "/", n_samples, "] ", sample_id, ": ", sep = "")
+      cat("    [", s, "/", n_samples, "] ", sample_id, ": ", sep = "")
     }
 
     # Check file exists
@@ -1600,7 +1600,7 @@ ELEUTHIA_quantify_bed <- function(sample_sheet,
     }
 
     if (verbose) {
-      cat("done\n")
+      cat("[ELEUTHIA] done\n")
     }
 
     # Clean up
@@ -1612,11 +1612,11 @@ ELEUTHIA_quantify_bed <- function(sample_sheet,
   rownames(targets) <- targets$sample_id
 
   if (verbose) {
-    cat("\nQuantification complete:\n")
-    cat("  Count matrix:", n_regions, "regions x", n_samples, "samples\n")
-    cat("  Total counts:", format(sum(counts), big.mark = ","), "\n")
-    cat("  Mean counts per region:", round(mean(rowSums(counts)), 1), "\n")
-    cat("  Regions with zero counts:", sum(rowSums(counts) == 0), "\n")
+    cat("[ELEUTHIA] Quantification complete:\n")
+    cat("    Count matrix:", n_regions, "regions x", n_samples, "samples\n")
+    cat("    Total counts:", format(sum(counts), big.mark = ","), "\n")
+    cat("    Mean counts per region:", round(mean(rowSums(counts)), 1), "\n")
+    cat("    Regions with zero counts:", sum(rowSums(counts) == 0), "\n")
   }
 
   return(list(

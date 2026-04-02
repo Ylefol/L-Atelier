@@ -342,7 +342,7 @@ ELEUTHIA_discriminative_report <- function(glasso_fit,
   # Print to console
   # ---------------------------------------------------------------------------
   if (verbose) {
-    cat(paste(report, collapse = "\n"), "\n")
+    cat("[ELEUTHIA] ",paste(report, collapse = "\n"), "\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -390,9 +390,9 @@ ELEUTHIA_discriminative_report <- function(glasso_fit,
     }
 
     if (verbose) {
-      cat("\nFiles saved to:", output_dir, "\n")
+      cat("[ELEUTHIA] Files saved to:", output_dir, "\n")
       for (f in files_saved) {
-        cat("  -", basename(f), "\n")
+        cat("[ELEUTHIA]   -", basename(f), "\n")
       }
     }
   }
@@ -423,25 +423,25 @@ ELEUTHIA_discriminative_quick_summary <- function(glasso_fit,
                                                    cv_result,
                                                    selected) {
 
-  cat("===== DISCRIMINATIVE ANALYSIS SUMMARY =====\n\n")
+  cat("[ELEUTHIA] DISCRIMINATIVE ANALYSIS SUMMARY \n\n")
 
-  cat("DATA:\n")
-  cat("  Samples:", glasso_fit$n_samples, "| Variables:", glasso_fit$n_groups, "\n")
-  cat("  Family:", glasso_fit$family, "| Penalty:", glasso_fit$penalty, "\n\n")
+  cat("    DATA:\n")
+  cat("        Samples:", glasso_fit$n_samples, "| Variables:", glasso_fit$n_groups, "\n")
+  cat("        Family:", glasso_fit$family, "| Penalty:", glasso_fit$penalty, "\n\n")
 
-  cat("SELECTION:\n")
-  cat("  Lambda.1se:", round(cv_result$lambda.1se, 4),
+  cat("    SELECTION:\n")
+  cat("        Lambda.1se:", round(cv_result$lambda.1se, 4),
       "->", cv_result$n_selected_1se, "variables\n")
-  cat("  Lambda.min:", round(cv_result$lambda.min, 4),
+  cat("        Lambda.min:", round(cv_result$lambda.min, 4),
       "->", cv_result$n_selected_min, "variables\n\n")
 
-  cat("SELECTED VARIABLES:\n")
+  cat("    SELECTED VARIABLES:\n")
   n_show <- min(10, length(selected$selected_names))
   for (i in seq_len(n_show)) {
-    cat("  ", i, ". ", selected$selected_names[i], "\n", sep = "")
+    cat("        ", i, ". ", selected$selected_names[i], "\n", sep = "")
   }
   if (length(selected$selected_names) > 10) {
-    cat("  ... and", length(selected$selected_names) - 10, "more\n")
+    cat("        ... and", length(selected$selected_names) - 10, "more\n")
   }
   cat("\n")
 

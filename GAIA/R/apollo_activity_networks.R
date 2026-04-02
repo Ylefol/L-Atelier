@@ -63,7 +63,7 @@ organism <- tolower(organism)
   }
 
   if (verbose) {
-    cat("Fetching CollecTRI network for", organism, "...\n")
+    cat("[APOLLO] Fetching CollecTRI network for", organism, "...\n")
   }
 
   # Get network
@@ -77,9 +77,9 @@ organism <- tolower(organism)
     n_tfs <- length(unique(network$source))
     n_targets <- length(unique(network$target))
     n_interactions <- nrow(network)
-    cat("  TFs:", n_tfs, "\n")
-    cat("  Targets:", n_targets, "\n")
-    cat("  Interactions:", n_interactions, "\n")
+    cat("   TFs:", n_tfs, "\n")
+    cat("   Targets:", n_targets, "\n")
+    cat("   Interactions:", n_interactions, "\n")
   }
 
   # Add metadata as attributes
@@ -150,8 +150,8 @@ APOLLO_get_dorothea <- function(organism = "human",
   }
 
   if (verbose) {
-    cat("Fetching DoRothEA regulons for", organism, "...\n")
-    cat("  Confidence levels:", paste(levels, collapse = ", "), "\n")
+    cat("[APOLLO] Fetching DoRothEA regulons for", organism, "...\n")
+    cat("   Confidence levels:", paste(levels, collapse = ", "), "\n")
   }
 
   # Get network
@@ -165,16 +165,16 @@ APOLLO_get_dorothea <- function(organism = "human",
     n_tfs <- length(unique(network$source))
     n_targets <- length(unique(network$target))
     n_interactions <- nrow(network)
-    cat("  TFs:", n_tfs, "\n")
-    cat("  Targets:", n_targets, "\n")
-    cat("  Interactions:", n_interactions, "\n")
+    cat("   TFs:", n_tfs, "\n")
+    cat("   Targets:", n_targets, "\n")
+    cat("   Interactions:", n_interactions, "\n")
 
     # Show breakdown by confidence
     if ("confidence" %in% colnames(network)) {
       level_counts <- table(network$confidence)
-      cat("  By confidence level:\n")
+      cat("   By confidence level:\n")
       for (lvl in names(level_counts)) {
-        cat("    ", lvl, ":", level_counts[lvl], "\n")
+        cat("     ", lvl, ":", level_counts[lvl], "\n")
       }
     }
   }
@@ -247,8 +247,8 @@ APOLLO_get_progeny <- function(organism = "human",
   top <- as.integer(top)
 
   if (verbose) {
-    cat("Fetching PROGENy signatures for", organism, "...\n")
-    cat("  Top genes per pathway:", top, "\n")
+    cat("[APOLLO] Fetching PROGENy signatures for", organism, "...\n")
+    cat("   Top genes per pathway:", top, "\n")
   }
 
   # Get network
@@ -262,13 +262,13 @@ APOLLO_get_progeny <- function(organism = "human",
     n_pathways <- length(unique(network$source))
     n_genes <- length(unique(network$target))
     n_interactions <- nrow(network)
-    cat("  Pathways:", n_pathways, "\n")
-    cat("  Genes:", n_genes, "\n")
-    cat("  Pathway-gene links:", n_interactions, "\n")
+    cat("   Pathways:", n_pathways, "\n")
+    cat("   Genes:", n_genes, "\n")
+    cat("   Pathway-gene links:", n_interactions, "\n")
 
     # List pathways
     pathways <- sort(unique(network$source))
-    cat("  Available pathways:", paste(pathways, collapse = ", "), "\n")
+    cat("   Available pathways:", paste(pathways, collapse = ", "), "\n")
   }
 
   # Add metadata as attributes
@@ -361,9 +361,9 @@ APOLLO_get_ppi <- function(genes,
   }
 
   if (verbose) {
-    cat("Fetching PPI network from OmniPath...\n")
-    cat("  Query genes:", n_query, "\n")
-    if (!is.null(resources)) cat("  Resources:", paste(resources, collapse = ", "), "\n")
+    cat("[APOLLO] Fetching PPI network from OmniPath...\n")
+    cat("   Query genes:", n_query, "\n")
+    if (!is.null(resources)) cat("   Resources:", paste(resources, collapse = ", "), "\n")
   }
 
   # --- Fetch interactions ---
@@ -465,16 +465,16 @@ APOLLO_get_ppi <- function(genes,
   attr(graph, "interaction_df") <- edge_df
 
   if (verbose) {
-    cat("  Nodes:", igraph::vcount(graph), "\n")
-    cat("  Edges:", igraph::ecount(graph), "\n")
+    cat("   Nodes:", igraph::vcount(graph), "\n")
+    cat("   Edges:", igraph::ecount(graph), "\n")
     n_connected <- sum(igraph::V(graph)$degree > 0)
     n_isolated <- igraph::vcount(graph) - n_connected
-    cat("  Connected:", n_connected, "| Isolated:", n_isolated, "\n")
+    cat("   Connected:", n_connected, "| Isolated:", n_isolated, "\n")
     if (igraph::ecount(graph) > 0) {
-      cat("  Mean degree:", round(mean(igraph::V(graph)$degree), 1), "\n")
+      cat("   Mean degree:", round(mean(igraph::V(graph)$degree), 1), "\n")
       top_hubs <- sort(igraph::V(graph)$degree, decreasing = TRUE)
       top_hubs <- head(top_hubs[top_hubs > 0], 5)
-      cat("  Top hubs:", paste(names(top_hubs), paste0("(", top_hubs, ")"),
+      cat("   Top hubs:", paste(names(top_hubs), paste0("(", top_hubs, ")"),
                                collapse = ", "), "\n")
     }
   }
@@ -502,30 +502,30 @@ APOLLO_get_ppi <- function(genes,
 #' @export
 APOLLO_list_activity_databases <- function() {
 
-  cat("=== Available Prior Knowledge Databases ===\n\n")
+  cat("[APOLLO] Available Prior Knowledge Databases n\n")
 
-  cat("TF-TARGET NETWORKS (for TF activity inference):\n")
-  cat("------------------------------------------------\n")
-  cat("CollecTRI (default):\n")
-  cat("  - Comprehensive TF-target collection\n")
-  cat("  - Good coverage and accuracy balance\n")
-  cat("  - Function: APOLLO_get_collectri()\n\n")
+  cat(" TF-TARGET NETWORKS (for TF activity inference):\n")
+  cat(" ------------------------------------------------\n")
+  cat(" CollecTRI (default):\n")
+  cat("   - Comprehensive TF-target collection\n")
+  cat("   - Good coverage and accuracy balance\n")
+  cat("   - Function: APOLLO_get_collectri()\n\n")
 
-  cat("DoRothEA:\n")
-  cat("  - Curated TF regulons with confidence levels (A-E)\n")
-  cat("  - Higher confidence = fewer but more reliable interactions\n")
-  cat("  - Function: APOLLO_get_dorothea()\n\n")
+  cat(" DoRothEA:\n")
+  cat("   - Curated TF regulons with confidence levels (A-E)\n")
+  cat("   - Higher confidence = fewer but more reliable interactions\n")
+  cat("   - Function: APOLLO_get_dorothea()\n\n")
 
-  cat("PATHWAY NETWORKS (for pathway activity inference):\n")
-  cat("--------------------------------------------------\n")
-  cat("PROGENy:\n")
-  cat("  - Pathway-responsive gene signatures\n")
-  cat("  - 14 cancer-relevant pathways\n")
-  cat("  - Derived from perturbation experiments\n")
-  cat("  - Function: APOLLO_get_progeny()\n\n")
+  cat(" PATHWAY NETWORKS (for pathway activity inference):\n")
+  cat(" --------------------------------------------------\n")
+  cat(" PROGENy:\n")
+  cat("   - Pathway-responsive gene signatures\n")
+  cat("   - 14 cancer-relevant pathways\n")
+  cat("   - Derived from perturbation experiments\n")
+  cat("   - Function: APOLLO_get_progeny()\n\n")
 
-  cat("Note: Custom networks can also be used with ARTEMIS_run_decoupler()\n")
-  cat("Format: data.frame with 'source', 'target', and 'mor' or 'weight' columns\n")
+  cat(" Note: Custom networks can also be used with ARTEMIS_run_decoupler()\n")
+  cat(" Format: data.frame with 'source', 'target', and 'mor' or 'weight' columns\n")
 
   # Return summary table invisibly
   db_info <- data.frame(

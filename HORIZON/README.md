@@ -29,7 +29,7 @@ devtools::install("path/to/ZERO_DAWN/HORIZON")
 library(HORIZON)
 ```
 
-Core R dependencies (`Rsubread`, `Rfastp`, `Rsamtools`, `Rbowtie2`) are in `Imports` and installed automatically.
+Core R dependencies (`Rsubread`, `Rfastp`, `Rsamtools`) are in `Imports` and installed automatically. `bowtie2` is called directly via the conda environment (see step 2).
 
 ### 2. Create the HORIZON conda environment
 
@@ -37,7 +37,7 @@ The chromatin pipeline (ATAC-seq, ChIP-seq, CUT&TAG/CUT&RUN) calls external CLI 
 
 ```bash
 conda create -n horizon_cli -c bioconda -c conda-forge \
-  samtools=1.23.1 bedtools=2.31.1 macs3=3.0.2
+  samtools=1.23.1 bedtools=2.31.1 macs3=3.0.2 bowtie2
 ```
 
 > **Note:** deeptools may need to be installed via pip from within the environment if the bioconda build is unavailable or conflicts:
@@ -87,7 +87,7 @@ All functions write into a consistent tree under `output_dir`:
 
 ### Alignment
 - `HORIZON_run_align()` — splice-aware alignment for RNA-seq (wraps Rsubread)
-- `HORIZON_run_bowtie2()` — paired-end alignment for chromatin assays (wraps Rbowtie2); MAPQ filtering included
+- `HORIZON_run_bowtie2()` — paired-end alignment for chromatin assays (bowtie2 piped to samtools view; no SAM intermediate); MAPQ filtering included
 
 ### BAM processing
 - `HORIZON_sort_index_bam()` — sort and index BAM (RNA-seq; wraps Rsamtools)

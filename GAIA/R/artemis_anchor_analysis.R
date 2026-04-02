@@ -109,12 +109,12 @@ ARTEMIS_global_shift_test <- function(quant_result,
   n_regions <- nrow(counts)
 
   if (verbose) {
-    cat("Global shift analysis:\n")
-    cat("  Group A (", group_a, "): ", n_a, " samples\n", sep = "")
-    cat("  Group B (", group_b, "): ", n_b, " samples\n", sep = "")
-    cat("  Regions: ", n_regions, "\n", sep = "")
-    cat("  Summary method: ", summary_method, "\n", sep = "")
-    cat("  Test: ", test, "\n\n", sep = "")
+    cat("[ARTEMIS] Global shift analysis:\n")
+    cat("    Group A (", group_a, "): ", n_a, " samples\n", sep = "")
+    cat("    Group B (", group_b, "): ", n_b, " samples\n", sep = "")
+    cat("    Regions: ", n_regions, "\n", sep = "")
+    cat("    Summary method: ", summary_method, "\n", sep = "")
+    cat("    Test: ", test, "\n\n", sep = "")
   }
 
   # Calculate per-region summary for each group
@@ -171,23 +171,23 @@ ARTEMIS_global_shift_test <- function(quant_result,
   )
 
   if (verbose) {
-    cat("Results:\n")
-    cat("  Regions with increased signal in ", group_b, ": ", n_up,
+    cat("[ARTEMIS] Results:\n")
+    cat("    Regions with increased signal in ", group_b, ": ", n_up,
         " (", round(100 * n_up / n_regions, 1), "%)\n", sep = "")
-    cat("  Regions with decreased signal in ", group_b, ": ", n_down,
+    cat("    Regions with decreased signal in ", group_b, ": ", n_down,
         " (", round(100 * n_down / n_regions, 1), "%)\n", sep = "")
-    cat("  Median log2FC: ", round(summary_stats$median_log2FC, 3), "\n", sep = "")
-    cat("  Mean log2FC: ", round(summary_stats$mean_log2FC, 3), "\n", sep = "")
+    cat("    Median log2FC: ", round(summary_stats$median_log2FC, 3), "\n", sep = "")
+    cat("    Mean log2FC: ", round(summary_stats$mean_log2FC, 3), "\n", sep = "")
     cat("\n")
-    cat("Global test (", test_name, "):\n", sep = "")
-    cat("  p-value: ", format.pval(test_result$p.value, digits = 3), "\n", sep = "")
+    cat(" Global test (", test_name, "):\n", sep = "")
+    cat("    p-value: ", format.pval(test_result$p.value, digits = 3), "\n", sep = "")
 
     if (test_result$p.value < 0.05) {
       direction <- if (summary_stats$median_log2FC > 0) "INCREASED" else "DECREASED"
-      cat("  Interpretation: Signal at anchor regions is significantly ",
+      cat("    Interpretation: Signal at anchor regions is significantly ",
           direction, " in ", group_b, " vs ", group_a, "\n", sep = "")
     } else {
-      cat("  Interpretation: No significant systematic shift detected\n")
+      cat("    Interpretation: No significant systematic shift detected\n")
     }
   }
 

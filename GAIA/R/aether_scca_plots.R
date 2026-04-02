@@ -89,7 +89,7 @@ AETHER_plot_feature_weights <- function(weights, method_name = "sCCA",
 
   # Print summary statistics
   n_nonzero <- sum(df$is_nonzero)
-  cat(sprintf("\n%s Summary:\n", method_name))
+  cat(sprintf("\n[AETHER] %s Summary:\n", method_name))
   cat(sprintf("  Non-zero features: %d / %d (%.1f%%)\n",
               n_nonzero, length(weights), 100 * n_nonzero / length(weights)))
   cat(sprintf("  Max weight: %.4f\n", max(abs(weights))))
@@ -237,7 +237,7 @@ AETHER_plot_multi_feature_weights <- function(weights_list,
   }
 
   # Print summary statistics for each dataset
-  cat(sprintf("\n%s Summary:\n", method_name))
+  cat(sprintf("\n[AETHER] %s Summary:\n", method_name))
   for (i in 1:n_datasets) {
     weights <- weights_list[[i]]
     n_nonzero <- sum(abs(weights) > threshold)
@@ -484,12 +484,12 @@ AETHER_plot_cv_comparison <- function(coarse_cv_results,
     )
 
   # Print summary
-  cat("\n=== CV Comparison Summary ===\n")
+  cat("\n[AETHER] CV Comparison Summary\n")
   cat(sprintf("Number of parameters: %d\n", n_datasets))
   cat(sprintf("Coarse grid combinations: %d\n", nrow(coarse_cv_results)))
   cat(sprintf("Fine grid combinations: %d\n", nrow(fine_cv_results)))
 
-  cat("\nBest values from coarse grid:\n")
+  cat("\n[AETHER] Best values from coarse grid:\n")
   for (i in 1:n_datasets) {
     if (i <= nrow(best_coarse_values)) {
       cat(sprintf("  %s: %.3f (CV score: %.4f)\n",
@@ -499,7 +499,7 @@ AETHER_plot_cv_comparison <- function(coarse_cv_results,
     }
   }
 
-  cat("\nBest values from fine grid:\n")
+  cat("\n[AETHER] Best values from fine grid:\n")
   for (i in 1:n_datasets) {
     if (i <= nrow(best_fine_values)) {
       cat(sprintf("  %s: %.3f (CV score: %.4f)\n",
@@ -623,7 +623,7 @@ AETHER_plot_best_cv_scores <- function(coarse_cv_results,
     scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
 
   # Print summary
-  cat("\n=== Best CV Score Comparison ===\n")
+  cat("\n[AETHER] Best CV Score Comparison\n")
   cat(sprintf("Coarse grid search: %.4f\n", best_coarse))
   cat(sprintf("Fine grid search:   %.4f\n", best_fine))
   cat(sprintf("Improvement:        %.4f (%.2f%%)\n", improvement, pct_improvement))

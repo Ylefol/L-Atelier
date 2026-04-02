@@ -82,7 +82,7 @@ ELEUTHIA_bed_to_bigwig <- function(bed_file,
   }
 
   # --- Read BED ---------------------------------------------------------------
-  if (verbose) message("[ELEUTHIA] Reading: ", basename(bed_file))
+  if (verbose) cat("[ELEUTHIA] Reading: ", basename(bed_file))
 
   if (requireNamespace("data.table", quietly = TRUE)) {
     raw <- data.table::fread(bed_file, header = FALSE, select = 1:3,
@@ -113,10 +113,11 @@ ELEUTHIA_bed_to_bigwig <- function(bed_file,
   total_fragments <- nrow(bed)
 
   if (verbose)
-    message("[ELEUTHIA]   Fragments : ", format(total_fragments, big.mark = ","),
-            "\n[ELEUTHIA]   Chromosomes : ", length(valid_chrs),
-            "\n[ELEUTHIA]   Normalize : ", normalize,
-            "\n[ELEUTHIA]   Bin size  : ", bin_size, " bp")
+    cat("[ELEUTHIA] Summary\n")
+    cat("    Fragments : ", format(total_fragments, big.mark = ","),
+            "\n    Chromosomes : ", length(valid_chrs),
+            "\n    Normalize : ", normalize,
+            "\n    Bin size  : ", bin_size, " bp")
 
   # --- Build Seqinfo ----------------------------------------------------------
   seqinfo <- GenomeInfoDb::Seqinfo(
@@ -132,7 +133,7 @@ ELEUTHIA_bed_to_bigwig <- function(bed_file,
   )
 
   # --- Coverage ---------------------------------------------------------------
-  if (verbose) message("[ELEUTHIA]   Computing coverage...")
+  if (verbose) cat("[ELEUTHIA]   Computing coverage...")
   cov_rle <- GenomicRanges::coverage(fragments_gr)
 
   # Tile genome into bins and compute per-bin average
@@ -148,7 +149,7 @@ ELEUTHIA_bed_to_bigwig <- function(bed_file,
     cpm_factor    <- 1e6 / total_fragments
     binned$score  <- binned$score * cpm_factor
     if (verbose)
-      message("[ELEUTHIA]   CPM factor: ", round(cpm_factor, 6))
+      cat("[ELEUTHIA]   CPM factor: ", round(cpm_factor, 6))
   }
 
   # Drop zero-score bins (reduces file size meaningfully for sparse data)
@@ -159,10 +160,10 @@ ELEUTHIA_bed_to_bigwig <- function(bed_file,
   if (!dir.exists(out_dir))
     dir.create(out_dir, recursive = TRUE)
 
-  if (verbose) message("[ELEUTHIA]   Writing: ", basename(output_path))
+  if (verbose) cat("[ELEUTHIA]   Writing: ", basename(output_path))
   rtracklayer::export.bw(binned, output_path)
 
-  if (verbose) message("[ELEUTHIA] Done.")
+  if (verbose) cat("    Done.")
   invisible(output_path)
 }
 
@@ -245,7 +246,7 @@ ELEUTHIA_bed_region_coverage <- function(bed_file,
     stop("Chromosome '", chr, "' not found in chrom_sizes", call. = FALSE)
 
   if (verbose)
-    message("[ELEUTHIA] Region coverage: ", chr, ":", reg_start, "-", reg_end,
+    cat("[ELEUTHIA] Region coverage: ", chr, ":", reg_start, "-", reg_end,
             " from ", basename(bed_file))
 
   # --- Read full BED (one pass for total count + region filter) ---------------
@@ -265,7 +266,7 @@ ELEUTHIA_bed_region_coverage <- function(bed_file,
   ]
 
   if (verbose)
-    message("[ELEUTHIA]   Total: ", format(total_fragments, big.mark = ","),
+    cat("[ELEUTHIA]   Total: ", format(total_fragments, big.mark = ","),
             " | In region: ", format(nrow(region_frags), big.mark = ","))
 
   # Return empty frame if no fragments in region

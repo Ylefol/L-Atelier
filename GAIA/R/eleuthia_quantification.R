@@ -104,7 +104,7 @@ ELEUTHIA_quantify_peaks <- function(sample_sheet,
   }
 
   if (verbose) {
-    cat("Quantifying", length(bam_files), "BAM files against",
+    cat("[ELEUTHIA] Quantifying", length(bam_files), "BAM files against",
         nrow(consensus_peaks), "consensus peaks...\n")
   }
 
@@ -112,7 +112,7 @@ ELEUTHIA_quantify_peaks <- function(sample_sheet,
   saf <- ELEUTHIA_peaks_to_saf(consensus_peaks)
 
   # Run featureCounts
-  if (verbose) cat("Running featureCounts...\n")
+  if (verbose) cat("[ELEUTHIA] Running featureCounts...\n")
 
   fc_result <- Rsubread::featureCounts(
     files = bam_files,
@@ -136,10 +136,10 @@ ELEUTHIA_quantify_peaks <- function(sample_sheet,
   rownames(targets) <- targets$sample_id
 
   if (verbose) {
-    cat("\nQuantification complete.\n")
-    cat("  Count matrix dimensions:", nrow(counts), "peaks x", ncol(counts), "samples\n")
-    cat("  Total counts:", sum(counts), "\n")
-    cat("  Mean counts per peak:", round(mean(rowSums(counts)), 1), "\n")
+    cat("[ELEUTHIA] Quantification complete.\n")
+    cat("    Count matrix dimensions:", nrow(counts), "peaks x", ncol(counts), "samples\n")
+    cat("    Total counts:", sum(counts), "\n")
+    cat("    Mean counts per peak:", round(mean(rowSums(counts)), 1), "\n")
   }
 
   return(list(
@@ -165,7 +165,7 @@ ELEUTHIA_quantify_peaks <- function(sample_sheet,
 ELEUTHIA_summarize_quantification <- function(quant_result) {
 
   cat("================================================================================\n")
-  cat("QUANTIFICATION SUMMARY\n")
+  cat("[ELEUTHIA] QUANTIFICATION SUMMARY\n")
   cat("================================================================================\n\n")
 
   counts <- quant_result$counts
@@ -183,46 +183,46 @@ ELEUTHIA_summarize_quantification <- function(quant_result) {
       total <- colSums(stat[, -1, drop = FALSE])
       pct_assigned <- round(100 * assigned / total, 1)
 
-      cat("Assignment rates (featureCounts):\n")
+      cat("[ELEUTHIA] Assignment rates (featureCounts):\n")
       fc_sample_names <- colnames(stat)[-1]
       for (i in seq_along(fc_sample_names)) {
-        cat(sprintf("  %-30s: %s assigned (%.1f%%)\n",
+        cat(sprintf("    %-30s: %s assigned (%.1f%%)\n",
                     fc_sample_names[i],
                     format(assigned[i], big.mark = ","),
                     pct_assigned[i]))
       }
 
-      cat("\nOverall:\n")
-      cat("  Mean assignment rate:", round(mean(pct_assigned), 1), "%\n")
-      cat("  Total assigned reads:", format(sum(assigned), big.mark = ","), "\n")
+      cat("[ELEUTHIA] Overall:\n")
+      cat("    Mean assignment rate:", round(mean(pct_assigned), 1), "%\n")
+      cat("    Total assigned reads:", format(sum(assigned), big.mark = ","), "\n")
     }
   } else {
     # BED-based quantification - summarize from counts matrix
-    cat("Regions:", format(n_regions, big.mark = ","), "\n")
-    cat("Samples:", n_samples, "\n\n")
+    cat("    Regions:", format(n_regions, big.mark = ","), "\n")
+    cat("    Samples:", n_samples, "\n\n")
 
-    cat("Per-sample fragment counts:\n")
+    cat("    Per-sample fragment counts:\n")
     sample_totals <- colSums(counts)
     sample_means <- colMeans(counts)
     sample_nonzero <- apply(counts, 2, function(x) sum(x > 0))
 
     for (i in seq_along(sample_names)) {
-      cat(sprintf("  %-30s: %10s total | %6.1f mean | %s regions with signal\n",
+      cat(sprintf("    %-30s: %10s total | %6.1f mean | %s regions with signal\n",
                   sample_names[i],
                   format(sample_totals[i], big.mark = ","),
                   sample_means[i],
                   format(sample_nonzero[i], big.mark = ",")))
     }
 
-    cat("\nOverall:\n")
-    cat("  Total fragments counted:", format(sum(counts), big.mark = ","), "\n")
-    cat("  Mean fragments per region:", round(mean(rowSums(counts)), 1), "\n")
-    cat("  Median fragments per region:", round(median(rowSums(counts)), 1), "\n")
-    cat("  Regions with zero counts:", format(sum(rowSums(counts) == 0), big.mark = ","),
+    cat("[ELEUTHIA] Overall:\n")
+    cat("    Total fragments counted:", format(sum(counts), big.mark = ","), "\n")
+    cat("    Mean fragments per region:", round(mean(rowSums(counts)), 1), "\n")
+    cat("    Median fragments per region:", round(median(rowSums(counts)), 1), "\n")
+    cat("    Regions with zero counts:", format(sum(rowSums(counts) == 0), big.mark = ","),
         sprintf("(%.1f%%)\n", 100 * sum(rowSums(counts) == 0) / n_regions))
   }
 
-  cat("\n================================================================================\n")
+  cat("================================================================================\n")
 
   # Create summary data.frame
   summary_df <- data.frame(

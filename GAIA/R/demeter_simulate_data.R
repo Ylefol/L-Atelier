@@ -124,7 +124,7 @@ DEMETER_generate_multi_datasets <- function(n_datasets = 3,n_samples = 100,n_fea
     signal_features = signal_features
   )
 
-  cat("Dataset dimensions:\n")
+  cat("[DEMETER] Dataset dimensions:\n")
   for (i in 1:length(simulation_list$datasets)) {
     cat(sprintf("  Dataset %d: %d samples x %d features (signal in first %d features)\n",
                 i, nrow(simulation_list$datasets[[i]]), ncol(simulation_list$datasets[[i]]),

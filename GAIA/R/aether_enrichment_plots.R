@@ -1253,7 +1253,7 @@ AETHER_plot_go_treemap <- function(enrichment_result,
 
     df_ont <- df_go_all[df_go_all$source == ont_source[o], ]
     if (nrow(df_ont) == 0L) {
-      if (verbose) message("No ", ont_source[o], " terms found — skipping.")
+      if (verbose) cat("[AETHER] No ", ont_source[o], " terms found — skipping.")
       next
     }
 
@@ -1276,7 +1276,7 @@ AETHER_plot_go_treemap <- function(enrichment_result,
     # Semantic similarity matrix + reduction
     # -------------------------------------------------------------------------
     if (verbose)
-      cat(sprintf("GO %s: computing semantic similarity for %d terms...\n",
+      cat(sprintf("[AETHER] GO %s: computing semantic similarity for %d terms...\n",
                   o, length(go_ids)))
 
     sim_mat <- tryCatch(
@@ -1294,7 +1294,7 @@ AETHER_plot_go_treemap <- function(enrichment_result,
     common_ids <- intersect(rownames(sim_mat), names(scores))
     if (length(common_ids) < 2L) {
       if (verbose)
-        message("Too few GO:", o, " terms present in OrgDb after filtering — skipping.")
+        cat("Too few GO:", o, " terms present in OrgDb after filtering — skipping.")
       next
     }
     sim_mat  <- sim_mat[common_ids, common_ids]
@@ -1365,7 +1365,7 @@ AETHER_plot_go_treemap <- function(enrichment_result,
       ont_label[o]
     }
 
-    if (verbose) cat("Rendering treemap:", plot_title, "\n")
+    if (verbose) cat("[AETHER] Rendering treemap:", plot_title, "\n")
 
     treemap::treemap(
       red,
@@ -1546,7 +1546,7 @@ AETHER_plot_go_dag <- function(enrichment_result,
                                    function(x) utils::head(x, top_n)))
   rownames(df_pool) <- NULL
   enriched_ids <- unique(df_pool$term_id)
-  if (verbose) cat(sprintf("GO %s DAG: %d enriched terms\n", ont, length(enriched_ids)))
+  if (verbose) cat(sprintf("[AETHER] GO %s DAG: %d enriched terms\n", ont, length(enriched_ids)))
 
   # ---------------------------------------------------------------------------
   # Module group + color assignment (same logic as treemap)
@@ -1592,7 +1592,7 @@ AETHER_plot_go_dag <- function(enrichment_result,
   # Pre-convert the bimap to a plain R list once — avoids S4 dispatch issues
   # with [[]] on Go3AnnDbBimap objects and is faster for repeated lookups.
   # Format: names(entry) = relationship types; values = parent GO IDs.
-  if (verbose) cat("Loading GO", ont, "parent mappings...\n")
+  if (verbose) cat("[AETHER] Loading GO", ont, "parent mappings...\n")
   parents_list  <- as.list(.go_parents_env(ont))
 
   all_node_ids  <- enriched_ids
@@ -1767,7 +1767,7 @@ AETHER_plot_go_dag <- function(enrichment_result,
              CC = "Cellular Component")[ont], " DAG"
   )
 
-  if (verbose) cat("Rendering GO DAG (", igraph::vcount(g), "nodes,",
+  if (verbose) cat("[AETHER] Rendering GO DAG (", igraph::vcount(g), "nodes,",
                    igraph::ecount(g), "edges)\n")
 
   p <- ggraph::ggraph(g, layout = "sugiyama") +
@@ -1964,7 +1964,7 @@ AETHER_plot_enrichment_map <- function(enrichment_result,
   # ---------------------------------------------------------------------------
   # Pairwise Jaccard → edge list
   # ---------------------------------------------------------------------------
-  if (verbose) cat("Computing pairwise Jaccard similarity...\n")
+  if (verbose) cat("[AETHER] Computing pairwise Jaccard similarity...\n")
 
   edge_rows <- list()
   for (i in seq_len(n_terms - 1L)) {
@@ -2047,7 +2047,7 @@ AETHER_plot_enrichment_map <- function(enrichment_result,
   # Node border: thicker stroke for multi-module terms
   stroke_vals <- ifelse(igraph::V(g)$n_modules > 1L, 1.2, 0.4)
 
-  if (verbose) cat("Rendering enrichment map (", igraph::vcount(g), "nodes,",
+  if (verbose) cat("[AETHER] Rendering enrichment map (", igraph::vcount(g), "nodes,",
                    igraph::ecount(g), "edges)...\n")
 
   p <- ggraph::ggraph(g, layout = layout) +

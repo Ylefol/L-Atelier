@@ -121,26 +121,25 @@ ARTEMIS_cluster_mixed <- function(data,
   }
 
   if (verbose) {
-    cat("ARTEMIS Mixed Data Clustering\n")
-    cat("==============================\n")
-    cat("Input:", nrow(data), "samples,", ncol(data), "variables\n")
+    cat("[ARTEMIS] ARTEMIS Mixed Data Clustering\n")
+    cat(" Input:", nrow(data), "samples,", ncol(data), "variables\n")
 
     # Report variable types
     n_quanti <- sum(sapply(data, is.numeric))
     n_quali <- sum(sapply(data, is.factor))
     n_char_converted <- sum(char_cols)
-    cat("  Quantitative:", n_quanti, "\n")
-    cat("  Qualitative:", n_quali)
+    cat("    Quantitative:", n_quanti, "\n")
+    cat("    Qualitative:", n_quali)
     if (n_char_converted > 0) {
-      cat(" (", n_char_converted, " converted from character)", sep = "")
+      cat("    (", n_char_converted, " converted from character)", sep = "")
     }
-    cat("\n\n")
+    cat("\n")
   }
 
   # ---------------------------------------------------------------------------
   # Step 1: Compute Gower distance
   # ---------------------------------------------------------------------------
-  if (verbose) cat("Computing Gower distance matrix...\n")
+  if (verbose) cat("[ARTEMIS] Computing Gower distance matrix...\n")
 
   gower_dist <- cluster::daisy(data, metric = "gower", stand = stand)
 
@@ -156,7 +155,7 @@ ARTEMIS_cluster_mixed <- function(data,
   k_evaluation <- NULL  # Full evaluation data for Sankey visualization
 
   if (identical(k, "auto")) {
-    if (verbose) cat("Determining optimal k using silhouette scores...\n")
+    if (verbose) cat("[ARTEMIS] Determining optimal k using silhouette scores...\n")
 
     # Limit k_range to reasonable values
     max_k <- min(max(k_range), floor(nrow(data) / 2), 15)
@@ -209,7 +208,7 @@ ARTEMIS_cluster_mixed <- function(data,
       assignments[[col_name]] <- clusters_test
 
       if (verbose) {
-        cat("  k =", k_test, ": avg silhouette =", round(sil_score, 3),
+        cat("    k =", k_test, ": avg silhouette =", round(sil_score, 3),
             " sizes:", size_str, "\n")
       }
     }
@@ -260,7 +259,8 @@ ARTEMIS_cluster_mixed <- function(data,
     class(k_evaluation) <- c("artemis_k_evaluation", "list")
 
     if (verbose) {
-      cat("\nOptimal k =", k, "(silhouette =", round(k_selection$silhouette_avg[best_idx], 3), ")\n\n")
+      cat("    Optimal k =", k, "(silhouette =", round(k_selection$silhouette_avg[best_idx], 3), ")\n")
+      cat("\n")
     }
   } else {
     # Validate provided k
@@ -272,7 +272,7 @@ ARTEMIS_cluster_mixed <- function(data,
   # ---------------------------------------------------------------------------
   # Step 3: Perform clustering
   # ---------------------------------------------------------------------------
-  if (verbose) cat("Clustering with k =", k, "using", method, "method...\n")
+  if (verbose) cat("[ARTEMIS] Clustering with k =", k, "using", method, "method...\n")
 
   if (method == "pam") {
     clust_result <- cluster::pam(gower_dist, k = k, diss = TRUE)
@@ -294,15 +294,15 @@ ARTEMIS_cluster_mixed <- function(data,
   cluster_sizes <- table(clusters)
 
   if (verbose) {
-    cat("\nClustering complete.\n")
-    cat("  Average silhouette width:", round(sil_avg, 3), "\n")
-    cat("  Cluster sizes:\n")
+    cat(" Clustering complete.\n")
+    cat("    Average silhouette width:", round(sil_avg, 3), "\n")
+    cat("    Cluster sizes:\n")
     for (i in seq_along(cluster_sizes)) {
-      cat("    Cluster", names(cluster_sizes)[i], ":", cluster_sizes[i], "samples\n")
+      cat("        Cluster", names(cluster_sizes)[i], ":", cluster_sizes[i], "samples\n")
     }
 
     # Interpret silhouette
-    cat("\n  Silhouette interpretation:\n")
+    cat(" Silhouette interpretation:\n")
     if (sil_avg > 0.7) {
       cat("    Strong structure found\n")
     } else if (sil_avg > 0.5) {
@@ -347,17 +347,17 @@ ARTEMIS_cluster_mixed <- function(data,
 #' @method print artemis_cluster
 #' @export
 print.artemis_cluster <- function(x, ...) {
-  cat("ARTEMIS Clustering Result\n")
-  cat("=========================\n")
+  cat("Clustering Result\n")
+  cat("------------------------------\n")
   cat("Method:", x$method)
   if (!is.null(x$hclust_method)) cat(" (", x$hclust_method, ")", sep = "")
   cat("\n")
   cat("Samples:", nrow(x$data_used), "\n")
   cat("Variables:", ncol(x$data_used), "\n")
   cat("Clusters (k):", x$k, "\n")
-  cat("\nCluster sizes:\n")
+  cat("Cluster sizes:\n")
   for (i in seq_along(x$cluster_sizes)) {
-    cat("  Cluster", i, ":", x$cluster_sizes[i], "\n")
+    cat("    Cluster", i, ":", x$cluster_sizes[i], "\n")
   }
   cat("\nAverage silhouette width:", round(x$silhouette_avg, 3), "\n")
 
@@ -366,7 +366,7 @@ print.artemis_cluster <- function(x, ...) {
     best_k <- x$k_selection$k[which.max(x$k_selection$silhouette_avg)]
     for (i in seq_len(nrow(x$k_selection))) {
       marker <- if (x$k_selection$k[i] == best_k) " <-- best" else ""
-      cat("  k =", x$k_selection$k[i], ":",
+      cat("k =", x$k_selection$k[i], ":",
           round(x$k_selection$silhouette_avg[i], 3), marker, "\n")
     }
   }
@@ -429,7 +429,7 @@ ARTEMIS_cluster_stability <- function(cluster_result,
   jaccard_all <- numeric(n_boot)
 
   if (verbose) {
-    cat("Assessing cluster stability with", n_boot, "bootstrap iterations...\n")
+    cat("[ARTEMIS] Assessing cluster stability with", n_boot, "bootstrap iterations...\n")
     pb_interval <- max(1, floor(n_boot / 10))
   }
 
@@ -476,7 +476,7 @@ ARTEMIS_cluster_stability <- function(cluster_result,
     jaccard_all[b] <- matches / total
 
     if (verbose && b %% pb_interval == 0) {
-      cat("  Iteration", b, "/", n_boot, "\n")
+      cat("    Iteration", b, "/", n_boot, "\n")
     }
   }
 
@@ -503,12 +503,12 @@ ARTEMIS_cluster_stability <- function(cluster_result,
   }
 
   if (verbose) {
-    cat("\nStability Results:\n")
-    cat("  Mean Jaccard similarity:", round(jaccard_mean, 3), "\n")
-    cat("  Interpretation:", interpretation, "\n")
-    cat("\n  Per-cluster stability:\n")
+    cat("[ARTEMIS] Stability Results:\n")
+    cat("    Mean Jaccard similarity:", round(jaccard_mean, 3), "\n")
+    cat("    Interpretation:", interpretation, "\n")
+    cat("    Per-cluster stability:\n")
     for (i in seq_along(jaccard_per_cluster)) {
-      cat("    Cluster", names(jaccard_per_cluster)[i], ":",
+      cat("        Cluster", names(jaccard_per_cluster)[i], ":",
           round(jaccard_per_cluster[i], 3), "\n")
     }
   }
@@ -651,17 +651,17 @@ ARTEMIS_characterize_clusters <- function(cluster_result,
   }
 
   if (verbose) {
-    cat("ARTEMIS Cluster Characterization\n")
-    cat("=================================\n")
-    cat("Clusters:", k, "\n")
-    cat("Variables:", ncol(data), "\n")
-    cat("Samples:", nrow(data), "\n\n")
+    cat("[ARTEMIS] ARTEMIS Cluster Characterization\n")
+    cat("    Clusters:", k, "\n")
+    cat("    Variables:", ncol(data), "\n")
+    cat("    Samples:", nrow(data), "\n")
+    cat("\n")
   }
 
   # ---------------------------------------------------------------------------
   # Test each variable
   # ---------------------------------------------------------------------------
-  if (verbose) cat("Testing variable associations with clusters...\n")
+  if (verbose) cat("[ARTEMIS] Testing variable associations with clusters...\n")
 
   results_list <- list()
 
@@ -777,24 +777,24 @@ ARTEMIS_characterize_clusters <- function(cluster_result,
   # Summary output
   # ---------------------------------------------------------------------------
   if (verbose) {
-    cat("\nTop discriminating variables:\n")
-    cat(strrep("-", 65), "\n")
+    cat("[ARTEMIS] Top discriminating variables:\n")
+    cat("    ", strrep("-", 65), "\n")
 
     n_show <- min(15, nrow(results))
     for (i in seq_len(n_show)) {
       row <- results[i, ]
       sig_marker <- if (!is.na(row$p_adjusted) && row$p_adjusted < 0.05) "*" else " "
-      cat(sprintf("  %2d. %-25s %s  effect=%.3f (%s)%s\n",
+      cat("    ", sprintf("  %2d. %-25s %s  effect=%.3f (%s)%s\n",
                   i, row$variable, row$type,
                   row$effect_size, row$effect_interpretation, sig_marker))
     }
     if (nrow(results) > 15) {
-      cat("  ... and", nrow(results) - 15, "more variables\n")
+      cat("    ... and", nrow(results) - 15, "more variables\n")
     }
 
-    cat("\n* = significant after adjustment (p < 0.05)\n")
-    cat("\nVariables with large effect:", length(large_effect), "\n")
-    cat("Variables with medium+ effect:", length(top_variables), "\n")
+    cat("    * = significant after adjustment (p < 0.05)\n")
+    cat("    Variables with large effect:", length(large_effect), "\n")
+    cat("    Variables with medium+ effect:", length(top_variables), "\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -887,8 +887,8 @@ ARTEMIS_characterize_clusters <- function(cluster_result,
 #' @method print artemis_characterization
 #' @export
 print.artemis_characterization <- function(x, n = 20, ...) {
-  cat("ARTEMIS Cluster Characterization\n")
-  cat("=================================\n")
+  cat("Cluster Characterization\n")
+  cat("------------------------------\n")
   cat("Clusters:", x$n_clusters, "\n")
   cat("Variables tested:", x$n_variables, "\n")
   cat("Variables with large effect:", sum(x$results$effect_interpretation == "Large"), "\n")
@@ -993,8 +993,7 @@ ARTEMIS_compare_variable_importance <- function(cluster_char,
   n_dims <- min(n_dims, max_dims)
 
   if (verbose) {
-    cat("ARTEMIS Variable Importance Comparison\n")
-    cat("=======================================\n")
+    cat("[ARTEMIS] ARTEMIS Variable Importance Comparison\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -1102,30 +1101,32 @@ ARTEMIS_compare_variable_importance <- function(cluster_char,
   )
 
   if (verbose) {
-    cat("Variables analyzed:", summary_stats$n_variables, "\n")
-    cat("Dimensions used for FAMD:", n_dims, "\n")
-    cat("Low threshold (percentile):", low_threshold * 100, "%\n\n")
+    cat("    Variables analyzed:", summary_stats$n_variables, "\n")
+    cat("    Dimensions used for FAMD:", n_dims, "\n")
+    cat("    Low threshold (percentile):", low_threshold * 100, "%\n")
+    cat("\n")
 
-    cat("Variables below threshold:\n")
-    cat("  Low cluster effect only:", sum(comparison$low_cluster & !comparison$low_famd), "\n")
-    cat("  Low FAMD contrib only:", sum(comparison$low_famd & !comparison$low_cluster), "\n")
-    cat("  Low on BOTH (removal candidates):", summary_stats$n_low_both, "\n\n")
+    cat("    Variables below threshold:\n")
+    cat("        Low cluster effect only:", sum(comparison$low_cluster & !comparison$low_famd), "\n")
+    cat("        Low FAMD contrib only:", sum(comparison$low_famd & !comparison$low_cluster), "\n")
+    cat("        Low on BOTH (removal candidates):", summary_stats$n_low_both, "\n")
+    cat("\n")
 
     if (length(low_signal) > 0) {
-      cat("Candidates for removal:\n")
+      cat(" Candidates for removal:\n")
       n_show <- min(20, length(low_signal))
       for (i in seq_len(n_show)) {
         v <- low_signal[i]
         row <- comparison[comparison$variable == v, ]
-        cat(sprintf("  %2d. %-25s cluster=%.3f  famd=%.2f\n",
+        cat("    ", sprintf("  %2d. %-25s cluster=%.3f  famd=%.2f\n",
                     i, v, row$cluster_effect, row$famd_contrib))
       }
       if (length(low_signal) > 20) {
-        cat("  ... and", length(low_signal) - 20, "more\n")
+        cat("    ... and", length(low_signal) - 20, "more\n")
       }
     } else {
-      cat("No variables flagged as low on both metrics.\n")
-      cat("Consider lowering low_threshold or reviewing manually.\n")
+      cat(" No variables flagged as low on both metrics.\n")
+      cat(" Consider lowering low_threshold or reviewing manually.\n")
     }
   }
 
@@ -1152,8 +1153,8 @@ ARTEMIS_compare_variable_importance <- function(cluster_char,
 #' @method print artemis_variable_comparison
 #' @export
 print.artemis_variable_comparison <- function(x, n = 30, ...) {
-  cat("ARTEMIS Variable Importance Comparison\n")
-  cat("=======================================\n")
+  cat("Variable Importance Comparison\n")
+  cat("------------------------------\n")
   cat("Variables:", x$summary$n_variables, "\n")
   cat("Low threshold:", x$summary$low_threshold * 100, "percentile\n")
   cat("Removal candidates (low on both):", x$summary$n_low_both, "\n\n")
@@ -1277,13 +1278,13 @@ ARTEMIS_evaluate_k_range <- function(data,
     }
 
     if (verbose) {
-      cat("ARTEMIS k-Range Evaluation\n")
-      cat("==========================\n")
-      cat("Input:", n_samples, "samples,", ncol(data), "variables\n\n")
+      cat("[ARTEMIS] k-Range Evaluation\n")
+      cat("    Input:", n_samples, "samples,", ncol(data), "variables\n")
+      cat("\n")
     }
 
     # Compute Gower distance
-    if (verbose) cat("Computing Gower distance matrix...\n")
+    if (verbose) cat("    Computing Gower distance matrix...\n")
     gower_dist <- cluster::daisy(data, metric = "gower", stand = stand)
   }
 
@@ -1296,7 +1297,8 @@ ARTEMIS_evaluate_k_range <- function(data,
   }
 
   if (verbose) {
-    cat("Evaluating k =", paste(k_range, collapse = ", "), "\n\n")
+    cat("[ARTEMIS] Evaluating k =", paste(k_range, collapse = ", "), "\n")
+    cat("\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -1306,7 +1308,7 @@ ARTEMIS_evaluate_k_range <- function(data,
   assignments <- data.frame(sample = sample_names, stringsAsFactors = FALSE)
 
   for (k in k_range) {
-    if (verbose) cat("  k =", k, "... ")
+    if (verbose) cat("    k =", k, "... ")
 
     # Cluster
     if (method == "pam") {
@@ -1339,8 +1341,7 @@ ARTEMIS_evaluate_k_range <- function(data,
     assignments[[col_name]] <- clusters
 
     if (verbose) {
-      cat("silhouette =", round(sil_avg, 3),
-          " sizes:", size_str, "\n")
+      cat("     silhouette =", round(sil_avg, 3), " sizes:", size_str, "\n")
     }
   }
 
@@ -1384,8 +1385,7 @@ ARTEMIS_evaluate_k_range <- function(data,
   optimal_k <- metrics$k[which.max(metrics$silhouette_avg)]
 
   if (verbose) {
-    cat("\n")
-    cat("Optimal k =", optimal_k,
+    cat("[ARTEMIS] Optimal k =", optimal_k,
         "(silhouette =", round(max(metrics$silhouette_avg), 3), ")\n")
   }
 
@@ -1414,12 +1414,12 @@ ARTEMIS_evaluate_k_range <- function(data,
 #' @method print artemis_k_evaluation
 #' @export
 print.artemis_k_evaluation <- function(x, ...) {
-  cat("ARTEMIS k-Range Evaluation\n")
-  cat("==========================\n")
+  cat("k-Range Evaluation\n")
+  cat("------------------------------\n")
   cat("k values tested:", paste(x$k_range, collapse = ", "), "\n")
   cat("Optimal k:", x$optimal_k,
       "(silhouette =", round(max(x$metrics$silhouette_avg), 3), ")\n\n")
-
+  
   cat("Metrics by k:\n")
   print_df <- x$metrics
   print_df$silhouette_avg <- round(print_df$silhouette_avg, 3)

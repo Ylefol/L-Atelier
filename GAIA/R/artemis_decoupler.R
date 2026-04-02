@@ -80,7 +80,7 @@
 .normalize_for_decoupler <- function(mat, norm_method, verbose = TRUE) {
   if (norm_method == "none") return(mat)
   if (norm_method == "log2cpm") {
-    if (verbose) cat("Normalizing: log2(CPM + 1)\n")
+    if (verbose) cat("[ARTEMIS] Normalizing: log2(CPM + 1)\n")
     lib_sizes <- colSums(mat)
     cpm <- sweep(mat, 2, lib_sizes, "/") * 1e6
     return(log2(cpm + 1))
@@ -107,7 +107,7 @@
 #' @export
 ARTEMIS_decoupler_list_methods <- function(recommended_only = FALSE) {
 
-  cat("=== Available decoupleR Methods ===\n\n")
+  cat("[ARTEMIS] Available decoupleR Methods \n\n")
 
   methods_to_show <- .DECOUPLER_METHODS
   if (recommended_only) {
@@ -117,14 +117,14 @@ ARTEMIS_decoupler_list_methods <- function(recommended_only = FALSE) {
   for (method_name in names(methods_to_show)) {
     info <- methods_to_show[[method_name]]
     rec_tag <- if (info$recommended) " [RECOMMENDED]" else ""
-    cat(sprintf("%s%s\n", method_name, rec_tag))
-    cat(sprintf("  %s\n", info$name))
-    cat(sprintf("  %s\n\n", info$description))
+    cat(sprintf("    %s%s\n", method_name, rec_tag))
+    cat(sprintf("        %s\n", info$name))
+    cat(sprintf("        %s\n\n", info$description))
   }
 
   if (!recommended_only) {
-    cat("Note: 'ulm' and 'mlm' are recommended as default methods.\n")
-    cat("Use recommended_only = TRUE to see only recommended methods.\n")
+    cat("[ARTEMIS] Note: 'ulm' and 'mlm' are recommended as default methods.\n")
+    cat("[ARTEMIS] Use recommended_only = TRUE to see only recommended methods.\n")
   }
 
   invisible(names(methods_to_show))
@@ -210,7 +210,7 @@ ARTEMIS_run_decoupler <- function(mat,
 
   # Handle artemis_norm input
   if (inherits(mat, "artemis_norm")) {
-    if (verbose) cat("artemis_norm object detected — extracting log2(DESeq2-normalized + 1) counts.\n")
+    if (verbose) cat("[ARTEMIS] artemis_norm object detected — extracting log2(DESeq2-normalized + 1) counts.\n")
     mat <- log2(mat$norm_counts + 1)
     norm_method <- "none"
   }
@@ -229,7 +229,7 @@ ARTEMIS_run_decoupler <- function(mat,
   # Apply normalization or warn if raw counts passed with norm_method = "none"
   if (norm_method != "none") {
     if (verbose && .is_raw_counts(mat)) {
-      cat("Raw integer counts detected — applying", norm_method, "normalization.\n")
+      cat("[ARTEMIS] Raw integer counts detected — applying", norm_method, "normalization.\n")
     }
     mat <- .normalize_for_decoupler(mat, norm_method, verbose)
   } else if (.is_raw_counts(mat)) {
@@ -249,30 +249,30 @@ ARTEMIS_run_decoupler <- function(mat,
   }
 
   if (verbose) {
-    cat("=== ARTEMIS Activity Inference ===\n")
-    cat("Method:", .DECOUPLER_METHODS[[method]]$name, "(", method, ")\n")
-    cat("Input matrix:", nrow(mat), "genes x", ncol(mat), "samples\n")
+    cat("[ARTEMIS] Activity Inference \n")
+    cat("    Method:", .DECOUPLER_METHODS[[method]]$name, "(", method, ")\n")
+    cat("    Input matrix:", nrow(mat), "genes x", ncol(mat), "samples\n")
 
     # Network info
     db_name <- attr(network, "database")
     if (!is.null(db_name)) {
-      cat("Network:", db_name, "\n")
+      cat("[ARTEMIS] Network:", db_name, "\n")
     }
-    cat("Network sources:", length(unique(network$source)), "\n")
-    cat("Min targets per source:", minsize, "\n")
+    cat("    Network sources:", length(unique(network$source)), "\n")
+    cat("    Min targets per source:", minsize, "\n")
   }
 
   # Check gene overlap
   n_overlap <- sum(rownames(mat) %in% network$target)
   pct_overlap <- round(100 * n_overlap / nrow(mat), 1)
   if (verbose) {
-    cat("Gene overlap:", n_overlap, "/", nrow(mat), "(", pct_overlap, "%)\n")
+    cat("    Gene overlap:", n_overlap, "/", nrow(mat), "(", pct_overlap, "%)\n")
   }
   if (n_overlap < 100) {
     warning("Low gene overlap (", n_overlap, "). Check that gene ID types match.")
   }
 
-  if (verbose) cat("Running", method, "...\n")
+  if (verbose) cat("[ARTEMIS] Running", method, "...\n")
 
   # Run the appropriate method
   run_fn <- switch(method,
@@ -323,7 +323,7 @@ ARTEMIS_run_decoupler <- function(mat,
   class(result) <- c("decoupler_result", "list")
 
   if (verbose) {
-    cat("Done. Found activities for", result$n_sources, "sources.\n")
+    cat("[ARTEMIS] Done. Found activities for", result$n_sources, "sources.\n")
   }
 
   return(result)
@@ -413,12 +413,12 @@ ARTEMIS_decoupler_compare_methods <- function(mat,
 
   # Handle artemis_norm input
   if (inherits(mat, "artemis_norm")) {
-    if (verbose) cat("artemis_norm object detected — extracting log2(DESeq2-normalized + 1) counts.\n")
+    if (verbose) cat("[ARTEMIS] artemis_norm object detected — extracting log2(DESeq2-normalized + 1) counts.\n")
     mat <- log2(mat$norm_counts + 1)
     norm_method <- "none"
   } else if (norm_method != "none") {
-    if (verbose) cat("Normalizing matrix once before running", length(methods), "methods...\n")
-    if (verbose && .is_raw_counts(mat)) cat("Raw integer counts detected — applying", norm_method, "normalization.\n")
+    if (verbose) cat("[ARTEMIS] Normalizing matrix once before running", length(methods), "methods...\n")
+    if (verbose && .is_raw_counts(mat)) cat("[ARTEMIS] Raw integer counts detected — applying", norm_method, "normalization.\n")
     mat <- .normalize_for_decoupler(mat, norm_method, verbose = FALSE)
     norm_method <- "none"
   } else if (.is_raw_counts(mat)) {
@@ -429,15 +429,15 @@ ARTEMIS_decoupler_compare_methods <- function(mat,
   }
 
   if (verbose) {
-    cat("=== ARTEMIS Method Comparison ===\n")
-    cat("Methods:", paste(methods, collapse = ", "), "\n")
-    cat("Input:", nrow(mat), "genes x", ncol(mat), "samples\n\n")
+    cat("[ARTEMIS] Method Comparison \n")
+    cat("    Methods:", paste(methods, collapse = ", "), "\n")
+    cat("    Input:", nrow(mat), "genes x", ncol(mat), "samples\n\n")
   }
 
   # Run each method (matrix already normalized above — pass norm_method = "none")
   results <- list()
   for (m in methods) {
-    if (verbose) cat("Running", m, "...\n")
+    if (verbose) cat("[ARTEMIS] Running", m, "...\n")
     results[[m]] <- ARTEMIS_run_decoupler(
       mat = mat,
       network = network,
@@ -449,7 +449,7 @@ ARTEMIS_decoupler_compare_methods <- function(mat,
     )
   }
 
-  if (verbose) cat("\nCompiling comparison...\n")
+  if (verbose) cat("[ARTEMIS] \nCompiling comparison...\n")
 
   # Find common sources across all methods
   common_sources <- Reduce(intersect, lapply(results, function(x) rownames(x$activities)))
@@ -460,8 +460,8 @@ ARTEMIS_decoupler_compare_methods <- function(mat,
   }
 
   if (verbose) {
-    cat("Common sources:", length(common_sources), "\n")
-    cat("Common samples:", length(common_samples), "\n")
+    cat("    Common sources:", length(common_sources), "\n")
+    cat("    Common samples:", length(common_samples), "\n")
   }
 
   # Extract aligned activity matrices
@@ -501,9 +501,9 @@ ARTEMIS_decoupler_compare_methods <- function(mat,
   class(comparison) <- c("decoupler_comparison", "list")
 
   if (verbose) {
-    cat("\n=== Comparison Summary ===\n")
-    cat("Method correlations (mean):", round(mean(correlations[lower.tri(correlations)]), 3), "\n")
-    cat("Sources with high agreement (>0.7):", sum(summary_df$agreement_score > 0.7), "/",
+    cat("[ARTEMIS] Comparison Summary \n")
+    cat("    Method correlations (mean):", round(mean(correlations[lower.tri(correlations)]), 3), "\n")
+    cat("    Sources with high agreement (>0.7):", sum(summary_df$agreement_score > 0.7), "/",
         length(common_sources), "\n")
   }
 
@@ -567,8 +567,8 @@ ARTEMIS_infer_tf_activity <- function(mat,
   }
 
   if (verbose) {
-    cat("=== TF Activity Inference ===\n")
-    cat("Database:", database, "\n")
+    cat("[ARTEMIS] TF Activity Inference \n")
+    cat("    Database:", database, "\n")
   }
 
   # Get network
@@ -647,8 +647,8 @@ ARTEMIS_infer_pathway_activity <- function(mat,
   }
 
   if (verbose) {
-    cat("=== Pathway Activity Inference ===\n")
-    cat("Database:", database, "\n")
+    cat("[ARTEMIS] Pathway Activity Inference \n")
+    cat("    Database:", database, "\n")
   }
 
   # Get network
@@ -837,7 +837,7 @@ ARTEMIS_infer_pathway_activity <- function(mat,
 #' @export
 print.decoupler_result <- function(x, ...) {
   cat("decoupleR Activity Result\n")
-  cat("-------------------------\n")
+  cat("------------------------------\n")
   cat("Method:", x$method_name, "(", x$method, ")\n")
   cat("Sources:", x$n_sources, "\n")
   cat("Samples:", x$n_samples, "\n")

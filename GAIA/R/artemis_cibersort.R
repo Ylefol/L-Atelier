@@ -113,7 +113,7 @@ ARTEMIS_cibersort <- function(mixture,
   # ---------------------------------------------------------------------------
   # Source CIBERSORT.R (defines CIBERSORT, CoreAlg, doPerm functions)
   # ---------------------------------------------------------------------------
-  if (verbose) cat("Sourcing CIBERSORT.R...\n")
+  if (verbose) cat("[ARTEMIS] Sourcing CIBERSORT.R...\n")
   source(cibersort_path, local = TRUE)
 
   # Verify the function was loaded
@@ -128,15 +128,15 @@ ARTEMIS_cibersort <- function(mixture,
   if (is.character(mixture) && length(mixture) == 1 && file.exists(mixture)) {
     # File path provided directly
     mixture_file <- normalizePath(mixture, mustWork = TRUE)
-    if (verbose) cat("Using mixture file:", mixture_file, "\n")
+    if (verbose) cat("    Using mixture file:", mixture_file, "\n")
 
   } else {
     # R object — extract matrix if needed
     if (inherits(mixture, "artemis_norm")) {
-      if (verbose) cat("Extracting norm_counts from artemis_norm object\n")
+      if (verbose) cat("    Extracting norm_counts from artemis_norm object\n")
       mix_mat <- mixture$norm_counts
     } else if (inherits(mixture, "artemis_ts_norm")) {
-      if (verbose) cat("Extracting norm_counts from artemis_ts_norm object\n")
+      if (verbose) cat("    Extracting norm_counts from artemis_ts_norm object\n")
       mix_mat <- mixture$norm_counts
     } else if (is.matrix(mixture) || is.data.frame(mixture)) {
       mix_mat <- as.matrix(mixture)
@@ -150,7 +150,7 @@ ARTEMIS_cibersort <- function(mixture,
     }
 
     if (verbose) {
-      cat("Mixture:", nrow(mix_mat), "genes x", ncol(mix_mat), "samples\n")
+      cat("    Mixture:", nrow(mix_mat), "genes x", ncol(mix_mat), "samples\n")
     }
 
     # Write mixture to cibersort output directory
@@ -164,7 +164,7 @@ ARTEMIS_cibersort <- function(mixture,
     )
     mixture_file <- normalizePath(mixture_file, mustWork = TRUE)
 
-    if (verbose) cat("Mixture file saved:", mixture_file, "\n")
+    if (verbose) cat("    Mixture file saved:", mixture_file, "\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -177,7 +177,7 @@ ARTEMIS_cibersort <- function(mixture,
   setwd(cibersort_dir)
 
   if (verbose) {
-    cat("Running CIBERSORT (perm =", perm, ", QN =", QN, ")...\n")
+    cat("[ARTEMIS] Running CIBERSORT (perm =", perm, ", QN =", QN, ")...\n")
   }
 
   start_time <- proc.time()
@@ -191,7 +191,7 @@ ARTEMIS_cibersort <- function(mixture,
 
   elapsed <- (proc.time() - start_time)["elapsed"]
 
-  if (verbose) cat("CIBERSORT completed in", round(elapsed, 1), "seconds.\n")
+  if (verbose) cat("[ARTEMIS] CIBERSORT completed in", round(elapsed, 1), "seconds.\n")
 
   # ---------------------------------------------------------------------------
   # Parse results
@@ -223,11 +223,11 @@ ARTEMIS_cibersort <- function(mixture,
   }
 
   if (verbose) {
-    cat("Results: ", nrow(proportions), " samples x ",
+    cat("[ARTEMIS] Results: ", nrow(proportions), " samples x ",
         ncol(proportions), " cell types\n", sep = "")
     if (!is.null(correlations)) {
-      cat("Mean correlation:", round(mean(correlations, na.rm = TRUE), 3), "\n")
-      cat("Mean RMSE:", round(mean(rmse, na.rm = TRUE), 3), "\n")
+      cat("    Mean correlation:", round(mean(correlations, na.rm = TRUE), 3), "\n")
+      cat("    Mean RMSE:", round(mean(rmse, na.rm = TRUE), 3), "\n")
     }
   }
 
@@ -262,23 +262,24 @@ ARTEMIS_cibersort <- function(mixture,
 #' @export
 print.artemis_cibersort <- function(x, ...) {
   cat("CIBERSORT Deconvolution Result\n")
-  cat("  Samples:", x$metadata$n_samples, "\n")
-  cat("  Cell types:", x$metadata$n_cell_types, "\n")
-  cat("  Permutations:", x$metadata$perm, "\n")
-  cat("  QN:", x$metadata$QN, "\n")
+  cat("------------------------------\n")
+  cat("Samples:", x$metadata$n_samples, "\n")
+  cat("Cell types:", x$metadata$n_cell_types, "\n")
+  cat("Permutations:", x$metadata$perm, "\n")
+  cat("QN:", x$metadata$QN, "\n")
 
   if (!is.null(x$correlations)) {
-    cat("  Mean correlation:", round(mean(x$correlations, na.rm = TRUE), 3), "\n")
-    cat("  Mean RMSE:", round(mean(x$rmse, na.rm = TRUE), 3), "\n")
+    cat("Mean correlation:", round(mean(x$correlations, na.rm = TRUE), 3), "\n")
+    cat("Mean RMSE:", round(mean(x$rmse, na.rm = TRUE), 3), "\n")
   }
 
   # Show top cell types by mean proportion
   mean_props <- sort(colMeans(x$proportions), decreasing = TRUE)
   top <- head(mean_props[mean_props > 0.01], 5)
   if (length(top) > 0) {
-    cat("\n  Top cell types (mean proportion):\n")
+    cat("\nTop cell types (mean proportion):\n")
     for (i in seq_along(top)) {
-      cat("    ", names(top)[i], ": ", round(top[i] * 100, 1), "%\n", sep = "")
+      cat(names(top)[i], ": ", round(top[i] * 100, 1), "%\n", sep = "")
     }
   }
 

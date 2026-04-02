@@ -150,9 +150,9 @@ HADES_qc_mixed_data <- function(data,
   }
 
   if (verbose) {
-    cat("HADES Mixed Data QC Assessment\n")
+    cat("[HADES] Mixed Data QC Assessment\n")
     cat("===============================\n")
-    cat("Input:", nrow(data), "samples,", ncol(data), "variables\n\n")
+    cat("    Input:", nrow(data), "samples,", ncol(data), "variables\n\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -169,17 +169,17 @@ HADES_qc_mixed_data <- function(data,
   n_other <- sum(var_types == "other")
 
   if (verbose) {
-    cat("Variable types detected:\n")
-    cat("  Quantitative:", n_quanti, "\n")
-    cat("  Qualitative:", n_quali, "\n")
-    if (n_other > 0) cat("  Other:", n_other, "(excluded from some checks)\n")
+    cat("[HADES] Variable types detected:\n")
+    cat("    Quantitative:", n_quanti, "\n")
+    cat("    Qualitative:", n_quali, "\n")
+    if (n_other > 0) cat("    Other:", n_other, "(excluded from some checks)\n")
     cat("\n")
   }
 
   # ---------------------------------------------------------------------------
   # Step 2: Variable-level QC
   # ---------------------------------------------------------------------------
-  if (verbose) cat("Assessing variables...\n")
+  if (verbose) cat("[HADES] Assessing variables...\n")
 
   var_report <- data.frame(
     variable = names(data),
@@ -245,7 +245,7 @@ HADES_qc_mixed_data <- function(data,
   type_issues <- NULL
 
   if (check_type_issues) {
-    if (verbose) cat("Checking for type inconsistencies and NA-like strings...\n")
+    if (verbose) cat("[HADES] Checking for type inconsistencies and NA-like strings...\n")
 
     # Initialize results
     potential_numeric <- list()
@@ -401,7 +401,7 @@ HADES_qc_mixed_data <- function(data,
   cor_report <- NULL
 
   if (check_correlations && n_quanti >= 2) {
-    if (verbose) cat("Computing correlations for quantitative variables...\n")
+    if (verbose) cat("[HADES] Computing correlations for quantitative variables...\n")
 
     quanti_cols <- names(var_types)[var_types == "quantitative"]
     quanti_data <- data[, quanti_cols, drop = FALSE]
@@ -446,7 +446,7 @@ HADES_qc_mixed_data <- function(data,
   id_issues <- NULL
 
   if (check_samples) {
-    if (verbose) cat("Assessing samples...\n")
+    if (verbose) cat("[HADES] Assessing samples...\n")
 
     # Determine sample IDs and validate if column specified
     id_source <- "generated"  # Track where IDs came from
@@ -482,7 +482,7 @@ HADES_qc_mixed_data <- function(data,
 
       # Check for missing IDs
       if (id_issues$n_missing > 0 && verbose) {
-        cat("  WARNING:", id_issues$n_missing, "samples have missing IDs\n")
+        cat("[HADES] WARNING:", id_issues$n_missing, "samples have missing IDs\n")
       }
 
       # Check for empty strings (common issue)
@@ -492,7 +492,7 @@ HADES_qc_mixed_data <- function(data,
       id_issues$empty_string_rows <- which(empty_mask)
 
       if (id_issues$n_empty_strings > 0 && verbose) {
-        cat("  WARNING:", id_issues$n_empty_strings, "samples have empty string IDs\n")
+        cat("[HADES] WARNING:", id_issues$n_empty_strings, "samples have empty string IDs\n")
       }
 
       # Check for duplicates (only among non-NA, non-empty values)
@@ -510,7 +510,7 @@ HADES_qc_mixed_data <- function(data,
         }
 
         if (verbose) {
-          cat("  WARNING:", id_issues$n_duplicates, "duplicate ID value(s) found\n")
+          cat("[HADES] WARNING:", id_issues$n_duplicates, "duplicate ID value(s) found\n")
         }
       }
 
@@ -611,22 +611,22 @@ HADES_qc_mixed_data <- function(data,
 
   if (verbose) {
     cat("\n")
-    cat("QC Summary:\n")
+    cat("[HADES] QC Summary:\n")
     cat("-----------\n")
-    cat("Variables flagged (high NA):", summary_stats$variables_flagged_na, "\n")
-    cat("Variables flagged (low variance):", summary_stats$variables_flagged_variance, "\n")
-    cat("Variables flagged (dominant level):", summary_stats$variables_flagged_dominance, "\n")
+    cat("    Variables flagged (high NA):", summary_stats$variables_flagged_na, "\n")
+    cat("    Variables flagged (low variance):", summary_stats$variables_flagged_variance, "\n")
+    cat("    Variables flagged (dominant level):", summary_stats$variables_flagged_dominance, "\n")
     if (check_type_issues) {
-      cat("Variables with NA-like strings:", summary_stats$variables_with_na_strings, "\n")
-      cat("Variables potentially numeric:", summary_stats$variables_potential_numeric, "\n")
-      cat("Variables potentially categorical:", summary_stats$variables_potential_categorical, "\n")
-      cat("Variables with special chars in values:", summary_stats$variables_with_special_chars, "\n")
+      cat("    Variables with NA-like strings:", summary_stats$variables_with_na_strings, "\n")
+      cat("    Variables potentially numeric:", summary_stats$variables_potential_numeric, "\n")
+      cat("    Variables potentially categorical:", summary_stats$variables_potential_categorical, "\n")
+      cat("    Variables with special chars in values:", summary_stats$variables_with_special_chars, "\n")
     }
-    cat("Variables flagged (any reason):", summary_stats$variables_flagged_any, "\n")
+    cat("    Variables flagged (any reason):", summary_stats$variables_flagged_any, "\n")
     if (check_samples) {
-      cat("Samples flagged (high NA):", summary_stats$samples_flagged_na, "\n")
+      cat("    Samples flagged (high NA):", summary_stats$samples_flagged_na, "\n")
       if (!is.null(id_issues) && summary_stats$id_issues_any) {
-        cat("Sample ID issues found: ")
+        cat("    Sample ID issues found: ")
         issues <- c()
         if (id_issues$n_missing > 0) issues <- c(issues, paste0(id_issues$n_missing, " missing"))
         if (id_issues$n_empty_strings > 0) issues <- c(issues, paste0(id_issues$n_empty_strings, " empty"))
@@ -635,9 +635,9 @@ HADES_qc_mixed_data <- function(data,
       }
     }
     if (check_correlations && !is.null(cor_report)) {
-      cat("High correlation pairs:", summary_stats$n_high_correlation_pairs, "\n")
+      cat("    High correlation pairs:", summary_stats$n_high_correlation_pairs, "\n")
     }
-    cat("\nUse print() for detailed report or access $variables, $samples, $correlations, $type_issues, $id_issues directly.\n")
+    cat("\n    Use print() for detailed report or access $variables, $samples, $correlations, $type_issues, $id_issues directly.\n")
   }
 
   return(result)
@@ -1060,7 +1060,7 @@ HADES_convert_to_factor <- function(data,
     }
     if (is.null(qc_report$type_issues$potential_categorical) ||
         length(qc_report$type_issues$potential_categorical) == 0) {
-      if (verbose) cat("No potential categorical columns flagged in QC report.\n")
+      if (verbose) cat("[HADES] No potential categorical columns flagged in QC report.\n")
       return(data)
     }
     columns <- names(qc_report$type_issues$potential_categorical)
@@ -1072,7 +1072,7 @@ HADES_convert_to_factor <- function(data,
     if (verbose && length(exclude) > 0) {
       excluded_actual <- intersect(exclude, names(qc_report$type_issues$potential_categorical))
       if (length(excluded_actual) > 0) {
-        cat("Excluding:", paste(excluded_actual, collapse = ", "), "\n")
+        cat("[HADES] Excluding:", paste(excluded_actual, collapse = ", "), "\n")
       }
     }
   }
@@ -1085,12 +1085,12 @@ HADES_convert_to_factor <- function(data,
   }
 
   if (length(columns) == 0) {
-    if (verbose) cat("No columns to convert.\n")
+    if (verbose) cat("[HADES] No columns to convert.\n")
     return(data)
   }
 
   if (verbose) {
-    cat("Converting", length(columns), "column(s) to factor:\n")
+    cat("[HADES] Converting", length(columns), "column(s) to factor:\n")
   }
 
   # Handle ordered parameter
@@ -1140,7 +1140,7 @@ HADES_convert_to_factor <- function(data,
   }
 
   if (verbose) {
-    cat("\nConversion complete.\n")
+    cat("\n[HADES] Conversion complete.\n")
   }
 
   return(data)
@@ -1220,7 +1220,7 @@ HADES_drop_high_na_variables <- function(data,
   }
 
   if (ncol(data) == 0) {
-    if (verbose) cat("Data has no columns.\n")
+    if (verbose) cat("[HADES] Data has no columns.\n")
     return(data)
   }
 
@@ -1256,7 +1256,7 @@ HADES_drop_high_na_variables <- function(data,
     }
 
     if (n_converted > 0 && verbose) {
-      cat("Converted", n_converted, "NA-like string(s) to NA\n\n")
+      cat("[HADES] Converted", n_converted, "NA-like string(s) to NA\n\n")
     }
   }
 
@@ -1270,7 +1270,7 @@ HADES_drop_high_na_variables <- function(data,
   if (!is.null(protect)) {
     protected_high_na <- intersect(high_na_cols, protect)
     if (length(protected_high_na) > 0 && verbose) {
-      cat("Protected columns with high NA (not removed):\n")
+      cat("[HADES] Protected columns with high NA (not removed):\n")
       for (col in protected_high_na) {
         cat("  -", col, ":", round(na_props[col] * 100, 1), "% NA\n")
       }
@@ -1281,15 +1281,15 @@ HADES_drop_high_na_variables <- function(data,
 
   if (length(high_na_cols) == 0) {
     if (verbose) {
-      cat("No columns exceed", na_threshold * 100, "% missing threshold.\n")
-      cat("All", ncol(data), "columns retained.\n")
+      cat("[HADES] No columns exceed", na_threshold * 100, "% missing threshold.\n")
+      cat("[HADES] All", ncol(data), "columns retained.\n")
     }
     return(data)
   }
 
   # Report what will be removed
   if (verbose) {
-    cat("Removing", length(high_na_cols), "column(s) with >",
+    cat("[HADES] Removing", length(high_na_cols), "column(s) with >",
         na_threshold * 100, "% missing:\n", sep = "")
     # Sort by NA proportion (highest first)
     high_na_cols_sorted <- high_na_cols[order(-na_props[high_na_cols])]
@@ -1307,7 +1307,7 @@ HADES_drop_high_na_variables <- function(data,
   data_filtered <- data[, !names(data) %in% high_na_cols, drop = FALSE]
 
   if (verbose) {
-    cat("Result:", ncol(data_filtered), "of", ncol(data), "columns retained.\n")
+    cat("[HADES] Result:", ncol(data_filtered), "of", ncol(data), "columns retained.\n")
   }
 
   return(data_filtered)

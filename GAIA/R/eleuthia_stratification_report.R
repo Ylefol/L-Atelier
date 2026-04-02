@@ -371,7 +371,7 @@ ELEUTHIA_stratification_report <- function(cluster_result,
   # Print to console
   # ---------------------------------------------------------------------------
   if (verbose) {
-    cat(paste(report, collapse = "\n"), "\n")
+    cat(paste("[ELEUTHIA]\n",report, collapse = "\n"), "\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -470,7 +470,7 @@ ELEUTHIA_stratification_report <- function(cluster_result,
     }
 
     if (verbose) {
-      cat("\nFiles saved to:", output_dir, "\n")
+      cat("\n['ELEUTHIA] Files saved to:", output_dir, "\n")
       for (f in files_saved) {
         cat("  -", basename(f), "\n")
       }
@@ -504,34 +504,34 @@ ELEUTHIA_quick_summary <- function(cluster_result,
                                     stability_result = NULL,
                                     char_result = NULL) {
 
-  cat("===== STRATIFICATION QUICK SUMMARY =====\n\n")
+  cat("[ELEUTHIA] STRATIFICATION QUICK SUMMARY \n\n")
 
   # Clustering
-  cat("CLUSTERING:\n")
-  cat("  k =", cluster_result$k, "| Method:", cluster_result$method, "\n")
-  cat("  Silhouette:", round(cluster_result$silhouette_avg, 3))
+  cat("    CLUSTERING:\n")
+  cat("        k =", cluster_result$k, "| Method:", cluster_result$method, "\n")
+  cat("        Silhouette:", round(cluster_result$silhouette_avg, 3))
 
   sil <- cluster_result$silhouette_avg
-  if (sil > 0.7) cat(" (Strong)\n")
-  else if (sil > 0.5) cat(" (Reasonable)\n")
-  else if (sil > 0.25) cat(" (Weak)\n")
-  else cat(" (Poor)\n")
+  if (sil > 0.7) cat("        (Strong)\n")
+  else if (sil > 0.5) cat("        (Reasonable)\n")
+  else if (sil > 0.25) cat("        (Weak)\n")
+  else cat("        (Poor)\n")
 
-  cat("  Cluster sizes:", paste(table(cluster_result$clusters), collapse = " / "), "\n\n")
+  cat("    Cluster sizes:", paste(table(cluster_result$clusters), collapse = " / "), "\n\n")
 
   # Stability
   if (!is.null(stability_result)) {
-    cat("STABILITY:\n")
-    cat("  Jaccard:", round(stability_result$jaccard_mean, 3),
+    cat("    STABILITY:\n")
+    cat("        Jaccard:", round(stability_result$jaccard_mean, 3),
         "-", stability_result$interpretation, "\n\n")
   }
 
   # Top variables
   if (!is.null(char_result)) {
-    cat("TOP 5 DISCRIMINATING VARIABLES:\n")
+    cat("[ELEUTHIA] TOP 5 DISCRIMINATING VARIABLES:\n")
     top5 <- head(char_result$results, 5)
     for (i in seq_len(nrow(top5))) {
-      cat(sprintf("  %d. %s (effect=%.3f)\n",
+      cat(sprintf("    %d. %s (effect=%.3f)\n",
                   i, top5$variable[i], top5$effect_size[i]))
     }
     cat("\n")

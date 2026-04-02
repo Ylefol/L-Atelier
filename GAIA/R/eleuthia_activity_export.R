@@ -93,12 +93,12 @@ ELEUTHIA_export_activity_results <- function(result,
          "ARTEMIS_infer_pathway_activity(), or ARTEMIS_decoupler_compare_methods().")
   }
 
-  if (verbose) cat("=== Exporting Activity Results ===\n")
+  if (verbose) cat("[ELEUTHIA] Exporting Activity Results \n")
 
   # Create output directory
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
-    if (verbose) cat("Created directory:", output_dir, "\n")
+    if (verbose) cat("    Created directory:", output_dir, "\n")
   }
 
   files_created <- character(0)
@@ -114,9 +114,9 @@ ELEUTHIA_export_activity_results <- function(result,
   }
 
   if (verbose) {
-    cat("\n--- Export Summary ---\n")
-    cat("Total files created:", length(files_created), "\n")
-    cat("Output directory:", output_dir, "\n")
+    cat("[ELEUTHIA] Export Summary \n")
+    cat("    Total files created:", length(files_created), "\n")
+    cat("    Output directory:", output_dir, "\n")
   }
 
   invisible(files_created)
@@ -133,9 +133,9 @@ ELEUTHIA_export_activity_results <- function(result,
   files_created <- character(0)
 
   if (verbose) {
-    cat("Type: Single method result\n")
-    cat("Method:", result$method_name, "(", result$method, ")\n")
-    cat("Sources:", result$n_sources, "| Samples:", result$n_samples, "\n")
+    cat("[ELEUTHIA] Type: Single method result\n")
+    cat("    Method:", result$method_name, "(", result$method, ")\n")
+    cat("    Sources:", result$n_sources, "| Samples:", result$n_samples, "\n")
   }
 
   # --------------------------------------------------------------------------
@@ -147,7 +147,7 @@ ELEUTHIA_export_activity_results <- function(result,
   act_df <- act_df[, c("source", setdiff(names(act_df), "source"))]
   write.csv(act_df, act_file, row.names = FALSE)
   files_created <- c(files_created, act_file)
-  if (verbose) cat("  Activities:", act_file, "\n")
+  if (verbose) cat("    Activities:", act_file, "\n")
 
   # --------------------------------------------------------------------------
   # P-value matrix
@@ -159,7 +159,7 @@ ELEUTHIA_export_activity_results <- function(result,
     pval_df <- pval_df[, c("source", setdiff(names(pval_df), "source"))]
     write.csv(pval_df, pval_file, row.names = FALSE)
     files_created <- c(files_created, pval_file)
-    if (verbose) cat("  P-values:", pval_file, "\n")
+    if (verbose) cat("    P-values:", pval_file, "\n")
   }
 
   # --------------------------------------------------------------------------
@@ -169,7 +169,7 @@ ELEUTHIA_export_activity_results <- function(result,
     long_file <- file.path(output_dir, paste0(prefix, "_results_long.csv"))
     write.csv(as.data.frame(result$results_long), long_file, row.names = FALSE)
     files_created <- c(files_created, long_file)
-    if (verbose) cat("  Long-format results:", long_file, "\n")
+    if (verbose) cat("    Long-format results:", long_file, "\n")
   }
 
   # --------------------------------------------------------------------------
@@ -208,7 +208,7 @@ ELEUTHIA_export_activity_results <- function(result,
   meta_lines <- c(meta_lines, "", paste("Exported:", Sys.time()))
   writeLines(meta_lines, meta_file)
   files_created <- c(files_created, meta_file)
-  if (verbose) cat("  Metadata:", meta_file, "\n")
+  if (verbose) cat("[ELEUTHIA]   Metadata:", meta_file, "\n")
 
   # --------------------------------------------------------------------------
   # Plots
@@ -219,7 +219,7 @@ ELEUTHIA_export_activity_results <- function(result,
       dir.create(plot_dir)
     }
 
-    if (verbose) cat("\nGenerating plots...\n")
+    if (verbose) cat("[ELEUTHIA] Generating plots...\n")
 
     # Activity heatmap (pheatmap - needs special save)
     tryCatch({
@@ -231,9 +231,9 @@ ELEUTHIA_export_activity_results <- function(result,
       )
       files_created <- c(files_created,
                           .plot_paths(plot_dir, "activity_heatmap", plot_format))
-      if (verbose) cat("  Activity heatmap\n")
+      if (verbose) cat("[ELEUTHIA]   Activity heatmap\n")
     }, error = function(e) {
-      if (verbose) cat("  Warning: Could not create activity heatmap -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA]   Warning: Could not create activity heatmap -", e$message, "\n")
     })
 
     # Top activities bar chart (ggplot)
@@ -242,12 +242,12 @@ ELEUTHIA_export_activity_results <- function(result,
       plot_files <- .save_ggplot(p, plot_dir, "top_activities", plot_format,
                                   width = 8, height = max(6, min(top_n, 20) * 0.3 + 2))
       files_created <- c(files_created, plot_files)
-      if (verbose) cat("  Top activities\n")
+      if (verbose) cat("[ELEUTHIA]   Top activities\n")
     }, error = function(e) {
-      if (verbose) cat("  Warning: Could not create top activities plot -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA]   Warning: Could not create top activities plot -", e$message, "\n")
     })
 
-    if (verbose) cat("  Plots saved to:", plot_dir, "/\n")
+    if (verbose) cat("[ELEUTHIA]   Plots saved to:", plot_dir, "/\n")
   }
 
   # --------------------------------------------------------------------------
@@ -257,7 +257,7 @@ ELEUTHIA_export_activity_results <- function(result,
     rds_file <- file.path(output_dir, paste0(prefix, "_result.rds"))
     saveRDS(result, rds_file)
     files_created <- c(files_created, rds_file)
-    if (verbose) cat("  RDS:", rds_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   RDS:", rds_file, "\n")
   }
 
   return(files_created)
@@ -274,10 +274,10 @@ ELEUTHIA_export_activity_results <- function(result,
   files_created <- character(0)
 
   if (verbose) {
-    cat("Type: Multi-method comparison\n")
-    cat("Methods:", paste(result$methods, collapse = ", "), "\n")
-    cat("Common sources:", length(result$common_sources), "\n")
-    cat("Common samples:", length(result$common_samples), "\n")
+    cat("[ELEUTHIA] Type: Multi-method comparison\n")
+    cat("    Methods:", paste(result$methods, collapse = ", "), "\n")
+    cat("    Common sources:", length(result$common_sources), "\n")
+    cat("    Common samples:", length(result$common_samples), "\n")
   }
 
   # --------------------------------------------------------------------------
@@ -317,7 +317,7 @@ ELEUTHIA_export_activity_results <- function(result,
     }
   }
 
-  if (verbose) cat("  Per-method results:", methods_dir, "/\n")
+  if (verbose) cat("[ELEUTHIA]   Per-method results:", methods_dir, "/\n")
 
   # --------------------------------------------------------------------------
   # Consensus scores
@@ -329,7 +329,7 @@ ELEUTHIA_export_activity_results <- function(result,
     cons_df <- cons_df[, c("source", setdiff(names(cons_df), "source"))]
     write.csv(cons_df, cons_file, row.names = FALSE)
     files_created <- c(files_created, cons_file)
-    if (verbose) cat("  Consensus scores:", cons_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   Consensus scores:", cons_file, "\n")
   }
 
   # --------------------------------------------------------------------------
@@ -339,7 +339,7 @@ ELEUTHIA_export_activity_results <- function(result,
     summary_file <- file.path(output_dir, paste0(prefix, "_summary.csv"))
     write.csv(result$summary, summary_file, row.names = FALSE)
     files_created <- c(files_created, summary_file)
-    if (verbose) cat("  Summary:", summary_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   Summary:", summary_file, "\n")
   }
 
   # --------------------------------------------------------------------------
@@ -352,7 +352,7 @@ ELEUTHIA_export_activity_results <- function(result,
     cor_df <- cor_df[, c("method", setdiff(names(cor_df), "method"))]
     write.csv(cor_df, cor_file, row.names = FALSE)
     files_created <- c(files_created, cor_file)
-    if (verbose) cat("  Method correlations:", cor_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   Method correlations:", cor_file, "\n")
   }
 
   # --------------------------------------------------------------------------
@@ -362,7 +362,7 @@ ELEUTHIA_export_activity_results <- function(result,
     stats_file <- file.path(output_dir, paste0(prefix, "_method_stats.csv"))
     write.csv(result$method_stats, stats_file, row.names = FALSE)
     files_created <- c(files_created, stats_file)
-    if (verbose) cat("  Method stats:", stats_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   Method stats:", stats_file, "\n")
   }
 
   # --------------------------------------------------------------------------
@@ -406,7 +406,7 @@ ELEUTHIA_export_activity_results <- function(result,
   meta_lines <- c(meta_lines, "", paste("Exported:", Sys.time()))
   writeLines(meta_lines, meta_file)
   files_created <- c(files_created, meta_file)
-  if (verbose) cat("  Metadata:", meta_file, "\n")
+  if (verbose) cat("[ELEUTHIA]   Metadata:", meta_file, "\n")
 
   # --------------------------------------------------------------------------
   # Plots
@@ -417,7 +417,7 @@ ELEUTHIA_export_activity_results <- function(result,
       dir.create(plot_dir)
     }
 
-    if (verbose) cat("\nGenerating plots...\n")
+    if (verbose) cat("[ELEUTHIA] Generating plots...\n")
 
     # Activity heatmap (consensus scores, pheatmap)
     tryCatch({
@@ -429,9 +429,9 @@ ELEUTHIA_export_activity_results <- function(result,
       )
       files_created <- c(files_created,
                           .plot_paths(plot_dir, "activity_heatmap", plot_format))
-      if (verbose) cat("  Activity heatmap (consensus)\n")
+      if (verbose) cat("[ELEUTHIA]   Activity heatmap (consensus)\n")
     }, error = function(e) {
-      if (verbose) cat("  Warning: Could not create activity heatmap -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA]   Warning: Could not create activity heatmap -", e$message, "\n")
     })
 
     # Top activities bar chart (from first method as representative, ggplot)
@@ -441,9 +441,9 @@ ELEUTHIA_export_activity_results <- function(result,
       plot_files <- .save_ggplot(p, plot_dir, "top_activities", plot_format,
                                   width = 8, height = max(6, min(top_n, 20) * 0.3 + 2))
       files_created <- c(files_created, plot_files)
-      if (verbose) cat("  Top activities (", result$methods[1], ")\n")
+      if (verbose) cat("[ELEUTHIA]   Top activities (", result$methods[1], ")\n")
     }, error = function(e) {
-      if (verbose) cat("  Warning: Could not create top activities plot -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA]   Warning: Could not create top activities plot -", e$message, "\n")
     })
 
     # Method correlation heatmap (pheatmap)
@@ -457,9 +457,9 @@ ELEUTHIA_export_activity_results <- function(result,
       )
       files_created <- c(files_created,
                           .plot_paths(plot_dir, "method_correlation", plot_format))
-      if (verbose) cat("  Method correlation\n")
+      if (verbose) cat("[ELEUTHIA]   Method correlation\n")
     }, error = function(e) {
-      if (verbose) cat("  Warning: Could not create method correlation plot -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA]   Warning: Could not create method correlation plot -", e$message, "\n")
     })
 
     # Method agreement (ggplot)
@@ -468,12 +468,12 @@ ELEUTHIA_export_activity_results <- function(result,
       plot_files <- .save_ggplot(p, plot_dir, "method_agreement", plot_format,
                                   width = 10, height = max(6, top_n * 0.25 + 2))
       files_created <- c(files_created, plot_files)
-      if (verbose) cat("  Method agreement\n")
+      if (verbose) cat("[ELEUTHIA]   Method agreement\n")
     }, error = function(e) {
-      if (verbose) cat("  Warning: Could not create method agreement plot -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA]   Warning: Could not create method agreement plot -", e$message, "\n")
     })
 
-    if (verbose) cat("  Plots saved to:", plot_dir, "/\n")
+    if (verbose) cat("[ELEUTHIA]   Plots saved to:", plot_dir, "/\n")
   }
 
   # --------------------------------------------------------------------------
@@ -483,7 +483,7 @@ ELEUTHIA_export_activity_results <- function(result,
     rds_file <- file.path(output_dir, paste0(prefix, "_comparison.rds"))
     saveRDS(result, rds_file)
     files_created <- c(files_created, rds_file)
-    if (verbose) cat("  RDS:", rds_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   RDS:", rds_file, "\n")
   }
 
   return(files_created)

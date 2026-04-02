@@ -68,7 +68,7 @@ ELEUTHIA_load_counts_from_dir <- function(count_path,
     }
   }
 
-  cat(sprintf("Loading %d files from %s\n", length(all_files), count_path))
+  cat(sprintf("[ELEUTHIA] Loading %d files from %s\n", length(all_files), count_path))
 
   # Initialize
   full_data <- data.frame(NULL)
@@ -117,7 +117,7 @@ ELEUTHIA_load_counts_from_dir <- function(count_path,
   row.names(full_data) <- full_data$gene_id
   full_data <- full_data[, -1, drop = FALSE]
 
-  cat(sprintf("Loaded %d genes across %d samples\n",
+  cat(sprintf("[ELEUTHIA] Loaded %d genes across %d samples\n",
               nrow(full_data), ncol(full_data)))
 
   return(full_data)
@@ -160,7 +160,7 @@ ELEUTHIA_load_multi_counts <- function(count_paths, ...) {
   results <- list()
 
   for (dataset_name in names(count_paths)) {
-    cat(sprintf("\n=== Loading %s ===\n", dataset_name))
+    cat(sprintf("[ELEUTHIA] Loading %s \n", dataset_name))
     results[[dataset_name]] <- ELEUTHIA_load_counts_from_dir(
       count_paths[[dataset_name]],
       ...

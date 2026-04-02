@@ -965,7 +965,7 @@ AETHER_plot_famd_variables_interactive <- function(famd_result,
         selfcontained = TRUE,
         title = title
       )
-      message("Interactive plot saved to: ", save_html)
+      cat("[AETHER] Interactive plot saved to: ", save_html)
     }
   }
 

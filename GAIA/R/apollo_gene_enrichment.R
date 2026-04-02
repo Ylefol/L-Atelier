@@ -97,15 +97,15 @@ APOLLO_convert_genes <- function(genes,
     n_dups <- sum(duplicated(result))
     result <- make.unique(result, sep = ".")
     if (verbose) {
-      cat("Note:", n_dups, "duplicate names made unique with suffix\n")
+      cat("[APOLLO] Note:", n_dups, "duplicate names made unique with suffix\n")
     }
   }
 
   if (verbose) {
-    cat("Converted:", n_converted, "/", n_input, "genes (",
-        round(100 * n_converted / n_input, 1), "%)\n", sep = "")
+    cat("[APOLLO] Converted:", n_converted, "/", n_input, "genes (",
+        round(100 * n_converted / n_input, 1), "%)\n")
     if (n_failed > 0) {
-      cat("Preserved original ID for", n_failed, "unmapped genes\n")
+      cat("   Preserved original ID for", n_failed, "unmapped genes\n")
     }
   }
 
@@ -167,7 +167,7 @@ APOLLO_prepare_genelist <- function(genes,
   # Handle list input (e.g., module gene lists)
   if (is.list(genes) && !is.data.frame(genes)) {
     results <- lapply(names(genes), function(name) {
-      if (verbose) cat("Converting:", name, "\n")
+      if (verbose) cat("[APOLLO] Converting:", name, "\n")
       APOLLO_prepare_genelist(
         genes[[name]],
         org_db = org_db,
@@ -183,8 +183,8 @@ APOLLO_prepare_genelist <- function(genes,
     if (verbose) {
       total_in <- sum(sapply(genes, length))
       total_out <- sum(sapply(results, length))
-      cat("\nTotal: ", total_out, "/", total_in, " genes processed (",
-          round(100 * total_out / total_in, 1), "%)\n", sep = "")
+      cat("    Total:", total_out, "/", total_in, "genes processed (",
+          round(100 * total_out / total_in, 1), "%)\n")
     }
 
     return(results)
@@ -200,15 +200,15 @@ genes <- unique(as.character(genes))
     genes <- sub("\\.[0-9]+$", "", genes)
     genes <- unique(genes)  # May have duplicates after stripping
     if (verbose && length(genes) < n_input) {
-      cat("Stripped version numbers, ", n_input - length(genes),
-          " duplicates removed\n", sep = "")
+      cat("[APOLLO] Stripped version numbers,", n_input - length(genes),
+          "duplicates removed\n")
     }
     n_input <- length(genes)
   }
 
   # If no org_db, just return cleaned genes
   if (is.null(org_db)) {
-    if (verbose) cat("No conversion (org_db = NULL), returning ", n_input, " genes\n", sep = "")
+    if (verbose) cat("[APOLLO] No conversion (org_db = NULL), returning ", n_input, " genes\n", sep = "")
     return(genes)
   }
 
@@ -229,7 +229,7 @@ genes <- unique(as.character(genes))
   n_success <- sum(!is.na(converted))
 
   if (verbose) {
-    cat("Converted: ", n_success, "/", n_input, " genes (",
+    cat("[APOLLO] Converted: ", n_success, "/", n_input, " genes (",
         round(100 * n_success / n_input, 1), "%)\n", sep = "")
   }
 
@@ -323,9 +323,9 @@ APOLLO_extract_cluster_genes <- function(modules,
 
     if (verbose) {
       sizes <- sapply(gene_lists, length)
-      cat("Hub genes per module (MM threshold =",
+      cat("[APOLLO] Hub genes per module (MM threshold =",
           modules$criteria$mm_threshold, "):\n")
-      cat(paste(names(sizes), sizes, sep = "=", collapse = ", "), "\n")
+      cat("[APOLLO]", paste(names(sizes), sizes, sep = "=", collapse = ", "), "\n")
     }
 
     if (strip_version) {
@@ -363,9 +363,9 @@ APOLLO_extract_cluster_genes <- function(modules,
 
     if (verbose) {
       sizes <- sapply(gene_lists, length)
-      cat("Genes per cluster:", paste(names(sizes), sizes, sep = "=", collapse = ", "), "\n")
+      cat("[APOLLO] Genes per cluster:", paste(names(sizes), sizes, sep = "=", collapse = ", "), "\n")
       if (modules$n_outliers > 0 && exclude_grey) {
-        cat("(", modules$n_outliers, "outlier genes in C0 excluded)\n")
+        cat("   (", modules$n_outliers, "outlier genes in C0 excluded)\n")
       }
     }
 
@@ -409,7 +409,7 @@ APOLLO_extract_cluster_genes <- function(modules,
   }
 
   if (verbose) {
-    cat("Extracting genes from", length(all_modules), "modules\n")
+    cat("[APOLLO] Extracting genes from", length(all_modules), "modules\n")
   }
 
   # Extract gene lists
@@ -420,12 +420,12 @@ APOLLO_extract_cluster_genes <- function(modules,
 
   if (verbose) {
     sizes <- sapply(gene_lists, length)
-    cat("Module sizes:", paste(names(sizes), sizes, sep = "=", collapse = ", "), "\n")
+    cat("[APOLLO] Module sizes:", paste(names(sizes), sizes, sep = "=", collapse = ", "), "\n")
   }
 
   # Strip version numbers if requested (before conversion)
   if (strip_version) {
-    if (verbose) cat("Stripping version numbers from gene IDs...\n")
+    if (verbose) cat("[APOLLO] Stripping version numbers from gene IDs...\n")
     gene_lists <- lapply(gene_lists, function(genes) {
       unique(sub("\\.[0-9]+$", "", genes))
     })
@@ -433,7 +433,7 @@ APOLLO_extract_cluster_genes <- function(modules,
 
   # Convert IDs if org_db provided
   if (!is.null(org_db)) {
-    if (verbose) cat("\nConverting", from_type, "to", to_type, "...\n")
+    if (verbose) cat("[APOLLO] Converting", from_type, "to", to_type, "...\n")
     gene_lists <- APOLLO_prepare_genelist(
       gene_lists,
       org_db = org_db,
@@ -536,11 +536,11 @@ APOLLO_enrich_gost <- function(gene_lists,
   }
 
   if (verbose) {
-    cat("=== Functional Enrichment Analysis (gprofiler2) ===\n")
-    cat("Organism:", organism, "\n")
-    cat("Sources:", paste(sources, collapse = ", "), "\n")
-    cat("Gene lists:", length(gene_lists), "\n")
-    cat("Threshold:", user_threshold, "(", correction_method, ")\n\n")
+    cat("[APOLLO] Functional Enrichment Analysis (gprofiler2) \n")
+    cat("    Organism:", organism, "\n")
+    cat("    Sources:", paste(sources, collapse = ", "), "\n")
+    cat("    Gene lists:", length(gene_lists), "\n")
+    cat("    Threshold:", user_threshold, "(", correction_method, ")\n\n")
   }
 
   results <- list()
@@ -550,17 +550,17 @@ APOLLO_enrich_gost <- function(gene_lists,
     genes <- gene_lists[[name]]
 
     if (length(genes) < 3) {
-      if (verbose) cat(name, ": Skipping (< 3 genes)\n")
+      if (verbose) cat("    ", name, ": Skipping (< 3 genes)\n")
       next
     }
 
     if (!is.null(max_query_size) && length(genes) > max_query_size) {
-      if (verbose) cat(name, " (", length(genes), " genes): Skipping (exceeds max_query_size = ",
+      if (verbose) cat("    ", name, " (", length(genes), " genes): Skipping (exceeds max_query_size = ",
                        max_query_size, ")\n", sep = "")
       next
     }
 
-    if (verbose) cat(name, " (", length(genes), " genes): ", sep = "")
+    if (verbose) cat("    ", name, " (", length(genes), " genes): ", sep = "")
 
     gost_result <- tryCatch({
       gprofiler2::gost(
@@ -576,7 +576,7 @@ APOLLO_enrich_gost <- function(gene_lists,
         exclude_iea = exclude_iea
       )
     }, error = function(e) {
-      if (verbose) cat("Error - ", e$message, "\n")
+      if (verbose) cat("     Error - ", e$message, "\n")
       NULL
     })
 
@@ -634,15 +634,15 @@ APOLLO_enrich_gost <- function(gene_lists,
   rownames(summary_df) <- NULL
 
   if (verbose) {
-    cat("\n--- Summary ---\n")
-    cat("Modules with results:", length(results), "/", length(gene_lists), "\n")
-    cat("Total significant terms:", nrow(combined), "\n")
+    cat("[APOLLO] --- Summary ---\n")
+    cat("    Modules with results:", length(results), "/", length(gene_lists), "\n")
+    cat("    Total significant terms:", nrow(combined), "\n")
 
     # Breakdown by source
     if (nrow(combined) > 0) {
-      cat("\nBy source:\n")
+      cat("    By source:\n")
       for (src in sources) {
-        cat("  ", src, ": ", sum(combined$source == src), "\n", sep = "")
+        cat("    ", src, ": ", sum(combined$source == src), "\n", sep = "")
       }
     }
   }

@@ -150,12 +150,12 @@ ELEUTHIA_export_enrichment <- function(enrichment,
     stop("enrichment must be a gost_enrichment object from APOLLO_enrich_gost()")
   }
 
-  if (verbose) cat("=== Exporting Enrichment Results ===\n")
+  if (verbose) cat("[ELEUTHIA] Exporting Enrichment Results \n")
 
   # Create output directory
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
-    if (verbose) cat("Created directory:", output_dir, "\n")
+    if (verbose) cat("[ELEUTHIA] Created directory:", output_dir, "\n")
   }
 
   files_created <- character(0)
@@ -188,9 +188,9 @@ ELEUTHIA_export_enrichment <- function(enrichment,
     combined_file <- file.path(output_dir, paste0(prefix, "_combined.csv"))
     write.csv(.flatten_list_cols(combined), combined_file, row.names = FALSE)
     files_created <- c(files_created, combined_file)
-    if (verbose) cat("Combined results:", combined_file, "\n")
+    if (verbose) cat("[ELEUTHIA] Combined results:", combined_file, "\n")
   } else {
-    if (verbose) cat("No significant results to export.\n")
+    if (verbose) cat("[ELEUTHIA] No significant results to export.\n")
   }
 
   # --------------------------------------------------------------------------
@@ -199,7 +199,7 @@ ELEUTHIA_export_enrichment <- function(enrichment,
   summary_file <- file.path(output_dir, paste0(prefix, "_summary.csv"))
   write.csv(enrichment$summary, summary_file, row.names = FALSE)
   files_created <- c(files_created, summary_file)
-  if (verbose) cat("Summary:", summary_file, "\n")
+  if (verbose) cat("[ELEUTHIA] Summary:", summary_file, "\n")
 
   # --------------------------------------------------------------------------
   # By source
@@ -221,7 +221,7 @@ ELEUTHIA_export_enrichment <- function(enrichment,
         files_created <- c(files_created, src_file)
       }
     }
-    if (verbose) cat("By source:", source_dir, "/\n")
+    if (verbose) cat("[ELEUTHIA] By source:", source_dir, "/\n")
   }
 
   # --------------------------------------------------------------------------
@@ -242,7 +242,7 @@ ELEUTHIA_export_enrichment <- function(enrichment,
         files_created <- c(files_created, mod_file)
       }
     }
-    if (verbose) cat("By module:", module_dir, "/\n")
+    if (verbose) cat("    By module:", module_dir, "/\n")
   }
 
   # --------------------------------------------------------------------------
@@ -256,7 +256,7 @@ ELEUTHIA_export_enrichment <- function(enrichment,
 
     sources <- unique(combined$source)
 
-    if (verbose) cat("Generating dotplots...\n")
+    if (verbose) cat("    Generating dotplots...\n")
 
     for (src in sources) {
       src_df <- combined[combined$source == src, ]
@@ -286,7 +286,7 @@ ELEUTHIA_export_enrichment <- function(enrichment,
           top_n = plot_top_n
         )
       }, error = function(e) {
-        if (verbose) cat("  Warning: Could not create plot for", src, "-", e$message, "\n")
+        if (verbose) cat("[ELEUTHIA] Warning: Could not create plot for", src, "-", e$message, "\n")
         NULL
       })
 
@@ -309,7 +309,7 @@ ELEUTHIA_export_enrichment <- function(enrichment,
       }
     }
 
-    if (verbose) cat("Plots saved to:", plot_dir, "/\n")
+    if (verbose) cat("[ELEUTHIA] Plots saved to:", plot_dir, "/\n")
 
     # ------------------------------------------------------------------------
     # GO DAG plots (BP, MF, CC) — one per ontology if present in results
@@ -318,12 +318,12 @@ ELEUTHIA_export_enrichment <- function(enrichment,
     for (go_src in names(go_ont_map)) {
       if (!go_src %in% sources) next
       ont <- go_ont_map[[go_src]]
-      if (verbose) cat("Generating GO DAG (", ont, ")...\n", sep = "")
+      if (verbose) cat("[ELEUTHIA] Generating GO DAG (", ont, ")...\n", sep = "")
 
       p_dag <- tryCatch(
         AETHER_plot_go_dag(enrichment, ont = ont, verbose = FALSE),
         error = function(e) {
-          if (verbose) cat("  Warning: GO DAG (", ont, ") failed - ", e$message, "\n", sep = "")
+          if (verbose) cat("[ELEUTHIA] Warning: GO DAG (", ont, ") failed - ", e$message, "\n", sep = "")
           NULL
         }
       )
@@ -340,7 +340,7 @@ ELEUTHIA_export_enrichment <- function(enrichment,
           ggplot2::ggsave(f, p_dag, width = 14, height = 10)
           files_created <- c(files_created, f)
         }
-        if (verbose) cat("  GO DAG (", ont, ") saved\n", sep = "")
+        if (verbose) cat("[ELEUTHIA] GO DAG (", ont, ") saved\n", sep = "")
       }
     }
 
@@ -350,13 +350,13 @@ ELEUTHIA_export_enrichment <- function(enrichment,
     non_go_sources <- sources[!grepl("^GO:", sources)]
     for (src in non_go_sources) {
       if (nrow(combined[combined$source == src, ]) == 0L) next
-      if (verbose) cat("Generating enrichment map (", src, ")...\n", sep = "")
+      if (verbose) cat("[ELEUTHIA] Generating enrichment map (", src, ")...\n", sep = "")
       src_clean <- gsub(":", "_", src)
 
       p_emap <- tryCatch(
         AETHER_plot_enrichment_map(enrichment, source = src, verbose = FALSE),
         error = function(e) {
-          if (verbose) cat("  Warning: EMAP (", src, ") failed - ", e$message, "\n", sep = "")
+          if (verbose) cat("[ELEUTHIA] Warning: EMAP (", src, ") failed - ", e$message, "\n", sep = "")
           NULL
         }
       )
@@ -373,7 +373,7 @@ ELEUTHIA_export_enrichment <- function(enrichment,
           ggplot2::ggsave(f, p_emap, width = 12, height = 10)
           files_created <- c(files_created, f)
         }
-        if (verbose) cat("  EMAP (", src, ") saved\n", sep = "")
+        if (verbose) cat("[ELEUTHIA] EMAP (", src, ") saved\n", sep = "")
       }
     }
   }
@@ -385,13 +385,13 @@ ELEUTHIA_export_enrichment <- function(enrichment,
     rds_file <- file.path(output_dir, paste0(prefix, ".rds"))
     saveRDS(enrichment, rds_file)
     files_created <- c(files_created, rds_file)
-    if (verbose) cat("RDS:", rds_file, "\n")
+    if (verbose) cat("[ELEUTHIA] RDS:", rds_file, "\n")
   }
 
   if (verbose) {
-    cat("\n--- Export Summary ---\n")
-    cat("Total files created:", length(files_created), "\n")
-    cat("Total terms exported:", nrow(combined), "\n")
+    cat("\n[ELEUTHIA]  Export Summary \n")
+    cat("    Total files created:", length(files_created), "\n")
+    cat("    Total terms exported:", nrow(combined), "\n")
   }
 
   invisible(files_created)

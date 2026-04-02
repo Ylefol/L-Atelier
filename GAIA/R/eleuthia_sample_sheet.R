@@ -107,7 +107,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
         warnings = character(0)
       ))
     }
-    if (verbose) cat("Loading sample sheet from:", sample_sheet, "\n")
+    if (verbose) cat("[ELEUTHIA] Loading sample sheet from:", sample_sheet, "\n")
     sample_sheet <- read.csv(sample_sheet, stringsAsFactors = FALSE)
   }
 
@@ -138,7 +138,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
     ))
   }
 
-  if (verbose) cat("All required columns present.\n")
+  if (verbose) cat("[ELEUTHIA] All required columns present.\n")
 
   # ---------------------------------------------------------------------------
   # Remove empty rows
@@ -151,7 +151,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   n_empty <- sum(empty_row_check)
   if (n_empty > 0) {
     sample_sheet <- sample_sheet[!empty_row_check, , drop = FALSE]
-    if (verbose) cat("Removed", n_empty, "empty row(s).\n")
+    if (verbose) cat("[ELEUTHIA] Removed", n_empty, "empty row(s).\n")
   }
 
   if (nrow(sample_sheet) == 0) {
@@ -204,7 +204,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   # Check file existence
   # ---------------------------------------------------------------------------
   if (check_files && length(errors) == 0) {
-    if (verbose) cat("Checking data file paths...\n")
+    if (verbose) cat("[ELEUTHIA] Checking data file paths...\n")
 
     for (i in seq_len(nrow(sample_sheet))) {
       file_path <- file.path(sample_sheet$file_loc[i], sample_sheet$file_name[i])
@@ -214,7 +214,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
     }
 
     if (length(warnings) > 0 && verbose) {
-      cat("Warning:", length(warnings), "data file(s) not found.\n")
+      cat("[ELEUTHIA] Warning:", length(warnings), "data file(s) not found.\n")
     }
   }
 
@@ -222,7 +222,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   # Check quantification BED file existence
   # ---------------------------------------------------------------------------
   if (check_files && check_beds && length(errors) == 0) {
-    if (verbose) cat("Checking quantification BED file paths...\n")
+    if (verbose) cat("[ELEUTHIA] Checking quantification BED file paths...\n")
 
     bed_rows <- which(sample_sheet$format %in% c("peaks", "bed"))
     bed_missing_files <- character(0)
@@ -240,7 +240,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
       warnings <- c(warnings, paste("Quantification BED file not found:",
                                     paste(unique_missing, collapse = "\n  ")))
       if (verbose) {
-        cat("Warning:", length(unique_missing), "unique quantification BED file(s) not found.\n")
+        cat("[ELEUTHIA] Warning:", length(unique_missing), "unique quantification BED file(s) not found.\n")
       }
     }
   }
@@ -249,7 +249,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   # Generate sample IDs
   # ---------------------------------------------------------------------------
   if (length(errors) == 0) {
-    if (verbose) cat("Generating sample IDs...\n")
+    if (verbose) cat("[ELEUTHIA] Generating sample IDs...\n")
 
     # Base sample ID: {omics}_{group}_{bio_rep}{tech_rep}_b{batch}
     sample_sheet$sample_id <- paste0(
@@ -262,7 +262,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
 
     # If timepoint column exists, append _t{timepoint} for uniqueness
     if ("timepoint" %in% colnames(sample_sheet)) {
-      if (verbose) cat("  Timepoint column detected - including in sample IDs\n")
+      if (verbose) cat("[ELEUTHIA] Timepoint column detected - including in sample IDs\n")
       sample_sheet$sample_id <- paste0(
         sample_sheet$sample_id, "_t",
         sample_sheet$timepoint
@@ -287,18 +287,18 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
 
   if (verbose) {
     if (valid) {
-      cat("\nValidation PASSED.\n")
-      cat("  Total samples:", nrow(sample_sheet), "\n")
-      cat("  Omics types:", paste(unique(sample_sheet$omics), collapse = ", "), "\n")
-      cat("  Groups:", paste(unique(sample_sheet$group), collapse = ", "), "\n")
+      cat("\n[ELEUTHIA] Validation PASSED.\n")
+      cat("    Total samples:", nrow(sample_sheet), "\n")
+      cat("    Omics types:", paste(unique(sample_sheet$omics), collapse = ", "), "\n")
+      cat("    Groups:", paste(unique(sample_sheet$group), collapse = ", "), "\n")
       if (length(warnings) > 0) {
-        cat("  Warnings:", length(warnings), "\n")
+        cat("    Warnings:", length(warnings), "\n")
       }
     } else {
-      cat("\nValidation FAILED.\n")
-      cat("  Errors:", length(errors), "\n")
+      cat("\n[ELEUTHIA] Validation FAILED.\n")
+      cat("    Errors:", length(errors), "\n")
       for (err in errors) {
-        cat("  -", err, "\n")
+        cat("    -", err, "\n")
       }
     }
   }
@@ -366,46 +366,46 @@ ELEUTHIA_get_omics_subset <- function(sample_sheet, omics) {
 ELEUTHIA_summarize_sample_sheet <- function(sample_sheet) {
 
   cat("================================================================================\n")
-  cat("SAMPLE SHEET SUMMARY\n")
+  cat("[ELEUTHIA] SAMPLE SHEET SUMMARY\n")
   cat("================================================================================\n\n")
 
-  cat("Total samples:", nrow(sample_sheet), "\n\n")
+  cat("    Total samples:", nrow(sample_sheet), "\n\n")
 
   # By omics
-  cat("By Omics Type:\n")
+  cat("    By Omics Type:\n")
   omics_table <- table(sample_sheet$omics)
   for (om in names(omics_table)) {
-    cat(sprintf("  %-10s: %d samples\n", om, omics_table[om]))
+    cat(sprintf("    %-10s: %d samples\n", om, omics_table[om]))
   }
   cat("\n")
 
   # By group
-  cat("By Experimental Group:\n")
+  cat("    By Experimental Group:\n")
   group_table <- table(sample_sheet$group)
   for (grp in names(group_table)) {
-    cat(sprintf("  %-15s: %d samples\n", grp, group_table[grp]))
+    cat(sprintf("    %-15s: %d samples\n", grp, group_table[grp]))
   }
   cat("\n")
 
   # By batch
-  cat("By Batch:\n")
+  cat("    By Batch:\n")
   batch_table <- table(sample_sheet$batch)
   for (b in names(batch_table)) {
-    cat(sprintf("  Batch %s: %d samples\n", b, batch_table[b]))
+    cat(sprintf("    Batch %s: %d samples\n", b, batch_table[b]))
   }
   cat("\n")
 
   # Cross-tabulation: omics x group
-  cat("Omics x Group:\n")
+  cat("    Omics x Group:\n")
   cross_table <- table(sample_sheet$omics, sample_sheet$group)
   print(cross_table)
   cat("\n")
 
   # Biological replicates per group per omics
-  cat("Biological Replicates:\n")
+  cat("    Biological Replicates:\n")
   for (om in unique(sample_sheet$omics)) {
     om_data <- sample_sheet[sample_sheet$omics == om, ]
-    cat(sprintf("  %s:\n", om))
+    cat(sprintf("    %s:\n", om))
     for (grp in unique(om_data$group)) {
       grp_data <- om_data[om_data$group == grp, ]
       n_bio <- length(unique(grp_data$bio_rep))
@@ -477,7 +477,7 @@ ELEUTHIA_load_quant_beds <- function(sample_sheet,
   subset_df <- subset_df[valid_bed, , drop = FALSE]
 
   if (verbose) {
-    cat("Loading", nrow(subset_df), omics, "quantification BED files...\n")
+    cat("[ELEUTHIA] Loading", nrow(subset_df), omics, "quantification BED files...\n")
   }
 
   bed_list <- list()
@@ -523,8 +523,8 @@ ELEUTHIA_load_quant_beds <- function(sample_sheet,
 
   if (verbose) {
     total_frags <- sum(sapply(bed_list, nrow))
-    cat("Loaded", length(bed_list), "BED files.\n")
-    cat("Total fragments:", format(total_frags, big.mark = ","), "\n")
+    cat("[ELEUTHIA] Loaded", length(bed_list), "BED files.\n")
+    cat("[ELEUTHIA] Total fragments:", format(total_frags, big.mark = ","), "\n")
   }
 
   return(bed_list)

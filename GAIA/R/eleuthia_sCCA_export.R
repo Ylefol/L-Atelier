@@ -106,12 +106,12 @@ ELEUTHIA_save_scca_results <- function(output_dir,
   # Track all saved files
   saved_files <- list()
 
-  cat("Saving sCCA analysis results...\n")
+  cat("[ELEUTHIA] Saving sCCA analysis results...\n")
 
   # ============================================================================
   # 1. Save plots as PNG
   # ============================================================================
-  cat("  - Saving plots (PNG)...\n")
+  cat("    - Saving plots (PNG)...\n")
 
   if (!is.null(plots$cv_marginal_full)) {
     path <- file.path(plots_dir, paste0(prefix, "_cv_marginal_full.png"))
@@ -140,7 +140,7 @@ ELEUTHIA_save_scca_results <- function(output_dir,
   # ============================================================================
   # 2. Save plot objects as RDS
   # ============================================================================
-  cat("  - Saving plot objects (RDS)...\n")
+  cat("    - Saving plot objects (RDS)...\n")
   path <- file.path(plot_objects_dir, paste0(prefix, "_plots.rds"))
   saveRDS(plots, path)
   saved_files$plot_objects <- path
@@ -148,7 +148,7 @@ ELEUTHIA_save_scca_results <- function(output_dir,
   # ============================================================================
   # 3. Save CV results
   # ============================================================================
-  cat("  - Saving CV results...\n")
+  cat("    - Saving CV results...\n")
 
   path <- file.path(code_elements_dir, paste0(prefix, "_coarse_cv.rds"))
   saveRDS(coarse_cv_results, path)
@@ -161,7 +161,7 @@ ELEUTHIA_save_scca_results <- function(output_dir,
   # ============================================================================
   # 4. Save best model separately
   # ============================================================================
-  cat("  - Saving best model...\n")
+  cat("    - Saving best model...\n")
   path <- file.path(code_elements_dir, paste0(prefix, "_best_model.rds"))
   saveRDS(fine_cv_results$best_model, path)
   saved_files$best_model <- path
@@ -169,7 +169,7 @@ ELEUTHIA_save_scca_results <- function(output_dir,
   # ============================================================================
   # 5. Save parameter grids as CSV
   # ============================================================================
-  cat("  - Saving parameter grids...\n")
+  cat("    - Saving parameter grids...\n")
 
   path <- file.path(code_elements_dir, paste0(prefix, "_coarse_grid.csv"))
   write.csv(coarse_cv_results$cv_results, path, row.names = FALSE)
@@ -182,7 +182,7 @@ ELEUTHIA_save_scca_results <- function(output_dir,
   # ============================================================================
   # 6. Generate and save plain text summary
   # ============================================================================
-  cat("  - Generating summary...\n")
+  cat("    - Generating summary...\n")
 
   summary_txt <- ELEUTHIA_generate_scca_summary(
     coarse_cv_results = coarse_cv_results,
@@ -198,8 +198,8 @@ ELEUTHIA_save_scca_results <- function(output_dir,
   writeLines(summary_txt, path)
   saved_files$summary <- path
 
-  cat(sprintf("\nAll results saved to: %s\n", output_dir))
-  cat(sprintf("Summary available at: %s\n", path))
+  cat(sprintf("[ELEUTHIA] All results saved to: %s\n", output_dir))
+  cat(sprintf("[ELEUTHIA] Summary available at: %s\n", path))
 
   invisible(saved_files)
 }
@@ -491,15 +491,15 @@ ELEUTHIA_export_scca_result <- function(result,
 
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
-    if (verbose) cat("Created directory:", output_dir, "\n")
+    if (verbose) cat("[ELEUTHIA] Created directory:", output_dir, "\n")
   }
 
   files_created <- character(0)
 
   if (verbose) {
-    cat("=== Exporting sCCA Results ===\n")
-    cat("Method:", method_name, "\n")
-    cat("Datasets:", n_datasets, "\n\n")
+    cat("[ELEUTHIA] Exporting sCCA Results \n")
+    cat("    Method:", method_name, "\n")
+    cat("    Datasets:", n_datasets, "\n\n")
   }
 
   # --------------------------------------------------------------------------
@@ -530,7 +530,7 @@ ELEUTHIA_export_scca_result <- function(result,
     wt_file   <- file.path(output_dir, paste0(prefix, "_", safe_name, "_weights.csv"))
     write.csv(df, wt_file, row.names = FALSE)
     files_created <- c(files_created, wt_file)
-    if (verbose) cat("  Weights [", dataset_names[i], "]:", wt_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   Weights [", dataset_names[i], "]:", wt_file, "\n")
 
     n_nonzero <- sum(abs(as.numeric(W[[i]])) > 1e-6)
     sparsity_rows[[i]] <- data.frame(
@@ -549,7 +549,7 @@ ELEUTHIA_export_scca_result <- function(result,
   summary_file <- file.path(output_dir, paste0(prefix, "_sparsity_summary.csv"))
   write.csv(summary_df, summary_file, row.names = FALSE)
   files_created <- c(files_created, summary_file)
-  if (verbose) cat("  Sparsity summary:", summary_file, "\n")
+  if (verbose) cat("[ELEUTHIA]   Sparsity summary:", summary_file, "\n")
 
   # --------------------------------------------------------------------------
   # 3. Feature weight plot
@@ -567,7 +567,7 @@ ELEUTHIA_export_scca_result <- function(result,
       path <- file.path(output_dir, paste0(prefix, "_feature_weights.", ext))
       ggsave(path, plot = p, width = 12, height = plot_height, dpi = 300)
       files_created <<- c(files_created, path)
-      if (verbose) cat("  Plot:", path, "\n")
+      if (verbose) cat("[ELEUTHIA]   Plot:", path, "\n")
     }
 
     if (plot_format %in% c("png", "both")) save_fmt("png")
@@ -611,7 +611,7 @@ ELEUTHIA_export_scca_result <- function(result,
   meta_file <- file.path(output_dir, paste0(prefix, "_metadata.txt"))
   writeLines(meta_lines, meta_file)
   files_created <- c(files_created, meta_file)
-  if (verbose) cat("  Metadata:", meta_file, "\n")
+  if (verbose) cat("[ELEUTHIA]   Metadata:", meta_file, "\n")
 
   # --------------------------------------------------------------------------
   # 5. RDS
@@ -620,13 +620,13 @@ ELEUTHIA_export_scca_result <- function(result,
     rds_file <- file.path(output_dir, paste0(prefix, "_result.rds"))
     saveRDS(result, rds_file)
     files_created <- c(files_created, rds_file)
-    if (verbose) cat("  RDS:", rds_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   RDS:", rds_file, "\n")
   }
 
   if (verbose) {
-    cat("\n--- Export Summary ---\n")
-    cat("Total files created:", length(files_created), "\n")
-    cat("Output directory:", output_dir, "\n")
+    cat("[ELEUTHIA] Export Summary \n")
+    cat("    Total files created:", length(files_created), "\n")
+    cat("    Output directory:", output_dir, "\n")
   }
 
   invisible(files_created)

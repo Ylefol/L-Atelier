@@ -108,7 +108,7 @@ AETHER_plot_pca <- function(counts,
     stop("No matching sample names between count columns and sample_info rownames")
   }
   if (length(shared) < ncol(counts) && verbose) {
-    cat("Note:", ncol(counts) - length(shared), "samples in counts not found in sample_info, dropped\n")
+    cat("[AETHER] Note:", ncol(counts) - length(shared), "samples in counts not found in sample_info, dropped\n")
   }
   counts <- counts[, shared, drop = FALSE]
   sample_info <- sample_info[shared, , drop = FALSE]
@@ -118,7 +118,7 @@ AETHER_plot_pca <- function(counts,
   gene_vars <- apply(counts, 1, var)
   counts <- counts[gene_vars > 0, , drop = FALSE]
 
-  if (verbose) cat("Genes with non-zero variance:", nrow(counts), "\n")
+  if (verbose) cat("[AETHER] Genes with non-zero variance:", nrow(counts), "\n")
 
   if (log_transform) {
     counts <- log2(counts + 1)
@@ -129,7 +129,7 @@ AETHER_plot_pca <- function(counts,
     gene_vars <- apply(counts, 1, var)
     top_genes <- names(sort(gene_vars, decreasing = TRUE))[1:ntop]
     counts <- counts[top_genes, , drop = FALSE]
-    if (verbose) cat("Using top", ntop, "most variable genes\n")
+    if (verbose) cat("[AETHER] Using top", ntop, "most variable genes\n")
   }
 
   # --- Run PCA ---
@@ -139,7 +139,7 @@ AETHER_plot_pca <- function(counts,
   var_pct <- round(100 * pca$sdev^2 / sum(pca$sdev^2), 1)
 
   if (verbose) {
-    cat("Variance explained:\n")
+    cat("[AETHER] Variance explained:\n")
     top_pcs <- min(5, length(var_pct))
     for (i in seq_len(top_pcs)) {
       cat("  PC", i, ":", var_pct[i], "%\n")

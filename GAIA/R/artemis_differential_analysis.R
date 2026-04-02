@@ -104,12 +104,12 @@ ARTEMIS_normalize_counts <- function(counts,
   targets <- targets[common_samples, , drop = FALSE]
 
   if (verbose) {
-    cat("=== ARTEMIS Count Normalization ===\n")
-    cat("Samples:", ncol(counts), "\n")
-    cat("Features:", nrow(counts), "\n")
-    cat("Groups:", paste(unique(targets[[group_col]]), collapse = ", "), "\n")
+    cat("[ARTEMIS] Count Normalization \n")
+    cat("    Samples:", ncol(counts), "\n")
+    cat("    Features:", nrow(counts), "\n")
+    cat("    Groups:", paste(unique(targets[[group_col]]), collapse = ", "), "\n")
     if (!is.null(batch_col)) {
-      cat("Batch correction: Yes (", batch_col, ")\n", sep = "")
+      cat("    Batch correction: Yes (", batch_col, ")\n", sep = "")
     }
     cat("\n")
   }
@@ -131,7 +131,7 @@ ARTEMIS_normalize_counts <- function(counts,
     design_formula <- ~ condition
   }
 
-  if (verbose) cat("Creating DESeq2 dataset...\n")
+  if (verbose) cat("[ARTEMIS] Creating DESeq2 dataset...\n")
 
   dds <- DESeqDataSetFromMatrix(
     countData = counts,
@@ -140,14 +140,14 @@ ARTEMIS_normalize_counts <- function(counts,
   )
 
   # --- Estimate size factors on FULL dataset ---
-  if (verbose) cat("Estimating size factors on full dataset...\n")
+  if (verbose) cat("    Estimating size factors on full dataset...\n")
   dds <- estimateSizeFactors(dds)
 
   size_factors <- sizeFactors(dds)
   norm_counts <- counts(dds, normalized = TRUE)
 
   if (verbose) {
-    cat("Size factor range:", round(min(size_factors), 3), "-",
+    cat("    Size factor range:", round(min(size_factors), 3), "-",
         round(max(size_factors), 3), "\n\n")
   }
 
@@ -166,8 +166,8 @@ ARTEMIS_normalize_counts <- function(counts,
   class(result) <- c("artemis_norm", "list")
 
   if (verbose) {
-    cat("Normalization complete.\n")
-    cat("Pass this object to ARTEMIS_differential_counts() for DEA.\n")
+    cat("    Normalization complete.\n")
+    cat("    Pass this object to ARTEMIS_differential_counts() for DEA.\n")
   }
 
   return(result)
@@ -177,8 +177,8 @@ ARTEMIS_normalize_counts <- function(counts,
 #' @method print artemis_norm
 #' @export
 print.artemis_norm <- function(x, ...) {
-  cat("ARTEMIS Normalized Count Data\n")
-  cat("-----------------------------\n")
+  cat("Normalized Count Data\n")
+  cat("------------------------------\n")
   cat("Samples:", ncol(x$norm_counts), "\n")
   cat("Features:", nrow(x$norm_counts), "\n")
   cat("Groups:", paste(unique(x$targets[[x$parameters$group_col]]), collapse = ", "), "\n")
@@ -302,7 +302,7 @@ ARTEMIS_differential_counts <- function(quant_result,
                                          alpha = 0.05,
                                          verbose = TRUE) {
 
-  # ===== Check for pre-normalized data =====
+  #Check for pre-normalized data
 
   use_prenorm <- inherits(quant_result, "artemis_norm")
 
@@ -317,7 +317,7 @@ ARTEMIS_differential_counts <- function(quant_result,
     ))
   }
 
-  # ===== Standard pathway: raw counts =====
+  #Standard pathway: raw counts
 
   if (!is.list(quant_result) || !all(c("counts", "targets") %in% names(quant_result))) {
     stop("quant_result must be either:\n",
@@ -351,7 +351,7 @@ ARTEMIS_differential_counts <- function(quant_result,
   groups <- targets[[group_col]]
   unique_groups <- unique(groups)
 
-  # ===== Two-Group Validation =====
+  # Two-Group Validation
 
   # Check reference and experiment exist
   if (!reference %in% unique_groups) {
@@ -396,15 +396,15 @@ ARTEMIS_differential_counts <- function(quant_result,
     }
   }
 
-  # ===== Setup DESeq2 =====
+  # Setup DESeq2
 
   if (verbose) {
-    cat("Differential analysis (DESeq2):\n")
-    cat("  Reference: ", reference, " (n = ", n_reference, ")\n", sep = "")
-    cat("  Experiment: ", experiment, " (n = ", n_experiment, ")\n", sep = "")
-    cat("  Features: ", nrow(counts), "\n", sep = "")
+    cat("[ARTEMIS] Differential analysis (DESeq2):\n")
+    cat("    Reference: ", reference, " (n = ", n_reference, ")\n", sep = "")
+    cat("    Experiment: ", experiment, " (n = ", n_experiment, ")\n", sep = "")
+    cat("    Features: ", nrow(counts), "\n", sep = "")
     if (!is.null(batch_col)) {
-      cat("  Batch correction: Yes (", batch_col, ")\n", sep = "")
+      cat("    Batch correction: Yes (", batch_col, ")\n", sep = "")
     }
     cat("\n")
   }
@@ -424,7 +424,7 @@ ARTEMIS_differential_counts <- function(quant_result,
   }
 
   # Create DESeqDataSet
-  if (verbose) cat("Creating DESeq2 dataset...\n")
+  if (verbose) cat("[ARTEMIS] Creating DESeq2 dataset...\n")
 
   dds <- DESeqDataSetFromMatrix(
     countData = counts,
@@ -432,9 +432,9 @@ ARTEMIS_differential_counts <- function(quant_result,
     design = design_formula
   )
 
-  # ===== Run DESeq2 =====
+  # Run DESeq2 
 
-  if (verbose) cat("Running DESeq2...\n")
+  if (verbose) cat("[ARTEMIS] Running DESeq2...\n")
 
   # Suppress messages from DESeq2 unless verbose
   if (verbose) {
@@ -447,9 +447,9 @@ ARTEMIS_differential_counts <- function(quant_result,
   # Contrast: experiment vs reference (so positive = higher in experiment)
   res <- results(dds, contrast = c("group", experiment, reference), alpha = alpha)
 
-  if (verbose) cat("Extracting results...\n\n")
+  if (verbose) cat("[ARTEMIS] Extracting results...\n\n")
 
-  # ===== Format Output =====
+  # Format Output 
 
   # Create results data.frame
   results_df <- as.data.frame(res)
@@ -483,7 +483,7 @@ ARTEMIS_differential_counts <- function(quant_result,
   results_df <- results_df[order(results_df$padj), ]
   rownames(results_df) <- NULL
 
-  # ===== Summary Statistics =====
+  # Summary Statistics
 
   n_tested <- sum(!is.na(results_df$padj))
   n_sig <- sum(results_df$padj < alpha, na.rm = TRUE)
@@ -500,21 +500,21 @@ ARTEMIS_differential_counts <- function(quant_result,
   )
 
   if (verbose) {
-    cat("Results summary (FDR < ", alpha, "):\n", sep = "")
-    cat("  Features tested: ", n_tested, "\n", sep = "")
-    cat("  Significant: ", n_sig, " (", round(100 * n_sig / n_tested, 1), "%)\n", sep = "")
-    cat("    - Increased in ", experiment, ": ", n_sig_up, "\n", sep = "")
-    cat("    - Decreased in ", experiment, ": ", n_sig_down, "\n", sep = "")
+    cat("[ARTEMIS] Results summary (FDR < ", alpha, "):\n", sep = "")
+    cat("    Features tested: ", n_tested, "\n", sep = "")
+    cat("    Significant: ", n_sig, " (", round(100 * n_sig / n_tested, 1), "%)\n", sep = "")
+    cat("        - Increased in ", experiment, ": ", n_sig_up, "\n", sep = "")
+    cat("        - Decreased in ", experiment, ": ", n_sig_down, "\n", sep = "")
     cat("\n")
 
     # Show top hits
     if (n_sig > 0) {
-      cat("Top significant features:\n")
+      cat("    Top significant features:\n")
       top_n <- min(5, n_sig)
       top_hits <- head(results_df[!is.na(results_df$padj) & results_df$padj < alpha, ], top_n)
       for (i in seq_len(nrow(top_hits))) {
         direction <- if (top_hits$log2FoldChange[i] > 0) "UP" else "DOWN"
-        cat("  ", top_hits$feature_id[i], ": log2FC = ",
+        cat("        ", top_hits$feature_id[i], ": log2FC = ",
             round(top_hits$log2FoldChange[i], 2), " (", direction, "), ",
             "padj = ", format.pval(top_hits$padj[i], digits = 2), "\n", sep = "")
       }
@@ -576,19 +576,19 @@ ARTEMIS_differential_counts <- function(quant_result,
   }
 
   if (verbose) {
-    cat("Differential analysis (DESeq2 with pre-normalized data):\n")
-    cat("  Reference: ", reference, " (n = ", n_reference, ")\n", sep = "")
-    cat("  Experiment: ", experiment, " (n = ", n_experiment, ")\n", sep = "")
-    cat("  Features: ", nrow(dds_full), "\n", sep = "")
-    cat("  Using pre-computed size factors from full dataset\n")
+    cat("[ARTEMIS] Differential analysis (DESeq2 with pre-normalized data):\n")
+    cat("    Reference: ", reference, " (n = ", n_reference, ")\n", sep = "")
+    cat("    Experiment: ", experiment, " (n = ", n_experiment, ")\n", sep = "")
+    cat("    Features: ", nrow(dds_full), "\n", sep = "")
+    cat("    Using pre-computed size factors from full dataset\n")
     if (!is.null(batch_col)) {
-      cat("  Batch correction: Yes (", batch_col, ")\n", sep = "")
+      cat("    Batch correction: Yes (", batch_col, ")\n", sep = "")
     }
     cat("\n")
   }
 
   # Subset the DESeqDataSet
-  if (verbose) cat("Subsetting to comparison groups...\n")
+  if (verbose) cat("[ARTEMIS] Subsetting to comparison groups...\n")
   dds_subset <- dds_full[, subset_samples]
 
   # Update the condition factor to only have the two levels
@@ -605,7 +605,7 @@ ARTEMIS_differential_counts <- function(quant_result,
   }
 
   # Run DESeq on subset - size factors are already set from the full dataset
-  if (verbose) cat("Running DESeq2 (size factors preserved from full dataset)...\n")
+  if (verbose) cat("[ARTEMIS] Running DESeq2 (size factors preserved from full dataset)...\n")
 
   # Estimate dispersions and run Wald test (size factors already set)
   if (verbose) {
@@ -619,7 +619,7 @@ ARTEMIS_differential_counts <- function(quant_result,
   # Extract results
   res <- results(dds_subset, contrast = c("condition", experiment, reference), alpha = alpha)
 
-  if (verbose) cat("Extracting results...\n\n")
+  if (verbose) cat("[ARTEMIS] Extracting results...\n\n")
 
   # Format output
   results_df <- as.data.frame(res)
@@ -652,21 +652,21 @@ ARTEMIS_differential_counts <- function(quant_result,
   )
 
   if (verbose) {
-    cat("Results summary (FDR < ", alpha, "):\n", sep = "")
-    cat("  Features tested: ", n_tested, "\n", sep = "")
-    cat("  Significant: ", n_sig, " (", round(100 * n_sig / n_tested, 1), "%)\n", sep = "")
-    cat("    - Increased in ", experiment, ": ", n_sig_up, "\n", sep = "")
-    cat("    - Decreased in ", experiment, ": ", n_sig_down, "\n", sep = "")
+    cat("[ARTEMIS] Results summary (FDR < ", alpha, "):\n", sep = "")
+    cat("    Features tested: ", n_tested, "\n", sep = "")
+    cat("    Significant: ", n_sig, " (", round(100 * n_sig / n_tested, 1), "%)\n", sep = "")
+    cat("        - Increased in ", experiment, ": ", n_sig_up, "\n", sep = "")
+    cat("        - Decreased in ", experiment, ": ", n_sig_down, "\n", sep = "")
     cat("\n")
 
     # Show top hits
     if (n_sig > 0) {
-      cat("Top significant features:\n")
+      cat("    Top significant features:\n")
       top_n <- min(5, n_sig)
       top_hits <- head(results_df[!is.na(results_df$padj) & results_df$padj < alpha, ], top_n)
       for (i in seq_len(nrow(top_hits))) {
         direction <- if (top_hits$log2FoldChange[i] > 0) "UP" else "DOWN"
-        cat("  ", top_hits$feature_id[i], ": log2FC = ",
+        cat("        ", top_hits$feature_id[i], ": log2FC = ",
             round(top_hits$log2FoldChange[i], 2), " (", direction, "), ",
             "padj = ", format.pval(top_hits$padj[i], digits = 2), "\n", sep = "")
       }
@@ -826,9 +826,9 @@ ARTEMIS_select_de_genes <- function(de_results,
   }
 
   if (verbose) {
-    cat("=== Selecting DE Genes ===\n")
-    cat("Comparisons found:", length(all_dfs), "\n")
-    cat("Thresholds: |log2FC| >=", l2fc_thresh, ",", p_col, "<=", p_thresh, "\n")
+    cat("[ARTEMIS] Selecting DE Genes \n")
+    cat("    Comparisons found:", length(all_dfs), "\n")
+    cat("    Thresholds: |log2FC| >=", l2fc_thresh, ",", p_col, "<=", p_thresh, "\n")
   }
 
   # ==========================================================================
@@ -870,7 +870,7 @@ ARTEMIS_select_de_genes <- function(de_results,
     per_comparison[[exp_name]] <- sig_genes
 
     if (verbose) {
-      cat("  ", exp_name, ":", length(sig_genes), "genes\n")
+      cat("    ", exp_name, ":", length(sig_genes), "genes\n")
     }
   }
 
@@ -1016,7 +1016,7 @@ ARTEMIS_prepare_part_matrix <- function(de_result,
     source_type <- "matrix"
     # Assume raw matrix is already appropriately transformed
     if (log_transform && verbose) {
-      cat("Note: log_transform=TRUE but input is raw matrix. ",
+      cat("[ARTEMIS] Note: log_transform=TRUE but input is raw matrix. ",
           "Set log_transform=FALSE if already transformed.\n")
     }
 
@@ -1026,7 +1026,7 @@ ARTEMIS_prepare_part_matrix <- function(de_result,
   }
 
   if (verbose) {
-    cat("Extracting counts from:", source_type, "\n")
+    cat("[ARTEMIS] Extracting counts from:", source_type, "\n")
   }
 
   # ==========================================================================
@@ -1062,7 +1062,7 @@ ARTEMIS_prepare_part_matrix <- function(de_result,
 
   if (log_transform && source_type != "matrix") {
     mat <- log2(mat + 1)
-    if (verbose) cat("Applied log2(x + 1) transformation\n")
+    if (verbose) cat("[ARTEMIS] Applied log2(x + 1) transformation\n")
   }
 
   # ==========================================================================
@@ -1075,7 +1075,7 @@ ARTEMIS_prepare_part_matrix <- function(de_result,
     nan_rows <- rowSums(is.nan(mat)) > 0
     if (any(nan_rows)) {
       mat <- mat[!nan_rows, , drop = FALSE]
-      if (verbose) cat("Removed", sum(nan_rows), "constant genes after scaling\n")
+      if (verbose) cat("[ARTEMIS] Removed", sum(nan_rows), "constant genes after scaling\n")
     }
   }
 
@@ -1084,7 +1084,7 @@ ARTEMIS_prepare_part_matrix <- function(de_result,
   # ==========================================================================
 
   if (verbose) {
-    cat("Prepared matrix:", nrow(mat), "genes x", ncol(mat), "samples")
+    cat("[ARTEMIS] Prepared matrix:", nrow(mat), "genes x", ncol(mat), "samples")
     if (missing > 0) cat(" (", missing, " genes not found)", sep = "")
     if (scale) cat(" [z-scored]")
     cat("\n")

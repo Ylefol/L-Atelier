@@ -92,7 +92,7 @@ ELEUTHIA_load_olink <- function(npx_file,
   # Read NPX file
   # ---------------------------------------------------------------------------
 
-  if (verbose) cat("Reading NPX file:", npx_file, "\n")
+  if (verbose) cat("[ELEUTHIA] Reading NPX file:", npx_file, "\n")
 
   if (ext == "parquet") {
     if (!requireNamespace("arrow", quietly = TRUE)) {
@@ -106,7 +106,7 @@ ELEUTHIA_load_olink <- function(npx_file,
     stop("Unsupported NPX file format: '.", ext, "'. Use .parquet or .csv.")
   }
 
-  if (verbose) cat("  Rows read:", nrow(raw), " | Columns:", ncol(raw), "\n")
+  if (verbose) cat("[ELEUTHIA]   Rows read:", nrow(raw), " | Columns:", ncol(raw), "\n")
 
   # ---------------------------------------------------------------------------
   # Validate required columns
@@ -129,7 +129,7 @@ ELEUTHIA_load_olink <- function(npx_file,
   n_before <- nrow(raw)
   raw      <- raw[raw$AssayType == "assay", ]
   if (verbose && nrow(raw) < n_before) {
-    cat("  Parsed", n_before - nrow(raw),
+    cat("[ELEUTHIA]   Parsed", n_before - nrow(raw),
         "instrument control rows (AssayType != 'assay') as non-protein\n")
   }
 
@@ -141,7 +141,7 @@ ELEUTHIA_load_olink <- function(npx_file,
   if (n_invalid > 0) {
     raw <- raw[valid_sid, ]
     if (verbose)
-      cat("  Dropped", n_invalid, "rows with missing/blank", sample_col, "\n")
+      cat("[ELEUTHIA]   Dropped", n_invalid, "rows with missing/blank", sample_col, "\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -156,7 +156,7 @@ ELEUTHIA_load_olink <- function(npx_file,
     if (!file.exists(metadata_file))
       stop("metadata_file not found: ", metadata_file)
 
-    if (verbose) cat("Reading metadata:", metadata_file, "\n")
+    if (verbose) cat("[ELEUTHIA] Reading metadata:", metadata_file, "\n")
 
     meta_ext <- tolower(sub(".*\\.", "", basename(metadata_file)))
 
@@ -184,7 +184,7 @@ ELEUTHIA_load_olink <- function(npx_file,
                    nzchar(trimws(as.character(meta[[sample_col]]))), ]
 
     if (verbose)
-      cat("  Metadata:", ncol(meta) - 1L, "non-key columns,",
+      cat("[ELEUTHIA]   Metadata:", ncol(meta) - 1L, "non-key columns,",
           nrow(meta), "rows\n")
   }
 
@@ -201,12 +201,12 @@ ELEUTHIA_load_olink <- function(npx_file,
     if (length(not_in_meta) > 0) {
       raw <- raw[npx_ids %in% meta_ids, ]
       if (verbose) {
-        cat("  restrict_to_metadata: removed", length(not_in_meta),
+        cat("[ELEUTHIA]   restrict_to_metadata: removed", length(not_in_meta),
             "samples not in metadata:\n")
-        cat("   ", paste(not_in_meta, collapse = ", "), "\n")
+        cat("[ELEUTHIA]    ", paste(not_in_meta, collapse = ", "), "\n")
       }
     } else if (verbose) {
-      cat("  restrict_to_metadata: all NPX samples present in metadata\n")
+      cat("[ELEUTHIA]   restrict_to_metadata: all NPX samples present in metadata\n")
     }
   }
 
@@ -226,7 +226,7 @@ ELEUTHIA_load_olink <- function(npx_file,
     sample_meta <- merge(sample_meta, meta_join, by = sample_col,
                          all.x = TRUE, sort = FALSE)
     if (verbose)
-      cat("  Joined", length(new_cols), "metadata columns onto sample_meta\n")
+      cat("[ELEUTHIA]   Joined", length(new_cols), "metadata columns onto sample_meta\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -297,10 +297,10 @@ ELEUTHIA_load_olink <- function(npx_file,
   class(result) <- c("olink_data", "list")
 
   if (verbose) {
-    cat("olink_data object ready: ",
+    cat("[ELEUTHIA] olink_data object ready: ",
         nrow(wide_mat), " proteins x ",
         ncol(wide_mat), " samples\n", sep = "")
-    cat("  Use HADES_filter_olink() to remove controls / QC failures\n")
+    cat("[ELEUTHIA]   Use HADES_filter_olink() to remove controls / QC failures\n")
   }
 
   return(result)
@@ -404,7 +404,7 @@ ELEUTHIA_export_olink_qc <- function(olink_data,
   for (d in c(dir_data, dir_qc, dir_assoc, dir_pca))
     dir.create(d, recursive = TRUE, showWarnings = FALSE)
 
-  if (verbose) cat("ELEUTHIA_export_olink_qc -> ", output_dir, "\n", sep = "")
+  if (verbose) cat("[ELEUTHIA] ELEUTHIA_export_olink_qc -> ", output_dir, "\n", sep = "")
 
   # ---------------------------------------------------------------------------
   # 1. Data exports
@@ -418,7 +418,7 @@ ELEUTHIA_export_olink_qc <- function(olink_data,
                    file.path(dir_data, "assay_meta.csv"),
                    row.names = FALSE)
 
-  if (verbose) cat("  [data] olink_filtered.rds, sample_meta.csv, assay_meta.csv\n")
+  if (verbose) cat("[ELEUTHIA]   [data] olink_filtered.rds, sample_meta.csv, assay_meta.csv\n")
 
   # ---------------------------------------------------------------------------
   # 2. QC plots
@@ -445,7 +445,7 @@ ELEUTHIA_export_olink_qc <- function(olink_data,
   if (verbose) {
     saved_qc <- c("npx_distributions.png", "sample_qc.csv",
                   if (!is.null(qc_plots$warn_proteins)) "warn_proteins.png")
-    cat("  [qc]  ", paste(saved_qc, collapse = ", "), "\n")
+    cat("[ELEUTHIA]   [qc]  ", paste(saved_qc, collapse = ", "), "\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -513,7 +513,7 @@ ELEUTHIA_export_olink_qc <- function(olink_data,
              strrep("=", 72))
 
   writeLines(lines, file.path(dir_qc, "summary.txt"))
-  if (verbose) cat("  [qc]  summary.txt\n")
+  if (verbose) cat("[ELEUTHIA]   [qc]  summary.txt\n")
 
   # ---------------------------------------------------------------------------
   # 4. Association heatmap
@@ -529,7 +529,7 @@ ELEUTHIA_export_olink_qc <- function(olink_data,
   ggplot2::ggsave(file.path(dir_assoc, "pc_metadata_heatmap.png"),
                   p_assoc, width = 10, height = 5, dpi = 150)
 
-  if (verbose) cat("  [association] pc_metadata_heatmap.png\n")
+  if (verbose) cat("[ELEUTHIA]   [association] pc_metadata_heatmap.png\n")
 
   # ---------------------------------------------------------------------------
   # 5. PCA plots — best 2 PCs per variable
@@ -588,7 +588,7 @@ ELEUTHIA_export_olink_qc <- function(olink_data,
   }
 
   if (verbose)
-    cat("  [pca] ", length(selected_vars), "plots\n")
+    cat("[ELEUTHIA]   [pca] ", length(selected_vars), "plots\n")
 
   invisible(NULL)
 }

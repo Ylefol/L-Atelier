@@ -1,23 +1,3 @@
-###############################################################################
-########### Discriminative Variable Analysis for Clinical Data ###########
-###############################################################################
-#
-# Functions for supervised variable selection in mixed (categorical +
-# quantitative) clinical data. Uses Group LASSO to identify which variables
-# discriminate a target outcome while maintaining interpretability.
-#
-# Workflow:
-# 1. POSEIDON_encode_for_regression() - Encode mixed data
-# 2. POSEIDON_scale_predictors() - Scale for penalized regression
-# 3. ARTEMIS_fit_group_lasso() - Fit Group LASSO model
-# 4. ARTEMIS_select_lambda() - Choose optimal regularization
-# 5. ARTEMIS_extract_selected_variables() - Get selected variables
-# 6. ARTEMIS_fit_final_model() - Fit interpretable model on selected vars
-# 7. ARTEMIS_extract_coefficients() - Get odds ratios / effect sizes
-#
-###############################################################################
-
-
 #' Fit Group LASSO for Variable Selection
 #'
 #' @description Fits a Group LASSO model for variable selection in mixed data.
@@ -230,7 +210,7 @@ ARTEMIS_fit_group_lasso <- function(X,
       warning("Only ", n_classes, " classes detected. Consider using 'binomial' for binary outcomes.")
     }
     if (verbose) {
-      cat("  Classes:", paste(levels(y), collapse = ", "), "\n")
+      cat("[ARTEMIS] Classes:", paste(levels(y), collapse = ", "), "\n")
     }
   }
 
@@ -247,17 +227,17 @@ ARTEMIS_fit_group_lasso <- function(X,
   n_features <- ncol(X)
 
   if (verbose) {
-    cat("Fitting Group LASSO:\n")
-    cat("  Samples:", n_samples, "\n")
-    cat("  Features:", n_features, "\n")
-    cat("  Groups:", n_groups, "\n")
-    cat("  Family:", family, "\n")
-    cat("  Penalty:", penalty, "\n")
-    cat("  Lambda values:", nlambda, "\n")
+    cat("[ARTEMIS] Fitting Group LASSO:\n")
+    cat("    Samples:", n_samples, "\n")
+    cat("    Features:", n_features, "\n")
+    cat("    Groups:", n_groups, "\n")
+    cat("    Family:", family, "\n")
+    cat("    Penalty:", penalty, "\n")
+    cat("    Lambda values:", nlambda, "\n")
   }
 
   # Fit the model
-  if (verbose) cat("  Fitting regularization path...\n")
+  if (verbose) cat("[ARTEMIS] Fitting regularization path...\n")
 
   # grpreg can be sensitive to named vectors and attributes
   # Strip names and ensure clean vectors
@@ -272,16 +252,16 @@ ARTEMIS_fit_group_lasso <- function(X,
 
   # Debug output if verbose
   if (verbose) {
-    cat("  Data check:\n")
-    cat("    X: ", nrow(X_clean), "x", ncol(X_clean), ", class=", class(X_clean)[1],
+    cat("    Data check:\n")
+    cat("        X: ", nrow(X_clean), "x", ncol(X_clean), ", class=", class(X_clean)[1],
         ", mode=", storage.mode(X_clean), "\n", sep = "")
     if (family == "multinomial") {
-      cat("    y: length=", length(y_clean), ", classes=", nlevels(y_clean), "\n", sep = "")
+      cat("        y: length=", length(y_clean), ", classes=", nlevels(y_clean), "\n", sep = "")
     } else {
-      cat("    y: length=", length(y_clean), ", class=", class(y_clean)[1],
+      cat("        y: length=", length(y_clean), ", class=", class(y_clean)[1],
           ", unique values=", length(unique(y_clean)), "\n", sep = "")
     }
-    cat("    groups: length=", length(groups_clean), ", range=[", min(groups_clean),
+    cat("        groups: length=", length(groups_clean), ", range=[", min(groups_clean),
         ",", max(groups_clean), "]\n", sep = "")
   }
 
@@ -309,15 +289,15 @@ ARTEMIS_fit_group_lasso <- function(X,
   fit <- do.call(grpreg::grpreg, grpreg_args)
 
   if (verbose) {
-    cat("  Done.\n")
-    cat("  Lambda range: [", round(min(fit$lambda), 4), ", ",
+    cat("    Done.\n")
+    cat("    Lambda range: [", round(min(fit$lambda), 4), ", ",
         round(max(fit$lambda), 4), "]\n", sep = "")
 
     # Count variables selected at different points
     # Use coef() directly - it's a base R generic that grpreg extends
     n_selected_min <- sum(coef(fit, which = length(fit$lambda))[-1] != 0)
     n_selected_max <- sum(coef(fit, which = 1)[-1] != 0)
-    cat("  Features selected: ", n_selected_max, " (lambda.max) to ",
+    cat("    Features selected: ", n_selected_max, " (lambda.max) to ",
         n_selected_min, " (lambda.min)\n", sep = "")
   }
 
@@ -348,7 +328,7 @@ ARTEMIS_fit_group_lasso <- function(X,
 #' @export
 print.artemis_group_lasso <- function(x, ...) {
   cat("Group LASSO Model (artemis_group_lasso)\n")
-  cat("---------------------------------------\n")
+  cat("------------------------------\n")
   cat("Samples:", x$n_samples, "\n")
   cat("Features:", x$n_features, "\n")
   cat("Groups:", x$n_groups, "\n")
@@ -438,8 +418,8 @@ ARTEMIS_select_lambda <- function(glasso_fit,
   }
 
   if (verbose) {
-    cat("Cross-validation for lambda selection:\n")
-    cat("  Folds:", nfolds, "\n")
+    cat("[ARTEMIS] Cross-validation for lambda selection:\n")
+    cat("    Folds:", nfolds, "\n")
   }
 
   # Set seed if provided
@@ -497,11 +477,11 @@ ARTEMIS_select_lambda <- function(glasso_fit,
   n_selected_1se <- count_selected_groups(coef_1se, groups)
 
   if (verbose) {
-    cat("  Lambda.min:", round(lambda_min, 4),
+    cat("    Lambda.min:", round(lambda_min, 4),
         "(", n_selected_min, "groups selected)\n")
-    cat("  Lambda.1se:", round(lambda_1se, 4),
+    cat("    Lambda.1se:", round(lambda_1se, 4),
         "(", n_selected_1se, "groups selected)\n")
-    cat("\n  Recommendation: Use lambda.1se for more parsimonious selection\n")
+    cat("\n    Recommendation: Use lambda.1se for more parsimonious selection\n")
   }
 
   return(list(
@@ -597,11 +577,11 @@ ARTEMIS_extract_selected_variables <- function(glasso_fit,
   names(nonzero_coefs) <- names(coefs)[nonzero_mask]
 
   if (verbose) {
-    cat("Selected variables at lambda =", round(lambda, 4), ":\n")
-    cat("  ", n_selected, " of ", n_groups, " variables selected\n\n", sep = "")
+    cat("[ARTEMIS] Selected variables at lambda =", round(lambda, 4), ":\n")
+    cat("    ", n_selected, " of ", n_groups, " variables selected\n\n", sep = "")
 
     if (n_selected > 0) {
-      cat("Selected variables:\n")
+      cat("    Selected variables:\n")
       for (i in seq_along(selected_names)) {
         var_name <- selected_names[i]
         group_idx <- selected_groups[i]
@@ -611,11 +591,11 @@ ARTEMIS_extract_selected_variables <- function(glasso_fit,
 
         if (n_total_cols == 1) {
           # Quantitative variable - show coefficient
-          cat("  ", i, ". ", var_name, " (coef = ",
+          cat("    ", i, ". ", var_name, " (coef = ",
               round(group_coefs[group_coefs != 0], 4), ")\n", sep = "")
         } else {
           # Categorical variable - show how many levels have non-zero coefs
-          cat("  ", i, ". ", var_name, " (", n_nonzero, "/", n_total_cols,
+          cat("    ", i, ". ", var_name, " (", n_nonzero, "/", n_total_cols,
               " levels active)\n", sep = "")
         }
       }
@@ -743,11 +723,11 @@ ARTEMIS_fit_final_model <- function(data,
   model_formula <- as.formula(formula_string)
 
   if (verbose) {
-    cat("Fitting final model:\n")
-    cat("  Target:", target_var, "\n")
-    cat("  Predictors:", length(selected_vars), "variables\n")
-    cat("  Family:", family, "\n")
-    cat("  Formula:", formula_string, "\n\n")
+    cat("[ARTEMIS] Fitting final model:\n")
+    cat("    Target:", target_var, "\n")
+    cat("    Predictors:", length(selected_vars), "variables\n")
+    cat("    Family:", family, "\n")
+    cat("    Formula:", formula_string, "\n\n")
   }
 
   # Subset data to relevant columns (avoid issues with other columns)
@@ -758,7 +738,7 @@ ARTEMIS_fit_final_model <- function(data,
   n_removed <- sum(!complete_rows)
   if (n_removed > 0) {
     if (verbose) {
-      cat("  Removed", n_removed, "rows with missing values\n")
+      cat("    Removed", n_removed, "rows with missing values\n")
     }
     model_data <- model_data[complete_rows, , drop = FALSE]
   }
@@ -766,7 +746,7 @@ ARTEMIS_fit_final_model <- function(data,
   n_samples <- nrow(model_data)
 
   if (verbose) {
-    cat("  Samples:", n_samples, "\n\n")
+    cat("    Samples:", n_samples, "\n\n")
   }
 
   # Fit the model
@@ -781,7 +761,7 @@ ARTEMIS_fit_final_model <- function(data,
     model <- nnet::multinom(model_formula, data = model_data, trace = FALSE)
     converged <- model$convergence == 0
     if (verbose) {
-      cat("  Reference class:", levels(model_data[[target_var]])[1], "\n")
+      cat("    Reference class:", levels(model_data[[target_var]])[1], "\n")
     }
   } else {
     model <- glm(model_formula, data = model_data, family = gaussian(link = "identity"))
@@ -793,28 +773,28 @@ ARTEMIS_fit_final_model <- function(data,
   }
 
   if (verbose) {
-    cat("Model fit complete.\n")
+    cat("[ARTEMIS] Model fit complete.\n")
     if (family == "binomial") {
-      cat("  Null deviance:", round(model$null.deviance, 2), "on",
+      cat("    Null deviance:", round(model$null.deviance, 2), "on",
           model$df.null, "df\n")
-      cat("  Residual deviance:", round(model$deviance, 2), "on",
+      cat("    Residual deviance:", round(model$deviance, 2), "on",
           model$df.residual, "df\n")
-      cat("  AIC:", round(model$aic, 2), "\n")
+      cat("    AIC:", round(model$aic, 2), "\n")
     } else if (family == "multinomial") {
-      cat("  Residual deviance:", round(model$deviance, 2), "\n")
-      cat("  AIC:", round(model$AIC, 2), "\n")
-      cat("  Classes:", paste(model$lev, collapse = ", "), "\n")
+      cat("    Residual deviance:", round(model$deviance, 2), "\n")
+      cat("    AIC:", round(model$AIC, 2), "\n")
+      cat("    Classes:", paste(model$lev, collapse = ", "), "\n")
     } else if (family == "gaussian") {
       # For glm with gaussian family, sigma is sqrt of dispersion
       model_summary <- summary(model)
       residual_se <- sqrt(model_summary$dispersion)
-      cat("  Residual SE:", round(residual_se, 4), "\n")
-      cat("  R-squared:", round(1 - model$deviance/model$null.deviance, 4), "\n")
+      cat("    Residual SE:", round(residual_se, 4), "\n")
+      cat("    R-squared:", round(1 - model$deviance/model$null.deviance, 4), "\n")
     } else {
       # Poisson or other families
-      cat("  Residual deviance:", round(model$deviance, 2), "on",
+      cat("    Residual deviance:", round(model$deviance, 2), "on",
           model$df.residual, "df\n")
-      cat("  AIC:", round(model$aic, 2), "\n")
+      cat("    AIC:", round(model$aic, 2), "\n")
     }
   }
 
@@ -996,20 +976,17 @@ ARTEMIS_extract_coefficients <- function(final_model,
     ci_label <- paste0(conf_level * 100, "% CI")
 
     cat("\n")
-    cat(paste(rep("=", 70), collapse = ""), "\n")
-    cat("Model Coefficients")
-    if (format == "odds_ratio") cat(" (Odds Ratios)")
+    cat("[ARTEMIS] Model Coefficients")
+    if (format == "odds_ratio") cat("    (Odds Ratios)")
     cat("\n")
-    cat(paste(rep("=", 70), collapse = ""), "\n\n")
-
-    cat(sprintf("%-30s %10s %18s %10s %5s\n",
+    cat("    ", sprintf("%-30s %10s %18s %10s %5s\n",
                 "Variable", estimate_label, ci_label, "P-value", ""))
-    cat(paste(rep("-", 70), collapse = ""), "\n")
+    cat("    ", paste(rep("-", 70), collapse = ""), "\n")
 
     for (i in seq_len(nrow(coef_table))) {
       row <- coef_table[i, ]
       ci_str <- sprintf("[%s, %s]", row$ci_lower, row$ci_upper)
-      cat(sprintf("%-30s %10s %18s %10s %s\n",
+      cat("    ", sprintf("%-30s %10s %18s %10s %s\n",
                   substr(row$variable, 1, 30),
                   row$estimate,
                   ci_str,
@@ -1017,8 +994,8 @@ ARTEMIS_extract_coefficients <- function(final_model,
                   row$significance))
     }
 
-    cat(paste(rep("-", 70), collapse = ""), "\n")
-    cat("Signif. codes: *** p<0.001, ** p<0.01, * p<0.05\n\n")
+    cat("    ", paste(rep("-", 70), collapse = ""), "\n")
+    cat("    Signif. codes: *** p<0.001, ** p<0.01, * p<0.05\n\n")
   }
 
   # Return invisibly if verbose, visibly if not
@@ -1036,7 +1013,7 @@ ARTEMIS_extract_coefficients <- function(final_model,
 #' @export
 print.artemis_final_model <- function(x, ...) {
   cat("Final Model (artemis_final_model)\n")
-  cat("---------------------------------\n")
+  cat("------------------------------\n")
   cat("Family:", x$family, "\n")
   cat("Samples:", x$n_samples, "\n")
   cat("Variables:", length(x$selected_vars), "\n")
@@ -1157,17 +1134,16 @@ print.artemis_final_model <- function(x, ...) {
     ci_label <- paste0(conf_level * 100, "% CI")
 
     cat("\n")
-    cat(paste(rep("=", 80), collapse = ""), "\n")
-    cat("Multinomial Model Coefficients")
-    if (format == "odds_ratio") cat(" (Odds Ratios)")
+    cat("[ARTEMIS] Multinomial Model Coefficients")
+    if (format == "odds_ratio") cat("    (Odds Ratios)")
     cat("\n")
-    cat("Reference class:", model$lev[1], "\n")
+    cat("    Reference class:", model$lev[1], "\n")
     cat(paste(rep("=", 80), collapse = ""), "\n\n")
 
     for (cls in class_names) {
-      cat("Class:", cls, "vs", model$lev[1], "(reference)\n")
+      cat("    Class:", cls, "vs", model$lev[1], "(reference)\n")
       cat(paste(rep("-", 80), collapse = ""), "\n")
-      cat(sprintf("%-25s %10s %18s %10s %5s\n",
+      cat("    ", sprintf("%-25s %10s %18s %10s %5s\n",
                   "Variable", estimate_label, ci_label, "P-value", ""))
       cat(paste(rep("-", 80), collapse = ""), "\n")
 
@@ -1175,7 +1151,7 @@ print.artemis_final_model <- function(x, ...) {
       for (i in seq_len(nrow(cls_results))) {
         row <- cls_results[i, ]
         ci_str <- sprintf("[%s, %s]", row$ci_lower, row$ci_upper)
-        cat(sprintf("%-25s %10s %18s %10s %s\n",
+        cat("    ", sprintf("%-25s %10s %18s %10s %s\n",
                     substr(row$variable, 1, 25),
                     row$estimate,
                     ci_str,
@@ -1186,7 +1162,7 @@ print.artemis_final_model <- function(x, ...) {
     }
 
     cat(paste(rep("-", 80), collapse = ""), "\n")
-    cat("Signif. codes: *** p<0.001, ** p<0.01, * p<0.05\n\n")
+    cat("    Signif. codes: *** p<0.001, ** p<0.01, * p<0.05\n\n")
   }
 
   if (verbose) {

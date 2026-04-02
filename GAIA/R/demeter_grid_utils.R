@@ -62,7 +62,7 @@ DEMETER_create_coarse_grid <- function(n_params, values = c(0.3, 0.5, 0.7)) {
   # Generate grid
   grid <- do.call(expand.grid, grid_args)
 
-  cat(sprintf("Created coarse grid: %d combinations across %d parameters\n",
+  cat(sprintf("[DEMETER] Created coarse grid: %d combinations across %d parameters\n",
               nrow(grid), n_params))
 
   return(grid)
@@ -149,7 +149,7 @@ DEMETER_create_fine_grid <- function(ranges, n_points = 5) {
   # Generate grid
   grid <- do.call(expand.grid, grid_args)
 
-  cat(sprintf("Created fine grid: %d combinations across %d parameters\n",
+  cat(sprintf("[DEMETER] Created fine grid: %d combinations across %d parameters\n",
               nrow(grid), n_params))
 
   return(grid)
@@ -254,7 +254,7 @@ DEMETER_create_ranges_around_values <- function(best_values,
     ranges[[i]] <- c(min_val, max_val)
   }
 
-  cat(sprintf("Created %d ranges around best values\n", length(ranges)))
+  cat(sprintf("[DEMETER] Created %d ranges around best values\n", length(ranges)))
   for (i in 1:length(ranges)) {
     cat(sprintf("  Param %d: [%.3f, %.3f] (centered on %.3f)\n",
                 i, ranges[[i]][1], ranges[[i]][2], best_values[i]))

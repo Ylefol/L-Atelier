@@ -76,14 +76,14 @@ ELEUTHIA_export_homer_results <- function(homer_result,
   }
 
   if (verbose) {
-    cat("=== Exporting HOMER Motif Results ===\n")
-    cat("Type:", if (is_batch) "Batch" else "Single peak set", "\n")
+    cat("[ELEUTHIA] Exporting HOMER Motif Results \n")
+    cat("[ELEUTHIA] Type:", if (is_batch) "Batch" else "Single peak set", "\n")
   }
 
   # Create output directory
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
-    if (verbose) cat("Created directory:", output_dir, "\n")
+    if (verbose) cat("[ELEUTHIA] Created directory:", output_dir, "\n")
   }
 
   files_created <- character(0)
@@ -102,10 +102,10 @@ ELEUTHIA_export_homer_results <- function(homer_result,
     known_file <- file.path(output_dir, paste0(prefix, "_known_motifs.csv"))
     write.csv(known_df, known_file, row.names = FALSE)
     files_created <- c(files_created, known_file)
-    if (verbose) cat("  Known motifs:", known_file,
+    if (verbose) cat("[ELEUTHIA]   Known motifs:", known_file,
                      "(", nrow(known_df), "rows )\n")
   } else {
-    if (verbose) cat("  No known motif results to export.\n")
+    if (verbose) cat("[ELEUTHIA]   No known motif results to export.\n")
   }
 
   # --------------------------------------------------------------------------
@@ -134,7 +134,7 @@ ELEUTHIA_export_homer_results <- function(homer_result,
     denovo_file <- file.path(output_dir, paste0(prefix, "_denovo_motifs.csv"))
     write.csv(denovo_df, denovo_file, row.names = FALSE)
     files_created <- c(files_created, denovo_file)
-    if (verbose) cat("  De novo motifs:", denovo_file,
+    if (verbose) cat("[ELEUTHIA]   De novo motifs:", denovo_file,
                      "(", nrow(denovo_df), "rows )\n")
   }
 
@@ -213,7 +213,7 @@ ELEUTHIA_export_homer_results <- function(homer_result,
 
   writeLines(meta_lines, meta_file)
   files_created <- c(files_created, meta_file)
-  if (verbose) cat("  Metadata:", meta_file, "\n")
+  if (verbose) cat("[ELEUTHIA]   Metadata:", meta_file, "\n")
 
   # --------------------------------------------------------------------------
   # Plots
@@ -223,7 +223,7 @@ ELEUTHIA_export_homer_results <- function(homer_result,
     if (!dir.exists(plot_dir)) {
       dir.create(plot_dir)
     }
-    if (verbose) cat("\nGenerating plots...\n")
+    if (verbose) cat("[ELEUTHIA] Generating plots...\n")
 
     # Dotplot (works for both single and batch)
     tryCatch({
@@ -239,9 +239,9 @@ ELEUTHIA_export_homer_results <- function(homer_result,
         height = max(6, top_n * 0.35 + 3)
       )
       files_created <- c(files_created, plot_files)
-      if (verbose) cat("  Dotplot\n")
+      if (verbose) cat("[ELEUTHIA]   Dotplot\n")
     }, error = function(e) {
-      if (verbose) cat("  Warning: Could not create dotplot -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA]   Warning: Could not create dotplot -", e$message, "\n")
     })
 
     # Heatmap (batch only)
@@ -262,13 +262,13 @@ ELEUTHIA_export_homer_results <- function(homer_result,
                             .plot_paths(plot_dir,
                                         paste0(prefix, "_heatmap"),
                                         plot_format))
-        if (verbose) cat("  Heatmap (batch comparison)\n")
+        if (verbose) cat("[ELEUTHIA]   Heatmap (batch comparison)\n")
       }, error = function(e) {
-        if (verbose) cat("  Warning: Could not create heatmap -", e$message, "\n")
+        if (verbose) cat("[ELEUTHIA]   Warning: Could not create heatmap -", e$message, "\n")
       })
     }
 
-    if (verbose) cat("  Plots saved to:", plot_dir, "/\n")
+    if (verbose) cat("[ELEUTHIA]   Plots saved to:", plot_dir, "/\n")
   }
 
   # --------------------------------------------------------------------------
@@ -278,13 +278,13 @@ ELEUTHIA_export_homer_results <- function(homer_result,
     rds_file <- file.path(output_dir, paste0(prefix, "_result.rds"))
     saveRDS(homer_result, rds_file)
     files_created <- c(files_created, rds_file)
-    if (verbose) cat("  RDS:", rds_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   RDS:", rds_file, "\n")
   }
 
   if (verbose) {
-    cat("\n--- Export Summary ---\n")
-    cat("Total files created:", length(files_created), "\n")
-    cat("Output directory:", output_dir, "\n")
+    cat("[ELEUTHIA] Export Summary \n")
+    cat("    Total files created:", length(files_created), "\n")
+    cat("    Output directory:", output_dir, "\n")
   }
 
   invisible(files_created)

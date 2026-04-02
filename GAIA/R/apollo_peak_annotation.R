@@ -101,7 +101,7 @@ APOLLO_make_txdb <- function(gtf_path,
 
   # Create cache directory if it doesn't exist
   if (!dir.exists(cache_dir)) {
-    if (verbose) cat("Creating cache directory:", cache_dir, "\n")
+    if (verbose) cat("[APOLLO] Creating cache directory:", cache_dir, "\n")
     dir.create(cache_dir, recursive = TRUE)
   }
 
@@ -135,7 +135,7 @@ APOLLO_make_txdb <- function(gtf_path,
   # Check for existing cache
   if (file.exists(cache_path) && !force) {
     if (verbose) {
-      cat("Loading cached TxDb from:", cache_path, "\n")
+      cat("[APOLLO] Loading cached TxDb from:", cache_path, "\n")
     }
 
     txdb <- tryCatch({
@@ -149,7 +149,7 @@ APOLLO_make_txdb <- function(gtf_path,
     if (!is.null(txdb) && inherits(txdb, "TxDb")) {
       # Apply chromosome mapping on load (mapping doesn't persist through save/load)
       if (!is.null(chr_mapping)) {
-        if (verbose) cat("  Applying chromosome mapping to loaded TxDb...\n")
+        if (verbose) cat("    Applying chromosome mapping to loaded TxDb...\n")
 
         # Get mapping vector
         if (is.character(chr_mapping) && length(chr_mapping) == 1 &&
@@ -169,20 +169,20 @@ APOLLO_make_txdb <- function(gtf_path,
           rename_vec <- mapping_vec[to_rename]
           names(rename_vec) <- to_rename
           txdb <- GenomeInfoDb::renameSeqlevels(txdb, rename_vec)
-          if (verbose) cat("  Renamed", length(to_rename), "chromosomes\n")
+          if (verbose) cat("    Renamed", length(to_rename), "chromosomes\n")
         }
       }
 
-      if (verbose) cat("TxDb loaded successfully.\n")
+      if (verbose) cat(" TxDb loaded successfully.\n")
       return(txdb)
     }
   }
 
   # Create TxDb from GTF
   if (verbose) {
-    cat("Creating TxDb from GTF annotation...\n")
-    cat("  Source:", gtf_path, "\n")
-    cat("  This may take several minutes for large annotation files.\n")
+    cat("[APOLLO] Creating TxDb from GTF annotation...\n")
+    cat("    Source:", gtf_path, "\n")
+    cat("    This may take several minutes for large annotation files.\n")
   }
 
   # Determine format
@@ -207,7 +207,7 @@ APOLLO_make_txdb <- function(gtf_path,
     # Get mapping vector
     if (is.character(chr_mapping) && length(chr_mapping) == 1) {
       # Use built-in mapping
-      if (verbose) cat("  Applying", chr_mapping, "chromosome name mapping...\n")
+      if (verbose) cat("    Applying", chr_mapping, "chromosome name mapping...\n")
       mapping_vec <- APOLLO_get_chr_mapping(chr_mapping)
     } else if (is.character(chr_mapping) && !is.null(names(chr_mapping))) {
       mapping_vec <- chr_mapping
@@ -228,7 +228,7 @@ APOLLO_make_txdb <- function(gtf_path,
       txdb <- GenomeInfoDb::renameSeqlevels(txdb, rename_vec)
 
       if (verbose) {
-        cat("  Renamed", length(to_rename), "chromosomes to UCSC style\n")
+        cat("    Renamed", length(to_rename), "chromosomes to UCSC style\n")
       }
     } else {
       warning("No chromosome names matched the mapping. Seqlevels unchanged.")
@@ -237,16 +237,16 @@ APOLLO_make_txdb <- function(gtf_path,
 
   # Save to cache using AnnotationDbi::saveDb (proper method for TxDb)
   if (verbose) {
-    cat("Saving TxDb to cache:", cache_path, "\n")
+    cat(" Saving TxDb to cache:", cache_path, "\n")
   }
   AnnotationDbi::saveDb(txdb, file = cache_path)
 
   if (verbose) {
-    cat("TxDb created successfully.\n")
+    cat("[APOLLO] TxDb created successfully.\n")
     # Print some basic stats
-    cat("  Genes:", length(GenomicFeatures::genes(txdb)), "\n")
-    cat("  Transcripts:", length(GenomicFeatures::transcripts(txdb)), "\n")
-    cat("  Chromosomes:", length(GenomeInfoDb::seqlevels(txdb)), "\n")
+    cat("    Genes:", length(GenomicFeatures::genes(txdb)), "\n")
+    cat("    Transcripts:", length(GenomicFeatures::transcripts(txdb)), "\n")
+    cat("    Chromosomes:", length(GenomeInfoDb::seqlevels(txdb)), "\n")
   }
 
   return(txdb)
@@ -341,7 +341,7 @@ APOLLO_annotate_peaks <- function(regions,
   }
 
   if (verbose) {
-    cat("Annotating", nrow(regions), "peaks with genomic features...\n")
+    cat("[APOLLO] Annotating", nrow(regions), "peaks with genomic features...\n")
   }
 
   # Convert to GRanges
@@ -378,11 +378,11 @@ APOLLO_annotate_peaks <- function(regions,
   n_after <- length(peaks_gr)
 
   if (verbose && n_after < n_before) {
-    cat("  Removed", n_before - n_after, "peaks on chromosomes not in TxDb\n")
+    cat("    Removed", n_before - n_after, "peaks on chromosomes not in TxDb\n")
   }
 
   if (verbose) {
-    cat("  Peaks after filtering:", n_after, "on", length(seqlevels(peaks_gr)), "chromosomes\n")
+    cat("    Peaks after filtering:", n_after, "on", length(seqlevels(peaks_gr)), "chromosomes\n")
   }
 
   # Annotate with ChIPseeker
@@ -450,16 +450,16 @@ APOLLO_annotate_peaks <- function(regions,
   }
 
   if (verbose) {
-    cat("\nAnnotation summary:\n")
-    cat("  Total peaks:", nrow(result), "\n")
-    cat("  Unique genes:", length(unique(result$gene_id[!is.na(result$gene_id)])), "\n")
+    cat("[APOLLO] Annotation summary:\n")
+    cat("    Total peaks:", nrow(result), "\n")
+    cat("    Unique genes:", length(unique(result$gene_id[!is.na(result$gene_id)])), "\n")
 
     # Feature distribution
-    cat("\nGenomic feature distribution:\n")
+    cat("[APOLLO] Genomic feature distribution:\n")
     feature_table <- sort(table(result$annotation_simple), decreasing = TRUE)
     for (feat in names(feature_table)) {
       pct <- round(100 * feature_table[feat] / nrow(result), 1)
-      cat(sprintf("  %-12s: %4d (%5.1f%%)\n", feat, feature_table[feat], pct))
+      cat(sprintf("    %-12s: %4d (%5.1f%%)\n", feat, feature_table[feat], pct))
     }
   }
 
@@ -565,15 +565,15 @@ APOLLO_enrich_go <- function(annotated_peaks,
   }
 
   if (verbose) {
-    cat("GO Enrichment Analysis\n")
-    cat("  Input genes:", length(gene_ids), "\n")
-    cat("  Ontology:", ont, "\n")
-    cat("  Gene ID type:", gene_id_type, "\n")
+    cat("[APOLLO] GO Enrichment Analysis\n")
+    cat("    Input genes:", length(gene_ids), "\n")
+    cat("    Ontology:", ont, "\n")
+    cat("    Gene ID type:", gene_id_type, "\n")
   }
 
   # Convert to ENTREZID if needed
   if (toupper(gene_id_type) != "ENTREZID") {
-    if (verbose) cat("  Converting", gene_id_type, "to ENTREZID...\n")
+    if (verbose) cat("    Converting", gene_id_type, "to ENTREZID...\n")
 
     converted <- tryCatch({
       clusterProfiler::bitr(
@@ -591,14 +591,14 @@ APOLLO_enrich_go <- function(annotated_peaks,
     }
 
     if (verbose) {
-      cat("  Successfully converted:", nrow(converted), "of", length(gene_ids), "\n")
+      cat("    Successfully converted:", nrow(converted), "of", length(gene_ids), "\n")
     }
 
     gene_ids <- unique(converted$ENTREZID)
   }
 
   if (verbose) {
-    cat("  Running enrichment...\n")
+    cat("    Running enrichment...\n")
   }
 
   # Run GO enrichment
@@ -616,14 +616,14 @@ APOLLO_enrich_go <- function(annotated_peaks,
 
   if (verbose) {
     n_sig <- sum(ego@result$p.adjust < qval_cutoff)
-    cat("\nResults:\n")
-    cat("  Significant terms (q <", qval_cutoff, "):", n_sig, "\n")
+    cat("[APOLLO] Results:\n")
+    cat("    Significant terms (q <", qval_cutoff, "):", n_sig, "\n")
 
     if (n_sig > 0) {
-      cat("\nTop 10 enriched terms:\n")
+      cat("[APOLLO] Top 10 enriched terms:\n")
       top_terms <- head(ego@result[ego@result$p.adjust < qval_cutoff, ], 10)
       for (i in seq_len(nrow(top_terms))) {
-        cat(sprintf("  %2d. %s (q=%.2e)\n",
+        cat(sprintf("    %2d. %s (q=%.2e)\n",
                     i,
                     substr(top_terms$Description[i], 1, 50),
                     top_terms$p.adjust[i]))
@@ -705,15 +705,15 @@ APOLLO_enrich_kegg <- function(annotated_peaks,
   }
 
   if (verbose) {
-    cat("KEGG Pathway Enrichment Analysis\n")
-    cat("  Input genes:", length(gene_ids), "\n")
-    cat("  Organism:", organism, "\n")
-    cat("  Gene ID type:", gene_id_type, "\n")
+    cat("[APOLLO] KEGG Pathway Enrichment Analysis\n")
+    cat("    Input genes:", length(gene_ids), "\n")
+    cat("    Organism:", organism, "\n")
+    cat("    Gene ID type:", gene_id_type, "\n")
   }
 
   # Convert to ENTREZID if needed
   if (toupper(gene_id_type) != "ENTREZID") {
-    if (verbose) cat("  Converting", gene_id_type, "to ENTREZID...\n")
+    if (verbose) cat("    Converting", gene_id_type, "to ENTREZID...\n")
 
     converted <- tryCatch({
       clusterProfiler::bitr(
@@ -731,14 +731,14 @@ APOLLO_enrich_kegg <- function(annotated_peaks,
     }
 
     if (verbose) {
-      cat("  Successfully converted:", nrow(converted), "of", length(gene_ids), "\n")
+      cat("    Successfully converted:", nrow(converted), "of", length(gene_ids), "\n")
     }
 
     gene_ids <- unique(converted$ENTREZID)
   }
 
   if (verbose) {
-    cat("  Running enrichment...\n")
+    cat("    Running enrichment...\n")
   }
 
   # Run KEGG enrichment
@@ -752,14 +752,14 @@ APOLLO_enrich_kegg <- function(annotated_peaks,
 
   if (verbose) {
     n_sig <- sum(ekegg@result$p.adjust < qval_cutoff)
-    cat("\nResults:\n")
-    cat("  Significant pathways (q <", qval_cutoff, "):", n_sig, "\n")
+    cat("[APOLLO] Results:\n")
+    cat("    Significant pathways (q <", qval_cutoff, "):", n_sig, "\n")
 
     if (n_sig > 0) {
-      cat("\nTop 10 enriched pathways:\n")
+      cat("[APOLLO] Top 10 enriched pathways:\n")
       top_paths <- head(ekegg@result[ekegg@result$p.adjust < qval_cutoff, ], 10)
       for (i in seq_len(nrow(top_paths))) {
-        cat(sprintf("  %2d. %s (q=%.2e)\n",
+        cat(sprintf("    %2d. %s (q=%.2e)\n",
                     i,
                     substr(top_paths$Description[i], 1, 50),
                     top_paths$p.adjust[i]))

@@ -88,7 +88,7 @@ APOLLO_extract_summits <- function(peak_files,
 
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
-    if (verbose) cat("Created directory:", output_dir, "\n")
+    if (verbose) cat("[APOLLO] Created directory:", output_dir, "\n")
   }
 
   half_window <- as.integer(half_window)
@@ -102,7 +102,7 @@ APOLLO_extract_summits <- function(peak_files,
       # NCBI -> UCSC; reverse it to get UCSC -> NCBI for BED chr renaming
       ncbi_to_ucsc <- APOLLO_get_chr_mapping(chr_mapping)
       chr_map_vec  <- stats::setNames(names(ncbi_to_ucsc), ncbi_to_ucsc)
-      if (verbose) cat("Chromosome mapping: UCSC -> NCBI (", chr_mapping, ")\n", sep = "")
+      if (verbose) cat("    Chromosome mapping: UCSC -> NCBI (", chr_mapping, ")\n", sep = "")
     } else if (is.character(chr_mapping) && !is.null(names(chr_mapping))) {
       chr_map_vec <- chr_mapping
     } else {
@@ -119,7 +119,7 @@ APOLLO_extract_summits <- function(peak_files,
     # Check file exists
     if (!file.exists(peak_file)) {
       if (skip_missing) {
-        if (verbose) cat("  Skipping (file not found):", peak_file, "\n")
+        if (verbose) cat("    Skipping (file not found):", peak_file, "\n")
         next
       } else {
         stop("Peak file not found: ", peak_file, call. = FALSE)
@@ -144,7 +144,7 @@ APOLLO_extract_summits <- function(peak_files,
     valid <- !is.na(np[[10]]) & np[[10]] >= 0L
     if (any(!valid)) {
       if (verbose) {
-        cat("  ", nm, ": dropping", sum(!valid),
+        cat("    ", nm, ": dropping", sum(!valid),
             "peak(s) with no summit (col10 = -1)\n", sep = "")
       }
       np <- np[valid, , drop = FALSE]
@@ -194,7 +194,7 @@ APOLLO_extract_summits <- function(peak_files,
     out_paths[[nm]] <- out_file
 
     if (verbose) {
-      cat("  ", nm, ": ", nrow(bed), " summit regions (", 2L * half_window,
+      cat("    ", nm, ": ", nrow(bed), " summit regions (", 2L * half_window,
           " bp) -> ", basename(out_file), "\n", sep = "")
     }
   }
@@ -203,7 +203,7 @@ APOLLO_extract_summits <- function(peak_files,
   out_paths <- out_paths[!is.na(out_paths)]
 
   if (verbose) {
-    cat("Summit BED files written:", length(out_paths), "/",
+    cat("    Summit BED files written:", length(out_paths), "/",
         length(peak_files), "\n")
   }
 
@@ -477,7 +477,7 @@ APOLLO_homer_motif_enrichment <- function(bed_file,
 
   # --- Validate inputs ---
   homer_path <- .homer_check_installation()
-  if (verbose) cat("HOMER found:", homer_path, "\n")
+  if (verbose) cat("[APOLLO] HOMER found:", homer_path, "\n")
 
   if (!file.exists(bed_file)) {
     stop("BED file not found: ", bed_file, call. = FALSE)
@@ -503,12 +503,12 @@ APOLLO_homer_motif_enrichment <- function(bed_file,
   )
 
   if (verbose) {
-    cat("Running HOMER findMotifsGenome.pl...\n")
-    cat("  BED file:", bed_file, "\n")
-    cat("  Genome:", genome, "\n")
-    cat("  Output:", output_dir, "\n")
-    cat("  De novo:", if (denovo) paste("yes (n =", denovo_n, ")") else "no", "\n")
-    if (!is.null(bg)) cat("  Background:", bg, "\n")
+    cat("[APOLLO] Running HOMER findMotifsGenome.pl...\n")
+    cat("    BED file:", bed_file, "\n")
+    cat("    Genome:", genome, "\n")
+    cat("    Output:", output_dir, "\n")
+    cat("    De novo:", if (denovo) paste("yes (n =", denovo_n, ")") else "no", "\n")
+    if (!is.null(bg)) cat("    Background:", bg, "\n")
   }
 
   start_time <- proc.time()
@@ -536,7 +536,7 @@ APOLLO_homer_motif_enrichment <- function(bed_file,
     )
   }
 
-  if (verbose) cat("HOMER completed in", round(elapsed, 1), "seconds.\n")
+  if (verbose) cat(" HOMER completed in", round(elapsed, 1), "seconds.\n")
 
   # --- Parse results ---
   result <- APOLLO_load_homer_results(output_dir, verbose = verbose)
@@ -605,9 +605,9 @@ APOLLO_homer_motif_enrichment_batch <- function(bed_files,
   n_sets <- length(bed_files)
 
   if (verbose) {
-    cat("Running HOMER batch motif enrichment\n")
-    cat("  Peak sets:", n_sets, "\n")
-    cat("  Sets:", paste(set_names, collapse = ", "), "\n")
+    cat("[APOLLO] Running HOMER batch motif enrichment\n")
+    cat("     Peak sets:", n_sets, "\n")
+    cat("    Sets:", paste(set_names, collapse = ", "), "\n")
   }
 
   # Run each set
@@ -616,7 +616,7 @@ APOLLO_homer_motif_enrichment_batch <- function(bed_files,
     set_name <- set_names[i]
     set_dir <- file.path(output_dir, set_name)
 
-    if (verbose) cat("\n--- [", i, "/", n_sets, "] ", set_name, " ---\n", sep = "")
+    if (verbose) cat("[APOLLO] --- [", i, "/", n_sets, "] ", set_name, " ---\n", sep = "")
 
     results[[set_name]] <- APOLLO_homer_motif_enrichment(
       bed_file   = bed_files[i],
@@ -631,7 +631,7 @@ APOLLO_homer_motif_enrichment_batch <- function(bed_files,
   batch <- .homer_build_batch(results, genome, bed_files)
 
   if (verbose) {
-    cat("\nBatch complete. Summary:\n")
+    cat("    Batch complete. Summary:\n")
     print(batch$summary)
   }
 
@@ -662,7 +662,7 @@ APOLLO_load_homer_results <- function(homer_dir, verbose = TRUE) {
     stop("HOMER output directory not found: ", homer_dir, call. = FALSE)
   }
 
-  if (verbose) cat("Loading HOMER results from:", homer_dir, "\n")
+  if (verbose) cat("[APOLLO] Loading HOMER results from:", homer_dir, "\n")
 
   # Parse known motif results
   known_file <- file.path(homer_dir, "knownResults.txt")
@@ -671,9 +671,9 @@ APOLLO_load_homer_results <- function(homer_dir, verbose = TRUE) {
   if (is.null(known)) {
     warning("No known motif results found in: ", homer_dir)
   } else if (verbose) {
-    cat("  Known motifs:", nrow(known), "\n")
+    cat("    Known motifs:", nrow(known), "\n")
     n_sig <- sum(known$q_value < 0.05, na.rm = TRUE)
-    cat("  Significant (q < 0.05):", n_sig, "\n")
+    cat("    Significant (q < 0.05):", n_sig, "\n")
   }
 
   # Parse de novo motif results (if available)
@@ -681,7 +681,7 @@ APOLLO_load_homer_results <- function(homer_dir, verbose = TRUE) {
   denovo <- .homer_parse_denovo(denovo_file)
 
   if (!is.null(denovo) && verbose) {
-    cat("  De novo motifs:", nrow(denovo), "\n")
+    cat("    De novo motifs:", nrow(denovo), "\n")
   }
 
   # Extract target/background counts from known results
@@ -736,22 +736,22 @@ APOLLO_load_homer_batch <- function(output_dir, set_names = NULL, verbose = TRUE
   }
 
   if (verbose) {
-    cat("Loading HOMER batch results from:", output_dir, "\n")
-    cat("  Sets found:", length(set_names), "\n")
+    cat("[APOLLO] Loading HOMER batch results from:", output_dir, "\n")
+    cat("    Sets found:", length(set_names), "\n")
   }
 
   # Load each set
   results <- list()
   for (set_name in set_names) {
     set_dir <- file.path(output_dir, set_name)
-    if (verbose) cat("  Loading:", set_name, "\n")
+    if (verbose) cat("    Loading:", set_name, "\n")
     results[[set_name]] <- APOLLO_load_homer_results(set_dir, verbose = FALSE)
   }
 
   batch <- .homer_build_batch(results, genome = NA_character_, bed_files = NULL)
 
   if (verbose) {
-    cat("Batch loaded. Summary:\n")
+    cat("    Batch loaded. Summary:\n")
     print(batch$summary)
   }
 
@@ -784,7 +784,7 @@ APOLLO_filter_motifs <- function(homer_result,
   # --- Single result ---
   if (inherits(homer_result, "homer_motif")) {
     if (is.null(homer_result$known) || nrow(homer_result$known) == 0) {
-      if (verbose) cat("No known motifs to filter.\n")
+      if (verbose) cat("[APOLLO] No known motifs to filter.\n")
       return(homer_result)
     }
 
@@ -809,7 +809,7 @@ APOLLO_filter_motifs <- function(homer_result,
 
     homer_result$known <- df
 
-    if (verbose) cat("Filtered:", n_before, "->", nrow(df), "known motifs\n")
+    if (verbose) cat("[APOLLO] Filtered:", n_before, "->", nrow(df), "known motifs\n")
     return(homer_result)
   }
 
@@ -830,7 +830,7 @@ APOLLO_filter_motifs <- function(homer_result,
     homer_result <- .homer_rebuild_batch(homer_result)
 
     if (verbose) {
-      cat("Filtered combined:", n_before, "->", nrow(homer_result$combined), "rows\n")
+      cat("[APOLLO] Filtered combined:", n_before, "->", nrow(homer_result$combined), "rows\n")
     }
     return(homer_result)
   }
@@ -920,24 +920,25 @@ APOLLO_filter_motifs <- function(homer_result,
 #' @export
 print.homer_motif <- function(x, ...) {
   cat("HOMER Motif Enrichment Result\n")
-  cat("  Output:", x$output_dir, "\n")
+  cat("------------------------------\n")
+  cat("Output:", x$output_dir, "\n")
   if (!is.null(x$known)) {
-    cat("  Known motifs:", nrow(x$known), "\n")
+    cat("Known motifs:", nrow(x$known), "\n")
     n_sig <- sum(x$known$q_value < 0.05, na.rm = TRUE)
-    cat("  Significant (q < 0.05):", n_sig, "\n")
+    cat("Significant (q < 0.05):", n_sig, "\n")
     if (n_sig > 0) {
       top <- x$known[which.min(x$known$q_value), ]
-      cat("  Top motif:", top$motif_family, "(q =", formatC(top$q_value, format = "e", digits = 2), ")\n")
+      cat("Top motif:", top$motif_family, "(q =", formatC(top$q_value, format = "e", digits = 2), ")\n")
     }
   } else {
-    cat("  Known motifs: none loaded\n")
+    cat("Known motifs: none loaded\n")
   }
   if (!is.null(x$denovo)) {
-    cat("  De novo motifs:", nrow(x$denovo), "\n")
+    cat("De novo motifs:", nrow(x$denovo), "\n")
   }
-  if (!is.null(x$metadata$genome)) cat("  Genome:", x$metadata$genome, "\n")
-  if (!is.null(x$metadata$n_target_seqs)) cat("  Target sequences:", x$metadata$n_target_seqs, "\n")
-  if (!is.null(x$metadata$n_background_seqs)) cat("  Background sequences:", x$metadata$n_background_seqs, "\n")
+  if (!is.null(x$metadata$genome)) cat("Genome:", x$metadata$genome, "\n")
+  if (!is.null(x$metadata$n_target_seqs)) cat("Target sequences:", x$metadata$n_target_seqs, "\n")
+  if (!is.null(x$metadata$n_background_seqs)) cat("Background sequences:", x$metadata$n_background_seqs, "\n")
   invisible(x)
 }
 
@@ -946,11 +947,12 @@ print.homer_motif <- function(x, ...) {
 #' @export
 print.homer_motif_batch <- function(x, ...) {
   cat("HOMER Motif Enrichment Batch Result\n")
-  cat("  Peak sets:", x$metadata$n_sets, "\n")
+  cat("------------------------------\n")
+  cat("Peak sets:", x$metadata$n_sets, "\n")
   if (!is.null(x$combined)) {
-    cat("  Total known motif rows:", nrow(x$combined), "\n")
+    cat("Total known motif rows:", nrow(x$combined), "\n")
   }
   cat("\nPer-set summary:\n")
-  print(x$summary, row.names = FALSE)
+  cat(x$summary, row.names = FALSE)
   invisible(x)
 }

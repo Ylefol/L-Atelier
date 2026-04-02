@@ -468,15 +468,16 @@ APOLLO_link_degs_to_peaks <- function(deg_result,
 #' @export
 print.apollo_deg_peaks <- function(x, ...) {
   s <- x$stats
-  cat("apollo_deg_peaks\n")
-  cat("  Distance window   : \u00B1", format(s$distance_used, big.mark = ","),
+  cat("DEG peaks\n")
+  cat("------------------------------\n")
+  cat("Distance window   : \u00B1", format(s$distance_used, big.mark = ","),
       " bp\n", sep = "")
-  cat("  Genes input       : ", s$n_genes_input, "\n", sep = "")
-  cat("  Genes with peaks  : ", s$n_genes_with_peaks,
+  cat("Genes input       : ", s$n_genes_input, "\n", sep = "")
+  cat("Genes with peaks  : ", s$n_genes_with_peaks,
       " (", round(100 * s$n_genes_with_peaks / max(s$n_genes_input, 1), 1),
       "%)\n", sep = "")
-  cat("  Peaks near genes  : ", s$n_peaks_near_genes, " / ",
+  cat("Peaks near genes  : ", s$n_peaks_near_genes, " / ",
       s$n_peaks_input, "\n", sep = "")
-  cat("  Total pairs       : ", s$n_pairs, "\n", sep = "")
+  cat("Total pairs       : ", s$n_pairs, "\n", sep = "")
   invisible(x)
 }

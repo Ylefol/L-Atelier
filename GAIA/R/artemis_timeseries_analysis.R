@@ -94,13 +94,13 @@ if (!all(counts == floor(counts))) {
   targets <- targets[common_samples, , drop = FALSE]
 
   if (verbose) {
-    cat("=== ARTEMIS Time Series Normalization ===\n")
-    cat("Samples:", ncol(counts), "\n")
-    cat("Genes:", nrow(counts), "\n")
-    cat("Groups:", paste(unique(targets[[group_col]]), collapse = ", "), "\n")
-    cat("Timepoints:", paste(sort(unique(targets[[time_col]])), collapse = ", "), "\n")
+    cat("[ARTEMIS] Time Series Normalization \n")
+    cat("    Samples:", ncol(counts), "\n")
+    cat("    Genes:", nrow(counts), "\n")
+    cat("    Groups:", paste(unique(targets[[group_col]]), collapse = ", "), "\n")
+    cat("    Timepoints:", paste(sort(unique(targets[[time_col]])), collapse = ", "), "\n")
     if (!is.null(batch_col)) {
-      cat("Batch correction: Yes (", batch_col, ")\n", sep = "")
+      cat("    Batch correction: Yes (", batch_col, ")\n", sep = "")
     }
     cat("\n")
   }
@@ -123,7 +123,7 @@ if (!all(counts == floor(counts))) {
     design_formula <- ~ condition
   }
 
-  if (verbose) cat("Creating DESeq2 dataset...\n")
+  if (verbose) cat("[ARTEMIS] Creating DESeq2 dataset...\n")
 
   dds <- DESeqDataSetFromMatrix(
     countData = counts,
@@ -132,7 +132,7 @@ if (!all(counts == floor(counts))) {
   )
 
   # --- Estimate size factors on FULL dataset ---
-  if (verbose) cat("Estimating size factors on full dataset...\n")
+  if (verbose) cat("    Estimating size factors on full dataset...\n")
 
   dds <- estimateSizeFactors(dds)
   size_factors <- sizeFactors(dds)
@@ -141,9 +141,9 @@ if (!all(counts == floor(counts))) {
   norm_counts <- counts(dds, normalized = TRUE)
 
   if (verbose) {
-    cat("Size factors range:", round(min(size_factors), 3), "-",
+    cat("    Size factors range:", round(min(size_factors), 3), "-",
         round(max(size_factors), 3), "\n")
-    cat("Normalization complete.\n\n")
+    cat("    Normalization complete.\n\n")
   }
 
   result <- list(
@@ -172,9 +172,10 @@ if (!all(counts == floor(counts))) {
 #' @export
 print.artemis_ts_norm <- function(x, ...) {
   cat("Time series normalized data:\n")
-  cat("  Samples:", x$parameters$n_samples, "\n")
-  cat("  Genes:", x$parameters$n_genes, "\n")
-  cat("  Size factors:", round(min(x$size_factors), 3), "-",
+  cat("------------------------------\n")
+  cat("Samples:", x$parameters$n_samples, "\n")
+  cat("Genes:", x$parameters$n_genes, "\n")
+  cat("Size factors:", round(min(x$size_factors), 3), "-",
       round(max(x$size_factors), 3), "\n")
   invisible(x)
 }
@@ -248,10 +249,10 @@ ARTEMIS_timeseries_conditional <- function(ts_norm,
   timepoints <- sort(unique(targets[[time_col]]))
 
   if (verbose) {
-    cat("=== ARTEMIS Time Series Conditional DEA ===\n")
-    cat("Comparison:", experiment, "vs", reference, "\n")
-    cat("Timepoints:", paste(timepoints, collapse = ", "), "\n")
-    cat("Using pre-computed size factors from full dataset\n\n")
+    cat("[ARTEMIS] Time Series Conditional DEA \n")
+    cat("    Comparison:", experiment, "vs", reference, "\n")
+    cat("    Timepoints:", paste(timepoints, collapse = ", "), "\n")
+    cat("    Using pre-computed size factors from full dataset\n\n")
   }
 
   # --- Run DEA per timepoint ---
@@ -273,13 +274,13 @@ ARTEMIS_timeseries_conditional <- function(ts_norm,
 
     if (n_ref < 2 || n_exp < 2) {
       if (verbose) {
-        cat("  TP", tp_label, ": Skipping (", reference, "=", n_ref,
+        cat("        TP", tp_label, ": Skipping (", reference, "=", n_ref,
             ", ", experiment, "=", n_exp, " samples)\n")
       }
       next
     }
 
-    if (verbose) cat("  TP", tp_label, ": ")
+    if (verbose) cat("        TP", tp_label, ": ")
 
     # Run DESeq on subset with pre-computed size factors
     de_result <- tryCatch({
@@ -292,7 +293,7 @@ ARTEMIS_timeseries_conditional <- function(ts_norm,
         alpha = alpha
       )
     }, error = function(e) {
-      if (verbose) cat("Error -", e$message, "\n")
+      if (verbose) cat("    Error -", e$message, "\n")
       NULL
     })
 
@@ -315,7 +316,7 @@ ARTEMIS_timeseries_conditional <- function(ts_norm,
     )
 
     if (verbose) {
-      cat(de_result$summary$n_sig_up, "up,",
+      cat("    ", de_result$summary$n_sig_up, "up,",
           de_result$summary$n_sig_down, "down\n")
     }
   }
@@ -441,11 +442,11 @@ ARTEMIS_timeseries_temporal <- function(ts_norm,
   }
 
   if (verbose) {
-    cat("=== ARTEMIS Time Series Temporal DEA ===\n")
-    cat("Timepoints:", paste(timepoints, collapse = ", "), "\n")
-    cat("Comparisons:", nrow(pairs), "(", comparisons, ")\n")
-    cat("Note: Pooling all groups together to extract pure temporal effect\n")
-    cat("Using pre-computed size factors from full dataset\n\n")
+    cat("[ARTEMIS] Time Series Temporal DEA \n")
+    cat("    Timepoints:", paste(timepoints, collapse = ", "), "\n")
+    cat("    Comparisons:", nrow(pairs), "(", comparisons, ")\n")
+    cat("    Note: Pooling all groups together to extract pure temporal effect\n")
+    cat("    Using pre-computed size factors from full dataset\n\n")
   }
 
   # --- Run DEA per timepoint comparison (pooling ALL groups) ---
@@ -472,13 +473,13 @@ ARTEMIS_timeseries_temporal <- function(ts_norm,
 
     if (n_ref < 2 || n_exp < 2) {
       if (verbose) {
-        cat("  ", exp_label, " vs ", ref_label,
+        cat("    ", exp_label, " vs ", ref_label,
             ": Skipping (n=", n_ref, ",", n_exp, ")\n", sep = "")
       }
       next
     }
 
-    if (verbose) cat("  ", exp_label, " vs ", ref_label, ": ", sep = "")
+    if (verbose) cat("    ", exp_label, " vs ", ref_label, ": ", sep = "")
 
     de_result <- tryCatch({
       .run_deseq_subset(
@@ -490,7 +491,7 @@ ARTEMIS_timeseries_temporal <- function(ts_norm,
         alpha = alpha
       )
     }, error = function(e) {
-      if (verbose) cat("Error -", e$message, "\n")
+      if (verbose) cat("    Error -", e$message, "\n")
       NULL
     })
 
@@ -515,7 +516,7 @@ ARTEMIS_timeseries_temporal <- function(ts_norm,
     )
 
     if (verbose) {
-      cat(de_result$summary$n_sig_up, "up,",
+      cat("    ", de_result$summary$n_sig_up, "up,",
           de_result$summary$n_sig_down, "down",
           "(n=", n_ref, "+", n_exp, " samples)\n", sep = "")
     }
@@ -630,6 +631,7 @@ ARTEMIS_timeseries_temporal <- function(ts_norm,
 #' @export
 print.artemis_ts_de <- function(x, ...) {
   cat("Time series DE (", x$type, "):", length(x$results), "comparisons\n")
+  cat("------------------------------\n")
   total_up <- sum(x$summary$n_sig_up)
   total_down <- sum(x$summary$n_sig_down)
   cat("Total significant: ", total_up, " up, ", total_down, " down\n", sep = "")

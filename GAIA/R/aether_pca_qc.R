@@ -74,7 +74,7 @@ AETHER_plot_pc_association <- function(assoc_result,
       colnames(pmat)[top_idx]
     })))
     pmat <- pmat[, selected, drop = FALSE]
-    cat("top_n = ", top_n, ": showing ", ncol(pmat),
+    cat("[AETHER] top_n = ", top_n, ": showing ", ncol(pmat),
             " unique variables across ", nrow(pmat), " PCs")
   }
 

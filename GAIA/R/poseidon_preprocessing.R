@@ -38,9 +38,9 @@ POSEIDON_filter_zero_variance <- function(X, variance_threshold = 0, verbose = T
         keep_features <- vars > variance_threshold
 
         if (verbose) {
-            cat(sprintf("Removing %d features with variance <= %.2e\n",
+            cat(sprintf("[POSEIDON] Removing %d features with variance <= %.2e\n",
                        sum(!keep_features), variance_threshold))
-            cat(sprintf("Keeping %d features with variance > %.2e\n",
+            cat(sprintf("[POSEIDON] Keeping %d features with variance > %.2e\n",
                        sum(keep_features), variance_threshold))
         }
 
@@ -49,7 +49,7 @@ POSEIDON_filter_zero_variance <- function(X, variance_threshold = 0, verbose = T
 
     # Handle list of matrices
     if (verbose) {
-        cat("Filtering features across multiple datasets...\n")
+        cat("[POSEIDON] Filtering features across multiple datasets...\n")
     }
 
     n_datasets <- length(X)
@@ -99,7 +99,7 @@ POSEIDON_filter_shared_variance <- function(X_list, by_row = TRUE,
     keep_features <- Reduce("&", lapply(vars_list, function(v) v > variance_threshold))
 
     if (verbose) {
-        cat(sprintf("Filtering features with variance > %.2e across %d datasets:\n",
+        cat(sprintf("[POSEIDON] Filtering features with variance > %.2e across %d datasets:\n",
                    variance_threshold, n_datasets))
         cat(sprintf("  Removing %d features with zero variance in ANY dataset\n",
                    sum(!keep_features)))
@@ -198,9 +198,9 @@ POSEIDON_filter_top_variable <- function(X, n_top = 5000, verbose = TRUE) {
 
     if (verbose) {
       prefix <- if (!is.null(name)) paste0("  ", name, ": ") else ""
-      cat(sprintf("%s%d -> %d features (top %.1f%% by variance)\n",
+      cat(sprintf("[POSEIDON] %s%d -> %d features (top %.1f%% by variance)\n",
                   prefix, n_features, n, 100 * n / n_features))
-      cat(sprintf("%s  Variance range kept: %.2e to %.2e\n",
+      cat(sprintf("[POSEIDON] %s  Variance range kept: %.2e to %.2e\n",
                   prefix, min(vars[top_idx]), max(vars[top_idx])))
     }
 
@@ -210,14 +210,14 @@ POSEIDON_filter_top_variable <- function(X, n_top = 5000, verbose = TRUE) {
   # Handle single matrix
   if (!is.list(X)) {
     if (verbose) {
-      cat("Filtering to top", n_top, "variable features...\n")
+      cat("[POSEIDON] Filtering to top", n_top, "variable features...\n")
     }
     return(filter_matrix(X, n_top))
   }
 
   # Handle list of matrices
   if (verbose) {
-    cat("Filtering to top variable features per dataset...\n")
+    cat("[POSEIDON] Filtering to top variable features per dataset...\n")
   }
 
   dataset_names <- names(X)
@@ -245,7 +245,7 @@ POSEIDON_filter_top_variable <- function(X, n_top = 5000, verbose = TRUE) {
   }
 
   if (verbose) {
-    cat("Done.\n")
+    cat("[POSEIDON] Done.\n")
   }
 
   return(filtered_X)
@@ -336,9 +336,9 @@ POSEIDON_filter_low_variance <- function(X, bottom_pct = 0.5, verbose = TRUE) {
 
     if (verbose) {
       prefix <- if (!is.null(name)) paste0("  ", name, ": ") else ""
-      cat(sprintf("%s%d -> %d features (removed bottom %.0f%%)\n",
+      cat(sprintf("[POSEIDON] %s%d -> %d features (removed bottom %.0f%%)\n",
                   prefix, n_features, n_keep, pct * 100))
-      cat(sprintf("%s  Variance threshold: %.2e (features below this removed)\n",
+      cat(sprintf("[POSEIDON] %s  Variance threshold: %.2e (features below this removed)\n",
                   prefix, var_threshold))
     }
 
@@ -348,14 +348,14 @@ POSEIDON_filter_low_variance <- function(X, bottom_pct = 0.5, verbose = TRUE) {
   # Handle single matrix
   if (!is.list(X)) {
     if (verbose) {
-      cat(sprintf("Removing bottom %.0f%% of features by variance...\n", bottom_pct * 100))
+      cat(sprintf("[POSEIDON] Removing bottom %.0f%% of features by variance...\n", bottom_pct * 100))
     }
     return(filter_matrix(X, bottom_pct))
   }
 
   # Handle list of matrices
   if (verbose) {
-    cat(sprintf("Removing bottom %.0f%% of features by variance per dataset...\n",
+    cat(sprintf("[POSEIDON] Removing bottom %.0f%% of features by variance per dataset...\n",
                 bottom_pct * 100))
   }
 
@@ -369,7 +369,7 @@ POSEIDON_filter_low_variance <- function(X, bottom_pct = 0.5, verbose = TRUE) {
   }
 
   if (verbose) {
-    cat("Done.\n")
+    cat("[POSEIDON] Done.\n")
   }
 
   return(filtered_X)
@@ -488,7 +488,7 @@ POSEIDON_filter_low_counts <- function(quant_result,
   n_after <- sum(keep)
 
   if (verbose) {
-    cat("Filtering low-count features:\n")
+    cat("[POSEIDON] Filtering low-count features:\n")
     cat("  Before:", n_before, "features\n")
     cat("  After:", n_after, "features\n")
     cat("  Removed:", n_before - n_after, "features\n")
@@ -614,7 +614,7 @@ POSEIDON_correct_batch <- function(quant_result,
   }
 
   if (verbose) {
-    cat("Batch correction using", method, "\n")
+    cat("[POSEIDON] Batch correction using", method, "\n")
     cat("  Batches:", paste(unique(batch), collapse = ", "), "\n")
     cat("  Samples per batch:\n")
     batch_counts <- table(batch)
@@ -681,7 +681,7 @@ POSEIDON_correct_batch <- function(quant_result,
   }
 
   if (verbose) {
-    cat("Batch correction complete.\n")
+    cat("[POSEIDON] Batch correction complete.\n")
     cat("  Output dimensions:", nrow(counts_corrected), "x",
         ncol(counts_corrected), "\n")
   }
@@ -823,7 +823,7 @@ POSEIDON_filter_by_group <- function(quant_result,
   }
 
   if (verbose) {
-    cat("Filtering by group:\n")
+    cat("[POSEIDON] Filtering by group:\n")
     cat("  Keeping groups:", paste(groups, collapse = ", "), "\n")
     cat("  Samples before:", n_before, "\n")
     cat("  Samples after:", n_after, "\n")
@@ -884,7 +884,7 @@ POSEIDON_filter_by_metadata <- function(quant_result,
   }
 
   if (verbose) {
-    cat("Filtering by", column, ":\n")
+    cat("[POSEIDON] Filtering by", column, ":\n")
     cat("  Keeping values:", paste(values, collapse = ", "), "\n")
     cat("  Samples before:", n_before, "\n")
     cat("  Samples after:", n_after, "\n")
@@ -956,8 +956,8 @@ POSEIDON_match_samples <- function(data_list,
   })
 
   if (verbose) {
-    cat("Sample matching by:", match_col, "\n\n")
-    cat("Values per dataset:\n")
+    cat("[POSEIDON] Sample matching by:", match_col, "\n\n")
+    cat("[POSEIDON] Values per dataset:\n")
     for (nm in dataset_names) {
       cat("  ", nm, ":", paste(sort(values_per_dataset[[nm]]), collapse = ", "), "\n")
     }
@@ -971,8 +971,8 @@ POSEIDON_match_samples <- function(data_list,
   }
 
   if (verbose) {
-    cat("\nMatched values:", paste(sort(matched_values), collapse = ", "), "\n")
-    cat("Number of matched", match_col, ":", length(matched_values), "\n\n")
+    cat("\n[POSEIDON] Matched values:", paste(sort(matched_values), collapse = ", "), "\n")
+    cat("[POSEIDON] Number of matched", match_col, ":", length(matched_values), "\n\n")
   }
 
   # Filter each dataset to matched values
@@ -1002,7 +1002,7 @@ POSEIDON_match_samples <- function(data_list,
   }
 
   if (verbose) {
-    cat("Sample map:\n")
+    cat("[POSEIDON] Sample map:\n")
     print(sample_map)
   }
 
@@ -1117,7 +1117,7 @@ POSEIDON_average_tech_reps <- function(quant_result,
   group_cols <- setdiff(group_cols, tech_rep_col)
 
   if (verbose) {
-    cat("Averaging technical replicates:\n")
+    cat("[POSEIDON] Averaging technical replicates:\n")
     cat("  Grouping by:", paste(group_cols, collapse = ", "), "\n")
     cat("  Averaging over:", tech_rep_col, "\n")
     cat("  Method:", method, "\n")
@@ -1178,7 +1178,7 @@ POSEIDON_average_tech_reps <- function(quant_result,
   agg_targets$n_tech_reps <- n_tech_reps
 
   if (verbose) {
-    cat("\nTechnical replicates per biological sample:\n")
+    cat("\n[POSEIDON] Technical replicates per biological sample:\n")
     tech_rep_summary <- table(n_tech_reps)
     for (n in names(tech_rep_summary)) {
       cat("  ", tech_rep_summary[n], "sample(s) with", n, "tech rep(s)\n")
@@ -1254,7 +1254,7 @@ POSEIDON_filter_pairwise_identical <- function(X,
 
   # Handle list of matrices
  if (is.list(X) && !is.data.frame(X)) {
-    if (verbose) cat("Filtering pairwise identical features across", length(X), "datasets:\n")
+    if (verbose) cat("[POSEIDON] Filtering pairwise identical features across", length(X), "datasets:\n")
 
     result <- lapply(names(X), function(nm) {
       if (verbose) cat("\n  Dataset:", nm, "\n")
@@ -1299,7 +1299,7 @@ POSEIDON_filter_pairwise_identical <- function(X,
   }
 
   if (n_kept == 0) {
-    warning("All features removed! Every feature has at least one pair of identical values.")
+    warning("[POSEIDON] All features removed! Every feature has at least one pair of identical values.")
   }
 
   return(X[, keep_feature, drop = FALSE])
@@ -1453,7 +1453,7 @@ POSEIDON_encode_for_regression <- function(data,
     sample_ids <- sample_ids[!na_idx]
 
     if (verbose) {
-      cat("Removed", n_removed_na, "rows with NA in target variable\n")
+      cat("[POSEIDON] Removed", n_removed_na, "rows with NA in target variable\n")
     }
   }
 
@@ -1479,7 +1479,7 @@ POSEIDON_encode_for_regression <- function(data,
   }
 
   if (verbose) {
-    cat("\nVariable classification:\n")
+    cat("\n[POSEIDON] Variable classification:\n")
     cat("  Quantitative:", sum(var_types == "quantitative"), "\n")
     cat("  Categorical:", sum(var_types == "categorical"), "\n")
     cat("  Ordinal:", sum(var_types == "ordinal"), "\n")
@@ -1604,13 +1604,13 @@ POSEIDON_encode_for_regression <- function(data,
   names(groups) <- colnames(X)
 
   if (verbose) {
-    cat("\nEncoding summary:\n")
+    cat("\n[POSEIDON] Encoding summary:\n")
     cat("  Original variables:", length(var_names), "\n")
     cat("  Encoded columns:", ncol(X), "\n")
     cat("  Samples:", nrow(X), "\n")
     cat("  Groups for Group LASSO:", max(groups), "\n")
 
-    cat("\nColumn breakdown by variable:\n")
+    cat("\n[POSEIDON] Column breakdown by variable:\n")
     for (g in seq_along(group_names)) {
       n_cols <- sum(groups == g)
       cat("  ", group_names[g], ": ", n_cols, " column(s)\n", sep = "")
@@ -1757,7 +1757,7 @@ POSEIDON_scale_predictors <- function(X,
   unscaled_cols <- col_names[!cols_to_scale]
 
   if (verbose) {
-    cat("Scaling predictors:\n")
+    cat("[POSEIDON] Scaling predictors:\n")
     cat("  Method:", method, "\n")
     cat("  Total columns:", n_cols, "\n")
     cat("  Columns to scale:", sum(cols_to_scale), "\n")
@@ -1831,7 +1831,7 @@ POSEIDON_scale_predictors <- function(X,
     if (length(scaled_cols) > 0) {
       scaled_means <- colMeans(X_scaled[, scaled_cols, drop = FALSE], na.rm = TRUE)
       scaled_sds <- apply(X_scaled[, scaled_cols, drop = FALSE], 2, sd, na.rm = TRUE)
-      cat("\nScaled columns summary:\n")
+      cat("\n[POSEIDON] Scaled columns summary:\n")
       cat("  Mean range: [", round(min(scaled_means), 4), ", ",
           round(max(scaled_means), 4), "]\n", sep = "")
       cat("  SD range: [", round(min(scaled_sds), 4), ", ",

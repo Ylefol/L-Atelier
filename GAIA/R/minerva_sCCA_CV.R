@@ -241,10 +241,10 @@ MINERVA_cv_scca <- function(X = NULL, X_1 = NULL, X_2 = NULL,
   }
 
   if (verbose) {
-    cat(sprintf("Running %d-fold CV for %s with %d tau combinations\n",
+    cat(sprintf("[MINERVA] Running %d-fold CV for %s with %d tau combinations\n",
                 k, method, nrow(tau_grid)))
-    cat(sprintf("Training samples per fold: %d\n", min_train_size))
-    cat(sprintf("Total fits: %d\n\n", k * nrow(tau_grid)))
+    cat(sprintf("    Training samples per fold: %d\n", min_train_size))
+    cat(sprintf("    Total fits: %d\n\n", k * nrow(tau_grid)))
   }
 
   # Storage for results
@@ -261,7 +261,7 @@ MINERVA_cv_scca <- function(X = NULL, X_1 = NULL, X_2 = NULL,
     }
 
     if (verbose && i %% 10 == 0) {
-      cat(sprintf("Testing tau combination %d/%d...\n", i, nrow(tau_grid)))
+      cat(sprintf("[MINERVA] Testing tau combination %d/%d...\n", i, nrow(tau_grid)))
     }
 
     # K-fold CV for this tau combination
@@ -305,7 +305,7 @@ MINERVA_cv_scca <- function(X = NULL, X_1 = NULL, X_2 = NULL,
 
       }, error = function(e) {
         if (verbose) {
-          cat(sprintf("  Error in fold %d: %s\n", fold_idx, e$message))
+          cat(sprintf("[MINERVA] Error in fold %d: %s\n", fold_idx, e$message))
         }
         cv_scores[i, fold_idx] <- NA
       })
@@ -339,16 +339,16 @@ MINERVA_cv_scca <- function(X = NULL, X_1 = NULL, X_2 = NULL,
   best_score <- mean_scores[best_idx]
 
   if (verbose) {
-    cat("\n=== CV Results ===\n")
-    cat(sprintf("Best %s: %.4f (+/- %.4f)\n", metric, best_score, sd_scores[best_idx]))
-    cat("Best tau values:\n")
+    cat("\n[MINERVA] CV Results \n")
+    cat(sprintf("    Best %s: %.4f (+/- %.4f)\n", metric, best_score, sd_scores[best_idx]))
+    cat("    Best tau values:\n")
     for (j in 1:length(best_tau)) {
-      cat(sprintf("  Dataset %d: %.3f\n", j, best_tau[[j]]))
+      cat(sprintf("    Dataset %d: %.3f\n", j, best_tau[[j]]))
     }
   }
 
   # Fit final model on full data with best tau
-  if (verbose) cat("\nFitting final model on full data...\n")
+  if (verbose) cat("\n[MINERVA] Fitting final model on full data...\n")
 
   if (is_multi) {
     final_model <- MINERVA_scca_fit(X = X, method = method, tau = best_tau,
@@ -487,8 +487,8 @@ MINERVA_pilot_compare_methods <- function(X = NULL, X_1 = NULL, X_2 = NULL,
   }
 
   if (verbose) {
-    cat("=== Pilot Comparison of sCCA Methods ===\n")
-    cat(sprintf("Training on %d samples, testing on %d samples\n\n",
+    cat("[MINERVA] Pilot Comparison of sCCA Methods \n")
+    cat(sprintf("    Training on %d samples, testing on %d samples\n\n",
                 length(train_indices), length(test_indices)))
   }
 
@@ -507,7 +507,7 @@ MINERVA_pilot_compare_methods <- function(X = NULL, X_1 = NULL, X_2 = NULL,
   models <- list()
 
   for (method in methods) {
-    if (verbose) cat(sprintf("Testing %s...\n", method))
+    if (verbose) cat(sprintf("[MINERVA] Testing %s...\n", method))
 
     # Choose appropriate tau
     tau <- if (method == "ConvCCA") default_tau_convCCA else default_tau_relPMDCCA
@@ -578,13 +578,13 @@ MINERVA_pilot_compare_methods <- function(X = NULL, X_1 = NULL, X_2 = NULL,
   best_method <- results$method[best_idx]
 
   if (verbose) {
-    cat("=== Recommendation ===\n")
+    cat("[MINERVA] Recommendation \n")
     if (use_composite_score) {
-      cat(sprintf("Best method: %s (composite score = %.4f, correlation = %.4f, sparsity quality = %.3f)\n",
+      cat(sprintf("    Best method: %s (composite score = %.4f, correlation = %.4f, sparsity quality = %.3f)\n",
                   best_method, results$composite_score[best_idx],
                   results$correlation[best_idx], results$sparsity_quality[best_idx]))
     } else {
-      cat(sprintf("Best method: %s (correlation = %.4f)\n",
+      cat(sprintf("    Best method: %s (correlation = %.4f)\n",
                   best_method, results$correlation[best_idx]))
     }
   }

@@ -51,13 +51,16 @@ Pass to \code{\link{HORIZON_process_bam}}.
 }
 \description{
 Aligns paired-end FASTQ files against a Bowtie2 index, piping output
-directly through \code{samtools view} for MAPQ filtering without writing
-an intermediate SAM file to disk. Applies \code{--no-mixed --no-discordant}
-by default (appropriate for all paired-end chromatin assays).
+directly through \code{samtools view} (MAPQ filtering) and
+\code{samtools sort} (coordinate sort) without writing an intermediate
+SAM file to disk. Output BAM is coordinate-sorted and ready for indexing.
+Applies \code{--no-mixed --no-discordant} by default (appropriate for all
+paired-end chromatin assays).
 }
 \details{
-Requires \code{bowtie2} and \code{samtools} to be available in \code{PATH}.
-Both can be installed via conda: \code{conda install -c bioconda bowtie2 samtools}.
+Requires \code{bowtie2} and \code{samtools} to be present in the HORIZON
+conda environment registered via \code{\link{HORIZON_set_conda_env}}.
+Install via: \code{conda install -n horizon_cli -c bioconda bowtie2 samtools}.
 
 All chromatin assay processing assumes \strong{paired-end} sequencing.
 Single-end data is not supported.

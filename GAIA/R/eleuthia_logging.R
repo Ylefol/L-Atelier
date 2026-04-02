@@ -191,7 +191,7 @@ ELEUTHIA_start_log <- function(log_file, append = FALSE) {
   .log_env$active <- TRUE
 
   # Print confirmation to console (which will also go to log)
-  cat(sprintf("Logging started: %s\n", log_file))
+  cat(sprintf("[ELEUTHIA] Logging started: %s\n", log_file))
 
   invisible(log_file)
 }
@@ -247,8 +247,7 @@ ELEUTHIA_stop_log <- function() {
   }
 
   # Print completion message (will appear in both console and log)
-  cat("\n")
-  cat("Logging stopped.\n")
+  cat("[ELEUTHIA] Logging stopped.\n")
 
   # Close stdout sink
   sink()

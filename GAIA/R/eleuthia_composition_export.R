@@ -73,13 +73,13 @@ ELEUTHIA_export_sequence_composition <- function(composition,
       set_names <- paste0("set_", seq_along(composition))
     }
     if (verbose) {
-      cat("=== Exporting Sequence Composition Results ===\n")
-      cat("Sets:", paste(set_names, collapse = ", "), "\n\n")
+      cat("[ELEUTHIA] Exporting Sequence Composition Results \n")
+      cat("    Sets:", paste(set_names, collapse = ", "), "\n\n")
     }
     all_files <- character(0)
     for (i in seq_along(composition)) {
       nm <- set_names[i]
-      if (verbose) cat("--- ", nm, " ---\n", sep = "")
+      if (verbose) cat("    --- ", nm, " ---\n", sep = "")
       set_files <- ELEUTHIA_export_sequence_composition(
         composition    = composition[[i]],
         output_dir     = file.path(output_dir, nm),
@@ -91,9 +91,9 @@ ELEUTHIA_export_sequence_composition <- function(composition,
       all_files <- c(all_files, set_files)
     }
     if (verbose) {
-      cat("\n--- Export Summary ---\n")
-      cat("Total files created:", length(all_files), "\n")
-      cat("Output directory:", output_dir, "\n")
+      cat("[ELEUTHIA] Export Summary \n")
+      cat("    Total files created:", length(all_files), "\n")
+      cat("    Output directory:", output_dir, "\n")
     }
     return(invisible(all_files))
   }
@@ -116,13 +116,13 @@ ELEUTHIA_export_sequence_composition <- function(composition,
   }
 
   if (verbose) {
-    cat("=== Exporting Sequence Composition Results ===\n")
-    cat("Regions:", n_regions, "\n")
+    cat("[ELEUTHIA] Exporting Sequence Composition Results \n")
+    cat("    Regions:", n_regions, "\n")
   }
 
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
-    if (verbose) cat("Created directory:", output_dir, "\n")
+    if (verbose) cat("    Created directory:", output_dir, "\n")
   }
 
   files_created <- character(0)
@@ -136,7 +136,7 @@ ELEUTHIA_export_sequence_composition <- function(composition,
     seq_df <- composition[, c("peak_id", "sequence"), drop = FALSE]
     write.csv(seq_df, seq_file, row.names = FALSE)
     files_created <- c(files_created, seq_file)
-    if (verbose) cat("  Sequences:", seq_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   Sequences:", seq_file, "\n")
   }
 
   # --------------------------------------------------------------------------
@@ -147,7 +147,7 @@ ELEUTHIA_export_sequence_composition <- function(composition,
   comp_file <- file.path(output_dir, paste0(prefix, "_composition.csv"))
   write.csv(comp_export, comp_file, row.names = FALSE)
   files_created <- c(files_created, comp_file)
-  if (verbose) cat("  Composition:", comp_file, "\n")
+  if (verbose) cat("[ELEUTHIA]   Composition:", comp_file, "\n")
 
   # --------------------------------------------------------------------------
   # Summary TXT
@@ -240,7 +240,7 @@ ELEUTHIA_export_sequence_composition <- function(composition,
   summ_file <- file.path(output_dir, paste0(prefix, "_summary.txt"))
   writeLines(summary_lines, summ_file)
   files_created <- c(files_created, summ_file)
-  if (verbose) cat("  Summary:", summ_file, "\n")
+  if (verbose) cat("[ELEUTHIA]   Summary:", summ_file, "\n")
 
   # --------------------------------------------------------------------------
   # RDS
@@ -249,13 +249,13 @@ ELEUTHIA_export_sequence_composition <- function(composition,
     rds_file <- file.path(output_dir, paste0(prefix, "_composition.rds"))
     saveRDS(composition, rds_file)
     files_created <- c(files_created, rds_file)
-    if (verbose) cat("  RDS:", rds_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   RDS:", rds_file, "\n")
   }
 
   if (verbose) {
-    cat("\n--- Export Summary ---\n")
-    cat("Total files created:", length(files_created), "\n")
-    cat("Output directory:", output_dir, "\n")
+    cat("[ELEUTHIA] Export Summary \n")
+    cat("    Total files created:", length(files_created), "\n")
+    cat("    Output directory:", output_dir, "\n")
   }
 
   invisible(files_created)

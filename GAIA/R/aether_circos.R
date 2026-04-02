@@ -128,7 +128,7 @@ AETHER_prepare_circos_data <- function(sample_sheet,
   n_samples <- length(sample_names)
 
   if (verbose) {
-    cat("Preparing circos data for", n_samples, "samples\n")
+    cat("[AETHER] Preparing circos data for", n_samples, "samples\n")
     cat("  Omics:", paste(unique(subset_df$omics), collapse = ", "), "\n")
     cat("  Groups:", paste(unique(subset_df$group), collapse = ", "), "\n")
     cat("  Bin size:", format(bin_size, big.mark = ","), "bp\n")
@@ -165,7 +165,7 @@ AETHER_prepare_circos_data <- function(sample_sheet,
   n_bins <- nrow(bins)
 
   if (verbose) {
-    cat("Created", format(n_bins, big.mark = ","), "genomic bins across",
+    cat("[AETHER] Created", format(n_bins, big.mark = ","), "genomic bins across",
         nrow(chr_sizes), "chromosomes\n\n")
   }
 
@@ -188,7 +188,7 @@ AETHER_prepare_circos_data <- function(sample_sheet,
     bed_path <- subset_df$bed_loc[s]
 
     if (verbose) {
-      cat("  [", s, "/", n_samples, "] ", sample_id, ": ", sep = "")
+      cat("[AETHER]  [", s, "/", n_samples, "] ", sample_id, ": ", sep = "")
     }
 
     # Check file exists
@@ -207,14 +207,14 @@ AETHER_prepare_circos_data <- function(sample_sheet,
     )
 
     if (verbose) {
-      cat(format(nrow(bed_dt), big.mark = ","), "fragments ... ")
+      cat('[AETHER] ',format(nrow(bed_dt), big.mark = ","), "fragments ... ")
     }
 
     # Filter to chromosomes in chr_sizes
     bed_dt <- bed_dt[bed_dt$chr %in% chr_sizes$chr, ]
 
     if (nrow(bed_dt) == 0) {
-      if (verbose) cat("no fragments in target chromosomes\n")
+      if (verbose) cat("[AETHER] no fragments in target chromosomes\n")
       next
     }
 
@@ -245,7 +245,7 @@ AETHER_prepare_circos_data <- function(sample_sheet,
   }
 
   if (verbose) {
-    cat("\nBinning complete. Total counts:", format(sum(counts), big.mark = ","), "\n")
+    cat("\n[AETHER] Binning complete. Total counts:", format(sum(counts), big.mark = ","), "\n")
   }
 
   # Aggregate by group if requested
@@ -290,7 +290,7 @@ AETHER_prepare_circos_data <- function(sample_sheet,
     )
 
     if (verbose) {
-      cat("Aggregated to", length(groups), "groups\n")
+      cat("[AETHER] Aggregated to", length(groups), "groups\n")
     }
 
   } else {
@@ -326,7 +326,7 @@ AETHER_prepare_circos_data <- function(sample_sheet,
     }
 
     if (verbose) {
-      cat("Outliers capped at mean + 3*SD per sample/group\n")
+      cat("[AETHER] Outliers capped at mean + 3*SD per sample/group\n")
     }
   }
 
@@ -589,7 +589,7 @@ AETHER_create_circos <- function(circos_data,
   }
 
   if (verbose) {
-    cat("Creating circos plot\n")
+    cat("[AETHER] Creating circos plot\n")
     cat("  Samples/groups:", n_samples, "\n")
     cat("  Chromosomes:", nrow(chr_sizes), "\n")
     cat("  Bins:", nrow(bins), "\n")

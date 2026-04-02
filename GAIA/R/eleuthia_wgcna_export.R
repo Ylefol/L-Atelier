@@ -73,12 +73,12 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
                                            save_rds = TRUE,
                                            verbose = TRUE) {
 
-  if (verbose) cat("=== Exporting WGCNA Results ===\n")
+  if (verbose) cat("[ELEUTHIA] Exporting WGCNA Results \n")
 
   # Create output directory
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
-    if (verbose) cat("Created directory:", output_dir, "\n")
+    if (verbose) cat("[ELEUTHIA] Created directory:", output_dir, "\n")
   }
 
   files_created <- character(0)
@@ -87,19 +87,19 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
   # Export modules
   # --------------------------------------------------------------------------
   if (!is.null(modules)) {
-    if (verbose) cat("\nExporting module results...\n")
+    if (verbose) cat("\n[ELEUTHIA] Exporting module results...\n")
 
     # Gene-module assignments
     gene_modules_file <- file.path(output_dir, paste0(prefix, "_gene_modules.csv"))
     write.csv(modules$gene_module_df, gene_modules_file, row.names = FALSE)
     files_created <- c(files_created, gene_modules_file)
-    if (verbose) cat("  Gene-module assignments:", gene_modules_file, "\n")
+    if (verbose) cat("    Gene-module assignments:", gene_modules_file, "\n")
 
     # Module summary
     summary_file <- file.path(output_dir, paste0(prefix, "_module_summary.csv"))
     write.csv(modules$module_summary, summary_file, row.names = FALSE)
     files_created <- c(files_created, summary_file)
-    if (verbose) cat("  Module summary:", summary_file, "\n")
+    if (verbose) cat("    Module summary:", summary_file, "\n")
 
     # Module eigengenes
     me_file <- file.path(output_dir, paste0(prefix, "_module_eigengenes.csv"))
@@ -108,7 +108,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
     me_df <- me_df[, c("sample", setdiff(names(me_df), "sample"))]
     write.csv(me_df, me_file, row.names = FALSE)
     files_created <- c(files_created, me_file)
-    if (verbose) cat("  Module eigengenes:", me_file, "\n")
+    if (verbose) cat("    Module eigengenes:", me_file, "\n")
 
     # Individual module gene lists
     modules_dir <- file.path(output_dir, paste0(prefix, "_modules"))
@@ -124,7 +124,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
       write.csv(mod_df, mod_file, row.names = FALSE)
       files_created <- c(files_created, mod_file)
     }
-    if (verbose) cat("  Module gene lists:", modules_dir, "/\n")
+    if (verbose) cat("    Module gene lists:", modules_dir, "/\n")
 
     # Export color map
     if (!is.null(modules$module_colors)) {
@@ -138,7 +138,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
       )
       write.csv(color_map_df, color_map_file, row.names = FALSE)
       files_created <- c(files_created, color_map_file)
-      if (verbose) cat("  Color map:", color_map_file, "\n")
+      if (verbose) cat("    Color map:", color_map_file, "\n")
     }
 
     # Save RDS
@@ -146,7 +146,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
       rds_file <- file.path(output_dir, paste0(prefix, "_modules.rds"))
       saveRDS(modules, rds_file)
       files_created <- c(files_created, rds_file)
-      if (verbose) cat("  RDS:", rds_file, "\n")
+      if (verbose) cat("    RDS:", rds_file, "\n")
     }
   }
 
@@ -154,7 +154,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
   # Export trait correlations
   # --------------------------------------------------------------------------
   if (!is.null(trait_cor)) {
-    if (verbose) cat("\nExporting trait correlation results...\n")
+    if (verbose) cat("\n[ELEUTHIA] Exporting trait correlation results...\n")
 
     # Correlation matrix
     cor_file <- file.path(output_dir, paste0(prefix, "_trait_correlations.csv"))
@@ -163,7 +163,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
     cor_df <- cor_df[, c("module", setdiff(names(cor_df), "module"))]
     write.csv(cor_df, cor_file, row.names = FALSE)
     files_created <- c(files_created, cor_file)
-    if (verbose) cat("  Correlations:", cor_file, "\n")
+    if (verbose) cat("    Correlations:", cor_file, "\n")
 
     # P-value matrix
     pval_file <- file.path(output_dir, paste0(prefix, "_trait_pvalues.csv"))
@@ -172,21 +172,21 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
     pval_df <- pval_df[, c("module", setdiff(names(pval_df), "module"))]
     write.csv(pval_df, pval_file, row.names = FALSE)
     files_created <- c(files_created, pval_file)
-    if (verbose) cat("  P-values:", pval_file, "\n")
+    if (verbose) cat("    P-values:", pval_file, "\n")
 
     # Significant associations
     if (nrow(trait_cor$significant_associations) > 0) {
       sig_file <- file.path(output_dir, paste0(prefix, "_significant_associations.csv"))
       write.csv(trait_cor$significant_associations, sig_file, row.names = FALSE)
       files_created <- c(files_created, sig_file)
-      if (verbose) cat("  Significant associations:", sig_file, "\n")
+      if (verbose) cat("    Significant associations:", sig_file, "\n")
     }
 
     if (save_rds) {
       rds_file <- file.path(output_dir, paste0(prefix, "_trait_cor.rds"))
       saveRDS(trait_cor, rds_file)
       files_created <- c(files_created, rds_file)
-      if (verbose) cat("  RDS:", rds_file, "\n")
+      if (verbose) cat("    RDS:", rds_file, "\n")
     }
   }
 
@@ -194,18 +194,18 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
   # Export gene significance
   # --------------------------------------------------------------------------
   if (!is.null(gene_sig)) {
-    if (verbose) cat("\nExporting gene significance results...\n")
+    if (verbose) cat("\n[ELEUTHIA] Exporting gene significance results...\n")
 
     gs_file <- file.path(output_dir, paste0(prefix, "_gene_significance.csv"))
     write.csv(gene_sig$gene_info, gs_file, row.names = FALSE)
     files_created <- c(files_created, gs_file)
-    if (verbose) cat("  Gene significance:", gs_file, "\n")
+    if (verbose) cat("    Gene significance:", gs_file, "\n")
 
     if (save_rds) {
       rds_file <- file.path(output_dir, paste0(prefix, "_gene_sig.rds"))
       saveRDS(gene_sig, rds_file)
       files_created <- c(files_created, rds_file)
-      if (verbose) cat("  RDS:", rds_file, "\n")
+      if (verbose) cat("    RDS:", rds_file, "\n")
     }
   }
 
@@ -213,23 +213,23 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
   # Export hub genes
   # --------------------------------------------------------------------------
   if (!is.null(hubs)) {
-    if (verbose) cat("\nExporting hub gene results...\n")
+    if (verbose) cat("\n[ELEUTHIA] Exporting hub gene results...\n")
 
     hub_file <- file.path(output_dir, paste0(prefix, "_hub_genes.csv"))
     write.csv(hubs$hub_genes, hub_file, row.names = FALSE)
     files_created <- c(files_created, hub_file)
-    if (verbose) cat("  Hub genes:", hub_file, "\n")
+    if (verbose) cat("    Hub genes:", hub_file, "\n")
 
     hub_summary_file <- file.path(output_dir, paste0(prefix, "_hub_summary.csv"))
     write.csv(hubs$hub_summary, hub_summary_file, row.names = FALSE)
     files_created <- c(files_created, hub_summary_file)
-    if (verbose) cat("  Hub summary:", hub_summary_file, "\n")
+    if (verbose) cat("    Hub summary:", hub_summary_file, "\n")
 
     if (save_rds) {
       rds_file <- file.path(output_dir, paste0(prefix, "_hubs.rds"))
       saveRDS(hubs, rds_file)
       files_created <- c(files_created, rds_file)
-      if (verbose) cat("  RDS:", rds_file, "\n")
+      if (verbose) cat("    RDS:", rds_file, "\n")
     }
   }
 
@@ -245,7 +245,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
         dir.create(plot_dir)
       }
 
-      if (verbose) cat("\nGenerating plots...\n")
+      if (verbose) cat("\n[ELEUTHIA] Generating plots...\n")
 
       # Helper function to save plots
       .save_plot <- function(p, name, width = 10, height = 8) {
@@ -269,7 +269,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
         p <- tryCatch({
           AETHER_plot_wgcna_power(power_result, return_plots = FALSE)
         }, error = function(e) {
-          if (verbose) cat("  Warning: Could not create power plot -", e$message, "\n")
+          if (verbose) cat("[ELEUTHIA] Warning: Could not create power plot -", e$message, "\n")
           NULL
         })
         if (!is.null(p)) {
@@ -300,7 +300,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
                 dev.off()
                 files_created <- c(files_created, pdf_file)
               }
-              if (verbose) cat("  Power selection plot\n")
+              if (verbose) cat("[ELEUTHIA] Power selection plot\n")
             }
           }
         }
@@ -311,7 +311,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
         p <- tryCatch({
           AETHER_plot_module_trait_heatmap_gg(trait_cor)
         }, error = function(e) {
-          if (verbose) cat("  Warning: Could not create trait heatmap -", e$message, "\n")
+          if (verbose) cat("[ELEUTHIA] Warning: Could not create trait heatmap -", e$message, "\n")
           NULL
         })
         if (!is.null(p)) {
@@ -322,14 +322,14 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
           height <- max(6, n_modules * 0.4 + 2)
           plot_files <- .save_plot(p, "module_trait_heatmap", width = width, height = height)
           files_created <- c(files_created, plot_files)
-          if (verbose) cat("  Module-trait heatmap\n")
+          if (verbose) cat("[ELEUTHIA] Module-trait heatmap\n")
         }
       }
             if (!is.null(trait_cor)) {
         p <- tryCatch({
           AETHER_plot_module_trait_heatmap_gg(trait_cor,use_padj = TRUE)
         }, error = function(e) {
-          if (verbose) cat("  Warning: Could not create trait heatmap -", e$message, "\n")
+          if (verbose) cat("[ELEUTHIA] Warning: Could not create trait heatmap -", e$message, "\n")
           NULL
         })
         if (!is.null(p)) {
@@ -340,7 +340,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
           height <- max(6, n_modules * 0.4 + 2)
           plot_files <- .save_plot(p, "module_trait_heatmap_padj", width = width, height = height)
           files_created <- c(files_created, plot_files)
-          if (verbose) cat("  Module-trait heatmap padjusted\n")
+          if (verbose) cat("[ELEUTHIA] Module-trait heatmap padjusted\n")
         }
       }
 
@@ -359,7 +359,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
           tryCatch({
             AETHER_plot_sample_dendrogram(cluster_result, traits = traits)
           }, error = function(e) {
-            if (verbose) cat("  Warning: Could not create dendrogram -", e$message, "\n")
+            if (verbose) cat("[ELEUTHIA] Warning: Could not create dendrogram -", e$message, "\n")
           })
           dev.off()
           files_created <- c(files_created, png_file)
@@ -373,10 +373,10 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
           dev.off()
           files_created <- c(files_created, pdf_file)
         }
-        if (verbose) cat("  Sample dendrogram\n")
+        if (verbose) cat("[ELEUTHIA] Sample dendrogram\n")
       }
 
-      if (verbose) cat("  Plots saved to:", plot_dir, "/\n")
+      if (verbose) cat("[ELEUTHIA] Plots saved to:", plot_dir, "/\n")
     }
   }
 
@@ -384,7 +384,7 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
   # Export enrichment results
   # --------------------------------------------------------------------------
   if (!is.null(enrichment)) {
-    if (verbose) cat("\nExporting enrichment results...\n")
+    if (verbose) cat("\n[ELEUTHIA] Exporting enrichment results...\n")
 
     enrich_dir <- file.path(output_dir, paste0(prefix, "_enrichment"))
     enrich_files <- ELEUTHIA_export_enrichment(
@@ -399,15 +399,15 @@ ELEUTHIA_export_wgcna_results <- function(output_dir,
     files_created <- c(files_created, enrich_files)
 
     if (verbose) {
-      cat("  Enrichment directory:", enrich_dir, "\n")
-      cat("  Files created:", length(enrich_files), "\n")
+      cat("    Enrichment directory:", enrich_dir, "\n")
+      cat("    Files created:", length(enrich_files), "\n")
     }
   }
 
   if (verbose) {
-    cat("\n--- Export Summary ---\n")
-    cat("Total files created:", length(files_created), "\n")
-    cat("Output directory:", output_dir, "\n")
+    cat("\n[ELEUTHIA] Export Summary \n")
+    cat("    Total files created:", length(files_created), "\n")
+    cat("    Output directory:", output_dir, "\n")
   }
 
   invisible(files_created)
@@ -441,7 +441,7 @@ ELEUTHIA_wgcna_report <- function(output_dir,
                                    prefix = "wgcna",
                                    verbose = TRUE) {
 
-  if (verbose) cat("=== Generating WGCNA Report ===\n")
+  if (verbose) cat("[ELEUTHIA] Generating WGCNA Report \n")
 
   # Create output directory
   if (!dir.exists(output_dir)) {
@@ -580,7 +580,7 @@ ELEUTHIA_wgcna_report <- function(output_dir,
   add_line("================================================================================")
 
   if (verbose) {
-    cat("Report saved to:", report_file, "\n")
+    cat("[ELEUTHIA] Report saved to:", report_file, "\n")
   }
 
   invisible(report_file)

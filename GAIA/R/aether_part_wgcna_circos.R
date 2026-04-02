@@ -119,7 +119,7 @@ AETHER_plot_part_wgcna_circos <- function(circos_data,
 
   # Hide dummy module from display entirely
   if ("dummy" %in% module_names) {
-    if (verbose) cat("Hiding dummy module from display\n")
+    if (verbose) cat("[AETHER] Hiding dummy module from display\n")
     module_names <- module_names[module_names != "dummy"]
     modules_df <- modules_df[module_names, , drop = FALSE]
     module_colors <- module_colors[names(module_colors) != "dummy"]
@@ -148,7 +148,7 @@ AETHER_plot_part_wgcna_circos <- function(circos_data,
   cluster_sizes <- table(PART_df$cluster)[cluster_names]
 
   if (verbose) {
-    cat("=== Plotting PART-WGCNA Circos ===\n")
+    cat("[AETHER] Plotting PART-WGCNA Circos\n")
     cat("Clusters:", length(cluster_names), "| Modules:", length(module_names), "\n")
     cat("Sample tracks:", n_samples, "| Trait tracks:", n_traits, "\n")
   }
@@ -188,7 +188,7 @@ AETHER_plot_part_wgcna_circos <- function(circos_data,
   # Remove zero-size modules
   zero_modules <- module_names[modules_df_adj[module_names, "size"] == 0]
   if (length(zero_modules) > 0) {
-    if (verbose) cat("Removing zero-size modules:", paste(zero_modules, collapse = ", "), "\n")
+    if (verbose) cat("[AETHER] Removing zero-size modules:", paste(zero_modules, collapse = ", "), "\n")
     sectors <- sectors[!sectors %in% zero_modules]
     module_names <- module_names[!module_names %in% zero_modules]
     xlim_mat <- xlim_mat[sectors, , drop = FALSE]
@@ -361,11 +361,11 @@ AETHER_plot_part_wgcna_circos <- function(circos_data,
         track.height = gap_track_height,
         panel.fun = function(x, y) { invisible(NULL) }
       )
-      if (verbose) cat("Spacer track inserted after data track", gap_after_track, "\n")
+      if (verbose) cat("[AETHER] Spacer track inserted after data track", gap_after_track, "\n")
     }
   }
 
-  if (verbose) cat("Data tracks drawn\n")
+  if (verbose) cat("[AETHER] Data tracks drawn\n")
 
   # =========================================================================
   # Track labels (experimental — set show_track_labels = TRUE to enable)
@@ -416,7 +416,7 @@ AETHER_plot_part_wgcna_circos <- function(circos_data,
       }
     }
 
-    if (verbose) cat("Track labels drawn\n")
+    if (verbose) cat("[AETHER] Track labels drawn\n")
   }
 
   # =========================================================================
@@ -444,7 +444,7 @@ AETHER_plot_part_wgcna_circos <- function(circos_data,
     }
   )
 
-  if (verbose) cat("Label track drawn\n")
+  if (verbose) cat("[AETHER] Label track drawn\n")
 
   # =========================================================================
   # Chords: position-based connections between clusters and modules
@@ -583,7 +583,7 @@ AETHER_plot_part_wgcna_circos <- function(circos_data,
     }
   }
 
-  if (verbose) cat("Chords drawn\n")
+  if (verbose) cat("[AETHER] Chords drawn\n")
 
   circlize::circos.clear()
 
@@ -650,7 +650,7 @@ AETHER_plot_part_wgcna_circos <- function(circos_data,
 
   grDevices::dev.off()
 
-  if (verbose) cat("Saved to:", output_file, "\n")
+  if (verbose) cat("[AETHER] Saved to:", output_file, "\n")
 
   invisible(NULL)
 }

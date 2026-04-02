@@ -106,8 +106,8 @@ ELEUTHIA_export_atac_results <- function(output_dir,
   }
 
   if (verbose) {
-    cat("=== Exporting ATAC-seq Analysis Results ===\n")
-    cat("Output directory:", output_dir, "\n\n")
+    cat("[ELEUTHIA] Exporting ATAC-seq Analysis Results \n")
+    cat("    Output directory:", output_dir, "\n\n")
   }
 
   all_files <- list()
@@ -116,7 +116,7 @@ ELEUTHIA_export_atac_results <- function(output_dir,
   # Annotated peaks (named list of data.frames)
   # ==========================================================================
   if (!is.null(annotated_peaks)) {
-    if (verbose) cat("--- Annotated Peaks ---\n")
+    if (verbose) cat("[ELEUTHIA] Annotated Peaks \n")
 
     if (!is.list(annotated_peaks)) {
       warning("annotated_peaks must be a named list of data.frames. Skipping.")
@@ -136,14 +136,14 @@ ELEUTHIA_export_atac_results <- function(output_dir,
         nm  <- peak_names[i]
         df  <- annotated_peaks[[i]]
         if (!is.data.frame(df)) {
-          if (verbose) cat("  Skipping", nm, "(not a data.frame)\n")
+          if (verbose) cat("[ELEUTHIA]   Skipping", nm, "(not a data.frame)\n")
           next
         }
         out_file <- file.path(peaks_dir,
                                paste0(nm, "_annotated_peaks.csv"))
         write.csv(df, out_file, row.names = FALSE)
         peak_files <- c(peak_files, out_file)
-        if (verbose) cat("  ", nm, ":", basename(out_file),
+        if (verbose) cat("[ELEUTHIA]   ", nm, ":", basename(out_file),
                          "(", nrow(df), "peaks )\n")
       }
 
@@ -159,9 +159,9 @@ ELEUTHIA_export_atac_results <- function(output_dir,
               height = max(3, length(valid_peaks) * 0.8 + 1.5)
             )
             peak_files <- c(peak_files, bar_files)
-            if (verbose) cat("  Annotation barplot:", basename(bar_files[1]), "\n")
+            if (verbose) cat("[ELEUTHIA]   Annotation barplot:", basename(bar_files[1]), "\n")
           }, error = function(e) {
-            if (verbose) cat("  Warning: Could not create annotation barplot -",
+            if (verbose) cat("[ELEUTHIA]   Warning: Could not create annotation barplot -",
                              e$message, "\n")
           })
         }
@@ -194,7 +194,7 @@ ELEUTHIA_export_atac_results <- function(output_dir,
       )
       all_files$dea <- dea_files
     }, error = function(e) {
-      if (verbose) cat("Warning: DEA export failed -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA] Warning: DEA export failed -", e$message, "\n")
     })
     if (verbose) cat("\n")
   }
@@ -217,7 +217,7 @@ ELEUTHIA_export_atac_results <- function(output_dir,
       )
       all_files$enrichment <- enrich_files
     }, error = function(e) {
-      if (verbose) cat("Warning: Enrichment export failed -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA] Warning: Enrichment export failed -", e$message, "\n")
     })
     if (verbose) cat("\n")
   }
@@ -239,7 +239,7 @@ ELEUTHIA_export_atac_results <- function(output_dir,
       )
       all_files$homer <- homer_files
     }, error = function(e) {
-      if (verbose) cat("Warning: HOMER export failed -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA] Warning: HOMER export failed -", e$message, "\n")
     })
     if (verbose) cat("\n")
   }
@@ -260,7 +260,7 @@ ELEUTHIA_export_atac_results <- function(output_dir,
       )
       all_files$composition <- comp_files
     }, error = function(e) {
-      if (verbose) cat("Warning: Composition export failed -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA] Warning: Composition export failed -", e$message, "\n")
     })
     if (verbose) cat("\n")
   }
@@ -270,9 +270,9 @@ ELEUTHIA_export_atac_results <- function(output_dir,
   # ==========================================================================
   total_files <- sum(lengths(all_files))
   if (verbose) {
-    cat("=== Export Complete ===\n")
-    cat("Total files created:", total_files, "\n")
-    cat("Output directory:", output_dir, "\n")
+    cat("[ELEUTHIA] Export Complete \n")
+    cat("    Total files created:", total_files, "\n")
+    cat("    Output directory:", output_dir, "\n")
   }
 
   invisible(all_files)

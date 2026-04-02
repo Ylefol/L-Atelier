@@ -68,21 +68,21 @@ ELEUTHIA_export_cibersort_results <- function(result,
          call. = FALSE)
   }
 
-  if (verbose) cat("=== Exporting CIBERSORT Results ===\n")
+  if (verbose) cat("[ELEUTHIA] Exporting CIBERSORT Results \n")
 
   # Create output directory
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
-    if (verbose) cat("Created directory:", output_dir, "\n")
+    if (verbose) cat("    Created directory:", output_dir, "\n")
   }
 
   files_created <- character(0)
 
   if (verbose) {
-    cat("Samples:", result$metadata$n_samples, "\n")
-    cat("Cell types:", result$metadata$n_cell_types, "\n")
-    cat("Permutations:", result$metadata$perm, "\n")
-    cat("QN:", result$metadata$QN, "\n")
+    cat("    Samples:", result$metadata$n_samples, "\n")
+    cat("    Cell types:", result$metadata$n_cell_types, "\n")
+    cat("    Permutations:", result$metadata$perm, "\n")
+    cat("    QN:", result$metadata$QN, "\n")
   }
 
   # --------------------------------------------------------------------------
@@ -94,7 +94,7 @@ ELEUTHIA_export_cibersort_results <- function(result,
   prop_df <- prop_df[, c("sample", setdiff(names(prop_df), "sample"))]
   write.csv(prop_df, prop_file, row.names = FALSE)
   files_created <- c(files_created, prop_file)
-  if (verbose) cat("  Proportions:", prop_file, "\n")
+  if (verbose) cat("        Proportions:", prop_file, "\n")
 
   # --------------------------------------------------------------------------
   # Diagnostics CSV (correlation, RMSE, p-values)
@@ -118,7 +118,7 @@ ELEUTHIA_export_cibersort_results <- function(result,
     diag_file <- file.path(output_dir, paste0(prefix, "_diagnostics.csv"))
     write.csv(diag_df, diag_file, row.names = FALSE)
     files_created <- c(files_created, diag_file)
-    if (verbose) cat("  Diagnostics:", diag_file, "\n")
+    if (verbose) cat("        Diagnostics:", diag_file, "\n")
   }
 
   # --------------------------------------------------------------------------
@@ -184,7 +184,7 @@ ELEUTHIA_export_cibersort_results <- function(result,
   meta_lines <- c(meta_lines, "", paste("Exported:", Sys.time()))
   writeLines(meta_lines, meta_file)
   files_created <- c(files_created, meta_file)
-  if (verbose) cat("  Metadata:", meta_file, "\n")
+  if (verbose) cat("[ELEUTHIA]   Metadata:", meta_file, "\n")
 
   # --------------------------------------------------------------------------
   # Plots
@@ -195,7 +195,7 @@ ELEUTHIA_export_cibersort_results <- function(result,
       dir.create(plot_dir)
     }
 
-    if (verbose) cat("\nGenerating plots...\n")
+    if (verbose) cat("[ELEUTHIA] Generating plots...\n")
 
     # Stacked bar plot (ggplot)
     tryCatch({
@@ -204,9 +204,9 @@ ELEUTHIA_export_cibersort_results <- function(result,
                                   width = max(8, result$metadata$n_samples * 0.4 + 3),
                                   height = 7)
       files_created <- c(files_created, plot_files)
-      if (verbose) cat("  Cell proportions (stacked bar)\n")
+      if (verbose) cat("[ELEUTHIA]   Cell proportions (stacked bar)\n")
     }, error = function(e) {
-      if (verbose) cat("  Warning: Could not create proportions plot -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA]   Warning: Could not create proportions plot -", e$message, "\n")
     })
 
     # Heatmap (pheatmap)
@@ -229,9 +229,9 @@ ELEUTHIA_export_cibersort_results <- function(result,
       )
       files_created <- c(files_created,
                           .plot_paths(plot_dir, "cell_heatmap", plot_format))
-      if (verbose) cat("  Cell heatmap\n")
+      if (verbose) cat("[ELEUTHIA]   Cell heatmap\n")
     }, error = function(e) {
-      if (verbose) cat("  Warning: Could not create heatmap -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA]   Warning: Could not create heatmap -", e$message, "\n")
     })
 
     # Boxplot by group (only if group_by provided, ggplot)
@@ -243,13 +243,13 @@ ELEUTHIA_export_cibersort_results <- function(result,
                                     width = 16,
                                     height = max(6, ceiling(n_cell_types / 4) * 3))
         files_created <- c(files_created, plot_files)
-        if (verbose) cat("  Cell boxplot (by group)\n")
+        if (verbose) cat("[ELEUTHIA]   Cell boxplot (by group)\n")
       }, error = function(e) {
-        if (verbose) cat("  Warning: Could not create boxplot -", e$message, "\n")
+        if (verbose) cat("[ELEUTHIA]   Warning: Could not create boxplot -", e$message, "\n")
       })
     }
 
-    if (verbose) cat("  Plots saved to:", plot_dir, "/\n")
+    if (verbose) cat("[ELEUTHIA]   Plots saved to:", plot_dir, "/\n")
   }
 
   # --------------------------------------------------------------------------
@@ -259,13 +259,13 @@ ELEUTHIA_export_cibersort_results <- function(result,
     rds_file <- file.path(output_dir, paste0(prefix, "_result.rds"))
     saveRDS(result, rds_file)
     files_created <- c(files_created, rds_file)
-    if (verbose) cat("  RDS:", rds_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   RDS:", rds_file, "\n")
   }
 
   if (verbose) {
-    cat("\n--- Export Summary ---\n")
-    cat("Total files created:", length(files_created), "\n")
-    cat("Output directory:", output_dir, "\n")
+    cat("[ELEUTHIA] Export Summary \n")
+    cat("    Total files created:", length(files_created), "\n")
+    cat("    Output directory:", output_dir, "\n")
   }
 
   invisible(files_created)

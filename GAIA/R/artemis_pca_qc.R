@@ -115,7 +115,7 @@ ARTEMIS_pc_metadata_association <- function(matrix,
     complete_rows <- rowSums(is.na(matrix)) == 0
     n_dropped     <- sum(!complete_rows)
     if (verbose) {
-      cat("  Dropping", n_dropped, "proteins with any NA for PCA ",
+      cat("[ARTEMIS]   Dropping", n_dropped, "proteins with any NA for PCA ",
           "(", sum(complete_rows), "retained)\n")
     }
     matrix <- matrix[complete_rows, , drop = FALSE]
@@ -151,13 +151,13 @@ ARTEMIS_pc_metadata_association <- function(matrix,
   if (!is.null(ntop)) {
     ntop <- as.integer(ntop)
     if (ntop >= nrow(matrix)) {
-      if (verbose) cat("  ntop (", ntop, ") >= nrow(matrix) (", nrow(matrix),
+      if (verbose) cat("[ARTEMIS]   ntop (", ntop, ") >= nrow(matrix) (", nrow(matrix),
                        "); using all features\n", sep = "")
     } else {
       row_vars <- apply(matrix, 1, stats::var, na.rm = TRUE)
       top_idx  <- order(row_vars, decreasing = TRUE)[seq_len(ntop)]
       matrix   <- matrix[top_idx, , drop = FALSE]
-      if (verbose) cat("  Using top", ntop, "most variable features for PCA\n")
+      if (verbose) cat("[ARTEMIS]   Using top", ntop, "most variable features for PCA\n")
     }
   }
 
@@ -166,7 +166,7 @@ ARTEMIS_pc_metadata_association <- function(matrix,
   # ---------------------------------------------------------------------------
 
   if (verbose) {
-    cat("Running PCA on", nrow(matrix), "features x", ncol(matrix),
+    cat("[ARTEMIS] Running PCA on", nrow(matrix), "features x", ncol(matrix),
         "samples...\n")
   }
 
@@ -175,7 +175,7 @@ ARTEMIS_pc_metadata_association <- function(matrix,
 
   n_pcs_actual <- min(n_pcs, ncol(pca_result$x))
   if (n_pcs_actual < n_pcs && verbose) {
-    cat("  Requested", n_pcs, "PCs; only", n_pcs_actual, "available\n")
+    cat("    Requested", n_pcs, "PCs; only", n_pcs_actual, "available\n")
   }
   n_pcs        <- n_pcs_actual
   pc_scores    <- pca_result$x[, seq_len(n_pcs), drop = FALSE]
@@ -183,7 +183,7 @@ ARTEMIS_pc_metadata_association <- function(matrix,
 
   if (verbose) {
     cum_var <- round(100 * sum(var_explained), 1)
-    cat("  PC1-", n_pcs, " explain ", cum_var, "% of variance\n", sep = "")
+    cat("    PC1-", n_pcs, " explain ", cum_var, "% of variance\n", sep = "")
   }
 
   # ---------------------------------------------------------------------------
@@ -209,7 +209,7 @@ ARTEMIS_pc_metadata_association <- function(matrix,
 
   n_skipped <- sum(test_used == "skipped")
   if (verbose && n_skipped > 0) {
-    cat("  Skipped", n_skipped, "degenerate variable(s):",
+    cat("        Skipped", n_skipped, "degenerate variable(s):",
         paste(names(test_used)[test_used == "skipped"], collapse = ", "), "\n")
   }
 
@@ -273,13 +273,13 @@ ARTEMIS_pc_metadata_association <- function(matrix,
   }
 
   if (verbose) {
-    cat("  Association tests complete.\n")
+    cat("[ARTEMIS] Association tests complete.\n")
     # Report top associations
     min_p    <- apply(pval_mat, 2, min, na.rm = TRUE)
     top_vars <- sort(min_p)[seq_len(min(5, length(min_p)))]
-    cat("  Top associated variables (by min p across PCs):\n")
+    cat("    Top associated variables (by min p across PCs):\n")
     for (nm in names(top_vars)) {
-      cat("    ", nm, ": p =",
+      cat("        ", nm, ": p =",
           format(top_vars[nm], digits = 2, scientific = TRUE), "\n")
     }
   }
@@ -312,7 +312,7 @@ ARTEMIS_pc_metadata_association <- function(matrix,
 #' @export
 print.artemis_pc_assoc <- function(x, ...) {
   cat("PC-Metadata Association\n")
-  cat("-----------------------\n")
+  cat("------------------------------\n")
   cat("PCs tested     :", x$params$n_pcs, "\n")
   cum_var <- round(100 * sum(x$var_explained), 1)
   cat("Variance (PC1-", x$params$n_pcs, "): ", cum_var, "%\n", sep = "")
@@ -321,18 +321,18 @@ print.artemis_pc_assoc <- function(x, ...) {
   skipped  <- names(x$test_used)[x$test_used == "skipped"]
   cat("Variables tested:", length(tested), "\n")
   if (length(skipped) > 0) {
-    cat("Skipped (degenerate):", paste(skipped, collapse = ", "), "\n")
+    cat("   Skipped (degenerate):", paste(skipped, collapse = ", "), "\n")
   }
 
   cat("\nSignificant associations (p < 0.05):\n")
   sig_any <- apply(x$pvalues, 2, function(p) any(p < 0.05, na.rm = TRUE))
   if (!any(sig_any)) {
-    cat("  None\n")
+    cat("   None\n")
   } else {
     for (col in names(sig_any)[sig_any]) {
       sig_pcs <- rownames(x$pvalues)[!is.na(x$pvalues[, col]) &
                                        x$pvalues[, col] < 0.05]
-      cat("  ", col, ": ", paste(sig_pcs, collapse = ", "), "\n", sep = "")
+      cat("   ", col, ": ", paste(sig_pcs, collapse = ", "), "\n", sep = "")
     }
   }
   invisible(x)

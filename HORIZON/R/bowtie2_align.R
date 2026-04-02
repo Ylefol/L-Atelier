@@ -1,12 +1,15 @@
 #' Align FASTQ reads with Bowtie2
 #'
 #' Aligns paired-end FASTQ files against a Bowtie2 index, piping output
-#' directly through \code{samtools view} for MAPQ filtering without writing
-#' an intermediate SAM file to disk. Applies \code{--no-mixed --no-discordant}
-#' by default (appropriate for all paired-end chromatin assays).
+#' directly through \code{samtools view} (MAPQ filtering) and
+#' \code{samtools sort} (coordinate sort) without writing an intermediate
+#' SAM file to disk. Output BAM is coordinate-sorted and ready for indexing.
+#' Applies \code{--no-mixed --no-discordant} by default (appropriate for all
+#' paired-end chromatin assays).
 #'
-#' Requires \code{bowtie2} and \code{samtools} to be available in \code{PATH}.
-#' Both can be installed via conda: \code{conda install -c bioconda bowtie2 samtools}.
+#' Requires \code{bowtie2} and \code{samtools} to be present in the HORIZON
+#' conda environment registered via \code{\link{HORIZON_set_conda_env}}.
+#' Install via: \code{conda install -n horizon_cli -c bioconda bowtie2 samtools}.
 #'
 #' All chromatin assay processing assumes \strong{paired-end} sequencing.
 #' Single-end data is not supported.
@@ -50,11 +53,22 @@ HORIZON_run_bowtie2 <- function(sample_sheet,
                                  force       = FALSE,
                                  ...) {
 
-  if (Sys.which("bowtie2") == "")
-    stop("bowtie2 not found in PATH. Install via conda: conda install -c bioconda bowtie2",
+  env_path <- getOption("horizon.conda_env", default = NULL)
+  if (is.null(env_path))
+    stop("HORIZON conda environment is not set.\n",
+         "  Call HORIZON_set_conda_env('/path/to/conda/envs/horizon_cli') ",
+         "before running pipeline functions.", call. = FALSE)
+
+  bowtie2_bin  <- file.path(env_path, "bin", "bowtie2")
+  samtools_bin <- file.path(env_path, "bin", "samtools")
+
+  if (!file.exists(bowtie2_bin))
+    stop("bowtie2 not found in conda env at: ", file.path(env_path, "bin"),
+         "\n  Install via: conda install -n horizon_cli -c bioconda bowtie2",
          call. = FALSE)
-  if (Sys.which("samtools") == "")
-    stop("samtools not found in PATH. Install via conda: conda install -c bioconda samtools",
+  if (!file.exists(samtools_bin))
+    stop("samtools not found in conda env at: ", file.path(env_path, "bin"),
+         "\n  Install via: conda install -n horizon_cli -c bioconda samtools",
          call. = FALSE)
 
   row     <- .get_sample_row(sample_sheet, sample_id)
@@ -94,7 +108,7 @@ HORIZON_run_bowtie2 <- function(sample_sheet,
   extra_flags <- paste(c(...), collapse = " ")
 
   cmd <- paste(
-    "bowtie2",
+    shQuote(bowtie2_bin),
     "-x", shQuote(index),
     "-1", shQuote(r1),
     "-2", shQuote(r2),
@@ -105,8 +119,11 @@ HORIZON_run_bowtie2 <- function(sample_sheet,
     "-X", as.integer(max_insert),
     if (nzchar(extra_flags)) extra_flags else "",
     "|",
-    "samtools view -bS",
+    shQuote(samtools_bin), "view -bS",
     "-q", as.integer(min_mapq),
+    "|",
+    shQuote(samtools_bin), "sort",
+    "--threads", as.integer(threads),
     "-o", shQuote(filt_bam)
   )
 

@@ -118,11 +118,11 @@ if (!requireNamespace("GenomicRanges", quietly = TRUE)) {
     found <- intersect(common_id_cols, colnames(query_regions))
     if (length(found) > 0) {
       query_id_col <- found[1]
-      if (verbose) cat("Using '", query_id_col, "' as query ID column\n", sep = "")
+      if (verbose) cat("[ARTEMIS] Using '", query_id_col, "' as query ID column\n", sep = "")
     } else {
       query_regions$`.query_id` <- paste0("query_", seq_len(nrow(query_regions)))
       query_id_col <- ".query_id"
-      if (verbose) cat("Generated sequential query IDs\n")
+      if (verbose) cat("[ARTEMIS] Generated sequential query IDs\n")
     }
   } else if (!query_id_col %in% colnames(query_regions)) {
     stop("query_id_col '", query_id_col, "' not found in query_regions")
@@ -133,11 +133,11 @@ if (!requireNamespace("GenomicRanges", quietly = TRUE)) {
     found <- intersect(common_id_cols, colnames(subject_regions))
     if (length(found) > 0) {
       subject_id_col <- found[1]
-      if (verbose) cat("Using '", subject_id_col, "' as subject ID column\n", sep = "")
+      if (verbose) cat("[ARTEMIS] Using '", subject_id_col, "' as subject ID column\n", sep = "")
     } else {
       subject_regions$`.subject_id` <- paste0("subject_", seq_len(nrow(subject_regions)))
       subject_id_col <- ".subject_id"
-      if (verbose) cat("Generated sequential subject IDs\n")
+      if (verbose) cat("[ARTEMIS] Generated sequential subject IDs\n")
     }
   } else if (!subject_id_col %in% colnames(subject_regions)) {
     stop("subject_id_col '", subject_id_col, "' not found in subject_regions")
@@ -163,9 +163,9 @@ if (!requireNamespace("GenomicRanges", quietly = TRUE)) {
   )
 
   if (verbose) {
-    cat("\nFinding nearest features:\n")
-    cat("  Query regions:", length(query_gr), "\n")
-    cat("  Subject regions:", length(subject_gr), "\n")
+    cat("\n[]ARTEMIS] Finding nearest features:\n")
+    cat("    Query regions:", length(query_gr), "\n")
+    cat("    Subject regions:", length(subject_gr), "\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -199,7 +199,7 @@ if (!requireNamespace("GenomicRanges", quietly = TRUE)) {
     missing_idx <- setdiff(seq_len(nrow(query_regions)), query_idx)
 
     if (verbose && length(missing_idx) > 0) {
-      cat("  Queries with no subject on same chromosome:", length(missing_idx), "\n")
+      cat("    Queries with no subject on same chromosome:", length(missing_idx), "\n")
     }
 
     missing_rows <- data.frame(
@@ -229,28 +229,28 @@ if (!requireNamespace("GenomicRanges", quietly = TRUE)) {
     n_overlap <- sum(result$overlaps, na.rm = TRUE)
     n_valid <- sum(!is.na(result$distance))
 
-    cat("\nResults:\n")
-    cat("  Overlapping (distance = 0):", n_overlap,
+    cat("\n[ARTEMIS] Results:\n")
+    cat("    Overlapping (distance = 0):", n_overlap,
         sprintf("(%.1f%%)\n", 100 * n_overlap / nrow(result)))
-    cat("  Non-overlapping:", n_valid - n_overlap, "\n")
+    cat("    Non-overlapping:", n_valid - n_overlap, "\n")
 
     if (n_valid > n_overlap) {
       non_overlap_dist <- result$distance[!result$overlaps & !is.na(result$distance)]
-      cat("  Distance distribution (non-overlapping):\n")
-      cat("    Min:", min(non_overlap_dist), "bp\n")
-      cat("    Median:", median(non_overlap_dist), "bp\n")
-      cat("    Mean:", round(mean(non_overlap_dist)), "bp\n")
-      cat("    Max:", max(non_overlap_dist), "bp\n")
+      cat("    Distance distribution (non-overlapping):\n")
+      cat("        Min:", min(non_overlap_dist), "bp\n")
+      cat("        Median:", median(non_overlap_dist), "bp\n")
+      cat("        Mean:", round(mean(non_overlap_dist)), "bp\n")
+      cat("        Max:", max(non_overlap_dist), "bp\n")
 
       # Binned summary
       bins <- c(0, 100, 500, 1000, 5000, 10000, Inf)
       bin_labels <- c("<100bp", "100-500bp", "500bp-1kb", "1-5kb", "5-10kb", ">10kb")
       binned <- cut(non_overlap_dist, breaks = bins, labels = bin_labels, right = FALSE)
-      cat("    Binned:\n")
+      cat("        Binned:\n")
       for (i in seq_along(bin_labels)) {
         n_in_bin <- sum(binned == bin_labels[i], na.rm = TRUE)
         if (n_in_bin > 0) {
-          cat(sprintf("      %s: %d (%.1f%%)\n",
+          cat(sprintf("            %s: %d (%.1f%%)\n",
                       bin_labels[i], n_in_bin,
                       100 * n_in_bin / length(non_overlap_dist)))
         }
@@ -258,7 +258,7 @@ if (!requireNamespace("GenomicRanges", quietly = TRUE)) {
     }
 
     if (any(is.na(result$distance))) {
-      cat("  No match on chromosome:", sum(is.na(result$distance)), "\n")
+      cat("    No match on chromosome:", sum(is.na(result$distance)), "\n")
     }
   }
 

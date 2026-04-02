@@ -402,7 +402,7 @@ AETHER_plot_ppi_network_interactive <- function(graph,
       warning("htmlwidgets package needed for HTML export.")
     } else {
       htmlwidgets::saveWidget(vis, file = save_html, selfcontained = TRUE)
-      cat("Saved interactive network to:", save_html, "\n")
+      cat("[AETHER] Saved interactive network to:", save_html, "\n")
     }
   }
 

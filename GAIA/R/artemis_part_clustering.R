@@ -115,17 +115,17 @@ ARTEMIS_part <- function(mat,
   if (min_size < 2) stop("'min_size' must be at least 2")
 
   if (verbose) {
-    cat("=== ARTEMIS PART Clustering ===\n")
-    cat("Features:", nrow(mat), "| Samples:", ncol(mat), "\n")
-    cat("Parameters: q =", q, "| min_size =", min_size,
+    cat("[ARTEMIS] PART Clustering \n")
+    cat("    Features:", nrow(mat), "| Samples:", ncol(mat), "\n")
+    cat("    Parameters: q =", q, "| min_size =", min_size,
         "| B =", B, "| Kmax =", Kmax, "\n")
-    cat("Distance:", dist_method, "| Linkage:", linkage, "\n")
+    cat("    Distance:", dist_method, "| Linkage:", linkage, "\n")
   }
 
   # --- Set seed ---
   if (!is.null(seed)) {
     set.seed(seed)
-    if (verbose) cat("Seed:", seed, "\n")
+    if (verbose) cat("    Seed:", seed, "\n")
   }
 
   # --- Scale if requested ---
@@ -134,7 +134,7 @@ ARTEMIS_part <- function(mat,
     # Handle constant rows (NaN from zero variance)
     nan_rows <- rowSums(is.nan(mat)) > 0
     if (any(nan_rows)) {
-      if (verbose) cat("Removing", sum(nan_rows),
+      if (verbose) cat("    Removing", sum(nan_rows),
                         "constant features (zero variance after scaling)\n")
       mat <- mat[!nan_rows, , drop = FALSE]
     }
@@ -157,11 +157,11 @@ ARTEMIS_part <- function(mat,
   )
 
   # --- Compute threshold ---
-  if (verbose) cat("Computing threshold...\n")
+  if (verbose) cat("[ARTEMIS] Computing threshold...\n")
   params$min_dist <- .part_get_threshold(mat, q, params)
 
   # --- Run recursive PART ---
-  if (verbose) cat("Running PART recursion...\n")
+  if (verbose) cat("[ARTEMIS] Running PART recursion...\n")
   start_time <- proc.time()
 
   cluster_matrix <- .part_recursive(
@@ -187,20 +187,20 @@ ARTEMIS_part <- function(mat,
   }
 
   if (verbose) {
-    cat("Raw PART found", n_clusters, "clusters")
+    cat("[ARTEMIS] Raw PART found", n_clusters, "clusters")
     if (n_outliers > 0) cat(" +", n_outliers, "outliers")
     cat("\n")
   }
 
   # --- Reorder clusters hierarchically ---
-  if (verbose) cat("Reordering clusters...\n")
+  if (verbose) cat("[ARTEMIS] Reordering clusters...\n")
   reordered <- .part_reorder_clusters(labels, mat, dist_method, linkage)
 
   elapsed <- (proc.time() - start_time)["elapsed"]
 
   if (verbose) {
-    cat("Done in", round(elapsed, 1), "seconds\n")
-    cat("Final:", reordered$n_clusters, "clusters")
+    cat("    Done in", round(elapsed, 1), "seconds\n")
+    cat("    Final:", reordered$n_clusters, "clusters")
     if (reordered$n_outliers > 0) {
       cat(",", reordered$n_outliers, "outliers (C0)")
     }
@@ -258,25 +258,25 @@ ARTEMIS_part_summary <- function(part_result, verbose = TRUE) {
   }
 
   if (verbose) {
-    cat("=== PART Clustering Summary ===\n")
-    cat("Clusters:", part_result$n_clusters, "\n")
-    cat("Outliers:", part_result$n_outliers, "(C0)\n")
-    cat("Total features:", nrow(part_result$data), "\n")
-    cat("Samples:", ncol(part_result$data), "\n")
-    cat("Time:", round(part_result$computation_time, 1), "seconds\n")
+    cat("[ARTEMIS] PART Clustering Summary \n")
+    cat("    Clusters:", part_result$n_clusters, "\n")
+    cat("    Outliers:", part_result$n_outliers, "(C0)\n")
+    cat("    Total features:", nrow(part_result$data), "\n")
+    cat("    Samples:", ncol(part_result$data), "\n")
+    cat("    Time:", round(part_result$computation_time, 1), "seconds\n")
 
-    cat("\nParameters:\n")
+    cat("\n    Parameters:\n")
     p <- part_result$parameters
-    cat("  q =", p$q, "| min_size =", p$min_size,
+    cat("        q =", p$q, "| min_size =", p$min_size,
         "| B =", p$B, "| Kmax =", p$Kmax, "\n")
-    cat("  dist =", p$dist_method, "| linkage =", p$linkage,
+    cat("        dist =", p$dist_method, "| linkage =", p$linkage,
         "| scale =", p$scale, "\n")
-    cat("  threshold =", round(p$threshold, 4), "\n")
+    cat("        threshold =", round(p$threshold, 4), "\n")
 
-    cat("\nCluster sizes:\n")
+    cat("\n    Cluster sizes:\n")
     sizes <- part_result$cluster_sizes
     for (cl in names(sizes)) {
-      cat("  ", cl, ":", sizes[cl], "features\n")
+      cat("        ", cl, ":", sizes[cl], "features\n")
     }
   }
 
@@ -292,7 +292,8 @@ ARTEMIS_part_summary <- function(part_result, verbose = TRUE) {
 print.artemis_part <- function(x, ...) {
   cat("PART clustering:", x$n_clusters, "clusters,",
       nrow(x$data), "features,", ncol(x$data), "samples\n")
-  if (x$n_outliers > 0) cat("Outliers:", x$n_outliers, "(C0)\n")
+  cat("------------------------------\n")
+  if (x$n_outliers > 0) cat("    Outliers:", x$n_outliers, "(C0)\n")
   cat("Sizes:", paste(x$cluster_sizes, collapse = ", "), "\n")
   invisible(x)
 }
@@ -561,7 +562,7 @@ print.artemis_part <- function(x, ...) {
 
   # --- Case B: hatK > 1 ---
   if (verbose && depth < 2) {
-    cat("  Depth", depth, ": splitting into", hatK, "clusters (n =", n, ")\n")
+    cat("    Depth", depth, ": splitting into", hatK, "clusters (n =", n, ")\n")
   }
 
   res <- matrix(NA, nrow = length(ind), ncol = 0)

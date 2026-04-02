@@ -103,9 +103,8 @@ if (!na_action %in% c("fail", "omit", "impute")) {
   original_ncol <- ncol(data)
 
   if (verbose) {
-    cat("ARTEMIS FAMD Analysis\n")
-    cat("=====================\n")
-    cat("Input data:", original_nrow, "observations,", original_ncol, "variables\n")
+    cat("[ARTEMIS] ARTEMIS FAMD Analysis\n")
+    cat("    Input data:", original_nrow, "observations,", original_ncol, "variables\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -122,7 +121,7 @@ if (!na_action %in% c("fail", "omit", "impute")) {
   n_other <- sum(var_types == "other")
 
   if (verbose) {
-    cat("Variable types:", n_quanti, "quantitative,", n_quali, "qualitative")
+    cat("    Variable types:", n_quanti, "quantitative,", n_quali, "qualitative")
     if (n_other > 0) cat(",", n_other, "other (will be excluded)")
     cat("\n")
   }
@@ -141,7 +140,7 @@ if (!na_action %in% c("fail", "omit", "impute")) {
   if (n_other > 0) {
     other_cols <- names(var_types)[var_types == "other"]
     if (verbose) {
-      cat("  Excluding non-standard columns:", paste(other_cols, collapse = ", "), "\n")
+      cat("        Excluding non-standard columns:", paste(other_cols, collapse = ", "), "\n")
     }
     data <- data[, var_types != "other", drop = FALSE]
     var_types <- var_types[var_types != "other"]
@@ -152,7 +151,7 @@ if (!na_action %in% c("fail", "omit", "impute")) {
   if (any(char_cols)) {
     data[char_cols] <- lapply(data[char_cols], as.factor)
     if (verbose) {
-      cat("  Converted", sum(char_cols), "character column(s) to factor\n")
+      cat("        Converted", sum(char_cols), "character column(s) to factor\n")
     }
   }
 
@@ -187,7 +186,7 @@ if (!na_action %in% c("fail", "omit", "impute")) {
       }
 
       if (verbose) {
-        cat("  Prefixed levels for", sum(factor_cols), "factor column(s)\n")
+        cat("        Prefixed levels for", sum(factor_cols), "factor column(s)\n")
       }
     }
   }
@@ -210,7 +209,7 @@ if (!na_action %in% c("fail", "omit", "impute")) {
   if (length(high_na_cols) > 0) {
     if (verbose) {
       cat("\nNA Handling:\n")
-      cat("  Dropping", length(high_na_cols), "column(s) with >",
+      cat("    Dropping", length(high_na_cols), "column(s) with >",
           round(na_threshold * 100), "% missing:\n")
       for (col in high_na_cols) {
         cat("    -", col, "(", round(na_props[col] * 100, 1), "% NA)\n")
@@ -237,7 +236,7 @@ if (!na_action %in% c("fail", "omit", "impute")) {
 
   if (remaining_na > 0) {
     if (verbose) {
-      cat("  Remaining NA values:", remaining_na, "\n")
+      cat("    Remaining NA values:", remaining_na, "\n")
     }
 
     if (na_action == "fail") {
@@ -259,7 +258,7 @@ if (!na_action %in% c("fail", "omit", "impute")) {
       na_report$rows_dropped <- n_dropped
 
       if (verbose) {
-        cat("  Removed", n_dropped, "incomplete rows (",
+        cat("    Removed", n_dropped, "incomplete rows (",
             round(n_dropped / original_nrow * 100, 1), "% of data)\n")
       }
 
@@ -269,7 +268,7 @@ if (!na_action %in% c("fail", "omit", "impute")) {
 
     } else if (na_action == "impute") {
       if (verbose) {
-        cat("  Imputing missing values using missMDA::imputeFAMD()...\n")
+        cat("    Imputing missing values using missMDA::imputeFAMD()...\n")
       }
 
       # Impute using iterative FAMD
@@ -278,20 +277,20 @@ if (!na_action %in% c("fail", "omit", "impute")) {
       na_report$imputed <- TRUE
 
       if (verbose) {
-        cat("  Imputation complete\n")
+        cat("    Imputation complete\n")
       }
     }
   } else if (verbose) {
-    cat("  No missing values in data\n")
+    cat("    No missing values in data\n")
   }
 
   # ---------------------------------------------------------------------------
   # Step 4: Run FAMD
   # ---------------------------------------------------------------------------
   if (verbose) {
-    cat("\nRunning FAMD analysis...\n")
-    cat("  Final data:", nrow(data), "observations,", ncol(data), "variables\n")
-    cat("  Dimensions to compute:", ncp, "\n")
+    cat("\n[ARTEMIS] Running FAMD analysis...\n")
+    cat("    Final data:", nrow(data), "observations,", ncol(data), "variables\n")
+    cat("    Dimensions to compute:", ncp, "\n")
   }
 
   # Adjust supplementary variable indices if columns were dropped
@@ -320,7 +319,7 @@ if (!na_action %in% c("fail", "omit", "impute")) {
   # Step 5: Structure output
   # ---------------------------------------------------------------------------
   if (verbose) {
-    cat("\nResults summary:\n")
+    cat("\n[ARTEMIS] Results summary:\n")
   }
 
   # Extract eigenvalues
@@ -332,9 +331,9 @@ if (!na_action %in% c("fail", "omit", "impute")) {
   )
 
   if (verbose) {
-    cat("  Variance explained by first", min(5, nrow(eigenvalues)), "dimensions:\n")
+    cat("    Variance explained by first", min(5, nrow(eigenvalues)), "dimensions:\n")
     for (i in seq_len(min(5, nrow(eigenvalues)))) {
-      cat("    Dim", i, ":", round(eigenvalues$variance_percent[i], 1), "%",
+      cat("        Dim", i, ":", round(eigenvalues$variance_percent[i], 1), "%",
           "(cumulative:", round(eigenvalues$cumulative_percent[i], 1), "%)\n")
     }
   }
@@ -376,7 +375,7 @@ if (!na_action %in% c("fail", "omit", "impute")) {
   class(result) <- c("artemis_famd", "list")
 
   if (verbose) {
-    cat("\nFAMD analysis complete.\n")
+    cat("\n[ARTEMIS] FAMD analysis complete.\n")
   }
 
   return(result)
@@ -391,21 +390,21 @@ if (!na_action %in% c("fail", "omit", "impute")) {
 #' @method print artemis_famd
 #' @export
 print.artemis_famd <- function(x, ...) {
-  cat("ARTEMIS FAMD Result\n")
-  cat("===================\n")
+  cat("FAMD Result\n")
+  cat("------------------------------\n")
   cat("Data:", nrow(x$data_used), "observations,", ncol(x$data_used), "variables\n")
 
   n_quanti <- sum(sapply(x$data_used, is.numeric))
   n_quali <- ncol(x$data_used) - n_quanti
-  cat("  Quantitative:", n_quanti, "\n")
-  cat("  Qualitative:", n_quali, "\n")
+  cat("Quantitative:", n_quanti, "\n")
+  cat("Qualitative:", n_quali, "\n")
 
   cat("\nVariance explained:\n")
   top_dims <- min(5, nrow(x$eigenvalues))
   for (i in seq_len(top_dims)) {
-    cat("  Dim", i, ":", round(x$eigenvalues$variance_percent[i], 1), "%\n")
+    cat("Dim", i, ":", round(x$eigenvalues$variance_percent[i], 1), "%\n")
   }
-  cat("  Cumulative (", top_dims, " dims):", round(x$eigenvalues$cumulative_percent[top_dims], 1), "%\n")
+  cat("Cumulative (", top_dims, " dims):", round(x$eigenvalues$cumulative_percent[top_dims], 1), "%\n")
 
   if (x$na_report$imputed) {
     cat("\nNote: Missing values were imputed using iterative FAMD\n")

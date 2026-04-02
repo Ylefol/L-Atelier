@@ -54,7 +54,7 @@ HADES_filter_olink <- function(olink_data,
       smeta     <- smeta[smeta$SampleType == "SAMPLE", ]
       n_removed <- n_before - nrow(smeta)
       if (verbose && n_removed > 0) {
-        cat("  Removed", n_removed, "non-SAMPLE samples (controls)\n")
+        cat("[HADES] Removed", n_removed, "non-SAMPLE samples (controls)\n")
       }
     }
   }
@@ -71,7 +71,7 @@ HADES_filter_olink <- function(olink_data,
       failed    <- smeta[[sid_col]][smeta$SampleQC == "FAIL"]
       smeta     <- smeta[smeta$SampleQC != "FAIL", ]
       if (verbose && length(failed) > 0) {
-        cat("  Removed", length(failed), "samples with SampleQC == 'FAIL':\n")
+        cat("[HADES] Removed", length(failed), "samples with SampleQC == 'FAIL':\n")
         cat("   ", paste(failed, collapse = ", "), "\n")
       }
     }
@@ -79,7 +79,7 @@ HADES_filter_olink <- function(olink_data,
 
   n_retained <- nrow(smeta)
   if (verbose) {
-    cat("  Retained:", n_retained, "of", n_start, "samples\n")
+    cat("[HADES] Retained:", n_retained, "of", n_start, "samples\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -178,7 +178,7 @@ HADES_detect_outliers_olink <- function(olink_data,
   n_pcs <- min(as.integer(n_pcs), ncol(wide) - 1L, nrow(wide) - 1L)
   if (n_pcs < 1L) stop("Not enough samples/proteins for PCA-based outlier detection.")
 
-  if (verbose) cat("HADES_detect_outliers_olink:\n")
+  if (verbose) cat("[HADES] Detecting outliers:\n")
 
   # ---------------------------------------------------------------------------
   # Prepare matrix: mean-impute NAs per protein, then scale proteins
@@ -228,7 +228,7 @@ HADES_detect_outliers_olink <- function(olink_data,
 
   if (verbose) {
     var_pct <- round(100 * pca$sdev^2 / sum(pca$sdev^2), 1)
-    cat("  PCs used:", n_pcs, " | variance explained:",
+    cat("[HADES] PCs used:", n_pcs, " | variance explained:",
         paste0(var_pct[seq_len(n_pcs)], "%", collapse = ", "), "\n")
     cat("  Method  :", method, " | threshold:", threshold,
         " | cutoff:", round(cutoff, 3), "\n")
@@ -275,13 +275,13 @@ HADES_detect_outliers_olink <- function(olink_data,
                                  drop = FALSE]
 
     if (verbose)
-      cat("  Removed", n_flagged, "outlier sample(s); retained",
+      cat("[HADES] Removed", n_flagged, "outlier sample(s); retained",
           nrow(smeta), "\n")
   } else {
     data_df  <- olink_data$data
     wide_mat <- olink_data$wide
     if (filter && n_flagged == 0L && verbose)
-      cat("  No outliers to remove.\n")
+      cat("[HADES] No outliers to remove.\n")
   }
 
   rownames(smeta) <- NULL
@@ -342,7 +342,7 @@ HADES_filter_olink_proteins <- function(olink_data,
   n_retained <- sum(keep_mask)
 
   if (verbose) {
-    cat("HADES_filter_olink_proteins:\n")
+    cat("[HADES] Summary:\n")
     cat("  Threshold: NA fraction >", max_na_fraction, "\n")
     cat("  Removed :", n_removed,  "proteins\n")
     cat("  Retained:", n_retained, "of", n_before, "proteins\n")

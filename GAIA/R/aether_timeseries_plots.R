@@ -293,7 +293,7 @@ AETHER_plot_part_heatmap <- function(part_result,
     grDevices::dev.off()
 
     if (ext != "pdf") {
-      message("Heatmap saved to: ", save_path)
+      cat("[AETHER] Heatmap saved to: ", save_path)
     }
     return(invisible(NULL))
   }

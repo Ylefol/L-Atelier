@@ -169,7 +169,7 @@ APOLLO_get_chromosome_sizes <- function(annotation_path,
 
     # Create cache directory if needed
     if (!dir.exists(cache_dir)) {
-      if (verbose) cat("Creating cache directory:", cache_dir, "\n")
+      if (verbose) cat("[APOLLO] Creating cache directory:", cache_dir, "\n")
       dir.create(cache_dir, recursive = TRUE)
     }
 
@@ -196,7 +196,7 @@ APOLLO_get_chromosome_sizes <- function(annotation_path,
     # Check for existing cache
     if (file.exists(cache_path) && !force) {
       if (verbose) {
-        cat("Loading cached chromosome sizes from:", basename(cache_path), "\n")
+        cat("[APOLLO] Loading cached chromosome sizes from:", basename(cache_path), "\n")
       }
 
       result <- tryCatch({
@@ -216,7 +216,7 @@ APOLLO_get_chromosome_sizes <- function(annotation_path,
         }
 
         if (verbose) {
-          cat("  Loaded", nrow(result), "chromosomes.\n")
+          cat("   Loaded", nrow(result), "chromosomes.\n")
         }
         return(result)
       }
@@ -227,7 +227,7 @@ APOLLO_get_chromosome_sizes <- function(annotation_path,
   # Extract chromosome sizes from annotation file
   # ---------------------------------------------------------------------------
   if (verbose) {
-    cat("Extracting chromosome sizes from:", basename(annotation_path), "\n")
+    cat("[APOLLO] Extracting chromosome sizes from:", basename(annotation_path), "\n")
   }
 
   # Determine if file is gzipped
@@ -255,7 +255,7 @@ APOLLO_get_chromosome_sizes <- function(annotation_path,
   chr_max_coords <- list()
 
   if (verbose) {
-    cat("  Scanning annotation file...\n")
+    cat("   Scanning annotation file...\n")
   }
 
   # Read and process line by line to handle large files
@@ -268,7 +268,7 @@ APOLLO_get_chromosome_sizes <- function(annotation_path,
 
     # Progress indicator for large files
     if (verbose && line_count %% 500000 == 0) {
-      cat("    Processed", format(line_count, big.mark = ","), "lines...\n")
+      cat("     Processed", format(line_count, big.mark = ","), "lines...\n")
     }
 
     # Skip empty lines
@@ -308,18 +308,18 @@ APOLLO_get_chromosome_sizes <- function(annotation_path,
   }
 
   if (verbose) {
-    cat("  Scanned", format(line_count, big.mark = ","), "lines total.\n")
+    cat("   Scanned", format(line_count, big.mark = ","), "lines total.\n")
   }
 
   # Prefer sequence-region pragmas if available, otherwise use max coordinates
   if (length(sequence_regions) > 0) {
     if (verbose) {
-      cat("  Using ##sequence-region pragmas for chromosome sizes.\n")
+      cat("   Using ##sequence-region pragmas for chromosome sizes.\n")
     }
     chr_sizes <- sequence_regions
   } else {
     if (verbose) {
-      cat("  Using max coordinates for chromosome sizes.\n")
+      cat("   Using max coordinates for chromosome sizes.\n")
     }
     chr_sizes <- chr_max_coords
   }
@@ -341,11 +341,11 @@ APOLLO_get_chromosome_sizes <- function(annotation_path,
     if (is.character(name_mapping) && length(name_mapping) == 1 &&
         !any(names(name_mapping) != "")) {
       if (verbose) {
-        cat("  Applying built-in chromosome mapping for:", name_mapping, "\n")
+        cat("   Applying built-in chromosome mapping for:", name_mapping, "\n")
       }
       name_mapping <- APOLLO_get_chr_mapping(name_mapping)
     } else if (verbose) {
-      cat("  Applying custom chromosome name mapping...\n")
+      cat("   Applying custom chromosome name mapping...\n")
     }
 
     # Apply mapping - only rename chromosomes that are in the mapping
@@ -353,7 +353,7 @@ APOLLO_get_chromosome_sizes <- function(annotation_path,
     if (sum(mapped_idx) > 0) {
       result$chr[mapped_idx] <- name_mapping[result$chr[mapped_idx]]
       if (verbose) {
-        cat("  Renamed", sum(mapped_idx), "chromosomes.\n")
+        cat("   Renamed", sum(mapped_idx), "chromosomes.\n")
       }
     } else {
       warning("No chromosomes matched the provided name_mapping.")
@@ -371,7 +371,7 @@ APOLLO_get_chromosome_sizes <- function(annotation_path,
   # ---------------------------------------------------------------------------
   if (use_cache) {
     if (verbose) {
-      cat("  Saving chromosome sizes to cache:", basename(cache_path), "\n")
+      cat("   Saving chromosome sizes to cache:", basename(cache_path), "\n")
     }
     saveRDS(result, cache_path)
   }
@@ -403,8 +403,8 @@ APOLLO_get_chromosome_sizes <- function(annotation_path,
   rownames(result) <- NULL
 
   if (verbose) {
-    cat("  Found", nrow(result), "chromosomes.\n")
-    cat("  Total genome size:", format(sum(result$size), big.mark = ","), "bp\n")
+    cat("   Found", nrow(result), "chromosomes.\n")
+    cat("   Total genome size:", format(sum(result$size), big.mark = ","), "bp\n")
   }
 
   return(result)
@@ -550,7 +550,7 @@ APOLLO_sequence_composition <- function(regions,
       set_names <- paste0("set_", seq_along(regions))
     }
     results <- lapply(seq_along(regions), function(i) {
-      if (verbose) cat("\n--- Processing:", set_names[i], "---\n")
+      if (verbose) cat("[APOLLO] --- Processing:", set_names[i], "---\n")
       APOLLO_sequence_composition(
         regions          = regions[[i]],
         fasta_path       = fasta_path,
@@ -657,16 +657,16 @@ APOLLO_sequence_composition <- function(regions,
   }
 
   if (verbose) {
-    cat("Sequence composition analysis\n")
-    cat("  Regions:", n_regions, "\n")
-    cat("  FASTA:", basename(fasta_path), "\n")
+    cat("[APOLLO] Sequence composition analysis\n")
+    cat("   Regions:", n_regions, "\n")
+    cat("   FASTA:", basename(fasta_path), "\n")
     if (!is.null(chr_map_vec)) {
-      cat("  Chromosome mapping: enabled (", length(chr_map_vec), " mappings)\n", sep = "")
+      cat("   Chromosome mapping: enabled (", length(chr_map_vec), " mappings)\n", sep = "")
     }
     if (extend > 0) {
-      cat("  Extension: +/-", extend, "bp (", extend * 2, "bp total)\n")
+      cat("   Extension: +/-", extend, "bp (", extend * 2, "bp total)\n")
     }
-    cat("  Min width threshold:", min_width, "bp\n")
+    cat("   Min width threshold:", min_width, "bp\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -681,7 +681,7 @@ APOLLO_sequence_composition <- function(regions,
   n_below <- sum(below_threshold)
 
   if (verbose && n_below > 0) {
-    cat("  Regions below min_width:", n_below, "(will return NA)\n")
+    cat("   Regions below min_width:", n_below, "(will return NA)\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -720,9 +720,9 @@ APOLLO_sequence_composition <- function(regions,
   if (verbose) {
     n_missing_chr <- sum(!chr_for_fasta %in% fa_chroms & !below_threshold)
     if (n_missing_chr > 0) {
-      cat("  Regions with missing chromosomes:", n_missing_chr, "\n")
+      cat("   Regions with missing chromosomes:", n_missing_chr, "\n")
     }
-    cat("  Valid regions for extraction:", n_valid, "\n")
+    cat("   Valid regions for extraction:", n_valid, "\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -747,7 +747,7 @@ APOLLO_sequence_composition <- function(regions,
   # Extract sequences and calculate composition
   # ---------------------------------------------------------------------------
   if (n_valid > 0) {
-    if (verbose) cat("  Extracting sequences...\n")
+    if (verbose) cat("   Extracting sequences...\n")
 
     # Create GRanges for valid regions (1-based for Bioconductor)
     # Use translated chromosome names (chr_for_fasta) for FASTA lookup
@@ -762,7 +762,7 @@ APOLLO_sequence_composition <- function(regions,
     # Extract sequences
     seqs <- Biostrings::getSeq(fa, gr)
 
-    if (verbose) cat("  Calculating composition...\n")
+    if (verbose) cat("   Calculating composition...\n")
 
     # Process each sequence
     for (i in seq_along(valid_idx)) {
@@ -805,7 +805,7 @@ APOLLO_sequence_composition <- function(regions,
 
       # Progress indicator for large datasets
       if (verbose && i %% 1000 == 0) {
-        cat("    Processed", i, "of", n_valid, "regions\n")
+        cat("     Processed", i, "of", n_valid, "regions\n")
       }
     }
   }
@@ -837,21 +837,21 @@ APOLLO_sequence_composition <- function(regions,
   if (verbose) {
     valid_gc <- gc_percent[!is.na(gc_percent)]
     if (length(valid_gc) > 0) {
-      cat("\nComposition summary (", length(valid_gc), " regions):\n", sep = "")
-      cat("  GC%: mean =", round(mean(valid_gc), 1),
+      cat("[APOLLO] Composition summary (", length(valid_gc), " regions):\n", sep = "")
+      cat("   GC%: mean =", round(mean(valid_gc), 1),
           ", median =", round(median(valid_gc), 1),
           ", range =", round(min(valid_gc), 1), "-", round(max(valid_gc), 1), "\n")
-      cat("  AT%: mean =", round(mean(at_percent[!is.na(at_percent)]), 1), "\n")
+      cat("   AT%: mean =", round(mean(at_percent[!is.na(at_percent)]), 1), "\n")
 
       if (include_repeats) {
         valid_homo <- longest_homo[!is.na(longest_homo)]
         if (length(valid_homo) > 0) {
-          cat("  Longest homopolymer: max =", max(valid_homo),
+          cat("   Longest homopolymer: max =", max(valid_homo),
               ", mean =", round(mean(valid_homo), 1), "\n")
         }
         valid_di <- longest_di[!is.na(longest_di)]
         if (length(valid_di) > 0) {
-          cat("  Longest dinucleotide repeat: max =", max(valid_di),
+          cat("   Longest dinucleotide repeat: max =", max(valid_di),
               "bp, mean =", round(mean(valid_di), 1), "bp\n")
         }
       }

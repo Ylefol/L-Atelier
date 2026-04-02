@@ -119,11 +119,11 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
     stop("bigwig_files must be a named list", call. = FALSE)
 
   # --- Gene positions ---------------------------------------------------------
-  if (verbose) message("[AETHER] Extracting gene positions from TxDb...")
+  if (verbose) cat("[AETHER] Extracting gene positions from TxDb...")
   pos_df <- .aether_phm_get_positions(txdb, genes, verbose)
   if (nrow(pos_df) == 0L)
     stop("No genes found — check txdb and the genes argument", call. = FALSE)
-  if (verbose) message("[AETHER]   Genes: ", nrow(pos_df))
+  if (verbose) cat("[AETHER]   Genes: ", nrow(pos_df))
 
   # --- Gene filtering ---------------------------------------------------------
   if (!is.null(peaks)) {
@@ -148,7 +148,7 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
            call. = FALSE)
 
     if (verbose)
-      message("[AETHER] Filtering genes by peak overlap (", length(peaks),
+      cat("[AETHER] Filtering genes by peak overlap (", length(peaks),
               " peaks)...")
 
     # Extended gene regions: body ± window
@@ -166,12 +166,12 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
       stop("No genes overlap the supplied peaks. Check that peaks and TxDb ",
            "use the same chromosome naming style.", call. = FALSE)
     if (verbose)
-      message("[AETHER]   Genes with overlapping peaks: ", nrow(pos_df))
+      cat("[AETHER]   Genes with overlapping peaks: ", nrow(pos_df))
 
     # Still apply max_genes as a hard cap if needed
     if (!is.null(max_genes) && nrow(pos_df) > max_genes) {
       if (verbose)
-        message("[AETHER]   Capping to ", max_genes,
+        cat("[AETHER]   Capping to ", max_genes,
                 " genes by TSS signal pre-filter...")
       pos_df <- .aether_phm_prefilter(
         pos_df    = pos_df,
@@ -185,7 +185,7 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
   } else if (!is.null(max_genes) && nrow(pos_df) > max_genes) {
     # --- TSS-signal pre-filter (fallback when no peaks supplied) ------------
     if (verbose)
-      message("[AETHER] No peaks supplied — pre-filtering ", nrow(pos_df),
+      cat("[AETHER] No peaks supplied — pre-filtering ", nrow(pos_df),
               " genes to top ", max_genes, " by TSS signal...")
     pos_df <- .aether_phm_prefilter(
       pos_df    = pos_df,
@@ -194,15 +194,15 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
       score_win = min(500L, window),
       verbose   = verbose
     )
-    if (verbose) message("[AETHER]   Retained: ", nrow(pos_df), " genes")
+    if (verbose) cat("[AETHER]   Retained: ", nrow(pos_df), " genes")
   }
 
   # --- Extract signal matrices ------------------------------------------------
-  if (verbose) message("[AETHER] Extracting signal matrices...")
+  if (verbose) cat("[AETHER] Extracting signal matrices...")
 
   raw_results <- setNames(lapply(names(bigwig_files), function(samp) {
     bw_files <- as.list(bigwig_files[[samp]])
-    if (verbose) message("[AETHER]   ", samp)
+    if (verbose) cat("[AETHER]   ", samp)
     .aether_phm_bw_to_matrix_sr(bw_files, pos_df, window, n_up, body_bins, n_down)
   }), names(bigwig_files))
 
@@ -312,7 +312,7 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
     keep        <- raw_ids %in% genes | cleaned_ids %in% genes
     n_miss      <- length(setdiff(genes, c(raw_ids[keep], cleaned_ids[keep])))
     if (n_miss > 0L && verbose)
-      message("[AETHER]   ", n_miss, " supplied gene(s) not found in TxDb")
+      cat("[AETHER]   ", n_miss, " supplied gene(s) not found in TxDb")
     all_genes <- all_genes[keep]
   }
 
@@ -366,7 +366,7 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
   )
 
   if (is.null(sig) || length(sig) == 0L) {
-    if (verbose) message("[AETHER]   No TSS signal found — keeping first ",
+    if (verbose) cat("[AETHER]   No TSS signal found — keeping first ",
                          max_genes, " genes")
     return(pos_df[seq_len(min(max_genes, n)), ])
   }

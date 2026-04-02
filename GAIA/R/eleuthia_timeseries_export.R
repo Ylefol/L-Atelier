@@ -102,12 +102,12 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
 
   plot_format <- match.arg(plot_format, c("png", "pdf", "both"))
 
-  if (verbose) cat("=== Exporting Time Series Results ===\n")
+  if (verbose) cat("[ELEUTHIA] Exporting Time Series Results \n")
 
   # Create output directory
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
-    if (verbose) cat("Created directory:", output_dir, "\n")
+    if (verbose) cat("[ELEUTHIA] Created directory:", output_dir, "\n")
   }
 
   files_created <- character(0)
@@ -121,8 +121,8 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
     }
 
     if (verbose) {
-      cat("\n--- PART Clustering ---\n")
-      cat("Clusters:", part_result$n_clusters, "| Features:", nrow(part_result$data),
+      cat("[ELEUTHIA] --- PART Clustering ---\n")
+      cat("[ELEUTHIA] Clusters:", part_result$n_clusters, "| Features:", nrow(part_result$data),
           "| Outliers:", part_result$n_outliers, "\n")
     }
 
@@ -135,13 +135,13 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
     )
     write.csv(assign_df, assign_file, row.names = FALSE)
     files_created <- c(files_created, assign_file)
-    if (verbose) cat("  Cluster assignments:", assign_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   Cluster assignments:", assign_file, "\n")
 
     # Cluster map (gene, cluster, color — ordered by cluster)
     map_file <- file.path(output_dir, paste0(prefix, "_cluster_map.csv"))
     write.csv(part_result$cluster_map, map_file, row.names = FALSE)
     files_created <- c(files_created, map_file)
-    if (verbose) cat("  Cluster map:", map_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   Cluster map:", map_file, "\n")
 
     # Cluster summary
     summary_file <- file.path(output_dir, paste0(prefix, "_cluster_summary.csv"))
@@ -154,7 +154,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
     )
     write.csv(summary_df, summary_file, row.names = FALSE)
     files_created <- c(files_created, summary_file)
-    if (verbose) cat("  Cluster summary:", summary_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   Cluster summary:", summary_file, "\n")
 
     # Parameters
     param_file <- file.path(output_dir, paste0(prefix, "_part_parameters.txt"))
@@ -182,14 +182,14 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
     )
     writeLines(param_lines, param_file)
     files_created <- c(files_created, param_file)
-    if (verbose) cat("  Parameters:", param_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   Parameters:", param_file, "\n")
 
     # PART plots
     if (save_plots) {
       plot_dir <- file.path(output_dir, paste0(prefix, "_plots"))
       if (!dir.exists(plot_dir)) dir.create(plot_dir)
 
-      if (verbose) cat("  Generating plots...\n")
+      if (verbose) cat("[ELEUTHIA]   Generating plots...\n")
 
       # Heatmap (ComplexHeatmap — uses save_path directly)
       if (!is.null(sample_info)) {
@@ -217,12 +217,12 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
           }
           files_created <- c(files_created,
                               .ts_plot_paths(plot_dir, "part_heatmap", plot_format))
-          if (verbose) cat("    Heatmap\n")
+          if (verbose) cat("[ELEUTHIA]     Heatmap\n")
         }, error = function(e) {
-          if (verbose) cat("    Warning: Could not create heatmap -", e$message, "\n")
+          if (verbose) cat("[ELEUTHIA]     Warning: Could not create heatmap -", e$message, "\n")
         })
       } else {
-        if (verbose) cat("    Skipping heatmap (requires sample_info)\n")
+        if (verbose) cat("[ELEUTHIA]     Skipping heatmap (requires sample_info)\n")
       }
 
       # Cluster trajectories (ggplot, requires sample_info)
@@ -237,9 +237,9 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
                            height = max(6, ceiling(part_result$n_clusters / 3) * 3 + 2))
           files_created <- c(files_created,
                               .ts_plot_paths(plot_dir, "cluster_trajectories", plot_format))
-          if (verbose) cat("    Cluster trajectories\n")
+          if (verbose) cat("[ELEUTHIA]     Cluster trajectories\n")
         }, error = function(e) {
-          if (verbose) cat("    Warning: Could not create trajectory plot -", e$message, "\n")
+          if (verbose) cat("[ELEUTHIA]     Warning: Could not create trajectory plot -", e$message, "\n")
         })
 
         # Cluster means overlay
@@ -252,13 +252,13 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
                            width = 10, height = 7)
           files_created <- c(files_created,
                               .ts_plot_paths(plot_dir, "cluster_means", plot_format))
-          if (verbose) cat("    Cluster means overlay\n")
+          if (verbose) cat("[ELEUTHIA]     Cluster means overlay\n")
         }, error = function(e) {
-          if (verbose) cat("    Warning: Could not create cluster means plot -", e$message, "\n")
+          if (verbose) cat("[ELEUTHIA]     Warning: Could not create cluster means plot -", e$message, "\n")
         })
       }
 
-      if (verbose) cat("  Plots saved to:", plot_dir, "/\n")
+      if (verbose) cat("[ELEUTHIA]   Plots saved to:", plot_dir, "/\n")
     }
 
     # RDS
@@ -266,7 +266,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
       rds_file <- file.path(output_dir, paste0(prefix, "_part_result.rds"))
       saveRDS(part_result, rds_file)
       files_created <- c(files_created, rds_file)
-      if (verbose) cat("  RDS:", rds_file, "\n")
+      if (verbose) cat("[ELEUTHIA]   RDS:", rds_file, "\n")
     }
   }
 
@@ -283,7 +283,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
       stop("'ts_de' must be an artemis_ts_de object or a list of them")
     }
 
-    if (verbose) cat("\n--- Time Series DEA ---\n")
+    if (verbose) cat("[ELEUTHIA] Time Series DEA \n")
 
     de_dir <- file.path(output_dir, paste0(prefix, "_dea"))
     if (!dir.exists(de_dir)) dir.create(de_dir)
@@ -296,13 +296,13 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
       }
 
       type_label <- ts_obj$type
-      if (verbose) cat("  Type:", type_label, "| Comparisons:", length(ts_obj$results), "\n")
+      if (verbose) cat("[ELEUTHIA]   Type:", type_label, "| Comparisons:", length(ts_obj$results), "\n")
 
       # Summary CSV
       sum_file <- file.path(de_dir, paste0(type_label, "_summary.csv"))
       write.csv(ts_obj$summary, sum_file, row.names = FALSE)
       files_created <- c(files_created, sum_file)
-      if (verbose) cat("    Summary:", sum_file, "\n")
+      if (verbose) cat("[ELEUTHIA]     Summary:", sum_file, "\n")
 
       # Per-comparison results
       comp_dir <- file.path(de_dir, paste0(type_label, "_results"))
@@ -316,7 +316,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
           files_created <- c(files_created, res_file)
         }
       }
-      if (verbose) cat("    Per-comparison results:", comp_dir, "/\n")
+      if (verbose) cat("[ELEUTHIA]     Per-comparison results:", comp_dir, "/\n")
 
       # DEA summary plot
       if (save_plots) {
@@ -332,9 +332,9 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
           files_created <- c(files_created,
                               .ts_plot_paths(plot_dir, paste0("dea_summary_", type_label),
                                               plot_format))
-          if (verbose) cat("    DEA summary plot\n")
+          if (verbose) cat("[ELEUTHIA]     DEA summary plot\n")
         }, error = function(e) {
-          if (verbose) cat("    Warning: Could not create DEA summary plot -", e$message, "\n")
+          if (verbose) cat("[ELEUTHIA]     Warning: Could not create DEA summary plot -", e$message, "\n")
         })
       }
 
@@ -343,7 +343,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
         rds_file <- file.path(de_dir, paste0(type_label, "_result.rds"))
         saveRDS(ts_obj, rds_file)
         files_created <- c(files_created, rds_file)
-        if (verbose) cat("    RDS:", rds_file, "\n")
+        if (verbose) cat("[ELEUTHIA]     RDS:", rds_file, "\n")
       }
     }
   }
@@ -352,14 +352,14 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
   # GENE SELECTION
   # ==========================================================================
   if (!is.null(gene_selection)) {
-    if (verbose) cat("\n--- Gene Selection ---\n")
+    if (verbose) cat("[ELEUTHIA] Gene Selection \n")
 
     # Selected genes
     genes_file <- file.path(output_dir, paste0(prefix, "_selected_genes.csv"))
     genes_df <- data.frame(gene = gene_selection, stringsAsFactors = FALSE)
     write.csv(genes_df, genes_file, row.names = FALSE)
     files_created <- c(files_created, genes_file)
-    if (verbose) cat("  Selected genes:", length(gene_selection), "->", genes_file, "\n")
+    if (verbose) cat("[ELEUTHIA]   Selected genes:", length(gene_selection), "->", genes_file, "\n")
 
     # Gene summary (if available as attribute)
     gene_summary <- attr(gene_selection, "gene_summary")
@@ -367,7 +367,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
       gsummary_file <- file.path(output_dir, paste0(prefix, "_gene_summary.csv"))
       write.csv(gene_summary, gsummary_file, row.names = FALSE)
       files_created <- c(files_created, gsummary_file)
-      if (verbose) cat("  Gene summary:", gsummary_file, "\n")
+      if (verbose) cat("[ELEUTHIA]   Gene summary:", gsummary_file, "\n")
     }
 
     # Selection parameters (if available as attribute)
@@ -386,7 +386,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
       )
       writeLines(param_lines, sel_file)
       files_created <- c(files_created, sel_file)
-      if (verbose) cat("  Selection parameters:", sel_file, "\n")
+      if (verbose) cat("[ELEUTHIA]   Selection parameters:", sel_file, "\n")
     }
   }
 
@@ -394,7 +394,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
   # ENRICHMENT
   # ==========================================================================
   if (!is.null(enrichment)) {
-    if (verbose) cat("\n--- Enrichment ---\n")
+    if (verbose) cat("[ELEUTHIA] Enrichment \n")
 
     enrich_dir <- file.path(output_dir, paste0(prefix, "_enrichment"))
     tryCatch({
@@ -409,7 +409,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
       )
       files_created <- c(files_created, enrich_files)
     }, error = function(e) {
-      if (verbose) cat("  Warning: Could not export enrichment -", e$message, "\n")
+      if (verbose) cat("[ELEUTHIA]   Warning: Could not export enrichment -", e$message, "\n")
     })
   }
 
@@ -417,9 +417,9 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
   # SUMMARY
   # ==========================================================================
   if (verbose) {
-    cat("\n--- Export Summary ---\n")
-    cat("Total files created:", length(files_created), "\n")
-    cat("Output directory:", output_dir, "\n")
+    cat("[ELEUTHIA] Export Summary \n")
+    cat("    Total files created:", length(files_created), "\n")
+    cat("    Output directory:", output_dir, "\n")
   }
 
   invisible(files_created)
