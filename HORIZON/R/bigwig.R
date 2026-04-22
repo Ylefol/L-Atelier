@@ -11,16 +11,32 @@
 #'     absolute differences in chromatin occupancy across samples.
 #' }
 #'
-#' The most downstream available BAM is used automatically via
-#' \code{.latest_bam()} (priority: blacklist-filtered > processed > host >
-#' mapq-filtered).
+#' \strong{Two usage modes:}
+#' \enumerate{
+#'   \item \strong{Sample-sheet mode} (default): provide \code{sample_sheet} and
+#'     \code{sample_id}.  The most downstream available BAM is used automatically
+#'     via \code{.latest_bam()} (priority: blacklist-filtered > processed > host >
+#'     mapq-filtered).  Output is written to the standard HORIZON directory layout.
+#'   \item \strong{Direct BAM mode}: provide \code{bam_file} (path to a
+#'     coordinate-sorted, indexed BAM).  The BAM index (\code{.bai}) must exist.
+#'     \code{sample_id} is inferred from the filename; output goes to
+#'     \code{output_dir} (defaults to the directory containing the BAM).
+#' }
 #'
 #' \code{bamCoverage} is provided via the user-managed conda environment
 #' registered with \code{\link{HORIZON_set_conda_env}}.
 #'
 #' @param sample_sheet Validated sample sheet data.frame from
-#'   \code{\link{HORIZON_validate_sample_sheet}}.
-#' @param sample_id Character. Sample ID to process.
+#'   \code{\link{HORIZON_validate_sample_sheet}}.  Required in sample-sheet
+#'   mode; must be \code{NULL} when \code{bam_file} is supplied.
+#' @param sample_id Character. Sample ID to process (sample-sheet mode).
+#'   Optional in direct BAM mode — inferred from the filename if omitted.
+#' @param bam_file Character or \code{NULL}. Path to a coordinate-sorted,
+#'   indexed BAM file.  When supplied, \code{sample_sheet} must be
+#'   \code{NULL}.  Default \code{NULL}.
+#' @param output_dir Character or \code{NULL}. Output directory for direct BAM
+#'   mode.  Ignored in sample-sheet mode.  Defaults to the directory
+#'   containing \code{bam_file}.
 #' @param effective_genome_size Integer, numeric, or character. The effective
 #'   (mappable) genome size passed to \code{--effectiveGenomeSize}.  Pass a
 #'   numeric value directly, or one of the following assembly names:
@@ -51,8 +67,10 @@
 #'
 #' @return Character. Path to the BigWig file, invisibly.
 #' @export
-HORIZON_bam_to_bigwig <- function(sample_sheet,
-                                   sample_id,
+HORIZON_bam_to_bigwig <- function(sample_sheet = NULL,
+                                   sample_id    = NULL,
+                                   bam_file     = NULL,
+                                   output_dir   = NULL,
                                    effective_genome_size,
                                    scale_factor             = NULL,
                                    threads                  = 4L,
@@ -79,16 +97,36 @@ HORIZON_bam_to_bigwig <- function(sample_sheet,
     effective_genome_size <- .eff_genome_sizes[[key]]
   }
 
+  # Resolve BAM path, sample ID, and output directory -------------------------
+  if (!is.null(bam_file) && !is.null(sample_sheet))
+    stop("Provide either 'bam_file' or 'sample_sheet', not both.", call. = FALSE)
+  if (is.null(bam_file) && is.null(sample_sheet))
+    stop("One of 'bam_file' or 'sample_sheet' must be provided.", call. = FALSE)
+
+  if (!is.null(bam_file)) {
+    # Direct BAM mode
+    if (!file.exists(bam_file))
+      stop("BAM file not found: ", bam_file, call. = FALSE)
+    bam_path  <- bam_file
+    if (is.null(sample_id))
+      sample_id <- tools::file_path_sans_ext(
+                     tools::file_path_sans_ext(basename(bam_file)))
+    out_dir   <- if (!is.null(output_dir)) output_dir else dirname(bam_file)
+    if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+  } else {
+    # Sample-sheet mode
+    if (is.null(sample_id))
+      stop("'sample_id' is required when using sample-sheet mode.", call. = FALSE)
+    row      <- .get_sample_row(sample_sheet, sample_id)
+    out_dir  <- file.path(row$output_dir, sample_id, "aligned")
+    bam_path <- .latest_bam(sample_sheet, sample_id)
+  }
+
   if (!is.null(scale_factor) && (!is.numeric(scale_factor) || length(scale_factor) != 1L))
     stop("scale_factor must be a single numeric value or NULL.", call. = FALSE)
   if (!is.null(scale_factor) && is.na(scale_factor))
     stop("scale_factor is NA for sample '", sample_id,
          "'. Check HORIZON_compute_spike_in_factors() output.", call. = FALSE)
-
-  row     <- .get_sample_row(sample_sheet, sample_id)
-  out_dir <- file.path(row$output_dir, sample_id, "aligned")
-
-  bam_path <- .latest_bam(sample_sheet, sample_id)
 
   norm_tag <- if (is.null(scale_factor)) "RPKM" else "spikein"
   bw_path  <- file.path(out_dir, paste0(sample_id, "_", norm_tag, ".bw"))

@@ -1,7 +1,7 @@
 ================================================================================
 HADES STATUS - Quality Control & Filtering
 ================================================================================
-Last Updated: 2026-03-31
+Last Updated: 2026-04-08
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -38,6 +38,22 @@ HADES_convert_to_factor(data, ...)
 HADES_drop_high_na_variables(data, threshold, ...)
   - Drop variables exceeding NA threshold
 
+hades_atac_qc.R:
+----------------
+HADES_tss_enrichment(sample_sheet=NULL, bw_file=NULL, txdb,
+                     window=2000L, bin_size=10L, flank_bins=10L,
+                     threshold=6, verbose=TRUE)
+  - Computes per-sample TSS enrichment score from BigWig files
+  - Input: sample_sheet with bw_loc column (priority), or single bw_file path
+  - Extracts TSS positions from TxDb; filters to TSSs with complete windows
+  - Tiles ±window bp windows into n_bins = 2*(window/bin_size)+1 equal bins
+  - Aggregates binnedAverage signal across all TSSs → mean profile per sample
+  - Normalises by mean of outermost flank_bins on each side (background)
+  - Score = max of normalised profile (ENCODE guideline threshold = 6 for human)
+  - S3 class: hades_tss_enrichment ($scores, $profiles, $params)
+  - S3 print: print.hades_tss_enrichment (PASS/FAIL per sample)
+  - Visualisation: AETHER_plot_tss_enrichment()
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -46,13 +62,15 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- QC functions specific to CUT&TAG / ATAC-seq (fragment length distribution,
-  FRiP scores, TSS enrichment)
+- Fragment length distribution QC (CUT&TAG / ATAC-seq)
+- FRiP score computation
 - RNA-seq specific QC (library size, gene body coverage, duplication rates)
 - Integration with Poseidon for post-QC normalization handoff
 
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- Currently limited to mixed data QC (clinical/phenotypic + omics)
-- Sequencing-specific QC not yet implemented
+- hades_atac_qc.R: requires GenomicFeatures (Suggests; checked at runtime)
+  rtracklayer, GenomicRanges, IRanges already in GAIA Imports
+- ENCODE TSS enrichment threshold of 6 is a guideline for human data, not a
+  universal standard — document this caveat when reporting results

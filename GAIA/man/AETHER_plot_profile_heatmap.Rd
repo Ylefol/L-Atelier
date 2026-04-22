@@ -16,6 +16,8 @@ AETHER_plot_profile_heatmap(
   color_high = "#7F0000",
   profile_color = "#2166AC",
   cap_quantile = 0.99,
+  cap_val = NULL,
+  profile_ylim = NULL,
   max_genes = 5000L,
   profile_height = 1,
   heatmap_height = 5,
@@ -64,6 +66,14 @@ Default \code{"#2166AC"} (blue).}
 
 \item{cap_quantile}{Numeric in (0,1). Signal values above this quantile are
 capped before display (shared cap across all panels). Default \code{0.99}.}
+
+\item{cap_val}{Optional numeric. Fixed colour-scale cap value shared across
+calls (e.g. a mark-level global cap). When \code{NULL} (default) the cap is
+computed per-call from \code{cap_quantile}.}
+
+\item{profile_ylim}{Optional numeric. Fixed y-axis upper limit for the mean
+signal profile, shared across calls. When \code{NULL} (default) the limit is
+computed per-call from the data.}
 
 \item{max_genes}{Integer or \code{NULL}. Hard cap on the number of genes
 displayed. When \code{peaks} is supplied this limits the peak-filtered set;

@@ -7,6 +7,8 @@
 HORIZON_bam_to_bed(
   sample_sheet,
   sample_id,
+  bam_file = NULL,
+  tag = NULL,
   shift_reads = TRUE,
   threads = 4L,
   remove_tmp = TRUE,
@@ -14,9 +16,23 @@ HORIZON_bam_to_bed(
 )
 }
 \arguments{
-\item{sample_sheet}{Validated sample sheet data.frame.}
+\item{sample_sheet}{Validated sample sheet data.frame.  Required when
+\code{bam_file} is \code{NULL}.}
 
 \item{sample_id}{Character. Sample ID to process.}
+
+\item{bam_file}{Character or \code{NULL}.  Path to a coordinate-sorted,
+indexed BAM file.  When supplied, \code{.latest_bam()} is bypassed and
+this BAM is used directly.  Output is written to \code{dirname(bam_file)}.
+Default \code{NULL}.}
+
+\item{tag}{Character or \code{NULL}.  Optional suffix inserted before
+\code{_fragments.bed} in the output filename, producing
+\code{<sample_id>_<tag>_fragments.bed}.  Use this to avoid overwriting
+when calling the function twice for the same sample at different pipeline
+stages (e.g. \code{tag = "quantification"} for the pre-downsampled BED
+used by DESeq2, leaving the untagged file for peak calling).  Default
+\code{NULL} (no tag — output is \code{<sample_id>_fragments.bed}).}
 
 \item{shift_reads}{Logical. Apply Tn5 insertion-site correction
 (+4/−5 bp).  Set \code{TRUE} for ATAC-seq, \code{FALSE} for all other
@@ -27,8 +43,8 @@ assays.  Default \code{TRUE}.}
 \item{remove_tmp}{Logical. Remove intermediate name-sorted BAM and BEDPE
 after conversion.  Default \code{TRUE}.}
 
-\item{force}{Logical. If \code{FALSE} (default), skip conversion when
-\code{_fragments.bed} already exists.  Set \code{TRUE} to regenerate.}
+\item{force}{Logical. If \code{FALSE} (default), skip conversion when the
+output BED already exists.  Set \code{TRUE} to regenerate.}
 }
 \value{
 Character. Path to the fragment BED file, invisibly.

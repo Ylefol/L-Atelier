@@ -11,6 +11,8 @@ ELEUTHIA_export_atac_results(
   enrichment = NULL,
   homer_result = NULL,
   sequence_composition = NULL,
+  tss_enrichment = NULL,
+  tss_color_by = "group",
   prefix = "atac",
   l2fc_thresh = 1,
   p_thresh = 0.05,
@@ -44,6 +46,15 @@ object. Passed to \code{ELEUTHIA_export_homer_results()}. Default: NULL.}
 \item{sequence_composition}{A data.frame from
 \code{APOLLO_sequence_composition()}. Passed to
 \code{ELEUTHIA_export_sequence_composition()}. Default: NULL.}
+
+\item{tss_enrichment}{A \code{hades_tss_enrichment} object from
+\code{HADES_tss_enrichment()}. Scores are saved as CSV; profile and score
+plots are saved via \code{AETHER_plot_tss_enrichment()}. Default: NULL.}
+
+\item{tss_color_by}{Character. \code{color_by} argument passed to
+\code{AETHER_plot_tss_enrichment()}. Any sample sheet metadata column
+carried through by \code{HADES_tss_enrichment()} can be used.
+Default: \code{"group"}.}
 
 \item{prefix}{Character. Filename prefix for DEA, enrichment, HOMER, and
 composition exports. Default: "atac".}
@@ -93,6 +104,7 @@ output_dir/
   enrichment/                   # enrichment results (always top-level)
   homer/                        # HOMER motifs, plots, RDS
   composition/                  # sequence composition CSV + summary
+  tss_enrichment/               # TSS enrichment scores CSV, plots, RDS
 }
 }
 \examples{

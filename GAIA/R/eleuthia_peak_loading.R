@@ -260,7 +260,7 @@ ELEUTHIA_create_consensus_peaks <- function(peak_list,
   }))
 
   if (verbose) {
-    cat("[ELEUTHIA]   Total peaks before merging:", nrow(all_peaks), "\n")
+    cat("    Total peaks before merging:", nrow(all_peaks), "\n")
   }
 
   # Sort by chromosome and position
@@ -341,7 +341,7 @@ ELEUTHIA_create_consensus_peaks <- function(peak_list,
     n_before <- nrow(consensus)
     consensus <- consensus[consensus$n_samples >= min_overlap, ]
     if (verbose) {
-      cat("[ELEUTHIA]   Filtered from", n_before, "to", nrow(consensus),
+      cat("    Filtered from", n_before, "to", nrow(consensus),
           "peaks (min_overlap =", min_overlap, ")\n")
     }
   }
@@ -356,8 +356,8 @@ ELEUTHIA_create_consensus_peaks <- function(peak_list,
   consensus <- consensus[, c("chr", "start", "end", "peak_id", "n_samples")]
 
   if (verbose) {
-    cat("[ELEUTHIA]   Final consensus peaks:", nrow(consensus), "\n")
-    cat("[ELEUTHIA]   Chromosomes with peaks:", length(unique(consensus$chr)), "\n")
+    cat("    Final consensus peaks:", nrow(consensus), "\n")
+    cat("    Chromosomes with peaks:", length(unique(consensus$chr)), "\n")
   }
 
   return(consensus)
@@ -1600,7 +1600,7 @@ ELEUTHIA_quantify_bed <- function(sample_sheet,
     }
 
     if (verbose) {
-      cat("[ELEUTHIA] done\n")
+      cat(" done\n")
     }
 
     # Clean up

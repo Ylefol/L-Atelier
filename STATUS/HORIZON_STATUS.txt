@@ -1,7 +1,7 @@
 ================================================================================
 HORIZON STATUS - Upstream Bioinformatics Processing Package
 ================================================================================
-Last Updated: 2026-04-01
+Last Updated: 2026-04-21
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -247,6 +247,47 @@ internals.R (not exported):
 .get_sample_row(sample_sheet, sample_id)
 .strand_to_int(strandedness)
 
+parse.R:
+--------
+HORIZON_create_parse_sheet(output_path = NULL, n_runs = 1)
+  - Generates a CSV template for PARSE Biosciences split-pipe runs
+  - Each row = one sequencing run (library); write.csv if output_path given
+  - Columns: run_id, fastq_r1, fastq_r2, output_dir, genome_dir, chemistry, kit
+
+HORIZON_validate_parse_sheet(path, check_files = TRUE)
+  - Reads CSV or accepts data.frame
+  - Checks required columns, unique run_id, valid chemistry (v2/v3) and
+    kit (WT/WT_mini/WT_mega) values
+  - check_files=TRUE: verifies FASTQ paths and genome_dir existence
+
+HORIZON_run_splitpipe(sample_sheet, run_id, sample_layout, conda_env,
+                      mode="all", threads=8L, force=FALSE, ...)
+  - Wraps split-pipe CLI; supports single-cell and single-nucleus RNA-seq
+  - sample_layout: named character vector mapping sample names to well ranges
+    e.g. c(control="A1-B6", treatment="C1-D6") or c(all_cells="A1-D12")
+  - conda_env: explicit path to conda env containing split-pipe
+    (cannot share horizon_cli due to Python dependency conflicts)
+    Install: conda create -n parse_env python=3.10 && pip install parsebiosciences
+  - mode="all": demux + align + count in one pass; "split"/"count" for sub-steps
+  - Output: output_dir/run_id/ (split-pipe internal structure, DGE matrix per sample)
+  - Output is compatible with TALARIA_load_parse() in CAULDRON (planned)
+  - force=FALSE: skip if output directory already exists
+
+HORIZON_run_parse_velocity(sample_sheet, conda_env, cell_metadata_path,
+                            output_file=NULL, force=FALSE)
+  - Generates spliced/unspliced AnnData from split-pipe tscp_assignment.csv files
+  - Calls inst/python/parse_velocity.py via system2(conda_env/bin/python)
+  - working_dir inferred from sample_sheet$output_dir (must be consistent across rows)
+  - run_ids taken from sample_sheet$run_id; tscp paths: output_dir/run_id/process/tscp_assignment.csv
+  - tscp files must be uncompressed; stops with informative error if .gz found in place of .csv
+  - cell_metadata_path: combined split-pipe cell_metadata.csv (for cell filtering)
+  - output_file defaults to output_dir/adata_vel.h5ad
+  - Same conda_env as HORIZON_run_splitpipe (split-pipe + scvelo/scanpy/dask)
+  - Output: adata_vel.h5ad with spliced/unspliced layers + cell metadata; load in CAULDRON
+
+.get_parse_row(sample_sheet, run_id)  [internal]
+  - Extracts a single run row from a PARSE sample sheet
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -257,10 +298,12 @@ PLANNED / TODO
 ================================================================================
 - HORIZON_infer_strandedness() — featureCounts with all strandedness modes
 - MultiQC-style QC summary across all samples
-- Single-cell/nuclei variant (CAULDRON upstream)
 - macs3: confirm conda env installs correctly (macs3==3.0.2 via bioconda)
 - Differential accessibility: consensus peak set + DESeq2 with spike-in
   size factors (to be built in GAIA/ARTEMIS)
+- HORIZON_combine_splitpipe(): wraps split-pipe --mode comb to merge multiple
+  runs into a single output (needed for multi-run PARSE experiments)
+- TALARIA_load_parse() in CAULDRON: load split-pipe DGE output into SCE
 
 ================================================================================
 DEPENDENCIES / NOTES

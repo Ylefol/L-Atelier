@@ -5,8 +5,10 @@
 \title{Convert a processed BAM to a BigWig using bamCoverage}
 \usage{
 HORIZON_bam_to_bigwig(
-  sample_sheet,
-  sample_id,
+  sample_sheet = NULL,
+  sample_id = NULL,
+  bam_file = NULL,
+  output_dir = NULL,
   effective_genome_size,
   scale_factor = NULL,
   threads = 4L,
@@ -19,9 +21,19 @@ HORIZON_bam_to_bigwig(
 }
 \arguments{
 \item{sample_sheet}{Validated sample sheet data.frame from
-\code{\link{HORIZON_validate_sample_sheet}}.}
+\code{\link{HORIZON_validate_sample_sheet}}.  Required in sample-sheet
+mode; must be \code{NULL} when \code{bam_file} is supplied.}
 
-\item{sample_id}{Character. Sample ID to process.}
+\item{sample_id}{Character. Sample ID to process (sample-sheet mode).
+Optional in direct BAM mode — inferred from the filename if omitted.}
+
+\item{bam_file}{Character or \code{NULL}. Path to a coordinate-sorted,
+indexed BAM file.  When supplied, \code{sample_sheet} must be
+\code{NULL}.  Default \code{NULL}.}
+
+\item{output_dir}{Character or \code{NULL}. Output directory for direct BAM
+mode.  Ignored in sample-sheet mode.  Defaults to the directory
+containing \code{bam_file}.}
 
 \item{effective_genome_size}{Integer, numeric, or character. The effective
 (mappable) genome size passed to \code{--effectiveGenomeSize}.  Pass a
@@ -74,9 +86,17 @@ absolute differences in chromatin occupancy across samples.
 }
 }
 \details{
-The most downstream available BAM is used automatically via
-\code{.latest_bam()} (priority: blacklist-filtered > processed > host >
-mapq-filtered).
+\strong{Two usage modes:}
+\enumerate{
+\item \strong{Sample-sheet mode} (default): provide \code{sample_sheet} and
+\code{sample_id}.  The most downstream available BAM is used automatically
+via \code{.latest_bam()} (priority: blacklist-filtered > processed > host >
+mapq-filtered).  Output is written to the standard HORIZON directory layout.
+\item \strong{Direct BAM mode}: provide \code{bam_file} (path to a
+coordinate-sorted, indexed BAM).  The BAM index (\code{.bai}) must exist.
+\code{sample_id} is inferred from the filename; output goes to
+\code{output_dir} (defaults to the directory containing the BAM).
+}
 
 \code{bamCoverage} is provided via the user-managed conda environment
 registered with \code{\link{HORIZON_set_conda_env}}.

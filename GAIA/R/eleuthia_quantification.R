@@ -192,7 +192,7 @@ ELEUTHIA_summarize_quantification <- function(quant_result) {
                     pct_assigned[i]))
       }
 
-      cat("[ELEUTHIA] Overall:\n")
+      cat("    Overall:\n")
       cat("    Mean assignment rate:", round(mean(pct_assigned), 1), "%\n")
       cat("    Total assigned reads:", format(sum(assigned), big.mark = ","), "\n")
     }

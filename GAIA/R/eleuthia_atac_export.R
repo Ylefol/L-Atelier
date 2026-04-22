@@ -27,6 +27,13 @@
 #'   Passed to \code{ELEUTHIA_export_enrichment()}. Default: NULL.
 #' @param homer_result A \code{homer_motif} or \code{homer_motif_batch}
 #'   object. Passed to \code{ELEUTHIA_export_homer_results()}. Default: NULL.
+#' @param tss_enrichment A \code{hades_tss_enrichment} object from
+#'   \code{HADES_tss_enrichment()}. Scores are saved as CSV; profile and score
+#'   plots are saved via \code{AETHER_plot_tss_enrichment()}. Default: NULL.
+#' @param tss_color_by Character. \code{color_by} argument passed to
+#'   \code{AETHER_plot_tss_enrichment()}. Any sample sheet metadata column
+#'   carried through by \code{HADES_tss_enrichment()} can be used.
+#'   Default: \code{"group"}.
 #' @param sequence_composition A data.frame from
 #'   \code{APOLLO_sequence_composition()}. Passed to
 #'   \code{ELEUTHIA_export_sequence_composition()}. Default: NULL.
@@ -63,6 +70,7 @@
 #'   enrichment/                   # enrichment results (always top-level)
 #'   homer/                        # HOMER motifs, plots, RDS
 #'   composition/                  # sequence composition CSV + summary
+#'   tss_enrichment/               # TSS enrichment scores CSV, plots, RDS
 #' }
 #'
 #' @examples
@@ -84,6 +92,8 @@ ELEUTHIA_export_atac_results <- function(output_dir,
                                           enrichment = NULL,
                                           homer_result = NULL,
                                           sequence_composition = NULL,
+                                          tss_enrichment = NULL,
+                                          tss_color_by = "group",
                                           prefix = "atac",
                                           l2fc_thresh = 1.0,
                                           p_thresh = 0.05,
@@ -97,7 +107,7 @@ ELEUTHIA_export_atac_results <- function(output_dir,
 
   if (is.null(annotated_peaks) && is.null(dea_result) &&
       is.null(enrichment) && is.null(homer_result) &&
-      is.null(sequence_composition)) {
+      is.null(sequence_composition) && is.null(tss_enrichment)) {
     stop("At least one result object must be provided.", call. = FALSE)
   }
 
@@ -261,6 +271,58 @@ ELEUTHIA_export_atac_results <- function(output_dir,
       all_files$composition <- comp_files
     }, error = function(e) {
       if (verbose) cat("[ELEUTHIA] Warning: Composition export failed -", e$message, "\n")
+    })
+    if (verbose) cat("\n")
+  }
+
+  # ==========================================================================
+  # TSS enrichment QC
+  # ==========================================================================
+  if (!is.null(tss_enrichment)) {
+    tss_dir <- file.path(output_dir, "tss_enrichment")
+    if (!dir.exists(tss_dir)) dir.create(tss_dir, recursive = TRUE)
+
+    tryCatch({
+      if (verbose) cat("[ELEUTHIA] TSS Enrichment QC\n")
+      tss_files <- character(0)
+
+      # Scores CSV
+      scores_file <- file.path(tss_dir, paste0(prefix, "_tss_enrichment_scores.csv"))
+      write.csv(tss_enrichment$scores, scores_file, row.names = FALSE)
+      tss_files <- c(tss_files, scores_file)
+      if (verbose) cat("    Scores:", basename(scores_file), "\n")
+
+      # Plots
+      if (save_plots) {
+        plts <- AETHER_plot_tss_enrichment(tss_enrichment, color_by = tss_color_by)
+
+        profile_files <- .save_ggplot(
+          plts$profile, tss_dir, paste0(prefix, "_tss_profile"),
+          plot_format, width = 8, height = 4
+        )
+        score_files <- .save_ggplot(
+          plts$score, tss_dir, paste0(prefix, "_tss_scores"),
+          plot_format, width = 6, height = 4
+        )
+        tss_files <- c(tss_files, profile_files, score_files)
+        if (verbose) {
+          cat("    Profile plot:", basename(profile_files[1]), "\n")
+          cat("    Score plot:  ", basename(score_files[1]),  "\n")
+        }
+      }
+
+      # RDS
+      if (save_rds) {
+        rds_file <- file.path(tss_dir, paste0(prefix, "_tss_enrichment.rds"))
+        saveRDS(tss_enrichment, rds_file)
+        tss_files <- c(tss_files, rds_file)
+        if (verbose) cat("    RDS:", basename(rds_file), "\n")
+      }
+
+      all_files$tss_enrichment <- tss_files
+    }, error = function(e) {
+      if (verbose) cat("[ELEUTHIA] Warning: TSS enrichment export failed -",
+                       e$message, "\n")
     })
     if (verbose) cat("\n")
   }

@@ -765,3 +765,114 @@ AETHER_plot_deg_peak_scatter <- function(deg_peaks,
 
   p
 }
+
+
+# ==============================================================================
+# Gene length distribution plot
+# ==============================================================================
+
+#' Plot Gene Length Distribution by Differential Expression Status
+#'
+#' Visualises whether up-regulated, down-regulated, and non-significant genes
+#' differ in their total exonic length.  Gene lengths are derived from the
+#' supplied GTF file (sum of exon lengths per gene) and plotted on a
+#' \code{log10} scale as smoothed density curves, one per significance class.
+#'
+#' @param de_result Data.frame with columns \code{gene_id}, \code{padj}, and
+#'   \code{log2FoldChange}.  Also accepts a list with a \code{$results}
+#'   data.frame (e.g. the direct output of
+#'   \code{\link{ARTEMIS_differential_counts}}).
+#' @param gtf_file Character.  Path to a GTF/GFF annotation file used to
+#'   compute exonic gene lengths.
+#' @param padj_thresh Numeric.  Adjusted p-value threshold for significance.
+#'   Default \code{0.05}.
+#' @param l2fc_thresh Numeric.  Absolute log2 fold-change threshold.
+#'   Default \code{1}.
+#' @param title Character or \code{NULL}.  Plot title.  If \code{NULL} a
+#'   default title incorporating the thresholds is generated.
+#'
+#' @return A \code{ggplot} object.
+#'
+#' @details
+#' Gene length is computed internally via \code{.demeter_add_gene_length()}.
+#' Genes with no matching GTF entry or a computed length of zero are silently
+#' dropped before plotting.
+#'
+#' Colours follow the GAIA convention: red for up-regulated, blue for
+#' down-regulated, grey for non-significant.
+#'
+#' @seealso \code{\link{ARTEMIS_differential_counts}}
+#' @export
+AETHER_plot_gene_length_distribution <- function(de_result,
+                                                  gtf_file,
+                                                  padj_thresh = 0.05,
+                                                  l2fc_thresh = 1,
+                                                  title       = NULL) {
+
+  # Accept either a plain data.frame or an ARTEMIS result list
+  if (is.data.frame(de_result)) {
+    df <- de_result
+  } else if (is.list(de_result) && is.data.frame(de_result$results)) {
+    df <- de_result$results
+  } else {
+    stop("'de_result' must be a data.frame or a DEA result object with a ",
+         "$results data.frame.", call. = FALSE)
+  }
+
+  required <- c("gene_id", "padj", "log2FoldChange")
+  missing  <- setdiff(required, colnames(df))
+  if (length(missing) > 0)
+    stop("Missing required columns: ", paste(missing, collapse = ", "),
+         call. = FALSE)
+
+  # Attach gene lengths and drop unresolved / zero-length entries
+  df <- .demeter_add_gene_length(df, gtf_file)
+  df <- df[!is.na(df$gene_length) & df$gene_length > 0L, ]
+
+  # Classify significance
+  df$significance <- "non-significant"
+  df$significance[!is.na(df$padj) & df$padj < padj_thresh &
+                    df$log2FoldChange >  l2fc_thresh] <- "up-regulated"
+  df$significance[!is.na(df$padj) & df$padj < padj_thresh &
+                    df$log2FoldChange < -l2fc_thresh] <- "down-regulated"
+
+  n_up   <- sum(df$significance == "up-regulated")
+  n_down <- sum(df$significance == "down-regulated")
+  n_ns   <- sum(df$significance == "non-significant")
+
+  label_up   <- paste0("up-regulated (n=",   n_up,   ")")
+  label_down <- paste0("down-regulated (n=", n_down, ")")
+  label_ns   <- paste0("non-significant (n=", n_ns,  ")")
+
+  df$significance[df$significance == "up-regulated"]   <- label_up
+  df$significance[df$significance == "down-regulated"] <- label_down
+  df$significance[df$significance == "non-significant"] <- label_ns
+
+  df$significance <- factor(df$significance,
+                             levels = c(label_up, label_ns, label_down))
+
+  color_map        <- c("#b31b21", "#a9a9a9", "#1465ac")
+  names(color_map) <- c(label_up, label_ns, label_down)
+
+  if (is.null(title))
+    title <- paste0("Gene length distribution  |  padj < ", padj_thresh,
+                    ", |log2FC| > ", l2fc_thresh)
+
+  ggplot(df, aes(x = log10(gene_length), colour = significance)) +
+    geom_density(linewidth = 0.9) +
+    scale_color_manual(values = color_map,
+                       breaks = c(label_up, label_ns, label_down)) +
+    labs(
+      title  = title,
+      x      = "log10(gene length)",
+      y      = "relative frequency",
+      colour = NULL
+    ) +
+    theme_bw(base_size = 11) +
+    theme(
+      plot.title       = element_text(face = "bold", size = 11),
+      axis.title       = element_text(size = 10),
+      panel.grid.minor = element_blank(),
+      legend.position  = "bottom"
+    )
+}

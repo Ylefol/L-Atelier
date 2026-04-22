@@ -46,10 +46,11 @@
 #'   estimateSizeFactors nbinomWaldTest results sizeFactors counts
 #'   design "design<-"
 #' @importFrom SummarizedExperiment colData "colData<-"
-#' @importFrom GenomicRanges seqinfo seqnames GRanges start end coverage
+#' @importFrom GenomicRanges seqinfo seqnames GRanges start end strand coverage
 #'   tileGenome binnedAverage distanceToNearest findOverlaps
-#' @importFrom IRanges IRanges
-#' @importFrom rtracklayer import.bw export.bw BigWigFile
+#' @importFrom GenomeInfoDb seqlengths
+#' @importFrom IRanges IRanges Views viewMeans
+#' @importFrom rtracklayer import.bw export.bw BigWigFile readGFF
 
 # ============================================================================
 # WGCNA imports (listed in Imports)

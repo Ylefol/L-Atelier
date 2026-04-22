@@ -1,11 +1,22 @@
 ================================================================================
 AETHER STATUS - Visualization
 ================================================================================
-Last Updated: 2026-03-26
+Last Updated: 2026-04-08
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+
+aether_atac_qc.R:
+-----------------
+AETHER_plot_tss_enrichment(tss_result, color_by="condition",
+                            profile_alpha=0.85, show_threshold=TRUE, title=NULL)
+  - Visualises output of HADES_tss_enrichment()
+  - Returns named list: $profile (normalised signal curves) + $score (bar chart)
+  - $profile: one line per sample, x = bp relative to TSS, y = normalised signal
+    vertical dashed line at TSS, horizontal dotted line at y=1 (background)
+  - $score: per-sample TSS enrichment score bars with optional threshold line
+  - color_by: "condition" (default, falls back to "sample"), "sample", or "pass"
 
 aether_pca_qc.R:
 -----------------

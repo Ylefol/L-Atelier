@@ -92,6 +92,10 @@ HORIZON_validate_sample_sheet <- function(path, check_files = TRUE) {
          ". Must be one of: ", paste(valid_strand, collapse = ", "))
   }
 
+  # PARSE columns: validate chemistry and kit if present
+  if (all(c("chemistry", "kit") %in% colnames(ss)))
+    .validate_chemistry_kit(ss)
+
   # Add fastq_r2 column if missing (single-end only sheet)
   if (!"fastq_r2" %in% colnames(ss)) {
     ss$fastq_r2 <- NA_character_
