@@ -312,6 +312,11 @@
 #' @param n_levels Integer or \code{"dynamic"}.  Contour levels.  Default
 #'   \code{8}.
 #' @param contour_alpha Numeric.  Contour opacity.  Default \code{0.7}.
+#' @param contour_adjust Numeric.  KDE bandwidth multiplier for contour
+#'   silhouettes.  Values above \code{1} produce smoother, more spread-out
+#'   cluster outlines; values below \code{1} tighten the silhouettes to the
+#'   data.  Only applies when \code{style} is \code{"contour"} or
+#'   \code{"both"}.  Default \code{1} (automatic bandwidth).
 #' @param boundary_pad Numeric.  Fractional axis expansion for KDE.  Default
 #'   \code{0.10}.
 #' @param inner_pad Numeric.  Additional scatter viewport expansion beyond the
@@ -531,6 +536,7 @@ ASPIS_plot_atlas <- function(sce,
                                  label_split_angle = TRUE,
                                  n_levels          = 8L,
                                  contour_alpha     = 0.7,
+                                 contour_adjust    = 1,
                                  boundary_pad      = 0.10,
                                  inner_pad         = 0.25,
 
@@ -890,6 +896,7 @@ ASPIS_plot_atlas <- function(sce,
     style          = style,
     n_levels       = n_levels,
     contour_alpha  = contour_alpha,
+    contour_adjust = contour_adjust,
     show_legend    = FALSE,
     boundary_pad   = boundary_pad
   )
@@ -912,7 +919,10 @@ ASPIS_plot_atlas <- function(sce,
           axis.text        = element_blank())
 
   # ── Density-aware split labels ────────────────────────────────────────────────
-  if (label_split) {
+  # When label_clusters is explicitly set to FALSE by the caller, treat it as a
+  # master "no labels" switch and suppress split labels too.
+  eff_label_split <- label_split && (missing(label_clusters) || isTRUE(label_clusters))
+  if (eff_label_split) {
     # Resolve size_range: NULL → derive from label_size
     eff_size_range <- if (!is.null(label_split_size_range)) {
       as.numeric(label_split_size_range)[1:2]

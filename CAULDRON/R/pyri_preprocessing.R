@@ -290,7 +290,7 @@ PYRI_tune_hvg <- function(sce,
     results[[i]] <- data.frame(
       n_hvgs       = n,
       cum_var      = round(cum_var,  2),
-      mean_bio_var = round(mean_bio, 4)
+      mean_bio_var = signif(mean_bio, 4)
     )
   }
 

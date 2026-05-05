@@ -7,11 +7,14 @@ tscp_assignment.csv files for RNA velocity analysis.
 Called from HORIZON_run_parse_velocity() via system2(). Arguments are
 passed as command-line flags by the R wrapper.
 
+Produces a raw concatenated AnnData containing all cells across all runs
+with spliced and unspliced layers. No cell/gene filtering or metadata
+addition is performed here — use parse_dge_filter.py for that step.
+
 Usage:
     python parse_velocity.py \
         --working_dir  <root output dir from split-pipe> \
         --run_ids      <comma-separated run IDs> \
-        --cell_metadata <path to combined cell_metadata.csv> \
         --output_file  <path for final adata_vel.h5ad>
 
 Note: tscp_assignment.csv files must be uncompressed before running.
@@ -43,16 +46,13 @@ parser.add_argument("--working_dir",   required=True,
                     help="Root output directory containing per-run split-pipe results")
 parser.add_argument("--run_ids",       required=True,
                     help="Comma-separated run IDs (must match subdirectory names)")
-parser.add_argument("--cell_metadata", required=True,
-                    help="Path to combined cell_metadata.csv from split-pipe")
 parser.add_argument("--output_file",   required=True,
                     help="Output path for the final adata_vel.h5ad")
 args = parser.parse_args()
 
-working_dir   = args.working_dir
-run_ids       = [r.strip() for r in args.run_ids.split(",")]
-meta_path     = args.cell_metadata
-output_file   = args.output_file
+working_dir = args.working_dir
+run_ids     = [r.strip() for r in args.run_ids.split(",")]
+output_file = args.output_file
 
 # Resolve tscp paths from explicit run IDs
 tscp_paths = [
@@ -80,6 +80,7 @@ def generate_splice_matrices(tscp_path, run_idx):
     print(f"\n[parse_velocity] Reading {tscp_path}")
     tscp_assign_df = dd.read_csv(tscp_path, blocksize="800MB")
     tscp_assign_df = tscp_assign_df.compute()
+    tscp_assign_df['gene_name'] = tscp_assign_df['gene_name'].str.strip('"')
 
     cell_tscp_cnts = tscp_assign_df.groupby("bc_wells").size()
     filtered_cell_dict = dict(zip(cell_tscp_cnts.index,
@@ -159,15 +160,12 @@ for i, tscp_path in enumerate(tscp_paths):
     ad_list_sp.append(generate_splice_matrices(tscp_path, i))
 
 print("\n[parse_velocity] Concatenating runs...")
-subs       = list(range(1, len(ad_list_sp) + 1))
-ad_splice  = ad.concat(ad_list_sp, keys=subs, index_unique="__s")
-
-# Filter to cells present in combined split-pipe metadata
-print(f"[parse_velocity] Loading cell metadata from {meta_path}")
-comb_meta  = pd.read_csv(meta_path, index_col=0)
-ad_splice  = ad_splice[ad_splice.obs_names.isin(comb_meta.index)].copy()
-ad_splice.obs = ad_splice.obs.join(comb_meta, how="left")
+subs      = list(range(1, len(ad_list_sp) + 1))
+ad_splice = ad.concat(ad_list_sp, keys=subs, index_unique="__s")
+print(f"[parse_velocity] Total cells after concatenation: {ad_splice.n_obs}")
 
 os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
 ad_splice.write(output_file)
-print(f"[parse_velocity] Final velocity AnnData written to: {output_file}")
+print(f"[parse_velocity] Raw velocity AnnData written to: {output_file}")
+print(f"    Cells: {ad_splice.n_obs}  |  Genes: {ad_splice.n_vars}")
+print("    Run HORIZON_parse_DGE_filter() to filter and add metadata.")

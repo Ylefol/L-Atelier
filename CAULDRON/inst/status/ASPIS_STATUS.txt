@@ -1,7 +1,7 @@
 ================================================================================
 ASPIS STATUS - Visualisation
 ================================================================================
-Last Updated: 2026-03-09
+Last Updated: 2026-04-24
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -261,18 +261,42 @@ aspis_atlas_v2.R:
 ASPIS_plot_atlas_v2 — predecessor; kept for reference.
   - Stable baseline: equal-width ring only, no tracks or satellites
 
+aspis_markers.R:
+----------------
+ASPIS_plot_marker_dotplot(sce, markers, cluster_col="cluster",
+                           assay_name="logcounts", top_n=5L, scale=TRUE,
+                           min_expr=0, dot_max_size=6, palette=NULL,
+                           title="Marker genes")
+  - Dot plot: size = % cells expressing, fill = scaled (z-scored) mean expr
+  - markers: keraunos_markers object OR character vector of gene names
+  - Genes ordered by source cluster; dashed hlines separate cluster groups
+  - scale=FALSE plots raw mean expression instead of z-scores
+  - palette: custom gradient colours; NULL = blue-white-red diverging
+  - Returns ggplot object
+
+ASPIS_plot_marker_heatmap(sce, markers, cluster_col="cluster",
+                           assay_name="logcounts", top_n=5L, scale=TRUE,
+                           palette=NULL, show_gene_labels=TRUE,
+                           title="Marker gene heatmap")
+  - Cluster-averaged expression heatmap (genes × clusters)
+  - markers: keraunos_markers object → genes faceted by source cluster
+             character vector → no faceting, genes shown in supplied order
+  - scale=TRUE: z-scores expression per gene across clusters (default)
+  - Facets via facet_grid(source_cluster ~ ., free_y, switch="y") when source
+    cluster info is available
+  - show_gene_labels=FALSE hides y-axis text (useful for many genes)
+  - Returns ggplot object
+
 ================================================================================
 IN PROGRESS
 ================================================================================
-- None (ASPIS_plot_atlas considered feature-complete for current milestone)
+- None
 
 ================================================================================
 PLANNED / TODO
 ================================================================================
 - ASPIS_plot_violin()        Violin plot of gene expression per cluster (distinct from plot_qc — gene-centric)
-- ASPIS_plot_dotplot()       Dot plot of marker gene expression
 - ASPIS_plot_feature()       Feature / gene expression overlay on embedding
-- ASPIS_plot_heatmap()       Heatmap of top marker genes per cluster
 - ASPIS_plot_ridge()         Ridge plot of expression distributions
 - ASPIS_plot_composition()   Cell type composition bar chart per sample
 - ASPIS_plot_trajectory()    Trajectory / pseudotime overlay (via TRIPODES)
@@ -292,6 +316,10 @@ DEPENDENCIES / NOTES
     aspis_atlas_v3.R  — ASPIS_plot_atlas_v3; kept for reference
     aspis_atlas_v4.R  — ASPIS_plot_atlas_v4; kept for reference
     aspis_atlas_v5.R  — ASPIS_plot_atlas_v5; kept for reference
+    aspis_markers.R   — ASPIS_plot_marker_dotplot, ASPIS_plot_marker_heatmap;
+                        internal helpers .aspis_extract_marker_genes,
+                        .aspis_compute_dot_stats, .aspis_compute_cluster_avg,
+                        .aspis_squish
 - Key packages: ggplot2 (primary, Depends), circlize (atlas ring + tracks),
   gridExtra (Suggests), cowplot (Suggests)
 - pheatmap / ComplexHeatmap plots draw on creation — use png()/dev.off()

@@ -12,12 +12,17 @@ HORIZON_run_splitpipe(
   mode = "all",
   threads = 8L,
   force = FALSE,
+  kit_score_skip = FALSE,
+  verbose = TRUE,
   ...
 )
 }
 \arguments{
 \item{sample_sheet}{Validated sample sheet data.frame from
-\code{\link{HORIZON_validate_parse_sheet}}.}
+\code{\link{HORIZON_validate_parse_sheet}}. The output location for each
+run is controlled by the \code{output_dir} column in this sheet — a
+sub-folder named \code{run_id} is created inside it. There is no separate
+\code{output_dir} parameter on this function.}
 
 \item{run_id}{Character. Run ID to process (must match a row in
 \code{sample_sheet}).}
@@ -40,6 +45,15 @@ output.}
 \item{force}{Logical. If \code{FALSE} (default), skip processing when the
 output directory already exists. Set \code{TRUE} to reprocess and
 overwrite.}
+
+\item{kit_score_skip}{Logical. If \code{TRUE}, passes \code{--kit_score_skip}
+to split-pipe to bypass the automatic kit barcode check. Useful when the
+detected kit does not exactly match the specified kit but processing should
+proceed anyway. Default \code{FALSE}.}
+
+\item{verbose}{Logical. If \code{TRUE}, prints the full split-pipe command
+before executing it. Useful for verifying parameter passing. Default
+\code{TRUE}.}
 
 \item{...}{Additional split-pipe flags passed verbatim to the command.}
 }

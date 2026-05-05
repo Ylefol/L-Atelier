@@ -438,6 +438,9 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
     )
   )
 
+  # Pre-declare locally so <<- inside the closure assigns here, not to .GlobalEnv
+  layout_out <- NULL
+
   mat_list <- lapply(bw_files, function(f) {
     if (!file.exists(f))
       stop("BigWig not found: ", f, call. = FALSE)
@@ -467,8 +470,8 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
     m <- unclass(nm)         # strip NormalizedMatrix S4 class → plain matrix
     m[is.na(m)] <- 0.0
 
-    # Capture the actual layout from NormalizedMatrix attributes on first file
-    if (!exists("layout_out")) {
+    # Capture actual layout from NormalizedMatrix attributes on first file only
+    if (is.null(layout_out)) {
       layout_out <<- list(
         n_up      = length(attr(nm, "upstream_index")),
         body_bins = length(attr(nm, "target_index")),

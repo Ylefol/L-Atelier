@@ -15,7 +15,8 @@
 #'   \item{genome_dir}{Absolute path to the split-pipe genome directory
 #'     (built with \code{split-pipe --mode mkref}).}
 #'   \item{chemistry}{Library chemistry version: \code{"v2"} or \code{"v3"}.}
-#'   \item{kit}{Library kit: \code{"WT"}, \code{"WT_mini"}, or \code{"WT_mega"}.}
+#'   \item{kit}{Library kit: \code{"WT"}, \code{"WT_mini"}, \code{"WT_mega"},
+#'     \code{"WT_mega_384"}, \code{"WT_penta"}, or \code{"WT_penta_384"}.}
 #' }
 #'
 #' Additional columns can be added freely; they are carried through as metadata.
@@ -161,6 +162,13 @@ HORIZON_validate_parse_sheet <- function(path, check_files = TRUE) {
 #' @param force Logical. If \code{FALSE} (default), skip processing when the
 #'   output directory already exists. Set \code{TRUE} to reprocess and
 #'   overwrite.
+#' @param kit_score_skip Logical. If \code{TRUE}, passes \code{--kit_score_skip}
+#'   to split-pipe to bypass the automatic kit barcode check. Useful when the
+#'   detected kit does not exactly match the specified kit but processing should
+#'   proceed anyway. Default \code{FALSE}.
+#' @param verbose Logical. If \code{TRUE}, prints the full split-pipe command
+#'   before executing it. Useful for verifying parameter passing. Default
+#'   \code{TRUE}.
 #' @param ... Additional split-pipe flags passed verbatim to the command.
 #'
 #' @return Character. Path to the split-pipe output directory, invisibly.
@@ -169,9 +177,11 @@ HORIZON_run_splitpipe <- function(sample_sheet,
                                    run_id,
                                    sample_layout,
                                    conda_env,
-                                   mode    = "all",
-                                   threads = 8L,
-                                   force   = FALSE,
+                                   mode           = "all",
+                                   threads        = 8L,
+                                   force          = FALSE,
+                                   kit_score_skip = FALSE,
+                                   verbose        = TRUE,
                                    ...) {
 
   if (!is.character(run_id) || length(run_id) != 1L)
@@ -187,6 +197,7 @@ HORIZON_run_splitpipe <- function(sample_sheet,
   if (!is.character(conda_env) || length(conda_env) != 1L)
     stop("conda_env must be a single path to the conda environment.",
          call. = FALSE)
+  conda_env <- path.expand(conda_env)
 
   splitpipe_bin <- file.path(conda_env, "bin", "split-pipe")
   if (!file.exists(splitpipe_bin))
@@ -224,6 +235,7 @@ HORIZON_run_splitpipe <- function(sample_sheet,
     "--output_dir", out_dir,
     "--genome_dir", row$genome_dir,
     sample_flags,
+    if (isTRUE(kit_score_skip)) "--kit_score_skip",
     c(...)
   )
 
@@ -237,7 +249,10 @@ HORIZON_run_splitpipe <- function(sample_sheet,
       paste(names(sample_layout), sample_layout, sep = "=", collapse = ", "),
       "\n\n")
 
-  ret <- system2(splitpipe_bin, args = args)
+  if (isTRUE(verbose))
+    cat("[PARSE] Command: ", splitpipe_bin, paste(args, collapse = " "), "\n\n")
+
+  ret <- .horizon_run_with_log(splitpipe_bin, args, conda_env)
 
   if (ret != 0L)
     stop("split-pipe failed for run: ", run_id,
@@ -254,17 +269,18 @@ HORIZON_run_splitpipe <- function(sample_sheet,
 #' Calls \code{inst/python/parse_velocity.py} to build per-run spliced and
 #' unspliced sparse matrices from the \code{tscp_assignment.csv} files produced
 #' by \code{\link{HORIZON_run_splitpipe}}, concatenates them across all runs,
-#' filters to cells present in the combined split-pipe cell metadata, and writes
-#' a single \code{adata_vel.h5ad} ready for RNA velocity analysis in CAULDRON.
+#' and writes a single raw \code{adata_vel.h5ad}. No cell/gene filtering or
+#' metadata addition is performed — use \code{\link{HORIZON_parse_DGE_filter}}
+#' for that step.
 #'
 #' \strong{Prerequisites:}
 #' \itemize{
 #'   \item All runs in \code{sample_sheet} must have been processed by
-#'     \code{\link{HORIZON_run_splitpipe}}.
-#'   \item \code{tscp_assignment.csv} files must be uncompressed. If split-pipe
-#'     wrote \code{.csv.gz} files, run \code{gunzip} on them first. This
-#'     function will stop with an informative error if compressed files are
-#'     found in place of the expected \code{.csv}.
+#'     \code{\link{HORIZON_run_splitpipe}} and combined with
+#'     \code{\link{HORIZON_combine_splitpipe}}.
+#'   \item \code{tscp_assignment.csv} files may be gzip-compressed
+#'     (\code{.csv.gz}); this function will decompress them automatically
+#'     in-place before processing.
 #'   \item Required Python packages in \code{conda_env}: \code{scanpy},
 #'     \code{scvelo}, \code{anndata}, \code{dask}, \code{pandas},
 #'     \code{scipy}, \code{numpy}.
@@ -274,12 +290,8 @@ HORIZON_run_splitpipe <- function(sample_sheet,
 #'   \code{\link{HORIZON_validate_parse_sheet}}. All rows must share the same
 #'   \code{output_dir}.
 #' @param conda_env Character. Path to the conda environment containing
-#'   \code{split-pipe} and the required Python packages — the same environment
-#'   used for \code{\link{HORIZON_run_splitpipe}}.
-#' @param cell_metadata_path Character. Path to the \code{cell_metadata.csv}
-#'   produced by split-pipe's combined output (e.g.
-#'   \code{"<output_dir>/combined/<sample>/DGE_unfiltered/cell_metadata.csv"}).
-#' @param output_file Character or NULL. Path for the final
+#'   the required Python packages.
+#' @param output_file Character or NULL. Path for the raw
 #'   \code{adata_vel.h5ad}. Defaults to \code{<output_dir>/adata_vel.h5ad}.
 #' @param force Logical. If \code{FALSE} (default), skip processing when
 #'   \code{output_file} already exists. Set \code{TRUE} to reprocess.
@@ -288,11 +300,9 @@ HORIZON_run_splitpipe <- function(sample_sheet,
 #' @export
 HORIZON_run_parse_velocity <- function(sample_sheet,
                                         conda_env,
-                                        cell_metadata_path,
                                         output_file = NULL,
                                         force       = FALSE) {
 
-  # Resolve working_dir from sample sheet (output_dir must be consistent)
   output_dirs <- unique(sample_sheet$output_dir)
   if (length(output_dirs) > 1)
     stop("All rows in sample_sheet must share the same output_dir for velocity ",
@@ -303,6 +313,7 @@ HORIZON_run_parse_velocity <- function(sample_sheet,
 
   if (!is.character(conda_env) || length(conda_env) != 1L)
     stop("conda_env must be a single path to the conda environment.", call. = FALSE)
+  conda_env <- path.expand(conda_env)
 
   python_bin <- file.path(conda_env, "bin", "python")
   if (!file.exists(python_bin))
@@ -319,21 +330,26 @@ HORIZON_run_parse_velocity <- function(sample_sheet,
     return(invisible(output_file))
   }
 
-  if (!file.exists(cell_metadata_path))
-    stop("cell_metadata_path not found: ", cell_metadata_path, call. = FALSE)
+  # Locate tscp files; auto-gunzip if only compressed versions are present
+  tscp_csv <- file.path(working_dir, run_ids, "process", "tscp_assignment.csv")
+  tscp_gz  <- paste0(tscp_csv, ".gz")
+  missing  <- !file.exists(tscp_csv)
+  has_gz   <- file.exists(tscp_gz)
 
-  # Check for uncompressed tscp files; warn clearly if .gz found
-  tscp_csv  <- file.path(working_dir, run_ids, "process", "tscp_assignment.csv")
-  tscp_gz   <- paste0(tscp_csv, ".gz")
-  missing   <- !file.exists(tscp_csv)
-  has_gz    <- file.exists(tscp_gz)
+  if (any(missing & has_gz)) {
+    cat("[PARSE] Decompressing tscp_assignment.csv.gz file(s)...\n")
+    for (gz in tscp_gz[missing & has_gz]) {
+      cat("    gunzip:", gz, "\n")
+      ret <- system2("gunzip", args = gz)
+      if (ret != 0L)
+        stop("gunzip failed for: ", gz, call. = FALSE)
+    }
+    missing <- !file.exists(tscp_csv)
+  }
 
   if (any(missing)) {
-    gz_msg <- ifelse(has_gz[missing],
-                     " (.gz found — run gunzip first)",
-                     " (file not found)")
     stop("tscp_assignment.csv missing for run(s):\n",
-         paste0("  ", run_ids[missing], gz_msg[missing], collapse = "\n"),
+         paste0("  ", run_ids[missing], collapse = "\n"),
          call. = FALSE)
   }
 
@@ -343,25 +359,199 @@ HORIZON_run_parse_velocity <- function(sample_sheet,
 
   args <- c(
     script,
-    "--working_dir",   working_dir,
-    "--run_ids",       paste(run_ids, collapse = ","),
-    "--cell_metadata", cell_metadata_path,
-    "--output_file",   output_file
+    "--working_dir", working_dir,
+    "--run_ids",     paste(run_ids, collapse = ","),
+    "--output_file", output_file
   )
 
   cat("[PARSE] Generating velocity matrices for", length(run_ids), "run(s)\n")
-  cat("    Working dir:     ", working_dir, "\n")
-  cat("    Cell metadata:   ", cell_metadata_path, "\n")
-  cat("    Output file:     ", output_file, "\n\n")
+  cat("    Working dir: ", working_dir, "\n")
+  cat("    Output file: ", output_file, "\n\n")
 
-  ret <- system2(python_bin, args = args)
+  ret <- .horizon_run_with_log(python_bin, args, conda_env)
 
   if (ret != 0L)
     stop("parse_velocity.py failed (exit code ", ret, ")", call. = FALSE)
 
   cat("[PARSE] Velocity processing complete\n")
   cat("    Output:", output_file, "\n")
+  cat("    Run HORIZON_parse_DGE_filter() to filter cells/genes and add metadata.\n")
   invisible(output_file)
+}
+
+
+#' Filter velocity AnnData using PARSE DGE output and add metadata
+#'
+#' Takes the raw \code{adata_vel.h5ad} from \code{\link{HORIZON_run_parse_velocity}}
+#' and filters it to the cells and genes present in the split-pipe DGE output
+#' (typically \code{DGE_filtered}), then adds cell and gene metadata from
+#' \code{cell_metadata.csv} and \code{all_genes.csv}.
+#'
+#' @param velocity_h5ad Character. Path to the raw \code{adata_vel.h5ad}
+#'   produced by \code{\link{HORIZON_run_parse_velocity}}.
+#' @param dge_dir Character. Path to the split-pipe DGE directory (e.g.
+#'   \code{"<output_dir>/combined/all-sample/DGE_filtered"}).
+#'   Must contain \code{cell_metadata.csv} and \code{all_genes.csv}.
+#' @param conda_env Character. Path to the conda environment used for
+#'   \code{\link{HORIZON_run_parse_velocity}}.
+#' @param output_file Character or NULL. Output path for the filtered h5ad.
+#'   Defaults to \code{adata_vel_filtered.h5ad} in the same directory as
+#'   \code{velocity_h5ad}.
+#' @param force Logical. Reprocess even if \code{output_file} already exists.
+#'
+#' @return Character. Path to the filtered h5ad, invisibly.
+#' @export
+HORIZON_parse_DGE_filter <- function(velocity_h5ad,
+                                      dge_dir,
+                                      conda_env,
+                                      output_file = NULL,
+                                      force       = FALSE) {
+
+  velocity_h5ad <- path.expand(velocity_h5ad)
+  dge_dir       <- path.expand(dge_dir)
+  conda_env     <- path.expand(conda_env)
+
+  if (!file.exists(velocity_h5ad))
+    stop("velocity_h5ad not found: ", velocity_h5ad, call. = FALSE)
+  if (!dir.exists(dge_dir))
+    stop("dge_dir not found: ", dge_dir, call. = FALSE)
+
+  cell_meta <- file.path(dge_dir, "cell_metadata.csv")
+  all_genes <- file.path(dge_dir, "all_genes.csv")
+
+  if (!file.exists(cell_meta))
+    stop("cell_metadata.csv not found in dge_dir: ", dge_dir, call. = FALSE)
+  if (!file.exists(all_genes))
+    stop("all_genes.csv not found in dge_dir: ", dge_dir, call. = FALSE)
+
+  python_bin <- file.path(conda_env, "bin", "python")
+  if (!file.exists(python_bin))
+    stop("Python not found at: ", python_bin, call. = FALSE)
+
+  if (is.null(output_file))
+    output_file <- file.path(dirname(velocity_h5ad), "adata_vel_filtered.h5ad")
+
+  if (!isTRUE(force) && file.exists(output_file)) {
+    cat("[PARSE] Filtered AnnData already exists — skipping",
+        "(use force=TRUE to reprocess)\n")
+    cat("    Output:", output_file, "\n")
+    return(invisible(output_file))
+  }
+
+  script <- system.file("python", "parse_dge_filter.py", package = "HORIZON")
+  if (!nzchar(script))
+    stop("parse_dge_filter.py not found in HORIZON installation.", call. = FALSE)
+
+  args <- c(
+    script,
+    "--velocity_h5ad", velocity_h5ad,
+    "--cell_metadata", cell_meta,
+    "--all_genes",     all_genes,
+    "--output_file",   output_file
+  )
+
+  cat("[PARSE] Filtering velocity AnnData\n")
+  cat("    Input:         ", velocity_h5ad, "\n")
+  cat("    DGE directory: ", dge_dir, "\n")
+  cat("    Output:        ", output_file, "\n\n")
+
+  ret <- .horizon_run_with_log(python_bin, args, conda_env)
+
+  if (ret != 0L)
+    stop("parse_dge_filter.py failed (exit code ", ret, ")", call. = FALSE)
+
+  cat("[PARSE] DGE filtering complete\n")
+  cat("    Output:", output_file, "\n")
+  invisible(output_file)
+}
+
+
+#' Combine multiple PARSE split-pipe runs
+#'
+#' Wraps the \code{split-pipe --mode comb} step to merge all per-run outputs
+#' produced by \code{\link{HORIZON_run_splitpipe}} into a single combined
+#' dataset. This step is required before running
+#' \code{\link{HORIZON_run_parse_velocity}} and before loading data into
+#' CAULDRON via \code{TALARIA_load_parse()}.
+#'
+#' @param sample_sheet Validated sample sheet data.frame from
+#'   \code{\link{HORIZON_validate_parse_sheet}}. All rows must share the same
+#'   \code{output_dir}. Each run's split-pipe output directory
+#'   (\code{output_dir/run_id/}) is passed as a sublibrary to split-pipe.
+#' @param conda_env Character. Path to the conda environment containing
+#'   \code{split-pipe} — the same environment used for
+#'   \code{\link{HORIZON_run_splitpipe}}.
+#' @param output_subdir Character. Name of the subdirectory within
+#'   \code{output_dir} where the combined output will be written. Default
+#'   \code{"combined"}. The resulting path
+#'   (\code{output_dir/combined/all-sample/}) is what
+#'   \code{\link{HORIZON_run_parse_velocity}} expects for
+#'   \code{cell_metadata_path}.
+#' @param force Logical. If \code{FALSE} (default), skip if the combined
+#'   output directory already exists. Set \code{TRUE} to reprocess.
+#' @param verbose Logical. If \code{TRUE} (default), prints the full
+#'   split-pipe command before executing.
+#'
+#' @return Character. Path to the combined output directory, invisibly.
+#' @export
+HORIZON_combine_splitpipe <- function(sample_sheet,
+                                       conda_env,
+                                       output_subdir = "combined",
+                                       force         = FALSE,
+                                       verbose       = TRUE) {
+
+  output_dirs <- unique(sample_sheet$output_dir)
+  if (length(output_dirs) > 1)
+    stop("All rows in sample_sheet must share the same output_dir. Found: ",
+         paste(output_dirs, collapse = ", "), call. = FALSE)
+
+  combined_dir <- file.path(output_dirs, output_subdir)
+
+  if (!is.character(conda_env) || length(conda_env) != 1L)
+    stop("conda_env must be a single path to the conda environment.", call. = FALSE)
+  conda_env <- path.expand(conda_env)
+
+  splitpipe_bin <- file.path(conda_env, "bin", "split-pipe")
+  if (!file.exists(splitpipe_bin))
+    stop("split-pipe not found at: ", splitpipe_bin,
+         "\n  Install via: pip install parsebiosciences (inside parse_env)",
+         call. = FALSE)
+
+  if (!isTRUE(force) && dir.exists(combined_dir)) {
+    cat("[PARSE] Combined output already exists — skipping",
+        "(use force=TRUE to reprocess)\n")
+    cat("    Output:", combined_dir, "\n")
+    return(invisible(combined_dir))
+  }
+
+  sublib_dirs <- file.path(output_dirs, sample_sheet$run_id)
+  missing_dirs <- sublib_dirs[!dir.exists(sublib_dirs)]
+  if (length(missing_dirs) > 0)
+    stop("Per-run split-pipe output missing for:\n",
+         paste(" ", missing_dirs, collapse = "\n"),
+         "\n  Run HORIZON_run_splitpipe() for all runs first.", call. = FALSE)
+
+  args <- c(
+    "--mode",         "comb",
+    "--output_dir",   combined_dir,
+    "--sublibraries", sublib_dirs
+  )
+
+  cat("[PARSE] Combining", length(sublib_dirs), "split-pipe run(s)\n")
+  cat("    Runs:  ", paste(sample_sheet$run_id, collapse = ", "), "\n")
+  cat("    Output:", combined_dir, "\n\n")
+
+  if (isTRUE(verbose))
+    cat("[PARSE] Command:", splitpipe_bin, paste(args, collapse = " "), "\n\n")
+
+  ret <- .horizon_run_with_log(splitpipe_bin, args, conda_env)
+
+  if (ret != 0L)
+    stop("split-pipe combine failed (exit code ", ret, ")", call. = FALSE)
+
+  cat("[PARSE] Combine complete\n")
+  cat("    Output:", combined_dir, "\n")
+  invisible(combined_dir)
 }
 
 

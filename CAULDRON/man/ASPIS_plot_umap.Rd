@@ -18,6 +18,7 @@ ASPIS_plot_umap(
   style = c("points", "contour", "both"),
   n_levels = 8L,
   contour_alpha = 0.7,
+  contour_adjust = 1,
   show_legend = TRUE,
   boundary_pad = 0.1
 )
@@ -68,6 +69,12 @@ density range, avoiding smearing on dense clusters while still showing
 structure in dispersed ones.  Default \code{8}.}
 
 \item{contour_alpha}{Numeric.  Opacity of the contour lines.  Default \code{0.7}.}
+
+\item{contour_adjust}{Numeric.  Bandwidth multiplier for the KDE used to
+draw contours (same convention as \code{adjust} in
+\code{\link[ggplot2]{stat_density_2d}}).  Values above \code{1} produce
+smoother, more spread-out silhouettes; values below \code{1} tighten the
+contours around the data.  Default \code{1} (automatic bandwidth).}
 
 \item{show_legend}{Logical.  Whether to display the colour legend.
 Default \code{TRUE}.}

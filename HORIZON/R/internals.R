@@ -21,12 +21,32 @@
          ". Must be one of: ", paste(valid_chemistry, collapse = ", "),
          call. = FALSE)
 
-  valid_kits <- c("WT", "WT_mini", "WT_mega")
+  valid_kits <- c("WT", "WT_mini", "WT_mega", "WT_mega_384", "WT_penta", "WT_penta_384")
   bad_kit <- setdiff(unique(ss$kit[nzchar(ss$kit)]), valid_kits)
   if (length(bad_kit) > 0)
     stop("Invalid kit value(s): ", paste(bad_kit, collapse = ", "),
          ". Must be one of: ", paste(valid_kits, collapse = ", "),
          call. = FALSE)
+}
+
+# Run an external command with conda env PATH injection.
+# When a HORIZON log is active, subprocess stdout+stderr are tee'd to the log
+# file so they appear in both the console and the log simultaneously.
+# Without an active log, falls back to plain system2().
+.horizon_run_with_log <- function(bin, args, conda_env) {
+  conda_path <- paste(file.path(conda_env, "bin"), Sys.getenv("PATH"), sep = ":")
+  log_file   <- HORIZON_get_log_file()
+
+  if (!is.null(log_file)) {
+    cmd <- paste(
+      "env", paste0("PATH=", shQuote(conda_path)),
+      shQuote(bin), paste(vapply(args, shQuote, character(1L)), collapse = " "),
+      "2>&1 | tee -a", shQuote(log_file)
+    )
+    system(cmd)
+  } else {
+    system2(bin, args = args, env = paste0("PATH=", conda_path))
+  }
 }
 
 # Map human-readable strandedness labels to featureCounts integer codes.

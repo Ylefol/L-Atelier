@@ -24,6 +24,7 @@ ASPIS_plot_atlas(
   label_split_angle = TRUE,
   n_levels = 8L,
   contour_alpha = 0.7,
+  contour_adjust = 1,
   boundary_pad = 0.1,
   inner_pad = 0.25,
   gap_degrees = 2,
@@ -166,6 +167,12 @@ a cluster while keeping the angle unchanged.  Default \code{0} (no shift).}
 \code{8}.}
 
 \item{contour_alpha}{Numeric.  Contour opacity.  Default \code{0.7}.}
+
+\item{contour_adjust}{Numeric.  KDE bandwidth multiplier for contour
+silhouettes.  Values above \code{1} produce smoother, more spread-out
+cluster outlines; values below \code{1} tighten the silhouettes to the
+data.  Only applies when \code{style} is \code{"contour"} or
+\code{"both"}.  Default \code{1} (automatic bandwidth).}
 
 \item{boundary_pad}{Numeric.  Fractional axis expansion for KDE.  Default
 \code{0.10}.}

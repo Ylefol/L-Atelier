@@ -18,6 +18,7 @@ ASPIS_plot_tsne(
   style = c("points", "contour", "both"),
   n_levels = 8L,
   contour_alpha = 0.7,
+  contour_adjust = 1,
   show_legend = TRUE,
   boundary_pad = 0.1
 )
@@ -66,6 +67,10 @@ using a fixed spacing.  Pass \code{"dynamic"} to compute per-cluster
 normalised KDE contours.  Default \code{8}.}
 
 \item{contour_alpha}{Numeric.  Opacity of the contour lines.  Default \code{0.7}.}
+
+\item{contour_adjust}{Numeric.  Bandwidth multiplier for the KDE used to
+draw contours.  Values above \code{1} produce smoother, more spread-out
+silhouettes; values below \code{1} tighten the contours.  Default \code{1}.}
 
 \item{show_legend}{Logical.  Whether to display the colour legend.
 Default \code{TRUE}.}

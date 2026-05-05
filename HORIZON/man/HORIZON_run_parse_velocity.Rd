@@ -7,7 +7,6 @@
 HORIZON_run_parse_velocity(
   sample_sheet,
   conda_env,
-  cell_metadata_path,
   output_file = NULL,
   force = FALSE
 )
@@ -18,14 +17,9 @@ HORIZON_run_parse_velocity(
 \code{output_dir}.}
 
 \item{conda_env}{Character. Path to the conda environment containing
-\code{split-pipe} and the required Python packages — the same environment
-used for \code{\link{HORIZON_run_splitpipe}}.}
+the required Python packages.}
 
-\item{cell_metadata_path}{Character. Path to the \code{cell_metadata.csv}
-produced by split-pipe's combined output (e.g.
-\code{"<output_dir>/combined/<sample>/DGE_unfiltered/cell_metadata.csv"}).}
-
-\item{output_file}{Character or NULL. Path for the final
+\item{output_file}{Character or NULL. Path for the raw
 \code{adata_vel.h5ad}. Defaults to \code{<output_dir>/adata_vel.h5ad}.}
 
 \item{force}{Logical. If \code{FALSE} (default), skip processing when
@@ -38,18 +32,19 @@ Character. Path to the written \code{adata_vel.h5ad}, invisibly.
 Calls \code{inst/python/parse_velocity.py} to build per-run spliced and
 unspliced sparse matrices from the \code{tscp_assignment.csv} files produced
 by \code{\link{HORIZON_run_splitpipe}}, concatenates them across all runs,
-filters to cells present in the combined split-pipe cell metadata, and writes
-a single \code{adata_vel.h5ad} ready for RNA velocity analysis in CAULDRON.
+and writes a single raw \code{adata_vel.h5ad}. No cell/gene filtering or
+metadata addition is performed — use \code{\link{HORIZON_parse_DGE_filter}}
+for that step.
 }
 \details{
 \strong{Prerequisites:}
 \itemize{
 \item All runs in \code{sample_sheet} must have been processed by
-\code{\link{HORIZON_run_splitpipe}}.
-\item \code{tscp_assignment.csv} files must be uncompressed. If split-pipe
-wrote \code{.csv.gz} files, run \code{gunzip} on them first. This
-function will stop with an informative error if compressed files are
-found in place of the expected \code{.csv}.
+\code{\link{HORIZON_run_splitpipe}} and combined with
+\code{\link{HORIZON_combine_splitpipe}}.
+\item \code{tscp_assignment.csv} files may be gzip-compressed
+(\code{.csv.gz}); this function will decompress them automatically
+in-place before processing.
 \item Required Python packages in \code{conda_env}: \code{scanpy},
 \code{scvelo}, \code{anndata}, \code{dask}, \code{pandas},
 \code{scipy}, \code{numpy}.

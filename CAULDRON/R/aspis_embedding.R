@@ -189,6 +189,11 @@ ASPIS_plot_elbow <- function(sce,
 #'   density range, avoiding smearing on dense clusters while still showing
 #'   structure in dispersed ones.  Default \code{8}.
 #' @param contour_alpha Numeric.  Opacity of the contour lines.  Default \code{0.7}.
+#' @param contour_adjust Numeric.  Bandwidth multiplier for the KDE used to
+#'   draw contours (same convention as \code{adjust} in
+#'   \code{\link[ggplot2]{stat_density_2d}}).  Values above \code{1} produce
+#'   smoother, more spread-out silhouettes; values below \code{1} tighten the
+#'   contours around the data.  Default \code{1} (automatic bandwidth).
 #' @param show_legend Logical.  Whether to display the colour legend.
 #'   Default \code{TRUE}.
 #' @param boundary_pad Numeric.  Fractional expansion of the plot boundaries
@@ -200,20 +205,21 @@ ASPIS_plot_elbow <- function(sce,
 #'   (multiple \code{colour_by}).
 #' @export
 ASPIS_plot_umap <- function(sce,
-                             colour_by      = "cluster",
-                             point_size     = 0.8,
-                             point_alpha    = 0.6,
-                             palette        = NULL,
-                             title          = NULL,
-                             label_clusters = FALSE,
-                             label_size     = 4,
-                             assay_name     = "logcounts",
-                             ncol           = NULL,
-                             style          = c("points", "contour", "both"),
-                             n_levels       = 8L,
-                             contour_alpha  = 0.7,
-                             show_legend    = TRUE,
-                             boundary_pad   = 0.10) {
+                             colour_by       = "cluster",
+                             point_size      = 0.8,
+                             point_alpha     = 0.6,
+                             palette         = NULL,
+                             title           = NULL,
+                             label_clusters  = FALSE,
+                             label_size      = 4,
+                             assay_name      = "logcounts",
+                             ncol            = NULL,
+                             style           = c("points", "contour", "both"),
+                             n_levels        = 8L,
+                             contour_alpha   = 0.7,
+                             contour_adjust  = 1,
+                             show_legend     = TRUE,
+                             boundary_pad    = 0.10) {
 
   style <- match.arg(style)
   if (!"UMAP" %in% reducedDimNames(sce))
@@ -232,6 +238,7 @@ ASPIS_plot_umap <- function(sce,
                      style          = style,
                      n_levels       = n_levels,
                      contour_alpha  = contour_alpha,
+                     contour_adjust = contour_adjust,
                      show_legend    = show_legend,
                      boundary_pad   = boundary_pad)
 }
@@ -273,6 +280,9 @@ ASPIS_plot_umap <- function(sce,
 #'   using a fixed spacing.  Pass \code{"dynamic"} to compute per-cluster
 #'   normalised KDE contours.  Default \code{8}.
 #' @param contour_alpha Numeric.  Opacity of the contour lines.  Default \code{0.7}.
+#' @param contour_adjust Numeric.  Bandwidth multiplier for the KDE used to
+#'   draw contours.  Values above \code{1} produce smoother, more spread-out
+#'   silhouettes; values below \code{1} tighten the contours.  Default \code{1}.
 #' @param show_legend Logical.  Whether to display the colour legend.
 #'   Default \code{TRUE}.
 #' @param boundary_pad Numeric.  Fractional expansion of the plot boundaries
@@ -284,20 +294,21 @@ ASPIS_plot_umap <- function(sce,
 #'   (multiple \code{colour_by}).
 #' @export
 ASPIS_plot_tsne <- function(sce,
-                             colour_by      = "cluster",
-                             point_size     = 0.8,
-                             point_alpha    = 0.6,
-                             palette        = NULL,
-                             title          = NULL,
-                             label_clusters = FALSE,
-                             label_size     = 4,
-                             assay_name     = "logcounts",
-                             ncol           = NULL,
-                             style          = c("points", "contour", "both"),
-                             n_levels       = 8L,
-                             contour_alpha  = 0.7,
-                             show_legend    = TRUE,
-                             boundary_pad   = 0.10) {
+                             colour_by       = "cluster",
+                             point_size      = 0.8,
+                             point_alpha     = 0.6,
+                             palette         = NULL,
+                             title           = NULL,
+                             label_clusters  = FALSE,
+                             label_size      = 4,
+                             assay_name      = "logcounts",
+                             ncol            = NULL,
+                             style           = c("points", "contour", "both"),
+                             n_levels        = 8L,
+                             contour_alpha   = 0.7,
+                             contour_adjust  = 1,
+                             show_legend     = TRUE,
+                             boundary_pad    = 0.10) {
 
   style <- match.arg(style)
   if (!"tSNE" %in% reducedDimNames(sce))
@@ -316,6 +327,7 @@ ASPIS_plot_tsne <- function(sce,
                      style          = style,
                      n_levels       = n_levels,
                      contour_alpha  = contour_alpha,
+                     contour_adjust = contour_adjust,
                      show_legend    = show_legend,
                      boundary_pad   = boundary_pad)
 }
@@ -669,7 +681,8 @@ ASPIS_plot_qc <- function(sce,
                                 palette, title, label_clusters, label_size,
                                 assay_name, ncol = NULL,
                                 style = "points", n_levels = 8L,
-                                contour_alpha = 0.7, show_legend = TRUE,
+                                contour_alpha = 0.7, contour_adjust = 1,
+                                show_legend = TRUE,
                                 boundary_pad = 0.10) {
 
   # ── Multi-panel: one plot per colour_by element ──────────────────────────────
@@ -683,7 +696,8 @@ ASPIS_plot_qc <- function(sce,
                          title = NULL, label_clusters = label_clusters,
                          label_size = label_size, assay_name = assay_name,
                          ncol = NULL, style = style, n_levels = n_levels,
-                         contour_alpha = contour_alpha, show_legend = show_legend,
+                         contour_alpha = contour_alpha, contour_adjust = contour_adjust,
+                         show_legend = show_legend,
                          boundary_pad = boundary_pad))
     ncol_use <- if (!is.null(ncol)) as.integer(ncol) else min(length(colour_by), 3L)
     return(gridExtra::grid.arrange(grobs = plots, ncol = ncol_use))
@@ -754,8 +768,10 @@ ASPIS_plot_qc <- function(sce,
 
   # ── Contour rings (drawn first so points render on top) ──────────────────────
   if (style %in% c("contour", "both")) {
+    adj <- as.numeric(contour_adjust)
     if (identical(n_levels, "dynamic")) {
-      contour_df <- .aspis_dynamic_contours(df, n_levels = 10L, pad = boundary_pad)
+      contour_df <- .aspis_dynamic_contours(df, n_levels = 10L, pad = boundary_pad,
+                                            adjust = adj)
       # Further extend to include actual contour coordinates if they exceed 15%
       xlim <- range(c(xlim, contour_df$dim1))
       ylim <- range(c(ylim, contour_df$dim2))
@@ -773,6 +789,7 @@ ASPIS_plot_qc <- function(sce,
       p <- p +
         stat_density_2d(
           aes(group = colour_val, colour = colour_val),
+          adjust    = adj,
           bins      = as.integer(n_levels),
           linewidth = 0.25,
           alpha     = contour_alpha
@@ -829,7 +846,7 @@ ASPIS_plot_qc <- function(sce,
 # For each cluster: compute 2D KDE, normalise density to [0,1], extract
 # contour lines at evenly spaced quantiles.  Returns a data.frame suitable
 # for geom_path() with columns dim1, dim2, colour_val, line_id.
-.aspis_dynamic_contours <- function(df, n_levels = 10L, pad = 0.10) {
+.aspis_dynamic_contours <- function(df, n_levels = 10L, pad = 0.10, adjust = 1) {
   lvls    <- levels(df$colour_val)
   breaks  <- seq(0.05, 0.95, length.out = as.integer(n_levels))
 
@@ -846,7 +863,9 @@ ASPIS_plot_qc <- function(sce,
     sub <- df[df$colour_val == lv, c("dim1", "dim2")]
     if (nrow(sub) < 10L) return(NULL)
 
-    kde    <- MASS::kde2d(sub$dim1, sub$dim2, n = 200L, lims = g_lims)
+    # h: default bandwidth scaled by adjust (same convention as stat_density_2d)
+    bw  <- c(MASS::bandwidth.nrd(sub$dim1), MASS::bandwidth.nrd(sub$dim2)) * adjust
+    kde <- MASS::kde2d(sub$dim1, sub$dim2, h = bw, n = 200L, lims = g_lims)
     z      <- kde$z
     z_norm <- (z - min(z)) / (max(z) - min(z))
 
