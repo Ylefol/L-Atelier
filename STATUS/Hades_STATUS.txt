@@ -1,11 +1,27 @@
 ================================================================================
 HADES STATUS - Quality Control & Filtering
 ================================================================================
-Last Updated: 2026-04-08
+Last Updated: 2026-05-06
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+
+hades_massspec.R:
+-----------------
+HADES_filter_massspec(massspec_data, keep_types="SAMPLE", max_sample_na_fraction=0.9, verbose=TRUE)
+  - Filters massspec_data by SampleType (default: keep only numeric SAMPLE type)
+  - Also removes samples exceeding max_sample_na_fraction
+  - Updates $wide and $sample_meta; $protein_meta unchanged
+HADES_filter_massspec_proteins(massspec_data, max_na_fraction=0.5, verbose=TRUE)
+  - Removes proteins with NA fraction > max_na_fraction across samples
+  - Default 0.5 (higher than Olink's 0.2 — DIA data has inherently high missingness)
+  - Updates $wide and $protein_meta; $sample_meta unchanged
+HADES_detect_outliers_massspec(massspec_data, n_pcs=5, threshold=3, method="sd", filter=FALSE, verbose=TRUE)
+  - PCA-based multivariate outlier detection (mirrors HADES_detect_outliers_olink)
+  - Mean-imputes NAs and scales proteins internally (does NOT modify $wide)
+  - Adds outlier_distance and outlier columns to $sample_meta
+  - filter=TRUE removes flagged samples from $wide and $sample_meta
 
 hades_olink.R:
 --------------

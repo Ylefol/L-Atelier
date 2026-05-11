@@ -11,5 +11,10 @@ Modular pipeline for multi-omics analysis including quality control, preprocessi
 \author{
 \strong{Maintainer}: Yohan Lefol \email{yohan.lefol@gmail.com}
 
+Authors:
+\itemize{
+  \item Yohan Lefol \email{yohan.lefol@gmail.com}
+}
+
 }
 \keyword{internal}

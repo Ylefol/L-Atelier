@@ -941,6 +941,9 @@ AETHER_plot_annotation_bar <- function(annotated_list,
   # ---------------------------------------------------------------------------
   # Build plot
   # ---------------------------------------------------------------------------
+  n_features <- length(feature_order)
+  legend_nrow <- ceiling(n_features / 4L)   # max 4 items per row
+
   y_var <- if (show_percentage) "Percentage" else "Count"
 
   p <- ggplot(combined_df, aes(x = .data[[y_var]], y = Dataset_label, fill = Feature)) +
@@ -962,7 +965,7 @@ AETHER_plot_annotation_bar <- function(annotated_list,
       panel.grid.major.y = element_blank(),
       panel.grid.minor = element_blank()
     ) +
-    guides(fill = guide_legend(nrow = 1))
+    guides(fill = guide_legend(nrow = legend_nrow))
 
   # Add percentage labels using position_stack for automatic alignment
   # IMPORTANT: Use full combined_df (not filtered) so position_stack sees all segments

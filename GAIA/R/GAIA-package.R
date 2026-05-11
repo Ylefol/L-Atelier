@@ -5,13 +5,11 @@
 # Base R imports (stats, utils, grDevices, graphics)
 # ============================================================================
 
-#' @importFrom stats IQR aggregate as.formula binomial chisq.test coef
-#'   complete.cases contr.poly contrasts<- cor.test cov cutree density
-#'   dist end gaussian glm hclust kruskal.test mad median model.matrix
-#'   na.omit p.adjust pnorm prcomp qnorm quantile reshape rnorm runif sd
-#'   setNames start t.test var wilcox.test
-#' @importFrom utils capture.output head read.csv read.delim read.table
-#'   sessionInfo tail write.csv
+#' @importFrom stats IQR aggregate as.formula binomial chisq.test coef complete.cases contr.poly
+#' @importFrom stats contrasts<- cor.test cov cutree density dist end gaussian glm hclust
+#' @importFrom stats kruskal.test mad median model.matrix na.omit p.adjust pnorm prcomp qnorm
+#' @importFrom stats quantile reshape rnorm runif sd setNames start t.test var wilcox.test
+#' @importFrom utils capture.output head read.csv read.delim read.table sessionInfo tail write.csv
 #' @importFrom grDevices col2rgb colorRampPalette dev.off pdf png rgb
 #' @importFrom graphics abline par points text
 
@@ -19,18 +17,16 @@
 # ggplot2 imports (listed in Imports)
 # ============================================================================
 
-#' @importFrom ggplot2 ggplot aes geom_area geom_bar geom_boxplot geom_col
-#'   geom_errorbar geom_hline geom_jitter geom_line geom_path geom_point
-#'   geom_polygon geom_raster geom_rect geom_segment geom_smooth geom_text
-#'   geom_tile geom_violin geom_vline annotate arrow coord_cartesian
-#'   coord_fixed coord_flip
-#'   element_blank element_line element_rect element_text expansion facet_grid
-#'   facet_wrap guide_legend guides labs margin position_stack
-#'   scale_color_discrete scale_color_gradient scale_color_gradient2
-#'   scale_color_manual scale_fill_gradient scale_fill_gradient2
-#'   scale_fill_manual scale_linetype_manual scale_size_continuous
-#'   scale_x_continuous scale_y_continuous sec_axis stat_ellipse theme
-#'   theme_bw theme_minimal theme_void unit ggsave
+#' @importFrom ggplot2 ggplot aes geom_area geom_bar geom_boxplot geom_col geom_errorbar
+#' @importFrom ggplot2 geom_hline geom_jitter geom_line geom_path geom_point geom_polygon
+#' @importFrom ggplot2 geom_raster geom_rect geom_segment geom_smooth geom_text geom_tile
+#' @importFrom ggplot2 geom_violin geom_vline annotate arrow coord_cartesian coord_fixed coord_flip
+#' @importFrom ggplot2 element_blank element_line element_rect element_text expansion facet_grid
+#' @importFrom ggplot2 facet_wrap guide_legend guides labs margin position_stack
+#' @importFrom ggplot2 scale_color_discrete scale_color_gradient scale_color_gradient2 scale_color_manual
+#' @importFrom ggplot2 scale_fill_gradient scale_fill_gradient2 scale_fill_manual scale_linetype_manual
+#' @importFrom ggplot2 scale_size_continuous scale_x_continuous scale_y_continuous sec_axis
+#' @importFrom ggplot2 stat_ellipse theme theme_bw theme_minimal theme_void unit ggsave
 
 # ============================================================================
 # ggplot2 .data pronoun for tidy eval
@@ -42,12 +38,11 @@
 # DESeq2 imports (listed in Imports)
 # ============================================================================
 
-#' @importFrom DESeq2 DESeq DESeqDataSetFromMatrix estimateDispersions
-#'   estimateSizeFactors nbinomWaldTest results sizeFactors counts
-#'   design "design<-"
+#' @importFrom DESeq2 DESeq DESeqDataSetFromMatrix estimateDispersions estimateSizeFactors
+#' @importFrom DESeq2 nbinomWaldTest results sizeFactors counts design "design<-"
 #' @importFrom SummarizedExperiment colData "colData<-"
 #' @importFrom GenomicRanges seqinfo seqnames GRanges start end strand coverage
-#'   tileGenome binnedAverage distanceToNearest findOverlaps
+#' @importFrom GenomicRanges tileGenome binnedAverage distanceToNearest findOverlaps
 #' @importFrom GenomeInfoDb seqlengths
 #' @importFrom IRanges IRanges Views viewMeans
 #' @importFrom rtracklayer import.bw export.bw BigWigFile readGFF
@@ -56,10 +51,9 @@
 # WGCNA imports (listed in Imports)
 # ============================================================================
 
-#' @importFrom WGCNA blockwiseModules blueWhiteRed corPvalueStudent
-#'   cutreeStatic goodSamplesGenes labeledHeatmap labels2colors
-#'   moduleEigengenes numbers2colors orderMEs pickSoftThreshold
-#'   plotDendroAndColors
+#' @importFrom WGCNA blockwiseModules blueWhiteRed corPvalueStudent cutreeStatic goodSamplesGenes
+#' @importFrom WGCNA labeledHeatmap labels2colors moduleEigengenes numbers2colors orderMEs
+#' @importFrom WGCNA pickSoftThreshold plotDendroAndColors
 
 # ============================================================================
 # Global variables used in NSE / data.table / ggplot aes()

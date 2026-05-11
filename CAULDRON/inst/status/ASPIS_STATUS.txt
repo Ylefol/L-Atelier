@@ -1,7 +1,7 @@
 ================================================================================
 ASPIS STATUS - Visualisation
 ================================================================================
-Last Updated: 2026-04-24
+Last Updated: 2026-05-08
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -263,6 +263,20 @@ ASPIS_plot_atlas_v2 — predecessor; kept for reference.
 
 aspis_markers.R:
 ----------------
+ASPIS_plot_db_heatmap(sce, markers, cluster_col="cluster",
+                       assay_name="logcounts", scale=TRUE,
+                       na_color="grey80", palette=NULL,
+                       show_gene_labels=TRUE, title="Marker database heatmap")
+  - Heatmap of genes from a user-supplied marker database (e.g. ScTypeDB)
+  - markers: data.frame with columns cell_type, markers (comma-separated),
+    and optional neg_markers (comma-separated)
+  - Rows = database genes, faceted by cell_type; cols = clusters
+  - Genes absent from the SCE shown as grey NA tiles (na_color)
+  - When neg_markers column present, positive/negative shown as nested
+    sub-facets within each cell_type via facet_grid(cell_type + marker_type)
+  - Reports total/found/missing gene counts + missing gene names via cat()
+  - Returns ggplot object
+
 ASPIS_plot_marker_dotplot(sce, markers, cluster_col="cluster",
                            assay_name="logcounts", top_n=5L, scale=TRUE,
                            min_expr=0, dot_max_size=6, palette=NULL,

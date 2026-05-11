@@ -1,11 +1,25 @@
 ================================================================================
 ELEUTHIA STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-03-31
+Last Updated: 2026-05-06
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+
+eleuthia_massspec.R:
+--------------------
+ELEUTHIA_load_massspec(ms_file, sheet=1, metadata_file=NULL, metadata_sheet=1,
+                        sample_col="SampleID", n_annotation_cols=NULL, verbose=TRUE)
+  - Reads DIA-NN report.pg_matrix format (.xlsx, .tsv, .txt, .csv)
+  - Auto-detects annotation vs sample columns from file-path column names
+  - Parses sample ID from Windows/POSIX file paths (strips directory + well suffix)
+  - Classifies sample types: SAMPLE (numeric IDs), SEP_SAMPLE, CONTROL, POOL, OTHER
+  - Log2-transforms intensities; zeros/negatives become NA
+  - Optionally joins metadata file onto sample_meta by sample_col
+  - Returns massspec_data S3 object: $wide (log2 matrix), $sample_meta, $protein_meta, $params
+print.massspec_data()
+  - S3 print method for massspec_data objects
 
 eleuthia_olink.R:
 -----------------

@@ -1,13 +1,23 @@
 ================================================================================
 PANDORA STATUS - Cell Type Annotation
 ================================================================================
-Last Updated: 2026-03-10
+Last Updated: 2026-05-08
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
 pandora_annotation.R:
 ---------------------
+PANDORA_convert_orthologs(genes, from="human", to, method="homologene",
+                           drop_na=FALSE, verbose=TRUE)
+  - Converts a character vector of gene symbols to orthologs via orthogene
+  - Returns a named character vector: names = input symbols, values = ortholog
+    symbols (or NA for unmapped genes when drop_na=FALSE)
+  - drop_na=FALSE (default): output same length as input, NA for unmapped
+  - drop_na=TRUE: unmapped genes dropped; used internally by PANDORA_annotate_sctype
+  - Requires orthogene (Suggests)
+  - Note: .pandora_convert_sctype_markers now delegates to this function
+
 PANDORA_list_references(source="all", db=NULL)
   - Prints formatted table of available SingleR/celldex reference shorthands
     and scType tissue types from the bundled ScTypeDB

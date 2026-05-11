@@ -1,7 +1,7 @@
 ================================================================================
 POSEIDON STATUS - Preprocessing & Normalization
 ================================================================================
-Last Updated: 2026-02-18
+Last Updated: 2026-05-06
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -21,6 +21,11 @@ POSEIDON_filter_low_counts(counts, ...)
   - Filter low count genes (count-based; complements Eleuthia loader)
 POSEIDON_plot_batch_pca(counts, sample_sheet, ...)
   - PCA plot coloured by batch for visual batch effect assessment
+POSEIDON_normalize_massspec(wide, verbose=TRUE)
+  - Per-sample median centering for log2-scale DIA mass spectrometry matrices
+  - Subtracts per-sample median (non-NA values) to remove run-to-run intensity shifts
+  - Takes a proteins x samples matrix; returns the same dimensions
+  - Use: ms$wide <- POSEIDON_normalize_massspec(ms$wide)
 
 ================================================================================
 IN PROGRESS

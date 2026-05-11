@@ -242,6 +242,7 @@ ELEUTHIA_load_bed <- function(file_path) {
 ELEUTHIA_create_consensus_peaks <- function(peak_list,
                                              min_overlap = 1,
                                              merge_distance = 0,
+                                             sample_groups = NULL,
                                              verbose = TRUE) {
 
   if (length(peak_list) == 0) {
@@ -349,11 +350,20 @@ ELEUTHIA_create_consensus_peaks <- function(peak_list,
   # Create peak IDs
   consensus$peak_id <- paste0("peak_", seq_len(nrow(consensus)))
 
-  # Remove samples column (was just for counting)
+  # Optionally map samples → group labels before dropping the samples column
+  if (!is.null(sample_groups)) {
+    consensus$groups <- sapply(strsplit(consensus$samples, ","), function(samps) {
+      grps <- unique(sample_groups[unique(samps)])
+      grps <- grps[!is.na(grps)]
+      paste(sort(grps), collapse = ",")
+    })
+  }
+
   consensus$samples <- NULL
 
-  # Reorder columns
-  consensus <- consensus[, c("chr", "start", "end", "peak_id", "n_samples")]
+  col_order <- c("chr", "start", "end", "peak_id", "n_samples")
+  if (!is.null(sample_groups)) col_order <- c(col_order, "groups")
+  consensus <- consensus[, col_order]
 
   if (verbose) {
     cat("    Final consensus peaks:", nrow(consensus), "\n")

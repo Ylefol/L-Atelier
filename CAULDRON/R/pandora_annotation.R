@@ -569,6 +569,105 @@ PANDORA_summarise_labels <- function(sce,
 }
 
 
+# ==============================================================================
+# PANDORA_convert_orthologs
+# ==============================================================================
+
+#' Convert gene symbols to orthologs
+#'
+#' Converts a character vector of gene symbols from one species to another
+#' using \pkg{orthogene}.  By default the returned vector is the same length
+#' as the input, with \code{NA} for genes that could not be mapped.  Set
+#' \code{drop_na = TRUE} to silently remove unmapped entries (used internally
+#' by \code{\link{PANDORA_annotate_sctype}}).
+#'
+#' @param genes Character vector of gene symbols to convert.
+#' @param from Character. Source species.  Default \code{"human"}.
+#' @param to Character. Target species (e.g. \code{"mouse"},
+#'   \code{"Mus musculus"}, \code{"zebrafish"}).  Any species string accepted
+#'   by \code{orthogene::convert_orthologs()} is valid.
+#' @param method Character. Ortholog database passed to
+#'   \code{orthogene::convert_orthologs()}.  Default \code{"homologene"}.
+#'   Use \code{"gprofiler"} for broader species coverage.
+#' @param drop_na Logical. If \code{FALSE} (default), unmapped genes are
+#'   returned as \code{NA} (output length equals input length).  If
+#'   \code{TRUE}, unmapped genes are dropped from the result.
+#' @param verbose Logical. Print mapping statistics.  Default \code{TRUE}.
+#'
+#' @return A named character vector.  Names are the input gene symbols; values
+#'   are the corresponding ortholog symbols (or \code{NA} when unmapped and
+#'   \code{drop_na = FALSE}).
+#'
+#' @export
+PANDORA_convert_orthologs <- function(genes,
+                                       from     = "human",
+                                       to,
+                                       method   = "homologene",
+                                       drop_na  = FALSE,
+                                       verbose  = TRUE) {
+
+  if (!requireNamespace("orthogene", quietly = TRUE))
+    stop("Package 'orthogene' is required for ortholog conversion.\n",
+         "  Install via: BiocManager::install(\"orthogene\")", call. = FALSE)
+
+  genes        <- as.character(genes)
+  genes_unique <- unique(genes)
+  n_input      <- length(genes_unique)
+
+  ortho_df <- suppressMessages(
+    orthogene::convert_orthologs(
+      gene_df        = genes_unique,
+      input_species  = from,
+      output_species = to,
+      method         = method,
+      drop_nonorths  = TRUE,
+      verbose        = FALSE
+    )
+  )
+
+  if (!is.data.frame(ortho_df) || nrow(ortho_df) == 0) {
+    warning("orthogene returned no orthologs for '", to,
+            "' using method '", method, "'. ",
+            "Try method = \"gprofiler\" for broader species coverage.",
+            call. = FALSE)
+    result <- stats::setNames(rep(NA_character_, length(genes)), genes)
+    if (isTRUE(drop_na)) result <- result[!is.na(result)]
+    return(result)
+  }
+
+  if (!"input_gene" %in% colnames(ortho_df))
+    stop("Unexpected orthogene output format: 'input_gene' column not found. ",
+         "This may indicate an orthogene version incompatibility.", call. = FALSE)
+
+  # Named map: input symbol -> ortholog symbol (rownames = target species)
+  gene_map <- stats::setNames(rownames(ortho_df), ortho_df[["input_gene"]])
+  n_mapped <- length(gene_map)
+
+  # Build output: same length as input, NA for unmapped genes
+  result        <- gene_map[genes]
+  names(result) <- genes
+
+  if (isTRUE(verbose)) {
+    pct <- round(100 * n_mapped / n_input, 1)
+    cat("[PANDORA] Ortholog conversion:", from, "->", to, "\n")
+    cat("    Method   :", method, "\n")
+    cat("    Mapped   :", n_mapped, "/", n_input,
+        paste0("(", format(pct, nsmall = 1), "%)\n"))
+    if (isTRUE(drop_na) && n_mapped < n_input)
+      cat("    Unmapped :", n_input - n_mapped, "genes dropped\n")
+    else if (n_mapped < n_input)
+      cat("    Unmapped :", n_input - n_mapped, "genes set to NA\n")
+    if (pct < 50)
+      cat("    WARNING  : Conversion rate <50% — interpret results with caution.\n")
+  }
+
+  if (isTRUE(drop_na))
+    result <- result[!is.na(result)]
+
+  result
+}
+
+
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 # Load scTypeDB from bundled file, user-supplied path, or data.frame.
@@ -630,7 +729,9 @@ PANDORA_summarise_labels <- function(sce,
 }
 
 
-# Convert scType human marker lists to target species orthologs via orthogene.
+# Remap scType human marker lists to target species orthologs.
+# Delegates conversion to PANDORA_convert_orthologs(); reporting is handled
+# by the caller (PANDORA_annotate_sctype).
 #
 # Returns a list:
 #   $pos_markers  — remapped positive marker lists (target species symbols)
@@ -641,37 +742,17 @@ PANDORA_summarise_labels <- function(sce,
 #   $pct_num      — mapping rate as numeric (for threshold checks)
 .pandora_convert_sctype_markers <- function(pos_markers, neg_markers,
                                             target_species, method, verbose) {
-  if (!requireNamespace("orthogene", quietly = TRUE))
-    stop("Package 'orthogene' is required for non-human species annotation.\n",
-         "  Install via: BiocManager::install(\"orthogene\")", call. = FALSE)
-
   all_human <- unique(c(unlist(pos_markers), unlist(neg_markers)))
   n_total   <- length(all_human)
 
-  ortho_df <- suppressMessages(
-    orthogene::convert_orthologs(
-      gene_df        = all_human,
-      input_species  = "human",
-      output_species = target_species,
-      method         = method,
-      drop_nonorths  = TRUE,
-      verbose        = FALSE
-    )
+  gene_map <- PANDORA_convert_orthologs(
+    genes    = all_human,
+    from     = "human",
+    to       = target_species,
+    method   = method,
+    drop_na  = TRUE,
+    verbose  = FALSE   # reporting handled by PANDORA_annotate_sctype
   )
-
-  if (!is.data.frame(ortho_df) || nrow(ortho_df) == 0)
-    stop("orthogene returned no orthologs for '", target_species,
-         "' using method '", method, "'. ",
-         "Try ortholog_method = \"gprofiler\" for broader species coverage.",
-         call. = FALSE)
-
-  # Build human → ortholog mapping.
-  # orthogene output: rownames = target species symbols, "input_gene" col = human symbols.
-  if (!"input_gene" %in% colnames(ortho_df))
-    stop("Unexpected orthogene output format: 'input_gene' column not found. ",
-         "This may indicate an orthogene version incompatibility.", call. = FALSE)
-
-  gene_map <- stats::setNames(rownames(ortho_df), ortho_df[["input_gene"]])
 
   n_mapped <- length(gene_map)
   pct_num  <- round(100 * n_mapped / n_total, 1)

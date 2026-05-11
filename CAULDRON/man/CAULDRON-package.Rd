@@ -11,5 +11,10 @@ Modular pipeline for single-cell and single-nuclei RNA-seq analysis including qu
 \author{
 \strong{Maintainer}: Yohan Lefol \email{email@example.com}
 
+Authors:
+\itemize{
+  \item Yohan Lefol \email{email@example.com}
+}
+
 }
 \keyword{internal}

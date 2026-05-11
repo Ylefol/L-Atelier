@@ -8,6 +8,7 @@ ELEUTHIA_create_consensus_peaks(
   peak_list,
   min_overlap = 1,
   merge_distance = 0,
+  sample_groups = NULL,
   verbose = TRUE
 )
 }
