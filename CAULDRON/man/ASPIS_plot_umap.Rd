@@ -20,7 +20,8 @@ ASPIS_plot_umap(
   contour_alpha = 0.7,
   contour_adjust = 1,
   show_legend = TRUE,
-  boundary_pad = 0.1
+  boundary_pad = 0.1,
+  legend_point_size = 4
 )
 }
 \arguments{

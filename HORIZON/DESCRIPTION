@@ -12,15 +12,18 @@ Description: A flat collection of wrappers around Bioconductor processing tools
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Depends:
     R (>= 4.1.0)
 Imports:
     Rsubread,
     Rfastp,
     Rsamtools,
-    Rbowtie2
+    Rbowtie2,
+    GenomicRanges,
+    IRanges,
+    scales
 Suggests:
     rtracklayer,
     GenomeInfoDb
 biocViews: Sequencing, RNASeq, Preprocessing, QualityControl, Alignment
+Config/roxygen2/version: 8.0.0

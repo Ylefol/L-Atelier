@@ -109,7 +109,7 @@ TRIPODES_run_monocle <- function(sce,
   # ── Check monocle3 available ─────────────────────────────────────────────────
   if (!requireNamespace("monocle3", quietly = TRUE))
     stop("[TRIPODES] monocle3 is not installed.\n",
-         "  Install with: BiocManager::install('cole-trapnell-lab/monocle3')",
+         "  Install with: devtools::install_github('cole-trapnell-lab/monocle3')",
          call. = FALSE)
 
   # ── Validate root mode — exactly one ─────────────────────────────────────────

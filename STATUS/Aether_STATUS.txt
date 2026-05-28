@@ -1,7 +1,7 @@
 ================================================================================
 AETHER STATUS - Visualization
 ================================================================================
-Last Updated: 2026-04-08
+Last Updated: 2026-05-25
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -73,6 +73,36 @@ AETHER_plot_activity_by_method(tf_result, ...)
   - Side-by-side activity comparison across methods
 AETHER_plot_activity_trait(tf_result, ...)
   - Scatter of activity vs trait correlation
+
+aether_consensus_plots.R:
+--------------------------
+AETHER_plot_consensus_cdf(cc_result, k_range=NULL, title="Consensus CDF")
+  - CDF curves of pairwise consensus values for each k
+AETHER_plot_consensus_matrix(cc_result, k, title=NULL)
+  - Heatmap of averaged consensus matrix; samples reordered by cluster assignment
+  - Cluster boundaries drawn as black lines
+AETHER_plot_wcss(cc_result, title="WCSS Elbow Plot")
+  - Within-cluster sum-of-squares vs k (elbow plot)
+AETHER_plot_delta_area(cc_result, title="Delta Area")
+  - Relative change in CDF area between consecutive k (bar chart)
+AETHER_plot_consensus_summary(cc_result, title=...)
+  - Three-panel diagnostic: CDF + WCSS + Delta Area; requires patchwork
+AETHER_plot_stability_histogram(stability_result, title=NULL)
+  - Bar chart: for each patient, how many of n_runs assigned to modal cluster
+AETHER_plot_stability_alluvial(stability_result, title=NULL)
+  - Flow diagram of cluster assignments across runs; requires ggalluvial
+  - Falls back to stability histogram if ggalluvial not installed
+
+aether_consensus_clustering_plots.R:
+--------------------------------------
+AETHER_plot_cluster_pca(cc_result, k, point_size=1.5, alpha=0.7,
+                         show_ellipse=TRUE, ellipse_level=0.95,
+                         show_centroids=TRUE, centroid_size=4, title=NULL)
+  - PCA of cc_result$scaled_mean_data coloured by cluster assignment at k
+  - Uses prcomp (center=FALSE, scale.=FALSE — data already preprocessed)
+  - Axes labelled with % variance explained; Set2 palette
+  - show_ellipse: 95% confidence ellipse per cluster (stat_ellipse)
+  - show_centroids: filled circle (shape 21) at per-cluster PC1/PC2 mean
 
 aether_cibersort_plots.R:
 --------------------------
@@ -178,6 +208,17 @@ AETHER_plot_go_treemap(enrichment_result, orgdb, ont="BP", top_n=20L, threshold=
   - Renders via treemap::treemap() to current device; save with png()/pdf() wrappers
   - Returns invisible list of reducedTerms data.frames (one per ontology)
   - Requires: rrvgo (Bioconductor), treemap (CRAN), OrgDb package for organism
+
+aether_statistics_plots.R:
+--------------------------
+AETHER_plot_annotation_comparison(annotation_test, colors=NULL,
+  title="Peak Annotation Distribution by Group", p_threshold=0.05,
+  show_ns=TRUE, nrow=2L)
+  - Visualises output of ARTEMIS_compare_annotation_distribution()
+  - Faceted by genomic feature (free_y), dots per sample (raw peak counts) coloured by group
+  - Horizontal crossbar at group mean
+  - Significance brackets: *** < 0.001, ** < 0.01, * < 0.05, ns otherwise
+  - show_ns=FALSE omits brackets on non-significant features entirely
 
 aether_famd_plots.R:
 --------------------

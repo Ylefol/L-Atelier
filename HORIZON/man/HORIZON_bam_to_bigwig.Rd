@@ -49,7 +49,7 @@ numeric value directly, or one of the following assembly names:
 RPKM normalisation is used.  When a numeric value is supplied (e.g. from
 \code{\link{HORIZON_compute_spike_in_factors}}), spike-in calibration
 normalisation is used instead (\code{--normalizeUsing None
-  --scaleFactor <value>}).}
+--scaleFactor <value>}).}
 
 \item{threads}{Integer. Number of parallel threads (\code{-p}). Default 4.}
 

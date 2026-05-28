@@ -25,5 +25,10 @@ Typical workflow:
 \author{
 \strong{Maintainer}: First Last \email{email@example.com}
 
+Authors:
+\itemize{
+  \item First Last \email{email@example.com}
+}
+
 }
 \keyword{internal}

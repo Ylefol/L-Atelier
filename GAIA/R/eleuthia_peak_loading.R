@@ -114,9 +114,9 @@ ELEUTHIA_load_peaks_from_sheet <- function(sample_sheet,
   }
 
   # Check format is appropriate
-  valid_formats <- c("peaks", "bed")
+  valid_formats <- c("peaks", "bed", "seacr")
   if (!all(subset_df$format %in% valid_formats)) {
-    stop("All samples must have format 'peaks' or 'bed' for peak loading")
+    stop("All samples must have format 'peaks', 'bed', or 'seacr' for peak loading")
   }
 
   if (verbose) {
@@ -136,14 +136,15 @@ ELEUTHIA_load_peaks_from_sheet <- function(sample_sheet,
     }
 
     # Determine file type from format or extension
-    if (subset_df$format[i] == "peaks" || grepl("\\.narrowPeak$", file_path)) {
+    if (subset_df$format[i] == "seacr" || grepl("_seacr_peaks\\.bed$", file_path)) {
+      peak_list[[sample_id]] <- .eleuthia_load_seacr_peaks(file_path)
+    } else if (subset_df$format[i] == "peaks" || grepl("\\.narrowPeak$", file_path)) {
       peak_list[[sample_id]] <- ELEUTHIA_load_narrowpeak(
         file_path,
         min_score = min_score,
         min_qvalue = min_qvalue
       )
     } else {
-      # Generic BED loading
       peak_list[[sample_id]] <- ELEUTHIA_load_bed(file_path)
     }
   }
@@ -169,6 +170,16 @@ ELEUTHIA_load_peaks_from_sheet <- function(sample_sheet,
 #'
 #' @export
 #'
+.eleuthia_load_seacr_peaks <- function(file_path) {
+  if (!file.exists(file_path)) stop("File not found: ", file_path)
+  peaks <- read.table(file_path, header = FALSE, sep = "\t",
+                      stringsAsFactors = FALSE,
+                      col.names = c("peak_id", "chr", "start", "end",
+                                    "total_signal", "max_signal"))
+  return(peaks)
+}
+
+
 ELEUTHIA_load_bed <- function(file_path) {
 
   if (!file.exists(file_path)) {
@@ -604,9 +615,8 @@ ELEUTHIA_merge_fragments <- function(bed_files,
 
   # Combine all chromosomes
   regions <- do.call(rbind, regions_list)
-  rownames(regions) <- NULL
 
-  if (nrow(regions) == 0) {
+  if (is.null(regions) || nrow(regions) == 0) {
     warning("No regions created. Check input data.")
     return(data.frame(
       chr        = character(),
@@ -617,6 +627,7 @@ ELEUTHIA_merge_fragments <- function(bed_files,
       width      = integer()
     ))
   }
+  rownames(regions) <- NULL
 
   # Add width
   regions$width <- regions$end - regions$start

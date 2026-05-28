@@ -37,6 +37,20 @@ ARTEMIS_pc_metadata_association(matrix, sample_meta, n_pcs=10, ntop=NULL,
   - Returns artemis_pc_assoc S3: $pvalues, $effect_sizes, $test_used,
     $var_explained, $pca, $params
 
+artemis_atac_annotation.R:
+---------------------------
+ARTEMIS_compare_annotation_distribution(annotated_list, metadata,
+  group_col="group", feature_col="annotation_simple",
+  method="wilcoxon", p_adj_method="BH", verbose=TRUE)
+  - Compares peak annotation proportions between exactly 2 groups
+  - Per-sample peak counts computed from annotated data.frames (APOLLO_annotate_peaks output)
+  - Wilcoxon rank-sum or t-test per feature; BH correction across features
+  - Note: tests raw counts; valid when peak libraries are balanced within batch
+    (e.g., spike-in normalization)
+  - Returns list: $results (feature stats), $counts (long df), $groups,
+    $group_col, $feature_col, $method
+  - Use AETHER_plot_annotation_comparison() to visualise
+
 artemis_anchor_analysis.R:
 ---------------------------
 ARTEMIS_global_shift_test(data, ...)
@@ -61,6 +75,26 @@ ARTEMIS_characterize_clusters(data, cluster_result, ...)
   - Characterize cluster profiles (variable importance, summaries)
   - S3 print methods: print.artemis_characterization,
     print.artemis_k_evaluation, print.artemis_variable_comparison
+
+artemis_consensus_clustering.R:
+---------------------------------
+ARTEMIS_consensus_cluster(imputed_obj, vars=NULL, log_vars=NULL, scale_data=TRUE,
+                           k_max=10, n_resample=100, resample_prop=0.8,
+                           clusterAlg="km", distance="euclidean", seed=42, verbose=TRUE)
+  - Runs ConsensusClusterPlus on each imputed dataset (from POSEIDON_mice_impute),
+    averages consensus matrices across all imputations
+  - Accounts for imputation uncertainty; follows Oslo sepsis clustering approach
+    (Wick et al. 2024: 100 imputations, averaged matrices)
+  - Returns artemis_cc S3 object: $consensus_matrices, $cluster_assignments,
+    $wcss, $cdf_area, $delta_area, $cdf_values, $scaled_mean_data (and metadata)
+  - Requires ConsensusClusterPlus (soft dep, BiocManager::install)
+
+ARTEMIS_consensus_stability(imputed_obj, k, n_runs=10, vars=NULL, log_vars=NULL,
+                             scale_data=TRUE, n_resample=100, resample_prop=0.8,
+                             clusterAlg="km", imputation_idx=1, seed=42, verbose=TRUE)
+  - Runs CC n_runs times on one imputed dataset (random restart) to test stability
+  - Returns $assignment_matrix (patients × runs), $stability_counts, $pct_stable
+  - Use after ARTEMIS_consensus_cluster to assess stability of chosen k
 
 artemis_decoupler.R:
 --------------------

@@ -18,4 +18,9 @@
 #' }
 #'
 #' @keywords internal
+#' @importFrom GenomicRanges GRanges coverage binnedAverage
+#' @importFrom IRanges IRanges slice viewSums viewMaxs start end width
+#' @importFrom stats quantile
+#' @importFrom utils read.table write.table
+#' @importFrom scales percent
 "_PACKAGE"

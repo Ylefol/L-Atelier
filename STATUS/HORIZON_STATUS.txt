@@ -1,7 +1,7 @@
 ================================================================================
 HORIZON STATUS - Upstream Bioinformatics Processing Package
 ================================================================================
-Last Updated: 2026-04-23
+Last Updated: 2026-05-21
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -165,10 +165,27 @@ HORIZON_call_peaks(treatment_bed, control_bed=NULL, output_dir,
   - Warns if shift/extsize set without nomodel=TRUE
   - Output: <sample_name>_peaks.narrowPeak (or .broadPeak)
 
-HORIZON_call_peaks_seacr — REMOVED
-  - SEACR conda dependencies caused unresolvable conflicts; MACS3 covers
-    all supported assay types (ATAC, ChIP, CUT&RUN, CUT&TAG)
-  - .horizon_bam_to_bedgraph internal helper also removed
+HORIZON_call_peaks_seacr(treatment_bed, control_bed=NULL, output_dir,
+                          sample_name, chrom_sizes, threshold=0.05,
+                          normalize="non", stringency="stringent",
+                          force=FALSE, verbose=TRUE)
+  - Pure-R reimplementation of SEACR (Meers et al. 2019, doi:10.1186/s13072-019-0287-4)
+  - No conda dependency — uses GenomicRanges/IRanges only
+  - Mirrors HORIZON_call_peaks interface (same core args: treatment_bed,
+    control_bed, output_dir, sample_name)
+  - chrom_sizes: data.frame(chr, size) from HORIZON_get_chrom_sizes()
+  - threshold: top fraction of blocks by AUC when no control (default 0.05)
+  - normalize: "non" (raw counts) or "norm" (per-million)
+  - stringency: "stringent" (AUC AND max_signal) or "relaxed" (either)
+  - Output: <sample_name>_seacr_peaks.bed with peak_id, chr, start, end,
+    total_signal, max_signal columns
+  - Validate results against original SEACR tool before publication use
+
+.horizon_bed_to_coverage(bed_df, chrom_sizes_vec)  [internal]
+  - Fragment BED data.frame -> GenomicRanges coverage RleList
+
+.horizon_seacr_blocks(cov_rle, chrom_sizes_vec)  [internal]
+  - RleList -> data.frame of contiguous signal blocks with total_signal, max_signal
 
 spikein.R:
 ----------
@@ -197,6 +214,17 @@ HORIZON_compute_spike_in_factors(spikein_bams, output_file=NULL, threads=4L)
   - size_factor_deseq2: count/min (≥1) — for DESeq2 sizeFactors()
     (bypass DESeq2 normalization: sizeFactors(dds) <- sf[colnames(dds)])
   - output_file: optionally write CSV for later DESeq2 use
+
+chrom_sizes.R:
+--------------
+HORIZON_get_chrom_sizes(genome, chromosomes=NULL, cache_dir=NULL,
+                         cache_name=NULL, force=FALSE, verbose=TRUE)
+  - Returns data.frame(chr, size) — same format as APOLLO_get_chromosome_sizes()
+    in GAIA so outputs are interchangeable; packages remain standalone
+  - genome accepts: FASTA (.fa/.fasta/.fa.gz) -> runs samtools faidx via conda env
+                    FAI (.fai) -> reads col 1/2 directly
+                    2-col text (.sizes/.chrom.sizes/.tsv/.txt) -> reads directly
+  - Caches result as RDS; force=TRUE regenerates cache
 
 rename_chromosomes.R:
 ---------------------
@@ -331,6 +359,8 @@ DEPENDENCIES / NOTES
 - Rfastp: QC + trimming
 - Rsamtools: BAM sorting + indexing + filtering
 - Rbowtie2: Bowtie2 alignment (bundles bowtie2 binary)
+- GenomicRanges + IRanges (Bioconductor, Imports): SEACR coverage + block detection
+- scales (CRAN, Imports): percent formatting in SEACR progress output
 - User conda env (not managed by HORIZON): samtools=1.23.1, bedtools=2.31.1,
   macs3=3.0.2, deeptools=3.5.5
   Register with HORIZON_set_conda_env() at session start

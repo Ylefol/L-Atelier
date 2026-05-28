@@ -205,42 +205,44 @@ ASPIS_plot_elbow <- function(sce,
 #'   (multiple \code{colour_by}).
 #' @export
 ASPIS_plot_umap <- function(sce,
-                             colour_by       = "cluster",
-                             point_size      = 0.8,
-                             point_alpha     = 0.6,
-                             palette         = NULL,
-                             title           = NULL,
-                             label_clusters  = FALSE,
-                             label_size      = 4,
-                             assay_name      = "logcounts",
-                             ncol            = NULL,
-                             style           = c("points", "contour", "both"),
-                             n_levels        = 8L,
-                             contour_alpha   = 0.7,
-                             contour_adjust  = 1,
-                             show_legend     = TRUE,
-                             boundary_pad    = 0.10) {
+                             colour_by         = "cluster",
+                             point_size        = 0.8,
+                             point_alpha       = 0.6,
+                             palette           = NULL,
+                             title             = NULL,
+                             label_clusters    = FALSE,
+                             label_size        = 4,
+                             assay_name        = "logcounts",
+                             ncol              = NULL,
+                             style             = c("points", "contour", "both"),
+                             n_levels          = 8L,
+                             contour_alpha     = 0.7,
+                             contour_adjust    = 1,
+                             show_legend       = TRUE,
+                             boundary_pad      = 0.10,
+                             legend_point_size = 4) {
 
   style <- match.arg(style)
   if (!"UMAP" %in% reducedDimNames(sce))
     stop("UMAP not found. Run TALOS_run_umap() first.", call. = FALSE)
 
   .aspis_plot_dimred(sce, "UMAP",
-                     colour_by      = colour_by,
-                     point_size     = point_size,
-                     point_alpha    = point_alpha,
-                     palette        = palette,
-                     title          = title,
-                     label_clusters = label_clusters,
-                     label_size     = label_size,
-                     assay_name     = assay_name,
-                     ncol           = ncol,
-                     style          = style,
-                     n_levels       = n_levels,
-                     contour_alpha  = contour_alpha,
-                     contour_adjust = contour_adjust,
-                     show_legend    = show_legend,
-                     boundary_pad   = boundary_pad)
+                     colour_by         = colour_by,
+                     point_size        = point_size,
+                     point_alpha       = point_alpha,
+                     palette           = palette,
+                     title             = title,
+                     label_clusters    = label_clusters,
+                     label_size        = label_size,
+                     assay_name        = assay_name,
+                     ncol              = ncol,
+                     style             = style,
+                     n_levels          = n_levels,
+                     contour_alpha     = contour_alpha,
+                     contour_adjust    = contour_adjust,
+                     show_legend       = show_legend,
+                     boundary_pad      = boundary_pad,
+                     legend_point_size = legend_point_size)
 }
 
 
@@ -294,42 +296,133 @@ ASPIS_plot_umap <- function(sce,
 #'   (multiple \code{colour_by}).
 #' @export
 ASPIS_plot_tsne <- function(sce,
-                             colour_by       = "cluster",
-                             point_size      = 0.8,
-                             point_alpha     = 0.6,
-                             palette         = NULL,
-                             title           = NULL,
-                             label_clusters  = FALSE,
-                             label_size      = 4,
-                             assay_name      = "logcounts",
-                             ncol            = NULL,
-                             style           = c("points", "contour", "both"),
-                             n_levels        = 8L,
-                             contour_alpha   = 0.7,
-                             contour_adjust  = 1,
-                             show_legend     = TRUE,
-                             boundary_pad    = 0.10) {
+                             colour_by         = "cluster",
+                             point_size        = 0.8,
+                             point_alpha       = 0.6,
+                             palette           = NULL,
+                             title             = NULL,
+                             label_clusters    = FALSE,
+                             label_size        = 4,
+                             assay_name        = "logcounts",
+                             ncol              = NULL,
+                             style             = c("points", "contour", "both"),
+                             n_levels          = 8L,
+                             contour_alpha     = 0.7,
+                             contour_adjust    = 1,
+                             show_legend       = TRUE,
+                             boundary_pad      = 0.10,
+                             legend_point_size = 4) {
 
   style <- match.arg(style)
   if (!"tSNE" %in% reducedDimNames(sce))
     stop("tSNE not found. Run TALOS_run_tsne() first.", call. = FALSE)
 
   .aspis_plot_dimred(sce, "tSNE",
-                     colour_by      = colour_by,
-                     point_size     = point_size,
-                     point_alpha    = point_alpha,
-                     palette        = palette,
-                     title          = title,
-                     label_clusters = label_clusters,
-                     label_size     = label_size,
-                     assay_name     = assay_name,
-                     ncol           = ncol,
-                     style          = style,
-                     n_levels       = n_levels,
-                     contour_alpha  = contour_alpha,
-                     contour_adjust = contour_adjust,
-                     show_legend    = show_legend,
-                     boundary_pad   = boundary_pad)
+                     colour_by         = colour_by,
+                     point_size        = point_size,
+                     point_alpha       = point_alpha,
+                     palette           = palette,
+                     title             = title,
+                     label_clusters    = label_clusters,
+                     label_size        = label_size,
+                     assay_name        = assay_name,
+                     ncol              = ncol,
+                     style             = style,
+                     n_levels          = n_levels,
+                     contour_alpha     = contour_alpha,
+                     contour_adjust    = contour_adjust,
+                     show_legend       = show_legend,
+                     boundary_pad      = boundary_pad,
+                     legend_point_size = legend_point_size)
+}
+
+
+#' PCA scatter plot
+#'
+#' Plots two principal components from a \code{reducedDims} slot, coloured by a
+#' \code{colData} column or gene expression value.  Axis labels include the
+#' percentage of variance explained when a \code{percentVar} attribute is
+#' present on the reduced-dimension matrix (set automatically by
+#' \code{\link{TALOS_run_pca}}, or by the caller for custom PCA objects).
+#'
+#' @param sce A \code{SingleCellExperiment} with the target reduced dimension
+#'   populated.
+#' @param colour_by Character scalar or vector.  One or more \code{colData}
+#'   column names or gene names present in \code{rownames(sce)}.  A single
+#'   value returns a \code{ggplot}; a vector produces one panel per element
+#'   arranged in a grid (requires \code{gridExtra}).  Default \code{"cluster"}.
+#' @param dimred Character.  Name of the \code{reducedDims} slot to plot.
+#'   Default \code{"PCA"}.  Set to a custom name (e.g. \code{"PCA_singler"})
+#'   when plotting a non-standard PCA — attach a \code{percentVar} numeric
+#'   vector as an attribute on that matrix to show variance on the axes.
+#' @param point_size Numeric. Point size. Default \code{0.8}.
+#' @param point_alpha Numeric. Point transparency (0–1). Default \code{0.6}.
+#' @param palette Character vector or \code{NULL}.  For discrete variables:
+#'   a vector of colours (recycled as needed).  For continuous variables or
+#'   gene expression: a 2-element vector \code{c(low, high)}.
+#'   \code{NULL} (default) uses built-in palettes.
+#' @param title Character or \code{NULL}.  Plot title.  \code{NULL}
+#'   auto-generates \code{"PCA — <colour_by>"}.
+#' @param label_clusters Logical.  Overlay cluster centroid labels.  Only
+#'   applied when \code{colour_by} resolves to a discrete variable.
+#'   Default \code{FALSE}.
+#' @param label_size Numeric.  Size of centroid labels.  Default \code{4}.
+#' @param assay_name Character.  Assay used when \code{colour_by} is a gene.
+#'   Default \code{"logcounts"}.
+#' @param ncol Integer or \code{NULL}.  Number of columns in the panel grid
+#'   when \code{colour_by} is a vector.  \code{NULL} uses
+#'   \code{min(length(colour_by), 3)}.
+#' @param show_legend Logical.  Whether to display the colour legend.
+#'   Default \code{TRUE}.
+#' @param legend_point_size Numeric.  Size of the coloured point in the
+#'   discrete legend.  Default \code{4}.
+#'
+#' @return A \code{ggplot} (single \code{colour_by}) or a \code{gtable} grid
+#'   (multiple \code{colour_by}).
+#' @export
+ASPIS_plot_pca <- function(sce,
+                            colour_by         = "cluster",
+                            dimred            = "PCA",
+                            point_size        = 0.8,
+                            point_alpha       = 0.6,
+                            palette           = NULL,
+                            title             = NULL,
+                            label_clusters    = FALSE,
+                            label_size        = 4,
+                            assay_name        = "logcounts",
+                            ncol              = NULL,
+                            show_legend       = TRUE,
+                            legend_point_size = 4) {
+
+  if (!dimred %in% reducedDimNames(sce))
+    stop("'", dimred, "' not found in reducedDims(sce). ",
+         "Run TALOS_run_pca() first, or provide a valid dimred name.",
+         call. = FALSE)
+
+  pct_var <- attr(reducedDim(sce, dimred), "percentVar")
+
+  p <- .aspis_plot_dimred(sce, dimred,
+                          colour_by         = colour_by,
+                          point_size        = point_size,
+                          point_alpha       = point_alpha,
+                          palette           = palette,
+                          title             = if (!is.null(title)) title else
+                                               paste0("PCA — ", colour_by),
+                          label_clusters    = label_clusters,
+                          label_size        = label_size,
+                          assay_name        = assay_name,
+                          ncol              = ncol,
+                          show_legend       = show_legend,
+                          legend_point_size = legend_point_size)
+
+  if (!is.null(pct_var) && !inherits(p, "gtable")) {
+    p <- p + labs(
+      x = paste0("PC1 (", round(pct_var[1], 1), "%)"),
+      y = paste0("PC2 (", round(pct_var[2], 1), "%)")
+    )
+  }
+
+  p
 }
 
 
@@ -683,7 +776,8 @@ ASPIS_plot_qc <- function(sce,
                                 style = "points", n_levels = 8L,
                                 contour_alpha = 0.7, contour_adjust = 1,
                                 show_legend = TRUE,
-                                boundary_pad = 0.10) {
+                                boundary_pad = 0.10,
+                                legend_point_size = 4) {
 
   # ── Multi-panel: one plot per colour_by element ──────────────────────────────
   if (length(colour_by) > 1L) {
@@ -698,7 +792,8 @@ ASPIS_plot_qc <- function(sce,
                          ncol = NULL, style = style, n_levels = n_levels,
                          contour_alpha = contour_alpha, contour_adjust = contour_adjust,
                          show_legend = show_legend,
-                         boundary_pad = boundary_pad))
+                         boundary_pad = boundary_pad,
+                         legend_point_size = legend_point_size))
     ncol_use <- if (!is.null(ncol)) as.integer(ncol) else min(length(colour_by), 3L)
     return(gridExtra::grid.arrange(grobs = plots, ncol = ncol_use))
   }
@@ -744,8 +839,8 @@ ASPIS_plot_qc <- function(sce,
   }
 
   # ── Axis / title labels ──────────────────────────────────────────────────────
-  display_name <- if (dimred == "UMAP") "UMAP" else "tSNE"
-  dim_labels   <- paste(display_name, 1:2)
+  display_name <- switch(dimred, UMAP = "UMAP", tSNE = "tSNE", dimred)
+  dim_labels   <- paste0(display_name, " ", 1:2)
   auto_title   <- if (!is.null(title)) title else
                     sprintf("%s \u2014 %s", display_name, colour_by)
 
@@ -835,8 +930,11 @@ ASPIS_plot_qc <- function(sce,
   )
 
   # ── Legend ───────────────────────────────────────────────────────────────────
-  if (!isTRUE(show_legend))
+  if (!isTRUE(show_legend)) {
     p <- p + theme(legend.position = "none")
+  } else if (is_discrete) {
+    p <- p + guides(colour = guide_legend(override.aes = list(size = legend_point_size)))
+  }
 
   p
 }

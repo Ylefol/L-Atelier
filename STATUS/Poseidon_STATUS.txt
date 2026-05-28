@@ -27,6 +27,15 @@ POSEIDON_normalize_massspec(wide, verbose=TRUE)
   - Takes a proteins x samples matrix; returns the same dimensions
   - Use: ms$wide <- POSEIDON_normalize_massspec(ms$wide)
 
+POSEIDON_mice_impute(data, n_imputations=100, method="pmm", max_iter=20,
+                     log_vars=NULL, seed=42, verbose=TRUE)
+  - Multiple imputation by chained equations (MICE) for clinical/mixed numeric data
+  - log_vars: columns log1p-transformed before imputation, back-transformed in output
+  - Returns: $datasets (list of n completed data frames), $mean_dataset (column-wise
+    average across imputations for centroid computation), $log_vars, $n_imputations
+  - Intended as input to ARTEMIS_consensus_cluster()
+  - Requires mice package (soft dep: install.packages("mice"))
+
 ================================================================================
 IN PROGRESS
 ================================================================================
