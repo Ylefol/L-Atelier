@@ -40,7 +40,7 @@ HORIZON_create_sample_sheet <- function(output_path = NULL, n_samples = 1) {
 
   if (!is.null(output_path)) {
     write.csv(template, output_path, row.names = FALSE)
-    message("Sample sheet template written to: ", output_path)
+    cat("Sample sheet template written to: ", output_path)
   }
 
   invisible(template)
@@ -120,6 +120,6 @@ HORIZON_validate_sample_sheet <- function(path, check_files = TRUE) {
     }
   }
 
-  message("Sample sheet OK — ", nrow(ss), " sample(s) validated.")
+  cat("Sample sheet OK — ", nrow(ss), " sample(s) validated.")
   ss
 }

@@ -62,7 +62,7 @@ HORIZON_call_peaks <- function(treatment_bed,
   peak_ext       <- if (isTRUE(broad)) "_peaks.broadPeak" else "_peaks.narrowPeak"
   peak_file_check <- file.path(output_dir, paste0(sample_name, peak_ext))
   if (!isTRUE(force) && file.exists(peak_file_check)) {
-    message("Peak file already exists for: ", sample_name,
+    cat("Peak file already exists for: ", sample_name,
             " — skipping (use force=TRUE to rerun)")
     return(invisible(peak_file_check))
   }
@@ -104,7 +104,7 @@ HORIZON_call_peaks <- function(treatment_bed,
   if (isTRUE(broad))
     args <- c(args, "--broad")
 
-  message("[", sample_name, "] Calling peaks with MACS3")
+  cat("[", sample_name, "] Calling peaks with MACS3")
   exit_code <- .horizon_run_cli("macs3", args)
   if (exit_code != 0)
     stop("MACS3 failed for '", sample_name, "' (exit code ", exit_code, ").",
@@ -115,7 +115,7 @@ HORIZON_call_peaks <- function(treatment_bed,
   if (!file.exists(peak_file))
     stop("MACS3 ran but output peak file not found: ", peak_file, call. = FALSE)
 
-  message("Peak calling complete for: ", sample_name,
+  cat("Peak calling complete for: ", sample_name,
           "\n  Peaks: ", peak_file)
   invisible(peak_file)
 }
@@ -273,7 +273,7 @@ HORIZON_call_peaks_seacr <- function(treatment_bed,
   out_file <- file.path(output_dir, paste0(sample_name, "_seacr_peaks.bed"))
   if (!isTRUE(force) && file.exists(out_file)) {
     if (isTRUE(verbose))
-      message("Peak file already exists for: ", sample_name,
+      cat("Peak file already exists for: ", sample_name,
               " — skipping (use force=TRUE to rerun)")
     return(invisible(out_file))
   }
@@ -318,8 +318,9 @@ HORIZON_call_peaks_seacr <- function(treatment_bed,
 
     # For each treatment block, query total control signal over the same region
     t_gr <- GenomicRanges::GRanges(
-      seqnames = t_blocks$chr,
-      ranges   = IRanges::IRanges(start = t_blocks$start, end = t_blocks$end)
+      seqnames   = t_blocks$chr,
+      ranges     = IRanges::IRanges(start = t_blocks$start, end = t_blocks$end),
+      seqlengths = chrom_sizes_vec
     )
     c_views <- GenomicRanges::binnedAverage(
       bins     = t_gr,
@@ -390,7 +391,7 @@ HORIZON_call_peaks_seacr <- function(treatment_bed,
                      row.names = FALSE, col.names = FALSE)
 
   if (isTRUE(verbose))
-    message("[SEACR] Done. Output: ", out_file)
+    cat("[SEACR] Done. Output: ", out_file)
 
   invisible(out_file)
 }

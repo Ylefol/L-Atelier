@@ -60,8 +60,8 @@ HORIZON_run_count <- function(sample_sheet,
   counts_out <- file.path(out_dir, paste0(sample_id, "_counts.txt"))
   rds_out    <- file.path(out_dir, paste0(sample_id, "_featurecounts.rds"))
 
-  message("Counting reads for: ", sample_id)
-  message("  Strandedness: ", row$strandedness, " (", strandedness, ")")
+  cat("Counting reads for: ", sample_id)
+  cat("  Strandedness: ", row$strandedness, " (", strandedness, ")")
 
   fc <- Rsubread::featureCounts(
     files               = sorted_bam,
@@ -87,6 +87,6 @@ HORIZON_run_count <- function(sample_sheet,
   # Save the full featureCounts result for diagnostics / alignment stats
   saveRDS(fc, rds_out)
 
-  message("Counts written to: ", counts_out)
+  cat("Counts written to: ", counts_out)
   invisible(counts_out)
 }

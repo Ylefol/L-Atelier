@@ -46,18 +46,18 @@ HORIZON_build_index <- function(basename,
   existing <- Sys.glob(paste0(basename, ".*"))
   if (length(existing) > 0) {
     if (!force) {
-      message("Index already exists at: ", basename)
-      message("  (", length(existing), " file(s) found — use force = TRUE to rebuild)")
+      cat("Index already exists at: ", basename)
+      cat("  (", length(existing), " file(s) found — use force = TRUE to rebuild)")
       return(invisible(basename))
     }
-    message("Overwriting existing index at: ", basename, " (force = TRUE)")
+    cat("Overwriting existing index at: ", basename, " (force = TRUE)")
   }
 
-  message("Building Rsubread genome index — this may take a while for large genomes.")
-  message("  Reference  : ", reference)
-  message("  Index path : ", basename)
-  message("  Memory     : ", memory, " MB")
-  message("  Split index: ", index_split)
+  cat("Building Rsubread genome index — this may take a while for large genomes.")
+  cat("  Reference  : ", reference)
+  cat("  Index path : ", basename)
+  cat("  Memory     : ", memory, " MB")
+  cat("  Split index: ", index_split)
 
   Rsubread::buildindex(
     basename    = basename,
@@ -68,6 +68,6 @@ HORIZON_build_index <- function(basename,
     ...
   )
 
-  message("Index build complete.")
+  cat("Index build complete.")
   invisible(basename)
 }

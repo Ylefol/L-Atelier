@@ -33,7 +33,7 @@ HORIZON_run_fragment_size <- function(sample_sheet,
   out_png  <- file.path(out_dir, paste0(sample_id, "_fragment_size.png"))
 
   if (!isTRUE(force) && file.exists(out_png)) {
-    message("Fragment size plot already exists for: ", sample_id,
+    cat("Fragment size plot already exists for: ", sample_id,
             " — skipping (use force=TRUE to rerun)")
     return(invisible(out_png))
   }
@@ -46,11 +46,11 @@ HORIZON_run_fragment_size <- function(sample_sheet,
     "--plotTitle",           sample_id
   )
 
-  message("[", sample_id, "] Running bamPEFragmentSize")
+  cat("[", sample_id, "] Running bamPEFragmentSize")
   exit <- .horizon_run_cli("bamPEFragmentSize", args)
   if (exit != 0)
     stop("bamPEFragmentSize failed (exit code ", exit, ").", call. = FALSE)
 
-  message("Fragment size plot complete: ", out_png)
+  cat("Fragment size plot complete: ", out_png)
   invisible(out_png)
 }

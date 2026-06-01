@@ -35,21 +35,21 @@ HORIZON_sort_index_bam <- function(sample_sheet,
 
   if (!file.exists(bam_in)) stop("Unsorted BAM not found: ", bam_in)
 
-  message("Sorting BAM for: ", sample_id)
+  cat("Sorting BAM for: ", sample_id)
   Rsamtools::sortBam(
     file        = bam_in,
     destination = dest_prefix,
     maxMemory   = memory_per_thread * threads
   )
 
-  message("Indexing BAM for: ", sample_id)
+  cat("Indexing BAM for: ", sample_id)
   Rsamtools::indexBam(sorted_bam)
 
   if (remove_unsorted) {
     file.remove(bam_in)
-    message("Unsorted BAM removed: ", bam_in)
+    cat("Unsorted BAM removed: ", bam_in)
   }
 
-  message("BAM sort + index complete for: ", sample_id)
+  cat("BAM sort + index complete for: ", sample_id)
   invisible(sorted_bam)
 }

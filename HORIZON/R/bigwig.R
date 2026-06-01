@@ -132,7 +132,7 @@ HORIZON_bam_to_bigwig <- function(sample_sheet = NULL,
   bw_path  <- file.path(out_dir, paste0(sample_id, "_", norm_tag, ".bw"))
 
   if (!isTRUE(force) && file.exists(bw_path)) {
-    message("BigWig already exists for: ", sample_id,
+    cat("BigWig already exists for: ", sample_id,
             " — skipping (use force=TRUE to regenerate)")
     return(invisible(bw_path))
   }
@@ -157,13 +157,13 @@ HORIZON_bam_to_bigwig <- function(sample_sheet = NULL,
   } else {
     args <- c(args, "--normalizeUsing", "None",
               "--scaleFactor", as.character(scale_factor))
-    message("[", sample_id, "] Using spike-in scale factor: ", round(scale_factor, 5L))
+    cat("[", sample_id, "] Using spike-in scale factor: ", round(scale_factor, 5L))
   }
 
   if (isTRUE(ignore_duplicates)) args <- c(args, "--ignoreDuplicates")
   if (isTRUE(extend_reads))      args <- c(args, "--extendReads")
 
-  message("Running bamCoverage for: ", sample_id,
+  cat("Running bamCoverage for: ", sample_id,
           " [normalization=", norm_tag, "]")
   exit_code <- .horizon_run_cli("bamCoverage", args)
 
@@ -171,6 +171,6 @@ HORIZON_bam_to_bigwig <- function(sample_sheet = NULL,
     stop("bamCoverage failed for '", sample_id,
          "' (exit code ", exit_code, ").", call. = FALSE)
 
-  message("BigWig complete for: ", sample_id, "\n  Output: ", bw_path)
+  cat("BigWig complete for: ", sample_id, "\n  Output: ", bw_path)
   invisible(bw_path)
 }

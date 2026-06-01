@@ -94,7 +94,7 @@ HORIZON_run_bowtie2 <- function(sample_sheet,
   # Skip if output already exists ----------------------------------------------
   filt_bam <- file.path(out_dir, paste0(sample_id, "_mapq_filtered.bam"))
   if (!isTRUE(force) && file.exists(filt_bam)) {
-    message("Aligned BAM already exists for: ", sample_id,
+    cat("Aligned BAM already exists for: ", sample_id,
             " — skipping (use force=TRUE to re-align)")
     return(invisible(filt_bam))
   }
@@ -127,7 +127,7 @@ HORIZON_run_bowtie2 <- function(sample_sheet,
     "-o", shQuote(filt_bam)
   )
 
-  message("Running Bowtie2 alignment for: ", sample_id,
+  cat("Running Bowtie2 alignment for: ", sample_id,
           " [max_insert=", max_insert, ", min_mapq=", min_mapq, "]")
 
   ret <- system(cmd)
@@ -135,7 +135,7 @@ HORIZON_run_bowtie2 <- function(sample_sheet,
     stop("Bowtie2/samtools pipeline failed for sample: ", sample_id,
          " (exit code ", ret, ")", call. = FALSE)
 
-  message("Bowtie2 alignment complete for: ", sample_id,
+  cat("Bowtie2 alignment complete for: ", sample_id,
           "\n  Output: ", filt_bam)
   invisible(filt_bam)
 }

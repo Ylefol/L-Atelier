@@ -50,7 +50,7 @@ HORIZON_process_bam <- function(sample_sheet,
   flagstat_f  <- file.path(out_dir, paste0(sample_id, "_flagstat.txt"))
 
   if (!isTRUE(force) && file.exists(final_bam)) {
-    message("Processed BAM already exists for: ", sample_id,
+    cat("Processed BAM already exists for: ", sample_id,
             " — skipping (use force=TRUE to reprocess)")
     return(invisible(final_bam))
   }
@@ -67,7 +67,7 @@ HORIZON_process_bam <- function(sample_sheet,
   }
 
   # Step 1: collate (name-sort) ------------------------------------------------
-  message("[", sample_id, "] samtools collate")
+  cat("[", sample_id, "] samtools collate")
   .run_samtools("collate", "-u",
                 "--threads", thr,
                 input_bam,
@@ -75,14 +75,14 @@ HORIZON_process_bam <- function(sample_sheet,
                 "-o", collate_bam)
 
   # Step 2: fixmate ------------------------------------------------------------
-  message("[", sample_id, "] samtools fixmate")
+  cat("[", sample_id, "] samtools fixmate")
   .run_samtools("fixmate", "-m", "-u",
                 "--threads", thr,
                 collate_bam, fixmate_bam)
   if (isTRUE(remove_tmp)) file.remove(collate_bam)
 
   # Step 3: sort (coordinate) --------------------------------------------------
-  message("[", sample_id, "] samtools sort")
+  cat("[", sample_id, "] samtools sort")
   .run_samtools("sort",
                 "--threads", thr,
                 "-m", mem,
@@ -91,7 +91,7 @@ HORIZON_process_bam <- function(sample_sheet,
   if (isTRUE(remove_tmp)) file.remove(fixmate_bam)
 
   # Step 4: markdup + stats ---------------------------------------------------
-  message("[", sample_id, "] samtools markdup (removing duplicates)")
+  cat("[", sample_id, "] samtools markdup (removing duplicates)")
   .run_samtools("markdup",
                 "--threads", thr,
                 "-r",             # remove duplicates
@@ -102,7 +102,7 @@ HORIZON_process_bam <- function(sample_sheet,
 
   # Step 5: chrM removal -------------------------------------------------------
   if (isTRUE(remove_chrM)) {
-    message("[", sample_id, "] Removing chrM reads")
+    cat("[", sample_id, "] Removing chrM reads")
     # Index markdup BAM first (required for idxstats)
     .run_samtools("index", "--threads", thr, markdup_bam)
 
@@ -133,18 +133,18 @@ HORIZON_process_bam <- function(sample_sheet,
   }
 
   # Step 6: index final BAM ----------------------------------------------------
-  message("[", sample_id, "] Indexing processed BAM")
+  cat("[", sample_id, "] Indexing processed BAM")
   .run_samtools("index", "--threads", thr, final_bam)
 
   # Step 7: flagstat -----------------------------------------------------------
-  message("[", sample_id, "] Running flagstat")
+  cat("[", sample_id, "] Running flagstat")
   .horizon_run_cli(
     "samtools",
     c("flagstat", "--threads", thr, final_bam),
     stdout = flagstat_f
   )
 
-  message("BAM processing complete for: ", sample_id,
+  cat("BAM processing complete for: ", sample_id,
           "\n  Output: ", final_bam)
   invisible(final_bam)
 }
@@ -181,7 +181,7 @@ HORIZON_filter_blacklist <- function(sample_sheet,
   out_bam   <- file.path(out_dir, paste0(sample_id, "_blacklist_filtered.bam"))
 
   if (!isTRUE(force) && !is.null(blacklist_bed) && file.exists(out_bam)) {
-    message("Blacklist-filtered BAM already exists for: ", sample_id,
+    cat("Blacklist-filtered BAM already exists for: ", sample_id,
             " — skipping (use force=TRUE to re-filter)")
     return(invisible(out_bam))
   }
@@ -198,7 +198,7 @@ HORIZON_filter_blacklist <- function(sample_sheet,
   if (!file.exists(blacklist_bed))
     stop("Blacklist BED file not found: ", blacklist_bed, call. = FALSE)
 
-  message("[", sample_id, "] Filtering blacklist regions")
+  cat("[", sample_id, "] Filtering blacklist regions")
   exit <- .horizon_run_cli(
     "bedtools",
     c("intersect", "-v", "-abam", input_bam, "-b", blacklist_bed),
@@ -213,7 +213,7 @@ HORIZON_filter_blacklist <- function(sample_sheet,
     c("index", "--threads", as.integer(threads), out_bam)
   )
 
-  message("Blacklist filtering complete for: ", sample_id,
+  cat("Blacklist filtering complete for: ", sample_id,
           "\n  Output: ", out_bam)
   invisible(out_bam)
 }
@@ -269,7 +269,7 @@ HORIZON_downsample_bam <- function(sample_sheet,
   output_bam <- file.path(out_dir, paste0(sample_id, "_downsampled.bam"))
 
   if (!isTRUE(force) && file.exists(output_bam)) {
-    message("Downsampled BAM already exists for: ", sample_id,
+    cat("Downsampled BAM already exists for: ", sample_id,
             " — skipping (use force=TRUE to redo)")
     return(invisible(output_bam))
   }
@@ -278,7 +278,7 @@ HORIZON_downsample_bam <- function(sample_sheet,
   thr       <- as.integer(threads)
 
   if (scale_factor >= 1.0) {
-    message("[", sample_id, "] scale_factor = 1 — no downsampling needed; ",
+    cat("[", sample_id, "] scale_factor = 1 — no downsampling needed; ",
             "copying BAM for pipeline consistency")
     file.copy(input_bam, output_bam, overwrite = TRUE)
     bai_in <- paste0(input_bam, ".bai")
@@ -290,7 +290,7 @@ HORIZON_downsample_bam <- function(sample_sheet,
     frac_str <- sub("^0", "", formatC(scale_factor, digits = 4L, format = "f"))
     s_flag   <- paste0(as.integer(seed), frac_str)
 
-    message("[", sample_id, "] Downsampling BAM (fraction = ",
+    cat("[", sample_id, "] Downsampling BAM (fraction = ",
             round(scale_factor, 4L), ", seed = ", seed, ")")
     exit <- .horizon_run_cli(
       "samtools",
@@ -308,7 +308,7 @@ HORIZON_downsample_bam <- function(sample_sheet,
     if (file.exists(bai)) file.remove(bai)
   }
 
-  message("Downsampling complete for: ", sample_id,
+  cat("Downsampling complete for: ", sample_id,
           "\n  Output: ", output_bam)
   invisible(output_bam)
 }

@@ -74,13 +74,13 @@ HORIZON_bam_to_bed <- function(sample_sheet,
   out_bed  <- file.path(out_dir, paste0(bed_stem, "_fragments.bed"))
 
   if (!isTRUE(force) && file.exists(out_bed)) {
-    message("Fragment BED already exists for: ", sample_id,
+    cat("Fragment BED already exists for: ", sample_id,
             " — skipping (use force=TRUE to regenerate)")
     return(invisible(out_bed))
   }
 
   # Step 1: name-sort BAM -------------------------------------------------------
-  message("[", sample_id, "] Name-sorting BAM for BEDPE conversion")
+  cat("[", sample_id, "] Name-sorting BAM for BEDPE conversion")
   exit <- .horizon_run_cli(
     "samtools",
     c("sort", "-n", "--threads", as.integer(threads),
@@ -89,7 +89,7 @@ HORIZON_bam_to_bed <- function(sample_sheet,
   if (exit != 0) stop("samtools sort -n failed.", call. = FALSE)
 
   # Step 2: BAM → BEDPE --------------------------------------------------------
-  message("[", sample_id, "] Converting BAM to BEDPE")
+  cat("[", sample_id, "] Converting BAM to BEDPE")
   exit <- .horizon_run_cli(
     "bedtools",
     c("bamtobed", "-bedpe", "-i", ns_bam),
@@ -102,7 +102,7 @@ HORIZON_bam_to_bed <- function(sample_sheet,
   # Step 3: awk — BEDPE → fragment BED (streaming, no R memory) ---------------
   # Writes an awk script to a temp file to avoid shell-quoting issues, then
   # streams the BEDPE through awk into an unsorted temp BED.
-  message("[", sample_id, "] Building fragment BED (streaming awk)")
+  cat("[", sample_id, "] Building fragment BED (streaming awk)")
 
   awk_script <- tempfile(fileext = ".awk")
   if (isTRUE(shift_reads)) {
@@ -135,13 +135,13 @@ HORIZON_bam_to_bed <- function(sample_sheet,
   if (isTRUE(remove_tmp)) file.remove(bedpe_f)
 
   # Step 4: sort by chr, start -------------------------------------------------
-  message("[", sample_id, "] Sorting fragment BED")
+  cat("[", sample_id, "] Sorting fragment BED")
   exit <- system2("sort", args = c("-k1,1", "-k2,2n", tmp_bed),
                   stdout = out_bed, stderr = "")
   file.remove(tmp_bed)
   if (exit != 0) stop("sort failed for fragment BED.", call. = FALSE)
 
-  message("Fragment BED complete for: ", sample_id,
+  cat("Fragment BED complete for: ", sample_id,
           "\n  Output: ", out_bed)
   invisible(out_bed)
 }

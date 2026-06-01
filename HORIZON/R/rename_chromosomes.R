@@ -100,7 +100,7 @@ HORIZON_rename_chromosomes <- function(sample_sheet,
     stop("No files ending with '", file_suffix, "' found under: ", root_dir,
          call. = FALSE)
 
-  message("Found ", length(targets), " file(s) matching '", file_suffix, "'.")
+  cat("Found ", length(targets), " file(s) matching '", file_suffix, "'.")
 
   # ── Process each file ────────────────────────────────────────────────────────
   out_paths <- character(length(targets))
@@ -118,7 +118,7 @@ HORIZON_rename_chromosomes <- function(sample_sheet,
       paste0(base, rename_suffix, ".", ext)
     }
 
-    message("Processing: ", basename(in_path))
+    cat("Processing: ", basename(in_path))
 
     switch(file_type,
       bam = .rename_chr_bam(in_path, out_path, chr_map),
@@ -171,7 +171,7 @@ HORIZON_rename_chromosomes <- function(sample_sheet,
     if (file.exists(old_bai)) unlink(old_bai)
   }
 
-  message("  Indexing: ", basename(out_path))
+  cat("  Indexing: ", basename(out_path))
   Rsamtools::indexBam(out_path)
 
   invisible(out_path)

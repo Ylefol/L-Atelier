@@ -48,7 +48,7 @@ HORIZON_set_conda_env <- function(path) {
     stop("No bin/ directory found in: ", path,
          "\n  Ensure 'path' points to a conda environment root.", call. = FALSE)
   options(horizon.conda_env = path)
-  message("[HORIZON] Conda env set: ", path)
+  cat("[HORIZON] Conda env set: ", path)
   invisible(path)
 }
 
@@ -78,5 +78,7 @@ HORIZON_set_conda_env <- function(path) {
          file.path(env_path, "bin"),
          "\n  Ensure the tool is installed: conda install -n horizon_cli -c bioconda ",
          tool, call. = FALSE)
-  system2(bin, args = args, stdout = stdout, stderr = stderr, wait = TRUE)
+  conda_path <- paste(file.path(env_path, "bin"), Sys.getenv("PATH"), sep = ":")
+  system2(bin, args = args, stdout = stdout, stderr = stderr, wait = TRUE,
+          env = paste0("PATH=", conda_path))
 }

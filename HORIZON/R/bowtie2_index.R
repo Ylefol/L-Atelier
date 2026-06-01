@@ -45,12 +45,12 @@ HORIZON_build_bowtie2_index <- function(reference,
 
   # Check for existing index
   if (!isTRUE(force) && file.exists(paste0(full_index, ".1.bt2"))) {
-    message("Bowtie2 index already exists at: ", full_index,
+    cat("Bowtie2 index already exists at: ", full_index,
             "\n  Use force=TRUE to rebuild.")
     return(invisible(full_index))
   }
 
-  message("Building Bowtie2 index: ", full_index,
+  cat("Building Bowtie2 index: ", full_index,
           "\n  Index type: small (32-bit offsets, supports genomes up to ~4 GB)",
           "\n  For genomes exceeding 4 GB pass \"--large-index\" via ...")
   Rbowtie2::bowtie2_build(
@@ -60,6 +60,6 @@ HORIZON_build_bowtie2_index <- function(reference,
     ...
   )
 
-  message("Bowtie2 index complete: ", full_index)
+  cat("Bowtie2 index complete: ", full_index)
   invisible(full_index)
 }

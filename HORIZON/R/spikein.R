@@ -73,12 +73,12 @@ HORIZON_build_combined_index <- function(host_fasta,
   combined_fasta <- file.path(combined_dir, paste0(index_name, "_combined.fa"))
 
   if (file.exists(combined_fasta) && !isTRUE(overwrite)) {
-    message("[HORIZON] Combined FASTA already exists: ", combined_fasta,
+    cat("[HORIZON] Combined FASTA already exists: ", combined_fasta,
             "\n  Set overwrite=TRUE to regenerate.")
   } else {
-    message("[HORIZON] Building combined FASTA...")
-    message("  Host:     ", host_fasta)
-    message("  Spike-in: ", spikein_fasta,
+    cat("[HORIZON] Building combined FASTA...")
+    cat("  Host:     ", host_fasta)
+    cat("  Spike-in: ", spikein_fasta,
             "  [chromosome prefix = '", spikein_prefix, "']")
 
     # Copy host FASTA unchanged — avoids loading a large file into R memory
@@ -101,7 +101,7 @@ HORIZON_build_combined_index <- function(host_fasta,
     close(con_in);  on.exit(NULL, add = FALSE)
     close(con_out); on.exit(NULL, add = FALSE)
 
-    message("[HORIZON] Combined FASTA written: ", combined_fasta)
+    cat("[HORIZON] Combined FASTA written: ", combined_fasta)
   }
 
   # Build Bowtie2 index from the combined FASTA
@@ -164,7 +164,7 @@ HORIZON_separate_spike_in <- function(sample_sheet,
   spikein_bam  <- file.path(out_dir, paste0(sample_id, "_spikein.bam"))
 
   if (!isTRUE(force) && file.exists(host_bam) && file.exists(spikein_bam)) {
-    message("Separated BAMs already exist for: ", sample_id,
+    cat("Separated BAMs already exist for: ", sample_id,
             " — skipping (use force=TRUE to re-separate)")
     return(invisible(list(host = host_bam, spikein = spikein_bam)))
   }
@@ -177,7 +177,7 @@ HORIZON_separate_spike_in <- function(sample_sheet,
 
   # Index combined BAM if needed
   if (!file.exists(paste0(combined_bam, ".bai"))) {
-    message("[", sample_id, "] Indexing combined BAM")
+    cat("[", sample_id, "] Indexing combined BAM")
     .horizon_run_cli("samtools",
                       c("index", "--threads", thr, combined_bam))
   }
@@ -202,7 +202,7 @@ HORIZON_separate_spike_in <- function(sample_sheet,
          "\n  Ensure HORIZON_build_combined_index() was called with the ",
          "same spikein_prefix.", call. = FALSE)
 
-  message("[", sample_id, "] Separating reads: ",
+  cat("[", sample_id, "] Separating reads: ",
           length(host_chrs), " host chr, ",
           length(spikein_chrs), " spike-in chr")
 
@@ -230,7 +230,7 @@ HORIZON_separate_spike_in <- function(sample_sheet,
     if (file.exists(bai)) file.remove(bai)
   }
 
-  message("Separation complete for: ", sample_id,
+  cat("Separation complete for: ", sample_id,
           "\n  Host BAM:     ", host_bam,
           "\n  Spike-in BAM: ", spikein_bam)
   invisible(list(host = host_bam, spikein = spikein_bam))
@@ -301,9 +301,9 @@ HORIZON_compute_spike_in_factors <- function(spikein_bams,
     n
   }, integer(1L))
 
-  message("Spike-in fragment counts:")
+  cat("Spike-in fragment counts:")
   for (sid in names(counts))
-    message("  ", sid, ": ", format(counts[[sid]], big.mark = ","))
+    cat("  ", sid, ": ", format(counts[[sid]], big.mark = ","))
 
   if (any(counts == 0L)) {
     zero_samps <- names(counts)[counts == 0L]
@@ -324,12 +324,12 @@ HORIZON_compute_spike_in_factors <- function(spikein_bams,
     stringsAsFactors  = FALSE
   )
 
-  message("Normalization factors:")
-  message(sprintf("  %-20s  %12s  %14s  %18s",
+  cat("Normalization factors:")
+  cat(sprintf("  %-20s  %12s  %14s  %18s",
                   "sample_id", "spikein_reads", "scale_factor_bw",
                   "size_factor_deseq2"))
   for (i in seq_len(nrow(factors))) {
-    message(sprintf("  %-20s  %12s  %14s  %18s",
+    cat(sprintf("  %-20s  %12s  %14s  %18s",
                     factors$sample_id[i],
                     format(factors$spikein_reads[i], big.mark = ","),
                     if (is.na(factors$scale_factor_bw[i])) "NA"
@@ -341,7 +341,7 @@ HORIZON_compute_spike_in_factors <- function(spikein_bams,
   if (!is.null(output_file)) {
     dir.create(dirname(output_file), recursive = TRUE, showWarnings = FALSE)
     utils::write.csv(factors, output_file, row.names = FALSE)
-    message("Spike-in factors written to: ", output_file)
+    cat("Spike-in factors written to: ", output_file)
   }
 
   invisible(factors)

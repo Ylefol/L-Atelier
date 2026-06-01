@@ -57,11 +57,11 @@ HORIZON_run_align <- function(sample_sheet,
 
   bam_out <- file.path(out_dir, paste0(sample_id, ".bam"))
 
-  message("Aligning reads for: ", sample_id)
-  message("  Index   : ", index)
-  message("  R1      : ", r1)
-  if (paired) message("  R2      : ", r2)
-  message("  Output  : ", bam_out)
+  cat("Aligning reads for: ", sample_id)
+  cat("  Index   : ", index)
+  cat("  R1      : ", r1)
+  if (paired) cat("  R2      : ", r2)
+  cat("  Output  : ", bam_out)
 
   Rsubread::align(
     index         = index,
@@ -74,6 +74,6 @@ HORIZON_run_align <- function(sample_sheet,
     ...
   )
 
-  message("Alignment complete for: ", sample_id)
+  cat("Alignment complete for: ", sample_id)
   invisible(bam_out)
 }

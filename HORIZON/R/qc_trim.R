@@ -59,7 +59,7 @@ HORIZON_run_qc_trim <- function(sample_sheet,
   # Skip if outputs already exist and force=FALSE
   outputs_exist <- file.exists(r1_out) && (!paired || file.exists(r2_out))
   if (!isTRUE(force) && outputs_exist) {
-    message("Trimmed FASTQs already exist for: ", sample_id,
+    cat("Trimmed FASTQs already exist for: ", sample_id,
             " — skipping (use force=TRUE to overwrite)")
     return(invisible(list(
       trimmed_r1  = r1_out,
@@ -70,7 +70,7 @@ HORIZON_run_qc_trim <- function(sample_sheet,
     )))
   }
 
-  message("Running fastp QC + trimming for: ", sample_id)
+  cat("Running fastp QC + trimming for: ", sample_id)
 
   args <- list(
     read1       = row$fastq_r1,
@@ -86,7 +86,7 @@ HORIZON_run_qc_trim <- function(sample_sheet,
 
   json_data <- do.call(Rfastp::rfastp, args)
 
-  message("QC + trimming complete for: ", sample_id)
+  cat("QC + trimming complete for: ", sample_id)
 
   list(
     trimmed_r1  = paste0(out_prefix, "_R1.fastq.gz"),
