@@ -6,6 +6,7 @@
 \usage{
 TALOS_build_graph(
   sce,
+  use_rep = "PCA",
   n_pcs = 30L,
   k = 20L,
   type = c("rank", "number", "jaccard"),
@@ -13,10 +14,16 @@ TALOS_build_graph(
 )
 }
 \arguments{
-\item{sce}{A \code{SingleCellExperiment} with a \code{"PCA"} reduced
-dimension.}
+\item{sce}{A \code{SingleCellExperiment} with the chosen reduced dimension
+already populated.}
 
-\item{n_pcs}{Integer. Number of PCA components to use. Default \code{30}.}
+\item{use_rep}{Character. Name of the \code{reducedDims} slot to use.
+Default \code{"PCA"}.  Use \code{"scVI"} for the batch-corrected latent
+embedding from \code{\link{TALOS_run_scvi}}.}
+
+\item{n_pcs}{Integer. Number of PCA components to use when
+\code{use_rep = "PCA"}.  Ignored for other representations (all dims are
+used).  Default \code{30}.}
 
 \item{k}{Integer. Number of nearest neighbours. Higher values produce
 broader, more robust clusters. Default \code{20}.}
@@ -30,7 +37,9 @@ broader, more robust clusters. Default \code{20}.}
 SCE with \code{metadata(sce)$snn_graph} populated.
 }
 \description{
-Constructs a SNN graph from the PCA embedding using
-\code{scran::buildSNNGraph}.  The graph is stored in
+Constructs a SNN graph from a reduced-dimension representation using
+\code{scran::buildSNNGraph}.  Defaults to PCA; pass
+\code{use_rep = "scVI"} to build the graph in the scVI latent space
+produced by \code{\link{TALOS_run_scvi}}.  The graph is stored in
 \code{metadata(sce)$snn_graph} for use by \code{\link{TALOS_cluster}}.
 }

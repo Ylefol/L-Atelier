@@ -6,6 +6,7 @@
 \usage{
 TALOS_run_umap(
   sce,
+  use_rep = "PCA",
   n_pcs = 30L,
   n_neighbors = 15L,
   min_dist = 0.1,
@@ -14,11 +15,16 @@ TALOS_run_umap(
 )
 }
 \arguments{
-\item{sce}{A \code{SingleCellExperiment} with a \code{"PCA"} reduced
-dimension.}
+\item{sce}{A \code{SingleCellExperiment} with the chosen reduced dimension
+already populated.}
 
-\item{n_pcs}{Integer. Number of PCA components to use as input.
-Default \code{30}.}
+\item{use_rep}{Character. Name of the \code{reducedDims} slot to use as
+input.  Default \code{"PCA"}.  Use \code{"scVI"} for the batch-corrected
+latent embedding from \code{\link{TALOS_run_scvi}}.}
+
+\item{n_pcs}{Integer. Number of PCA components to use when
+\code{use_rep = "PCA"}.  Ignored for other representations (all dims are
+used).  Default \code{30}.}
 
 \item{n_neighbors}{Integer. Number of nearest neighbours for the UMAP graph.
 Higher values produce a more global view; lower values emphasise local
@@ -35,7 +41,8 @@ Smaller values pack points more tightly. Default \code{0.1}.}
 SCE with \code{reducedDims(sce)[["UMAP"]]} populated.
 }
 \description{
-Computes a 2-dimensional UMAP embedding from the PCA reduced dimensions.
-Requires \code{\link{TALOS_run_pca}} to have been run first.  Results are
-stored in \code{reducedDims(sce)[["UMAP"]]}.
+Computes a 2-dimensional UMAP embedding from a reduced-dimension
+representation.  Defaults to PCA; pass \code{use_rep = "scVI"} to embed
+from the scVI latent space produced by \code{\link{TALOS_run_scvi}}.
+Results are stored in \code{reducedDims(sce)[["UMAP"]]}.
 }

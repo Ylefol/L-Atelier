@@ -8,6 +8,7 @@ TALOS_tune_resolution(
   sce,
   resolution_range = seq(0.1, 2, by = 0.1),
   method = c("both", "leiden", "louvain"),
+  use_rep = "PCA",
   n_pcs = 30L,
   compute_silhouette = TRUE,
   max_cells_sil = 10000L,

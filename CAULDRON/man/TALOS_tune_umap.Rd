@@ -8,6 +8,7 @@ TALOS_tune_umap(
   sce,
   n_neighbors_range = c(10L, 15L, 20L, 30L, 50L),
   min_dist_range = c(0.05, 0.1, 0.3, 0.5),
+  use_rep = "PCA",
   n_pcs = 30L,
   knn_k = 15L,
   cluster_col = "cluster",

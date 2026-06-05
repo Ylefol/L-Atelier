@@ -45,19 +45,37 @@ Checks for required columns, valid values, file existence, and generates
 sample IDs programmatically.
 }
 \details{
-Required columns in the sample sheet:
+The function operates in two modes depending on whether a \code{sample_id}
+column is present:
+
+\strong{Experimental mode} (no \code{sample_id} column): all of
+\code{bio_rep}, \code{tech_rep}, and \code{batch} are required, and
+\code{sample_id} is auto-generated as
+\code{<omics>_<group>_<bio_rep><tech_rep>_b<batch>}.
+
+\strong{Cohort mode} (\code{sample_id} column present): \code{bio_rep},
+\code{tech_rep}, and \code{batch} are optional. The provided
+\code{sample_id} values are used directly and validated for uniqueness.
+Suitable for public datasets (e.g., TCGA) where each sample is a unique
+individual rather than a replicate within an experimental design.
+
+Required columns in both modes:
 \itemize{
 \item file_loc: Directory containing the data file
 \item file_name: Name of the data file
-\item group: Experimental group (e.g., "WT", "SMUG1_KO")
-\item bio_rep: Biological replicate number
-\item tech_rep: Technical replicate identifier
-\item batch: Batch number
+\item group: Experimental group (e.g., "WT", "SMUG1_KO", "male", "female")
 \item omics: Type of omics data (free-form label, e.g., "ATACseq", "CHIPseq",
 "RNAseq", "5hmu", "CUT&RUN", etc.)
 \item format: File format ("peaks", "bed", "counts")
 \item bed_loc: Path to fragment BED file for quantification (required for
 peaks and bed formats). Typically created with bedtools bamtobed.
+}
+
+Additional required columns in experimental mode only:
+\itemize{
+\item bio_rep: Biological replicate identifier
+\item tech_rep: Technical replicate identifier
+\item batch: Batch number
 }
 
 The function performs the following validations:
@@ -74,12 +92,11 @@ Note: The omics column accepts any string value. This allows flexibility for
 custom omics types (e.g., "5hmu", "CUT&RUN", "MeDIP") that may be processed
 similarly to standard types. The format column determines how data is loaded.
 
-Sample IDs are generated in the format:
-\if{html}{\out{<omics>}}\emph{\if{html}{\out{<group>}}}<bio_rep><tech_rep>_b\if{html}{\out{<batch>}}
+In experimental mode, sample IDs are generated as:
+\code{<omics>_<group>_<bio_rep><tech_rep>_b<batch>}
 
-If a "timepoint" column is present (specifically named "timepoint"), the
-timepoint value is appended to ensure uniqueness for time series data:
-\if{html}{\out{<omics>}}\emph{\if{html}{\out{<group>}}}<bio_rep><tech_rep>_b\if{html}{\out{<batch>}}_t\if{html}{\out{<timepoint>}}
+If a \code{timepoint} column is present, it is appended for uniqueness:
+\code{<omics>_<group>_<bio_rep><tech_rep>_b<batch>_t<timepoint>}
 }
 \examples{
 \dontrun{

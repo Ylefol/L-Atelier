@@ -7,6 +7,7 @@
 TALOS_tune_tsne(
   sce,
   perplexity_range = c(10, 20, 30, 50, 100),
+  use_rep = "PCA",
   n_pcs = 30L,
   max_iter = 1000L,
   knn_k = 15L,

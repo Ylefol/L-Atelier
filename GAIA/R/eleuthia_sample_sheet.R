@@ -30,19 +30,37 @@
 #' }
 #'
 #' @details
-#' Required columns in the sample sheet:
+#' The function operates in two modes depending on whether a \code{sample_id}
+#' column is present:
+#'
+#' \strong{Experimental mode} (no \code{sample_id} column): all of
+#' \code{bio_rep}, \code{tech_rep}, and \code{batch} are required, and
+#' \code{sample_id} is auto-generated as
+#' \code{<omics>_<group>_<bio_rep><tech_rep>_b<batch>}.
+#'
+#' \strong{Cohort mode} (\code{sample_id} column present): \code{bio_rep},
+#' \code{tech_rep}, and \code{batch} are optional. The provided
+#' \code{sample_id} values are used directly and validated for uniqueness.
+#' Suitable for public datasets (e.g., TCGA) where each sample is a unique
+#' individual rather than a replicate within an experimental design.
+#'
+#' Required columns in both modes:
 #' \itemize{
 #'   \item file_loc: Directory containing the data file
 #'   \item file_name: Name of the data file
-#'   \item group: Experimental group (e.g., "WT", "SMUG1_KO")
-#'   \item bio_rep: Biological replicate number
-#'   \item tech_rep: Technical replicate identifier
-#'   \item batch: Batch number
+#'   \item group: Experimental group (e.g., "WT", "SMUG1_KO", "male", "female")
 #'   \item omics: Type of omics data (free-form label, e.g., "ATACseq", "CHIPseq",
 #'     "RNAseq", "5hmu", "CUT&RUN", etc.)
 #'   \item format: File format ("peaks", "bed", "counts")
 #'   \item bed_loc: Path to fragment BED file for quantification (required for
 #'     peaks and bed formats). Typically created with bedtools bamtobed.
+#' }
+#'
+#' Additional required columns in experimental mode only:
+#' \itemize{
+#'   \item bio_rep: Biological replicate identifier
+#'   \item tech_rep: Technical replicate identifier
+#'   \item batch: Batch number
 #' }
 #'
 #' The function performs the following validations:
@@ -59,12 +77,11 @@
 #' custom omics types (e.g., "5hmu", "CUT&RUN", "MeDIP") that may be processed
 #' similarly to standard types. The format column determines how data is loaded.
 #'
-#' Sample IDs are generated in the format:
-#' <omics>_<group>_<bio_rep><tech_rep>_b<batch>
+#' In experimental mode, sample IDs are generated as:
+#' \code{<omics>_<group>_<bio_rep><tech_rep>_b<batch>}
 #'
-#' If a "timepoint" column is present (specifically named "timepoint"), the
-#' timepoint value is appended to ensure uniqueness for time series data:
-#' <omics>_<group>_<bio_rep><tech_rep>_b<batch>_t<timepoint>
+#' If a \code{timepoint} column is present, it is appended for uniqueness:
+#' \code{<omics>_<group>_<bio_rep><tech_rep>_b<batch>_t<timepoint>}
 #'
 #' @export
 #'
@@ -121,10 +138,22 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   }
 
   # ---------------------------------------------------------------------------
+  # Detect cohort mode (user-supplied sample_id → bio_rep/tech_rep/batch optional)
+  # ---------------------------------------------------------------------------
+  cohort_mode <- "sample_id" %in% colnames(sample_sheet)
+  if (verbose) {
+    if (cohort_mode) {
+      cat("[ELEUTHIA] Cohort mode detected (sample_id column present).",
+          "bio_rep/tech_rep/batch are optional.\n")
+    }
+  }
+
+  # ---------------------------------------------------------------------------
   # Check required columns
   # ---------------------------------------------------------------------------
-  required_cols <- c("file_loc", "file_name", "group", "bio_rep",
-                     "tech_rep", "batch", "omics", "format", "bed_loc")
+  base_required <- c("file_loc", "file_name", "group", "omics", "format", "bed_loc")
+  extra_required <- if (cohort_mode) character(0) else c("bio_rep", "tech_rep", "batch")
+  required_cols  <- c(base_required, extra_required)
 
   missing_cols <- setdiff(required_cols, colnames(sample_sheet))
   if (length(missing_cols) > 0) {
@@ -144,8 +173,10 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   # Remove empty rows
   # ---------------------------------------------------------------------------
   # A row is empty if all required fields are NA or empty string
-  empty_row_check <- apply(sample_sheet[, required_cols], 1, function(row) {
-    all(is.na(row) | trimws(row) == "")
+  # Use only columns that are actually present (guards against optional cols)
+  check_cols <- intersect(required_cols, colnames(sample_sheet))
+  empty_row_check <- apply(sample_sheet[, check_cols, drop = FALSE], 1, function(row) {
+    all(is.na(row) | trimws(as.character(row)) == "")
   })
 
   n_empty <- sum(empty_row_check)
@@ -182,9 +213,18 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   # ---------------------------------------------------------------------------
   # Check for missing values in required fields
   # ---------------------------------------------------------------------------
-  for (col in c("file_loc", "file_name", "group", "bio_rep",
-                "tech_rep", "batch", "omics", "format")) {
-    na_count <- sum(is.na(sample_sheet[[col]]) | trimws(sample_sheet[[col]]) == "")
+  check_na_cols <- c("file_loc", "file_name", "group", "omics", "format")
+  if (!cohort_mode) {
+    check_na_cols <- c(check_na_cols, "bio_rep", "tech_rep", "batch")
+  } else {
+    # In cohort mode, sample_id itself must not be missing
+    sid_na <- sum(is.na(sample_sheet$sample_id) | trimws(sample_sheet$sample_id) == "")
+    if (sid_na > 0) {
+      errors <- c(errors, paste("Column sample_id has", sid_na, "missing value(s)"))
+    }
+  }
+  for (col in check_na_cols) {
+    na_count <- sum(is.na(sample_sheet[[col]]) | trimws(as.character(sample_sheet[[col]])) == "")
     if (na_count > 0) {
       errors <- c(errors, paste("Column", col, "has", na_count, "missing value(s)"))
     }
@@ -246,35 +286,45 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   }
 
   # ---------------------------------------------------------------------------
-  # Generate sample IDs
+  # Generate or validate sample IDs
   # ---------------------------------------------------------------------------
   if (length(errors) == 0) {
-    if (verbose) cat("[ELEUTHIA] Generating sample IDs...\n")
+    if (cohort_mode) {
+      if (verbose) cat("[ELEUTHIA] Using provided sample_id column.\n")
+      # Validate uniqueness of user-supplied IDs
+      dup_ids <- sample_sheet$sample_id[duplicated(sample_sheet$sample_id)]
+      if (length(dup_ids) > 0) {
+        errors <- c(errors, paste("Duplicate sample_id values found:",
+                                  paste(unique(dup_ids), collapse = ", ")))
+      }
+    } else {
+      if (verbose) cat("[ELEUTHIA] Generating sample IDs...\n")
 
-    # Base sample ID: {omics}_{group}_{bio_rep}{tech_rep}_b{batch}
-    sample_sheet$sample_id <- paste0(
-      sample_sheet$omics, "_",
-      sample_sheet$group, "_",
-      sample_sheet$bio_rep,
-      sample_sheet$tech_rep, "_b",
-      sample_sheet$batch
-    )
-
-    # If timepoint column exists, append _t{timepoint} for uniqueness
-    if ("timepoint" %in% colnames(sample_sheet)) {
-      if (verbose) cat("[ELEUTHIA] Timepoint column detected - including in sample IDs\n")
+      # Base sample ID: {omics}_{group}_{bio_rep}{tech_rep}_b{batch}
       sample_sheet$sample_id <- paste0(
-        sample_sheet$sample_id, "_t",
-        sample_sheet$timepoint
+        sample_sheet$omics, "_",
+        sample_sheet$group, "_",
+        sample_sheet$bio_rep,
+        sample_sheet$tech_rep, "_b",
+        sample_sheet$batch
       )
-    }
 
-    # Check for duplicate sample IDs
-    dup_ids <- sample_sheet$sample_id[duplicated(sample_sheet$sample_id)]
-    if (length(dup_ids) > 0) {
-      errors <- c(errors, paste("Duplicate sample IDs generated:",
-                                paste(unique(dup_ids), collapse = ", "),
-                                "\nThis indicates duplicate entries in the sample sheet."))
+      # If timepoint column exists, append _t{timepoint} for uniqueness
+      if ("timepoint" %in% colnames(sample_sheet)) {
+        if (verbose) cat("[ELEUTHIA] Timepoint column detected - including in sample IDs\n")
+        sample_sheet$sample_id <- paste0(
+          sample_sheet$sample_id, "_t",
+          sample_sheet$timepoint
+        )
+      }
+
+      # Check for duplicate sample IDs
+      dup_ids <- sample_sheet$sample_id[duplicated(sample_sheet$sample_id)]
+      if (length(dup_ids) > 0) {
+        errors <- c(errors, paste("Duplicate sample IDs generated:",
+                                  paste(unique(dup_ids), collapse = ", "),
+                                  "\nThis indicates duplicate entries in the sample sheet."))
+      }
     }
   }
   # Set rownames before returning

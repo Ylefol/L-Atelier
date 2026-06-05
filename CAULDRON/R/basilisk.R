@@ -47,3 +47,24 @@
         "anndata==0.11.4"
     )
 )
+
+# ── scVI ───────────────────────────────────────────────────────────────────────
+# scvi-tools requires PyTorch (~1 GB); first-time setup installs the full stack.
+# Versions pinned against a validated working combination for Python 3.11 /
+# torch 2.2. Increment the envname suffix when pins change.
+.cauldron_scvi_env <- basilisk::BasiliskEnvironment(
+    envname  = "cauldron_scvi_1",
+    pkgname  = "CAULDRON",
+    packages = c("python==3.11", "libexpat==2.6.1"),
+    pip      = c(
+        "setuptools==69.5.1",  # provides pkg_resources, not bundled in basilisk envs
+        "scvi-tools==1.2.0",
+        "torch==2.2.2",
+        "anndata==0.10.8",
+        "scanpy==1.10.1",
+        "numpy==1.26.4",
+        "scipy==1.13.1",
+        "pandas==2.2.2",
+        "lightning==2.2.5"
+    )
+)

@@ -131,8 +131,10 @@ ELEUTHIA_quantify_peaks <- function(sample_sheet,
   # Clean column names (remove path, keep sample_id)
   colnames(counts) <- subset_df$sample_id
 
-  # Create targets data.frame (sample metadata)
-  targets <- subset_df[, c("sample_id", "group", "bio_rep", "tech_rep", "batch")]
+  # Create targets data.frame — include replicate/batch columns only if present
+  meta_cols <- intersect(c("sample_id", "group", "bio_rep", "tech_rep", "batch"),
+                         colnames(subset_df))
+  targets <- subset_df[, meta_cols, drop = FALSE]
   rownames(targets) <- targets$sample_id
 
   if (verbose) {

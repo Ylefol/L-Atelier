@@ -251,15 +251,20 @@ print.talos_pc_sweep <- function(x, ...) {
 TALOS_tune_umap <- function(sce,
                               n_neighbors_range = c(10L, 15L, 20L, 30L, 50L),
                               min_dist_range    = c(0.05, 0.1, 0.3, 0.5),
+                              use_rep           = "PCA",
                               n_pcs             = 30L,
                               knn_k             = 15L,
                               cluster_col       = "cluster",
                               seed              = 42L,
                               verbose           = TRUE) {
 
-  .talos_check_dimred(sce, "PCA", "TALOS_run_pca()")
+  run_fn <- if (use_rep == "PCA") "TALOS_run_pca()" else
+              paste0("TALOS_run_scvi() [use_rep = '", use_rep, "']")
+  .talos_check_dimred(sce, use_rep, run_fn)
 
-  n_pcs             <- min(as.integer(n_pcs), ncol(reducedDim(sce, "PCA")))
+  rep_mat           <- reducedDim(sce, use_rep)
+  n_dims            <- if (use_rep == "PCA") min(as.integer(n_pcs), ncol(rep_mat)) else ncol(rep_mat)
+  input_mat         <- rep_mat[, seq_len(n_dims), drop = FALSE]
   n_neighbors_range <- as.integer(n_neighbors_range)
   knn_k             <- as.integer(knn_k)
 
@@ -269,20 +274,18 @@ TALOS_tune_umap <- function(sce,
       "  Note: '%s' not found in colData — silhouette will be skipped.\n",
       cluster_col))
 
-  pca_mat <- reducedDim(sce, "PCA")[, seq_len(n_pcs), drop = FALSE]
-
-  # ── Pre-compute KNN reference in PCA space (once) ────────────────────────────
-  if (verbose) cat("  Computing KNN reference in PCA space ...\n")
-  knn_ref <- BiocNeighbors::findKNN(pca_mat, k = knn_k)$index   # cells × k
+  # ── Pre-compute KNN reference in representation space (once) ─────────────────
+  if (verbose) cat(sprintf("  Computing KNN reference in %s space ...\n", use_rep))
+  knn_ref <- BiocNeighbors::findKNN(input_mat, k = knn_k)$index   # cells × k
 
   n_combos <- length(n_neighbors_range) * length(min_dist_range)
   if (verbose)
     cat(sprintf(
-      "\u2500\u2500 TALOS: UMAP sweep %s\n  n_neighbors: %s\n  min_dist   : %s\n  n_pcs      : %s  |  knn_k: %s\n  Combos     : %s\n%s\n",
+      "\u2500\u2500 TALOS: UMAP sweep %s\n  n_neighbors: %s\n  min_dist   : %s\n  Input      : %s (%s dims)  |  knn_k: %s\n  Combos     : %s\n%s\n",
       strrep("\u2500", 37),
       paste(n_neighbors_range, collapse = ", "),
       paste(min_dist_range,    collapse = ", "),
-      n_pcs, knn_k, n_combos,
+      use_rep, n_dims, knn_k, n_combos,
       strrep("\u2500", 56)))
 
   # ── Sweep ────────────────────────────────────────────────────────────────────
@@ -299,8 +302,8 @@ TALOS_tune_umap <- function(sce,
 
       set.seed(seed)
       sce_tmp <- scater::runUMAP(sce,
-                                  dimred      = "PCA",
-                                  n_dimred    = n_pcs,
+                                  dimred      = use_rep,
+                                  n_dimred    = n_dims,
                                   n_neighbors = nn,
                                   min_dist    = md,
                                   name        = "UMAP_sweep")
@@ -355,9 +358,10 @@ TALOS_tune_umap <- function(sce,
          plot        = p,
          best_params = best_params,
          params      = list(type              = "umap",
+                            use_rep           = use_rep,
+                            n_dims            = n_dims,
                             n_neighbors_range = n_neighbors_range,
                             min_dist_range    = min_dist_range,
-                            n_pcs             = n_pcs,
                             knn_k             = knn_k,
                             cluster_col       = cluster_col,
                             seed              = seed,
@@ -436,6 +440,7 @@ TALOS_tune_umap <- function(sce,
 #' @export
 TALOS_tune_tsne <- function(sce,
                               perplexity_range = c(10, 20, 30, 50, 100),
+                              use_rep          = "PCA",
                               n_pcs            = 30L,
                               max_iter         = 1000L,
                               knn_k            = 15L,
@@ -443,11 +448,15 @@ TALOS_tune_tsne <- function(sce,
                               seed             = 42L,
                               verbose          = TRUE) {
 
-  .talos_check_dimred(sce, "PCA", "TALOS_run_pca()")
+  run_fn <- if (use_rep == "PCA") "TALOS_run_pca()" else
+              paste0("TALOS_run_scvi() [use_rep = '", use_rep, "']")
+  .talos_check_dimred(sce, use_rep, run_fn)
 
-  n_pcs  <- min(as.integer(n_pcs), ncol(reducedDim(sce, "PCA")))
+  rep_mat <- reducedDim(sce, use_rep)
+  n_dims  <- if (use_rep == "PCA") min(as.integer(n_pcs), ncol(rep_mat)) else ncol(rep_mat)
+  input_mat <- rep_mat[, seq_len(n_dims), drop = FALSE]
   n_cells <- ncol(sce)
-  knn_k  <- as.integer(knn_k)
+  knn_k   <- as.integer(knn_k)
 
   # ── Remove invalid perplexity values ─────────────────────────────────────────
   max_perp         <- floor(n_cells / 3)
@@ -462,19 +471,17 @@ TALOS_tune_tsne <- function(sce,
       "  Note: '%s' not found in colData — silhouette will be skipped.\n",
       cluster_col))
 
-  pca_mat <- reducedDim(sce, "PCA")[, seq_len(n_pcs), drop = FALSE]
-
   # ── Pre-compute KNN reference (once) ─────────────────────────────────────────
-  if (verbose) cat("  Computing KNN reference in PCA space ...\n")
-  knn_ref <- BiocNeighbors::findKNN(pca_mat, k = knn_k)$index
+  if (verbose) cat(sprintf("  Computing KNN reference in %s space ...\n", use_rep))
+  knn_ref <- BiocNeighbors::findKNN(input_mat, k = knn_k)$index
 
   n_combos <- length(perplexity_range)
   if (verbose)
     cat(sprintf(
-      "\u2500\u2500 TALOS: tSNE sweep %s\n  Perplexity : %s\n  n_pcs      : %s  |  max_iter: %s\n  knn_k      : %s\n%s\n",
+      "\u2500\u2500 TALOS: tSNE sweep %s\n  Perplexity : %s\n  Input      : %s (%s dims)  |  max_iter: %s\n  knn_k      : %s\n%s\n",
       strrep("\u2500", 37),
       paste(perplexity_range, collapse = ", "),
-      n_pcs, max_iter, knn_k,
+      use_rep, n_dims, max_iter, knn_k,
       strrep("\u2500", 56)))
 
   # ── Sweep ────────────────────────────────────────────────────────────────────
@@ -488,8 +495,8 @@ TALOS_tune_tsne <- function(sce,
 
     set.seed(seed)
     sce_tmp <- scater::runTSNE(sce,
-                                dimred     = "PCA",
-                                n_dimred   = n_pcs,
+                                dimred     = use_rep,
+                                n_dimred   = n_dims,
                                 perplexity = perp,
                                 max_iter   = as.integer(max_iter),
                                 name       = "tSNE_sweep")
@@ -540,8 +547,9 @@ TALOS_tune_tsne <- function(sce,
          plot        = p,
          best_params = best_params,
          params      = list(type             = "tsne",
+                            use_rep          = use_rep,
+                            n_dims           = n_dims,
                             perplexity_range = perplexity_range,
-                            n_pcs            = n_pcs,
                             max_iter         = as.integer(max_iter),
                             knn_k            = knn_k,
                             cluster_col      = cluster_col,

@@ -117,8 +117,10 @@ ELEUTHIA_load_rnaseq_from_sheet <- function(sample_sheet,
   rownames(counts) <- names(count_list[[1]])
   colnames(counts) <- names(count_list)
 
-  # Create targets data.frame
-  targets <- subset_df[, c("sample_id", "group", "bio_rep", "tech_rep", "batch")]
+  # Create targets data.frame — include replicate/batch columns only if present
+  meta_cols <- intersect(c("sample_id", "group", "bio_rep", "tech_rep", "batch"),
+                         colnames(subset_df))
+  targets <- subset_df[, meta_cols, drop = FALSE]
   rownames(targets) <- targets$sample_id
 
   if (verbose) {

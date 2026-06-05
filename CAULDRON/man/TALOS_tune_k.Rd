@@ -7,6 +7,7 @@
 TALOS_tune_k(
   sce,
   k_range = seq(5L, 50L, by = 5L),
+  use_rep = "PCA",
   n_pcs = 30L,
   type = c("rank", "number", "jaccard"),
   method = c("leiden", "louvain"),
@@ -19,14 +20,20 @@ TALOS_tune_k(
 )
 }
 \arguments{
-\item{sce}{A \code{SingleCellExperiment} with \code{"PCA"} in
-\code{reducedDims} (run \code{\link{TALOS_run_pca}} first).}
+\item{sce}{A \code{SingleCellExperiment} with the chosen reduced dimension
+already populated.}
 
 \item{k_range}{Integer vector of k values to test.
 Default \code{seq(5, 50, by = 5)}.}
 
-\item{n_pcs}{Integer. Number of PCA components used for graph construction
-and silhouette distances. Default \code{30}.}
+\item{use_rep}{Character. Name of the \code{reducedDims} slot to use for
+graph construction and silhouette distances.  Default \code{"PCA"}.  Use
+\code{"scVI"} for the batch-corrected latent embedding from
+\code{\link{TALOS_run_scvi}}.}
+
+\item{n_pcs}{Integer. Number of PCA components to use when
+\code{use_rep = "PCA"}.  Ignored for other representations (all dims are
+used).  Default \code{30}.}
 
 \item{type}{Character. Edge weight scheme for \code{scran::buildSNNGraph}:
 \code{"rank"} (default), \code{"number"}, or \code{"jaccard"}.}
@@ -83,12 +90,13 @@ two complementary metrics:
 \item{Modularity}{Graph modularity of the partition — measures how cleanly
 communities separate relative to a random null graph.  Higher values
 indicate more distinct cluster boundaries.  Always computed.}
-\item{Mean silhouette width}{Average silhouette width in PCA space — for
-each cell, how much more similar it is to its own cluster than to the
-nearest other cluster.  Ranges from \eqn{-1} (misassigned) to \eqn{+1}
-(well-separated).  The \code{k} with the highest mean silhouette is
-suggested.  Automatically skipped when \code{ncol(sce) > max_cells_sil}
-(pairwise distances are \eqn{O(N^2)}); modularity is used instead.}
+\item{Mean silhouette width}{Average silhouette width in the representation
+space — for each cell, how much more similar it is to its own cluster
+than to the nearest other cluster.  Ranges from \eqn{-1} (misassigned)
+to \eqn{+1} (well-separated).  The \code{k} with the highest mean
+silhouette is suggested.  Automatically skipped when
+\code{ncol(sce) > max_cells_sil} (pairwise distances are \eqn{O(N^2)});
+modularity is used instead.}
 }
 
 Resolution and clustering method are held fixed during the sweep — they are

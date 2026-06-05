@@ -11,13 +11,20 @@
 
 #' Build a shared nearest-neighbour graph
 #'
-#' Constructs a SNN graph from the PCA embedding using
-#' \code{scran::buildSNNGraph}.  The graph is stored in
+#' Constructs a SNN graph from a reduced-dimension representation using
+#' \code{scran::buildSNNGraph}.  Defaults to PCA; pass
+#' \code{use_rep = "scVI"} to build the graph in the scVI latent space
+#' produced by \code{\link{TALOS_run_scvi}}.  The graph is stored in
 #' \code{metadata(sce)$snn_graph} for use by \code{\link{TALOS_cluster}}.
 #'
-#' @param sce A \code{SingleCellExperiment} with a \code{"PCA"} reduced
-#'   dimension.
-#' @param n_pcs Integer. Number of PCA components to use. Default \code{30}.
+#' @param sce A \code{SingleCellExperiment} with the chosen reduced dimension
+#'   already populated.
+#' @param use_rep Character. Name of the \code{reducedDims} slot to use.
+#'   Default \code{"PCA"}.  Use \code{"scVI"} for the batch-corrected latent
+#'   embedding from \code{\link{TALOS_run_scvi}}.
+#' @param n_pcs Integer. Number of PCA components to use when
+#'   \code{use_rep = "PCA"}.  Ignored for other representations (all dims are
+#'   used).  Default \code{30}.
 #' @param k Integer. Number of nearest neighbours. Higher values produce
 #'   broader, more robust clusters. Default \code{20}.
 #' @param type Character. Edge weight scheme: \code{"rank"} (default),
@@ -27,26 +34,34 @@
 #' @return SCE with \code{metadata(sce)$snn_graph} populated.
 #' @export
 TALOS_build_graph <- function(sce,
+                               use_rep = "PCA",
                                n_pcs   = 30L,
                                k       = 20L,
                                type    = c("rank", "number", "jaccard"),
                                verbose = TRUE) {
 
-  type <- match.arg(type)
-  .talos_check_dimred(sce, "PCA", "TALOS_run_pca()")
+  type   <- match.arg(type)
+  run_fn <- if (use_rep == "PCA") "TALOS_run_pca()" else
+              paste0("TALOS_run_scvi() [use_rep = '", use_rep, "']")
+  .talos_check_dimred(sce, use_rep, run_fn)
 
-  n_pcs   <- min(as.integer(n_pcs), ncol(reducedDim(sce, "PCA")))
-  pca_mat <- reducedDim(sce, "PCA")[, seq_len(n_pcs), drop = FALSE]
+  rep_mat <- reducedDim(sce, use_rep)
+  n_dims  <- if (use_rep == "PCA") {
+    min(as.integer(n_pcs), ncol(rep_mat))
+  } else {
+    ncol(rep_mat)
+  }
+  input_mat <- rep_mat[, seq_len(n_dims), drop = FALSE]
 
-  g <- scran::buildSNNGraph(t(pca_mat), k = as.integer(k), type = type)
+  g <- scran::buildSNNGraph(t(input_mat), k = as.integer(k), type = type)
 
   metadata(sce)$snn_graph <- g
 
   if (isTRUE(verbose))
     cat(sprintf(
-      "\u2500\u2500 TALOS: SNN graph %s\n  Input      : PCA (%s components)\n  k          : %s  |  type: %s\n  Vertices   : %s  |  Edges: %s\n  Stored in  : metadata(sce)$snn_graph\n%s\n",
+      "\u2500\u2500 TALOS: SNN graph %s\n  Input      : %s (%s dims)\n  k          : %s  |  type: %s\n  Vertices   : %s  |  Edges: %s\n  Stored in  : metadata(sce)$snn_graph\n%s\n",
       strrep("\u2500", 38),
-      n_pcs, k, type,
+      use_rep, n_dims, k, type,
       format(igraph::vcount(g), big.mark = ","),
       format(igraph::ecount(g), big.mark = ","),
       strrep("\u2500", 56)
@@ -132,24 +147,30 @@ TALOS_cluster <- function(sce,
 #'   \item{Modularity}{Graph modularity of the partition — measures how cleanly
 #'     communities separate relative to a random null graph.  Higher values
 #'     indicate more distinct cluster boundaries.  Always computed.}
-#'   \item{Mean silhouette width}{Average silhouette width in PCA space — for
-#'     each cell, how much more similar it is to its own cluster than to the
-#'     nearest other cluster.  Ranges from \eqn{-1} (misassigned) to \eqn{+1}
-#'     (well-separated).  The \code{k} with the highest mean silhouette is
-#'     suggested.  Automatically skipped when \code{ncol(sce) > max_cells_sil}
-#'     (pairwise distances are \eqn{O(N^2)}); modularity is used instead.}
+#'   \item{Mean silhouette width}{Average silhouette width in the representation
+#'     space — for each cell, how much more similar it is to its own cluster
+#'     than to the nearest other cluster.  Ranges from \eqn{-1} (misassigned)
+#'     to \eqn{+1} (well-separated).  The \code{k} with the highest mean
+#'     silhouette is suggested.  Automatically skipped when
+#'     \code{ncol(sce) > max_cells_sil} (pairwise distances are \eqn{O(N^2)});
+#'     modularity is used instead.}
 #' }
 #'
 #' Resolution and clustering method are held fixed during the sweep — they are
 #' not targets here.  Use \code{\link{TALOS_tune_resolution}} afterwards to
 #' optimise those parameters with the chosen \code{k}.
 #'
-#' @param sce A \code{SingleCellExperiment} with \code{"PCA"} in
-#'   \code{reducedDims} (run \code{\link{TALOS_run_pca}} first).
+#' @param sce A \code{SingleCellExperiment} with the chosen reduced dimension
+#'   already populated.
 #' @param k_range Integer vector of k values to test.
 #'   Default \code{seq(5, 50, by = 5)}.
-#' @param n_pcs Integer. Number of PCA components used for graph construction
-#'   and silhouette distances. Default \code{30}.
+#' @param use_rep Character. Name of the \code{reducedDims} slot to use for
+#'   graph construction and silhouette distances.  Default \code{"PCA"}.  Use
+#'   \code{"scVI"} for the batch-corrected latent embedding from
+#'   \code{\link{TALOS_run_scvi}}.
+#' @param n_pcs Integer. Number of PCA components to use when
+#'   \code{use_rep = "PCA"}.  Ignored for other representations (all dims are
+#'   used).  Default \code{30}.
 #' @param type Character. Edge weight scheme for \code{scran::buildSNNGraph}:
 #'   \code{"rank"} (default), \code{"number"}, or \code{"jaccard"}.
 #' @param method Character. Clustering algorithm: \code{"leiden"} (default)
@@ -185,6 +206,7 @@ TALOS_cluster <- function(sce,
 #' @export
 TALOS_tune_k <- function(sce,
                           k_range            = seq(5L, 50L, by = 5L),
+                          use_rep            = "PCA",
                           n_pcs              = 30L,
                           type               = c("rank", "number", "jaccard"),
                           method             = c("leiden", "louvain"),
@@ -197,11 +219,15 @@ TALOS_tune_k <- function(sce,
 
   type   <- match.arg(type)
   method <- match.arg(method)
-  .talos_check_dimred(sce, "PCA", "TALOS_run_pca()")
+  run_fn <- if (use_rep == "PCA") "TALOS_run_pca()" else
+              paste0("TALOS_run_scvi() [use_rep = '", use_rep, "']")
+  .talos_check_dimred(sce, use_rep, run_fn)
 
-  n_cells <- ncol(sce)
-  n_pcs   <- min(as.integer(n_pcs), ncol(reducedDim(sce, "PCA")))
-  k_range <- sort(unique(as.integer(k_range)))
+  n_cells   <- ncol(sce)
+  rep_mat   <- reducedDim(sce, use_rep)
+  n_dims    <- if (use_rep == "PCA") min(as.integer(n_pcs), ncol(rep_mat)) else ncol(rep_mat)
+  input_mat <- rep_mat[, seq_len(n_dims), drop = FALSE]
+  k_range   <- sort(unique(as.integer(k_range)))
 
   # ── Silhouette feasibility ───────────────────────────────────────────────────
   do_sil <- isTRUE(compute_silhouette) && n_cells <= as.integer(max_cells_sil)
@@ -212,17 +238,16 @@ TALOS_tune_k <- function(sce,
       format(as.integer(max_cells_sil), big.mark = ",")))
 
   # ── Pre-compute PCA submatrix and distance matrix (once, outside loop) ───────
-  pca_mat  <- reducedDim(sce, "PCA")[, seq_len(n_pcs), drop = FALSE]
-  dist_mat <- if (do_sil) dist(pca_mat) else NULL
+  dist_mat <- if (do_sil) dist(input_mat) else NULL
 
   n_runs <- max(1L, as.integer(n_runs))
 
   if (verbose)
     cat(sprintf(
-      "\u2500\u2500 TALOS: k sweep %s\n  k values   : %s\n  n_pcs      : %s  |  type: %s\n  method     : %s  |  resolution: %s\n  n_runs     : %s\n  Silhouette : %s\n%s\n",
+      "\u2500\u2500 TALOS: k sweep %s\n  k values   : %s\n  Input      : %s (%s dims)  |  type: %s\n  method     : %s  |  resolution: %s\n  n_runs     : %s\n  Silhouette : %s\n%s\n",
       strrep("\u2500", 40),
       paste(k_range, collapse = ", "),
-      n_pcs, type, method, resolution, n_runs,
+      use_rep, n_dims, type, method, resolution, n_runs,
       if (do_sil) "yes" else "no (modularity used for selection)",
       strrep("\u2500", 56)))
 
@@ -233,7 +258,7 @@ TALOS_tune_k <- function(sce,
     ki <- k_range[i]
     if (verbose) cat(sprintf("  Testing k = %d ...\n", ki))
 
-    g    <- scran::buildSNNGraph(t(pca_mat), k = ki, type = type)
+    g    <- scran::buildSNNGraph(t(input_mat), k = ki, type = type)
     run  <- .talos_multi_run_communities(g, method, resolution, seed, n_runs)
 
     mean_sil <- if (do_sil) {
@@ -269,7 +294,8 @@ TALOS_tune_k <- function(sce,
          plot    = p,
          best_k  = best_k,
          params  = list(k_range    = k_range,
-                        n_pcs      = n_pcs,
+                        use_rep    = use_rep,
+                        n_dims     = n_dims,
                         type       = type,
                         method     = method,
                         resolution = resolution,
@@ -364,6 +390,7 @@ print.talos_k_sweep <- function(x, ...) {
 TALOS_tune_resolution <- function(sce,
                                    resolution_range   = seq(0.1, 2.0, by = 0.1),
                                    method             = c("both", "leiden", "louvain"),
+                                   use_rep            = "PCA",
                                    n_pcs              = 30L,
                                    compute_silhouette = TRUE,
                                    max_cells_sil      = 10000L,
@@ -394,12 +421,15 @@ TALOS_tune_resolution <- function(sce,
 
   dist_mat <- NULL
   if (do_sil) {
-    if (!"PCA" %in% reducedDimNames(sce))
-      stop("'PCA' not found. Run TALOS_run_pca() first.", call. = FALSE)
-    n_pcs   <- min(as.integer(n_pcs), ncol(reducedDim(sce, "PCA")))
-    pca_mat <- reducedDim(sce, "PCA")[, seq_len(n_pcs), drop = FALSE]
-    if (verbose) cat("  Pre-computing distance matrix in PCA space ...\n")
-    dist_mat <- dist(pca_mat)
+    run_fn <- if (use_rep == "PCA") "TALOS_run_pca()" else
+                paste0("TALOS_run_scvi() [use_rep = '", use_rep, "']")
+    .talos_check_dimred(sce, use_rep, run_fn)
+    rep_mat  <- reducedDim(sce, use_rep)
+    n_dims   <- if (use_rep == "PCA") min(as.integer(n_pcs), ncol(rep_mat)) else ncol(rep_mat)
+    sil_mat  <- rep_mat[, seq_len(n_dims), drop = FALSE]
+    if (verbose)
+      cat(sprintf("  Pre-computing distance matrix in %s space ...\n", use_rep))
+    dist_mat <- dist(sil_mat)
   }
 
   if (verbose)

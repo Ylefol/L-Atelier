@@ -92,14 +92,19 @@ TALOS_run_pca <- function(sce,
 
 #' UMAP embedding
 #'
-#' Computes a 2-dimensional UMAP embedding from the PCA reduced dimensions.
-#' Requires \code{\link{TALOS_run_pca}} to have been run first.  Results are
-#' stored in \code{reducedDims(sce)[["UMAP"]]}.
+#' Computes a 2-dimensional UMAP embedding from a reduced-dimension
+#' representation.  Defaults to PCA; pass \code{use_rep = "scVI"} to embed
+#' from the scVI latent space produced by \code{\link{TALOS_run_scvi}}.
+#' Results are stored in \code{reducedDims(sce)[["UMAP"]]}.
 #'
-#' @param sce A \code{SingleCellExperiment} with a \code{"PCA"} reduced
-#'   dimension.
-#' @param n_pcs Integer. Number of PCA components to use as input.
-#'   Default \code{30}.
+#' @param sce A \code{SingleCellExperiment} with the chosen reduced dimension
+#'   already populated.
+#' @param use_rep Character. Name of the \code{reducedDims} slot to use as
+#'   input.  Default \code{"PCA"}.  Use \code{"scVI"} for the batch-corrected
+#'   latent embedding from \code{\link{TALOS_run_scvi}}.
+#' @param n_pcs Integer. Number of PCA components to use when
+#'   \code{use_rep = "PCA"}.  Ignored for other representations (all dims are
+#'   used).  Default \code{30}.
 #' @param n_neighbors Integer. Number of nearest neighbours for the UMAP graph.
 #'   Higher values produce a more global view; lower values emphasise local
 #'   structure. Default \code{15}.
@@ -111,29 +116,37 @@ TALOS_run_pca <- function(sce,
 #' @return SCE with \code{reducedDims(sce)[["UMAP"]]} populated.
 #' @export
 TALOS_run_umap <- function(sce,
+                            use_rep     = "PCA",
                             n_pcs       = 30L,
                             n_neighbors = 15L,
                             min_dist    = 0.1,
                             seed        = 42L,
                             verbose     = TRUE) {
 
-  .talos_check_dimred(sce, "PCA", "TALOS_run_pca()")
+  run_fn <- if (use_rep == "PCA") "TALOS_run_pca()" else
+              paste0("TALOS_run_scvi() [use_rep = '", use_rep, "']")
+  .talos_check_dimred(sce, use_rep, run_fn)
 
-  n_pcs <- min(as.integer(n_pcs), ncol(reducedDim(sce, "PCA")))
+  rep_mat <- reducedDim(sce, use_rep)
+  n_dims  <- if (use_rep == "PCA") {
+    min(as.integer(n_pcs), ncol(rep_mat))
+  } else {
+    ncol(rep_mat)
+  }
 
   set.seed(seed)
   sce <- scater::runUMAP(sce,
-                          dimred      = "PCA",
-                          n_dimred    = n_pcs,
+                          dimred      = use_rep,
+                          n_dimred    = n_dims,
                           n_neighbors = as.integer(n_neighbors),
                           min_dist    = min_dist,
                           name        = "UMAP")
 
   if (isTRUE(verbose))
     cat(sprintf(
-      "\u2500\u2500 TALOS: UMAP %s\n  Input      : PCA (%s components)\n  n_neighbors: %s  |  min_dist: %s\n  Stored as  : reducedDims(sce)[[\"UMAP\"]]\n%s\n",
+      "\u2500\u2500 TALOS: UMAP %s\n  Input      : %s (%s dims)\n  n_neighbors: %s  |  min_dist: %s\n  Stored as  : reducedDims(sce)[[\"UMAP\"]]\n%s\n",
       strrep("\u2500", 43),
-      n_pcs, n_neighbors, min_dist,
+      use_rep, n_dims, n_neighbors, min_dist,
       strrep("\u2500", 56)
     ))
 

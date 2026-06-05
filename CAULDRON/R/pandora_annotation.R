@@ -187,6 +187,7 @@ PANDORA_annotate_singler <- function(sce,
   label_vec <- if (isTRUE(prune)) result$pruned.labels else result$labels
 
   if (!is.null(clusters)) {
+    names(label_vec)    <- rownames(result)
     cell_labels         <- label_vec[as.character(clusters)]
     names(cell_labels)  <- colnames(sce)
   } else {

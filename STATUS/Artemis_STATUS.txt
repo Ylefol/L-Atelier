@@ -1,11 +1,25 @@
 ================================================================================
 ARTEMIS STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-03-26
+Last Updated: 2026-06-05
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+
+artemis_bw_quantification.R:
+-----------------------------
+ARTEMIS_prepare_bw_comparison(sample_sheet, group_x, group_y, regions,
+  bin_size=1000, genome=NULL, ratio=FALSE, pseudocount=1, min_signal=NULL,
+  sample_col="sample_id", bw_col="bw_path")
+  - Prepares two-column data frame for AETHER_plot_density_scatter
+  - Extracts mean BigWig signal over genomic regions (bins/BED/GRanges)
+  - group_x/group_y: named lists; 1-name = direct mean, 2-name+ratio=TRUE = log2 ratio
+  - Position-based denominator/numerator: first name = denominator, second = numerator
+  - Replicate handling: element-wise mean across samples per group
+  - min_signal: removes regions where BOTH axis representatives < threshold
+  - log2 ratio computed AFTER min_signal filter, using pseudocount
+  - Returns data.frame(x, y, chr, start, end) with attr x_label/y_label
 
 artemis_limma.R:
 -----------------
