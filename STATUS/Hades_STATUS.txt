@@ -1,7 +1,7 @@
 ================================================================================
 HADES STATUS - Quality Control & Filtering
 ================================================================================
-Last Updated: 2026-05-06
+Last Updated: 2026-06-15
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -42,6 +42,11 @@ HADES_filter_olink_proteins(olink_data, max_na_fraction=0.2, verbose=TRUE)
   - Removes proteins with NA fraction > max_na_fraction across samples
   - Updates $wide, $data, $assay_meta to retained proteins
   - $sample_meta unchanged
+HADES_filter_olink_assay_warn(olink_data, max_warn_fraction=0.2, verbose=TRUE)
+  - Removes proteins where warn_fraction (from $assay_meta) exceeds threshold
+  - warn_fraction = proportion of samples with AssayQC == "WARN", computed at
+    load time by ELEUTHIA_load_olink()
+  - Updates $wide, $data, $assay_meta; $sample_meta unchanged
 
 hades_qc_mixed_data.R:
 -----------------------

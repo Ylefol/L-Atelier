@@ -13,6 +13,8 @@ ELEUTHIA_export_olink_qc(
   p_threshold = 0.05,
   heatmap_top_n = NULL,
   ntop_pca = NULL,
+  batch_plots = NULL,
+  qc_steps = NULL,
   verbose = TRUE
 )
 }
@@ -40,6 +42,11 @@ top N variables per PC. NULL shows all tested variables. Default: NULL.}
 
 \item{ntop_pca}{Integer or NULL. Number of most variable proteins used for
 PCA. NULL uses all proteins. Default: NULL.}
+
+\item{batch_plots}{Named list of ggplot objects for batch-check PCA plots.
+Each element is saved as \code{qc/pca_batch_{name}.png}. Supply one plot
+coloured by PlateID for a standard batch check, or a before/after pair
+when batch correction has been applied. Default: NULL (no plots saved).}
 
 \item{verbose}{Logical. Print progress. Default: TRUE.}
 }

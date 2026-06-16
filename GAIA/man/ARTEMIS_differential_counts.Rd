@@ -33,9 +33,12 @@ This is the denominator in fold change calculations.}
 \item{group_col}{Character. Column name in targets containing group labels
 (default = "group"). Ignored if quant_result is artemis_norm (uses stored value).}
 
-\item{batch_col}{Character or NULL. Optional column name for batch variable
-to include in design formula (default = NULL). Ignored if quant_result is
-artemis_norm (uses stored value).}
+\item{batch_col}{Character or NULL. Optional column name for a single
+blocking variable to include in the design formula as \code{~ batch_col + group}
+(default = NULL). Accepts any sample metadata column — batch, clone, tech_rep, etc.
+Ignored if quant_result is artemis_norm (uses stored value).
+\strong{Limitation:} only one blocking variable is supported. Multi-variable
+designs (e.g., \code{~ batch + clone + group}) are not yet implemented.}
 
 \item{alpha}{Numeric. FDR threshold for summary statistics (default = 0.05).}
 

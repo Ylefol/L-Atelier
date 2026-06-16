@@ -12,10 +12,16 @@ AETHER_plot_density_scatter(
   y_label = NULL,
   title = NULL,
   nbins = 100L,
+  log_axes = FALSE,
   log_density = FALSE,
-  color_low = "white",
-  color_high = "darkblue",
-  show_zero_lines = FALSE
+  fill_cap_quantile = 0.99,
+  palette = "PiYG",
+  palette_direction = -1L,
+  color_low = NULL,
+  color_high = NULL,
+  show_zero_lines = FALSE,
+  show_diagonal = FALSE,
+  quadrant_labels = NULL
 )
 }
 \arguments{
@@ -35,18 +41,56 @@ AETHER_plot_density_scatter(
 
 \item{nbins}{Integer. Number of bins in each dimension. Default 100.}
 
+\item{log_axes}{Logical. If \code{TRUE}, apply \code{log1p} to x and y
+values before plotting. Useful for direct signal comparisons where a few
+high-signal outliers compress the distribution into a corner. Axis labels
+are automatically wrapped in \code{log1p(...)}. Default \code{FALSE}.}
+
 \item{log_density}{Logical. If \code{TRUE}, apply \code{log1p} to the bin
 count colour scale. Useful when a few bins dominate the colour range.
 Default \code{FALSE}.}
 
-\item{color_low}{Character. Colour for low-density bins. Default
-\code{"white"}.}
+\item{fill_cap_quantile}{Numeric (0–1) or \code{NULL}. Caps the fill colour
+scale at this quantile of non-empty bin counts, preventing a single
+dominant bin (e.g. the zero-signal spike at the origin) from compressing
+the rest of the palette. Bins above the cap are painted the maximum
+colour (\code{scales::squish}). Default \code{0.99}. Set to \code{NULL}
+to disable capping.}
 
-\item{color_high}{Character. Colour for high-density bins. Default
-\code{"darkblue"}.}
+\item{palette}{Character or \code{NULL}. Named RColorBrewer palette for the
+fill scale. Default \code{"PiYG"}. Set to \code{NULL} to use
+\code{color_low}/\code{color_high} instead.}
+
+\item{palette_direction}{Integer. \code{-1} reverses the palette order
+(default); \code{1} uses the palette as-is. For \code{"PiYG"} the
+RColorBrewer order is pink→green, so \code{-1} gives green (low) → pink
+(high). For sequential palettes like \code{"Blues"} (light→dark),
+\code{1} is typically preferred.}
+
+\item{color_low}{Character or \code{NULL}. Low-density fill colour. Only
+used when \code{palette = NULL}. Default \code{NULL} (falls back to
+\code{"white"}).}
+
+\item{color_high}{Character or \code{NULL}. High-density fill colour. Only
+used when \code{palette = NULL}. Default \code{NULL} (falls back to
+\code{"darkblue"}).}
 
 \item{show_zero_lines}{Logical. If \code{TRUE}, draw dashed reference lines
 at x = 0 and y = 0. Useful for log2 ratio plots. Default \code{FALSE}.}
+
+\item{show_diagonal}{Logical. If \code{TRUE}, draw a dotted y = x reference
+line. Useful for direct signal comparisons where deviation from the
+diagonal indicates change. Default \code{FALSE}.}
+
+\item{quadrant_labels}{\code{NULL}, \code{"auto"}, or a 4-element character
+vector. When \code{"auto"}, labels the four quadrants created by the zero
+reference lines using subject names parsed from the axis labels, e.g.
+\code{"K27ac(+) ATAC(+)"} (Q1 top-right), \code{"K27ac(-) ATAC(+)"}
+(Q2 top-left), \code{"K27ac(-) ATAC(-)"} (Q3 bottom-left),
+\code{"K27ac(+) ATAC(-)"} (Q4 bottom-right). Subject names are extracted
+by stripping \code{" log2(...)"} from the axis labels. Supply a 4-element
+vector to use fully custom labels in the same corner order. Intended for
+use with \code{show_zero_lines = TRUE}. Default \code{NULL} (no labels).}
 }
 \value{
 A ggplot2 object.

@@ -22,10 +22,16 @@ in to be included in consensus (default = 1, include all).}
 \item{merge_distance}{Integer. Maximum distance (bp) between peaks to merge
 them into a single region (default = 0, only merge overlapping peaks).}
 
+\item{sample_groups}{Named character vector or NULL. Maps sample IDs (names)
+to group labels (values). When provided, a \code{groups} column is added to
+the output containing sorted, comma-separated unique group labels that
+contributed to each consensus peak (default = NULL, no group column added).}
+
 \item{verbose}{Logical. Print progress messages (default = TRUE).}
 }
 \value{
-A data.frame with columns: chr, start, end, peak_id, n_samples.
+A data.frame with columns: chr, start, end, peak_id, n_samples, and
+optionally groups (when \code{sample_groups} is supplied).
 Each row represents a consensus peak region.
 }
 \description{

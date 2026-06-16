@@ -24,7 +24,7 @@
 #' @importFrom ggplot2 element_blank element_line element_rect element_text expansion facet_grid
 #' @importFrom ggplot2 facet_wrap guide_legend guides labs margin position_stack
 #' @importFrom ggplot2 scale_color_discrete scale_color_gradient scale_color_gradient2 scale_color_manual
-#' @importFrom ggplot2 scale_fill_gradient scale_fill_gradient2 scale_fill_manual scale_linetype_manual
+#' @importFrom ggplot2 geom_abline scale_fill_gradient scale_fill_gradient2 scale_fill_gradientn scale_fill_manual scale_linetype_manual
 #' @importFrom ggplot2 scale_size_continuous scale_x_continuous scale_y_continuous sec_axis
 #' @importFrom ggplot2 stat_ellipse theme theme_bw theme_minimal theme_void unit ggsave
 #' @importFrom ggplot2 geom_bin2d after_stat

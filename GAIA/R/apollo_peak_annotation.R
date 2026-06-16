@@ -63,11 +63,6 @@ APOLLO_make_txdb <- function(gtf_path,
                               verbose = TRUE) {
 
   # Check for required packages
-  if (!requireNamespace("txdbmaker", quietly = TRUE)) {
-    stop("Package 'txdbmaker' is required. Install from Bioconductor:\n",
-         "  BiocManager::install('txdbmaker')")
-  }
-
   if (!requireNamespace("AnnotationDbi", quietly = TRUE)) {
     stop("Package 'AnnotationDbi' is required. Install from Bioconductor:\n",
          "  BiocManager::install('AnnotationDbi')")
@@ -189,8 +184,7 @@ APOLLO_make_txdb <- function(gtf_path,
   is_gff <- grepl("\\.(gff|gff3)(\\.gz)?$", gtf_path, ignore.case = TRUE)
   format <- if (is_gff) "gff3" else "gtf"
 
-  # Use txdbmaker (the modern package for this)
-  txdb <- txdbmaker::makeTxDbFromGFF(
+  txdb <- GenomicFeatures::makeTxDbFromGFF(
     file = gtf_path,
     format = format,
     organism = organism,

@@ -33,6 +33,11 @@
 #'   IDs. Default \code{"sample_id"}.
 #' @param bw_col Character. Column in \code{sample_sheet} holding BigWig file
 #'   paths. Default \code{"bw_path"}.
+#' @param coverage \code{NULL} or an \code{artemis_bw_coverage} object returned
+#'   by \code{\link{ARTEMIS_load_bw_coverage}}. When provided, BigWig files are
+#'   not read from disk — signal is extracted from the pre-loaded RLE coverage
+#'   objects. Speeds up multi-region workflows by loading each file only once.
+#'   Default \code{NULL}.
 #'
 #' @details
 #' \strong{Input list logic:}\cr
@@ -72,7 +77,8 @@ ARTEMIS_prepare_bw_comparison <- function(
   pseudocount = 1,
   min_signal  = NULL,
   sample_col  = "sample_id",
-  bw_col      = "bw_path"
+  bw_col      = "bw_path",
+  coverage    = NULL
 ) {
   # ---- Input validation -------------------------------------------------------
   if (!is.data.frame(sample_sheet))
@@ -106,13 +112,23 @@ ARTEMIS_prepare_bw_comparison <- function(
     stop("[ARTEMIS] Sample ID(s) not found in sample_sheet: ",
          paste(missing_ids, collapse = ", "), call. = FALSE)
 
-  # ---- Resolve BigWig paths ---------------------------------------------------
-  idx       <- match(all_samples, sheet_ids)
-  bw_paths  <- setNames(as.character(sample_sheet[[bw_col]])[idx], all_samples)
-  bad_files <- names(bw_paths)[!file.exists(bw_paths)]
-  if (length(bad_files))
-    stop("[ARTEMIS] BigWig file(s) not found on disk: ",
-         paste(bad_files, collapse = ", "), call. = FALSE)
+  # ---- Validate or resolve coverage/paths ------------------------------------
+  if (!is.null(coverage)) {
+    if (!inherits(coverage, "artemis_bw_coverage"))
+      stop("[ARTEMIS] coverage must be an object returned by ARTEMIS_load_bw_coverage()",
+           call. = FALSE)
+    missing_cov <- setdiff(all_samples, names(coverage$coverage))
+    if (length(missing_cov))
+      stop("[ARTEMIS] Sample(s) not found in coverage object: ",
+           paste(missing_cov, collapse = ", "), call. = FALSE)
+  } else {
+    idx       <- match(all_samples, sheet_ids)
+    bw_paths  <- setNames(as.character(sample_sheet[[bw_col]])[idx], all_samples)
+    bad_files <- names(bw_paths)[!file.exists(bw_paths)]
+    if (length(bad_files))
+      stop("[ARTEMIS] BigWig file(s) not found on disk: ",
+           paste(bad_files, collapse = ", "), call. = FALSE)
+  }
 
   # ---- Define regions ---------------------------------------------------------
   cat("[ARTEMIS] Defining regions...\n")
@@ -123,8 +139,12 @@ ARTEMIS_prepare_bw_comparison <- function(
   } else if (is.character(regions) && length(regions) == 1L && regions == "bins") {
     genome_tag <- if (!is.null(genome)) paste0(" (", genome, ")") else ""
     cat("    Mode: genome-wide", bin_size, "bp bins", genome_tag, "\n")
-    ref_bw    <- rtracklayer::import.bw(bw_paths[[1]])
-    si_len    <- GenomeInfoDb::seqlengths(GenomicRanges::seqinfo(ref_bw))
+    if (!is.null(coverage)) {
+      si_len <- lengths(coverage$coverage[[all_samples[1]]])
+    } else {
+      ref_bw <- rtracklayer::import.bw(bw_paths[[1]])
+      si_len <- GenomeInfoDb::seqlengths(GenomicRanges::seqinfo(ref_bw))
+    }
     keep_chrs <- !grepl("_", names(si_len))  # drop alt/random/patch contigs
     si_len    <- si_len[keep_chrs]
     if (!length(si_len))
@@ -150,11 +170,40 @@ ARTEMIS_prepare_bw_comparison <- function(
     if (ncol(bed) < 3L)
       stop("[ARTEMIS] BED file must have at least 3 columns (chr, start, end)",
            call. = FALSE)
+    # Drop non-data rows: track/browser headers or column-name lines
+    # (rows where column 2 cannot be parsed as integer)
+    keep_rows <- !is.na(suppressWarnings(as.integer(bed[[2]])))
+    if (!all(keep_rows)) {
+      cat("    Skipping", sum(!keep_rows), "non-data row(s) (header/track lines)\n")
+      bed <- bed[keep_rows, ]
+    }
+    if (nrow(bed) == 0L)
+      stop("[ARTEMIS] BED file contains no valid data rows", call. = FALSE)
+    # Detect column layout: standard BED (chr|start|end) vs name-first BED (name|chr|start|end)
+    # Chromosome names are short: start with "chr", are plain digits, or are X/Y/MT/M.
+    # Peak names (e.g. "K27me3_C1_peak_1") fail all of those criteria.
+    sample_col1 <- as.character(utils::head(bed[[1]], min(20L, nrow(bed))))
+    is_chr_col1 <- all(grepl("^(chr|[0-9]{1,3}$|X$|Y$|MT?$|Un)", sample_col1))
+    if (!is_chr_col1 && ncol(bed) >= 4L) {
+      cat("    Name-first BED format detected: using columns 2-4 for chr/start/end\n")
+      chr_col   <- 2L
+      start_col <- 3L
+      end_col   <- 4L
+    } else {
+      chr_col   <- 1L
+      start_col <- 2L
+      end_col   <- 3L
+    }
+    # Re-validate: start column must be numeric after format detection
+    keep_rows <- !is.na(suppressWarnings(as.integer(bed[[start_col]])))
+    if (!all(keep_rows)) {
+      bed <- bed[keep_rows, ]
+    }
     query_regions <- GenomicRanges::GRanges(
-      seqnames = bed[[1]],
+      seqnames = bed[[chr_col]],
       ranges   = IRanges::IRanges(
-        start = as.integer(bed[[2]]) + 1L,  # BED 0-based -> 1-based
-        end   = as.integer(bed[[3]])
+        start = as.integer(bed[[start_col]]) + 1L,  # BED 0-based -> 1-based
+        end   = as.integer(bed[[end_col]])
       )
     )
     cat("    Regions loaded:", length(query_regions), "\n")
@@ -166,23 +215,59 @@ ARTEMIS_prepare_bw_comparison <- function(
 
   # ---- Extract mean signal per BigWig -----------------------------------------
   n_regions  <- length(query_regions)
-  n_samples  <- length(bw_paths)
-  signal_mat <- matrix(0, nrow = n_regions, ncol = n_samples,
-                       dimnames = list(NULL, names(bw_paths)))
-  cat("[ARTEMIS] Extracting signal (", n_samples, " file(s), ",
+  signal_mat <- matrix(0, nrow = n_regions, ncol = length(all_samples),
+                       dimnames = list(NULL, all_samples))
+  cat("[ARTEMIS] Extracting signal (", length(all_samples), " file(s), ",
       n_regions, " regions)\n", sep = "")
 
   rchrs   <- as.character(GenomicRanges::seqnames(query_regions))
   rstarts <- GenomicRanges::start(query_regions)
   rends   <- GenomicRanges::end(query_regions)
 
-  for (samp in names(bw_paths)) {
+  # ---- Chromosome name harmonization ------------------------------------------
+  # For 'bins' mode, regions are tiled directly from BigWig seqinfo — no mismatch.
+  # For BED/GRanges modes, detect and auto-fix chr1 vs 1 naming discrepancies.
+  extract_rchrs <- rchrs
+  if (!(is.character(regions) && length(regions) == 1L && regions == "bins")) {
+    bw_chrs <- if (!is.null(coverage)) {
+      coverage$bw_chrnames
+    } else {
+      names(GenomeInfoDb::seqlengths(
+        GenomicRanges::seqinfo(rtracklayer::BigWigFile(bw_paths[[1]]))
+      ))
+    }
+    n_overlap <- sum(unique(rchrs) %in% bw_chrs)
+    if (n_overlap == 0L) {
+      reg_has_chr <- any(grepl("^chr", rchrs))
+      bw_has_chr  <- any(grepl("^chr", bw_chrs))
+      if (reg_has_chr && !bw_has_chr) {
+        extract_rchrs <- sub("^chr", "", rchrs)
+        cat("[ARTEMIS] Chr name harmonization: stripped 'chr' prefix to match BigWig (NCBI style)\n")
+      } else if (!reg_has_chr && bw_has_chr) {
+        extract_rchrs <- paste0("chr", rchrs)
+        cat("[ARTEMIS] Chr name harmonization: added 'chr' prefix to match BigWig (UCSC style)\n")
+      } else {
+        warning(
+          "[ARTEMIS] No chromosome overlap between regions and BigWig files.",
+          " Signal will be all zeros.\n",
+          "  Region chrs (first 5): ", paste(utils::head(unique(rchrs), 5), collapse = ", "), "\n",
+          "  BigWig chrs (first 5): ", paste(utils::head(bw_chrs, 5), collapse = ", ")
+        )
+      }
+    }
+  }
+
+  for (samp in all_samples) {
     cat("    ", samp, "...\n", sep = "")
-    bw_gr   <- rtracklayer::import.bw(bw_paths[[samp]])
-    cov_rle <- GenomicRanges::coverage(bw_gr, weight = "score")
+    cov_rle <- if (!is.null(coverage)) {
+      coverage$coverage[[samp]]
+    } else {
+      bw_gr <- rtracklayer::import.bw(bw_paths[[samp]])
+      GenomicRanges::coverage(bw_gr, weight = "score")
+    }
 
     for (chr in names(cov_rle)) {
-      chr_mask <- rchrs == chr
+      chr_mask <- extract_rchrs == chr
       if (!any(chr_mask)) next
       chr_len  <- length(cov_rle[[chr]])
       s        <- pmin(pmax(rstarts[chr_mask], 1L), chr_len)
@@ -260,4 +345,73 @@ ARTEMIS_prepare_bw_comparison <- function(
 
   cat("[ARTEMIS] Done.", nrow(out), "regions returned.\n")
   out
+}
+
+
+#' Pre-load BigWig Coverage for Fast Multi-Region Extraction
+#'
+#' Reads all BigWig files in a sample sheet once and stores their coverage as
+#' RLE objects. The result can be passed to \code{\link{ARTEMIS_prepare_bw_comparison}}
+#' via the \code{coverage} argument to skip redundant file I/O when extracting
+#' signal over many region sets from the same samples.
+#'
+#' @param sample_sheet data.frame. Must include columns \code{sample_col} and
+#'   \code{bw_col}. Duplicate sample IDs are deduplicated automatically.
+#' @param sample_col Character. Column holding sample IDs. Default
+#'   \code{"sample_id"}.
+#' @param bw_col Character. Column holding BigWig file paths. Default
+#'   \code{"bw_path"}.
+#'
+#' @return An \code{artemis_bw_coverage} object (a list) with:
+#'   \describe{
+#'     \item{\code{coverage}}{Named list of RleList objects, one per sample.}
+#'     \item{\code{bw_chrnames}}{Character vector of chromosome names from the
+#'       first BigWig, used for chromosome name harmonization in
+#'       \code{ARTEMIS_prepare_bw_comparison}.}
+#'   }
+#'
+#' @export
+ARTEMIS_load_bw_coverage <- function(
+  sample_sheet,
+  sample_col = "sample_id",
+  bw_col     = "bw_path"
+) {
+  if (!is.data.frame(sample_sheet))
+    stop("[ARTEMIS] sample_sheet must be a data.frame", call. = FALSE)
+  if (!sample_col %in% colnames(sample_sheet))
+    stop("[ARTEMIS] sample_col '", sample_col, "' not found in sample_sheet",
+         call. = FALSE)
+  if (!bw_col %in% colnames(sample_sheet))
+    stop("[ARTEMIS] bw_col '", bw_col, "' not found in sample_sheet",
+         call. = FALSE)
+
+  sample_ids <- as.character(sample_sheet[[sample_col]])
+  bw_paths   <- setNames(as.character(sample_sheet[[bw_col]]), sample_ids)
+  bw_paths   <- bw_paths[!duplicated(names(bw_paths))]
+
+  bad_files <- names(bw_paths)[!file.exists(bw_paths)]
+  if (length(bad_files))
+    stop("[ARTEMIS] BigWig file(s) not found: ",
+         paste(bad_files, collapse = ", "), call. = FALSE)
+
+  cat("[ARTEMIS] Loading BigWig coverage (", length(bw_paths), " file(s))\n",
+      sep = "")
+
+  cov_list    <- vector("list", length(bw_paths))
+  names(cov_list) <- names(bw_paths)
+  bw_chrnames <- NULL
+
+  for (samp in names(bw_paths)) {
+    cat("    ", samp, "...\n", sep = "")
+    bw_gr            <- rtracklayer::import.bw(bw_paths[[samp]])
+    cov_list[[samp]] <- GenomicRanges::coverage(bw_gr, weight = "score")
+    if (is.null(bw_chrnames))
+      bw_chrnames <- names(cov_list[[samp]])
+  }
+
+  cat("[ARTEMIS] Coverage loaded for", length(cov_list), "sample(s).\n")
+  structure(
+    list(coverage = cov_list, bw_chrnames = bw_chrnames),
+    class = "artemis_bw_coverage"
+  )
 }

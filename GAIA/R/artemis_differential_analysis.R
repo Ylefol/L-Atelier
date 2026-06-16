@@ -19,8 +19,10 @@
 #' @param targets Data.frame with sample metadata. Rownames must match colnames
 #'   of counts. Must include a group column.
 #' @param group_col Character. Column in targets for group labels. Default: "group".
-#' @param batch_col Character or NULL. Optional batch column to include in design.
-#'   Default: NULL.
+#' @param batch_col Character or NULL. Optional column name for a single blocking
+#'   variable to include in the design formula as \code{~ batch_col + condition}.
+#'   Default: NULL. \strong{Limitation:} only one blocking variable is supported;
+#'   multi-variable designs are not yet implemented.
 #' @param verbose Logical. Print progress. Default: TRUE.
 #'
 #' @return An S3 object of class \code{"artemis_norm"} containing:
@@ -214,9 +216,12 @@ print.artemis_norm <- function(x, ...) {
 #'   (e.g., "KO"). This is the numerator in fold change calculations.
 #' @param group_col Character. Column name in targets containing group labels
 #'   (default = "group"). Ignored if quant_result is artemis_norm (uses stored value).
-#' @param batch_col Character or NULL. Optional column name for batch variable
-#'   to include in design formula (default = NULL). Ignored if quant_result is
-#'   artemis_norm (uses stored value).
+#' @param batch_col Character or NULL. Optional column name for a single
+#'   blocking variable to include in the design formula as \code{~ batch_col + group}
+#'   (default = NULL). Accepts any sample metadata column — batch, clone, tech_rep, etc.
+#'   Ignored if quant_result is artemis_norm (uses stored value).
+#'   \strong{Limitation:} only one blocking variable is supported. Multi-variable
+#'   designs (e.g., \code{~ batch + clone + group}) are not yet implemented.
 #' @param alpha Numeric. FDR threshold for summary statistics (default = 0.05).
 #' @param verbose Logical. Print progress and summary (default = TRUE).
 #'

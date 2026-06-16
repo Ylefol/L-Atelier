@@ -15,7 +15,8 @@ ARTEMIS_prepare_bw_comparison(
   pseudocount = 1,
   min_signal = NULL,
   sample_col = "sample_id",
-  bw_col = "bw_path"
+  bw_col = "bw_path",
+  coverage = NULL
 )
 }
 \arguments{
@@ -57,6 +58,12 @@ IDs. Default \code{"sample_id"}.}
 
 \item{bw_col}{Character. Column in \code{sample_sheet} holding BigWig file
 paths. Default \code{"bw_path"}.}
+
+\item{coverage}{\code{NULL} or an \code{artemis_bw_coverage} object returned
+by \code{\link{ARTEMIS_load_bw_coverage}}. When provided, BigWig files are
+not read from disk — signal is extracted from the pre-loaded RLE coverage
+objects. Speeds up multi-region workflows by loading each file only once.
+Default \code{NULL}.}
 }
 \value{
 data.frame with columns \code{x}, \code{y}, \code{chr},

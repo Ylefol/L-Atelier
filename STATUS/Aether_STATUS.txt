@@ -10,13 +10,23 @@ IMPLEMENTED FUNCTIONS
 aether_density_scatter.R:
 --------------------------
 AETHER_plot_density_scatter(data, x_col="x", y_col="y", x_label=NULL, y_label=NULL,
-  title=NULL, nbins=100, log_density=FALSE, color_low="white", color_high="darkblue",
-  show_zero_lines=FALSE)
+  title=NULL, nbins=100, log_axes=FALSE, log_density=FALSE, fill_cap_quantile=0.99,
+  palette="PiYG", palette_direction=-1, color_low=NULL, color_high=NULL,
+  show_zero_lines=FALSE, show_diagonal=FALSE, quadrant_labels=NULL)
   - 2D histogram (density scatter): color encodes bin count of data points
   - Pure visualization — no bigwig/region awareness; accepts any two-column numeric df
   - Auto-uses attr(data, "x_label") / attr(data, "y_label") from ARTEMIS_prepare_bw_comparison
   - log_density=TRUE: applies log1p to bin counts (useful when a few bins dominate)
+  - fill_cap_quantile: caps fill scale at this quantile of non-empty bin counts
+    (default 0.99); prevents zero-signal spike from dominating the palette;
+    set NULL to disable; bins above cap are squished to max colour
+  - palette: named RColorBrewer palette (default "PiYG": green=low, pink=high);
+    palette_direction: -1 reverses palette (default), 1 uses as-is
+    set palette=NULL and use color_low/color_high for a custom two-colour gradient
   - show_zero_lines=TRUE: dashed reference lines at x=0 and y=0 (for log2 ratio plots)
+  - show_diagonal=TRUE: dotted y=x reference line (for direct signal ctrl vs treat plots)
+  - quadrant_labels: NULL (none), "auto" (x↑/↓ y↑/↓), or 4-element custom vector
+    (Q1 top-right, Q2 top-left, Q3 bottom-left, Q4 bottom-right); for ratio plots
   - Returns ggplot2 object
 
 aether_atac_qc.R:

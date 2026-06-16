@@ -1,7 +1,7 @@
 ================================================================================
 ARTEMIS STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-06-05
+Last Updated: 2026-06-16
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -9,9 +9,16 @@ IMPLEMENTED FUNCTIONS
 
 artemis_bw_quantification.R:
 -----------------------------
+ARTEMIS_load_bw_coverage(sample_sheet, sample_col="sample_id", bw_col="bw_path")
+  - Reads all BigWig files in a sample sheet once; returns artemis_bw_coverage object
+  - $coverage: named list of RleList objects (one per sample)
+  - $bw_chrnames: chromosome names from the first BigWig (for harmonization)
+  - Pass to ARTEMIS_prepare_bw_comparison(coverage=...) to skip re-reading files
+  - Use when the same samples are queried over many region sets (e.g. feature loop)
+
 ARTEMIS_prepare_bw_comparison(sample_sheet, group_x, group_y, regions,
   bin_size=1000, genome=NULL, ratio=FALSE, pseudocount=1, min_signal=NULL,
-  sample_col="sample_id", bw_col="bw_path")
+  sample_col="sample_id", bw_col="bw_path", coverage=NULL)
   - Prepares two-column data frame for AETHER_plot_density_scatter
   - Extracts mean BigWig signal over genomic regions (bins/BED/GRanges)
   - group_x/group_y: named lists; 1-name = direct mean, 2-name+ratio=TRUE = log2 ratio
@@ -19,6 +26,8 @@ ARTEMIS_prepare_bw_comparison(sample_sheet, group_x, group_y, regions,
   - Replicate handling: element-wise mean across samples per group
   - min_signal: removes regions where BOTH axis representatives < threshold
   - log2 ratio computed AFTER min_signal filter, using pseudocount
+  - coverage: optional artemis_bw_coverage from ARTEMIS_load_bw_coverage(); when
+    provided, BigWig files are not re-read — signal extracted from pre-loaded RLEs
   - Returns data.frame(x, y, chr, start, end) with attr x_label/y_label
 
 artemis_limma.R:
@@ -165,12 +174,33 @@ ARTEMIS_part_summary(part_result, ...)
 
 artemis_timeseries_analysis.R:
 --------------------------------
-ARTEMIS_normalize_timeseries(counts, sample_sheet, ...)
-  - Normalize time series count data
-ARTEMIS_timeseries_conditional(data, ...)
-  - Conditional analysis comparing conditions over time
-ARTEMIS_timeseries_temporal(data, ...)
-  - Temporal pattern analysis within conditions
+--- DESeq2 workflow (count data: RNA-seq, ATAC-seq) ---
+ARTEMIS_normalize_timeseries(counts, targets, group_col, time_col, batch_col, verbose)
+  - Normalize full count matrix via DESeq2 size factors (MUST run first)
+  - Returns artemis_ts_norm; pass to conditional/temporal functions
+ARTEMIS_timeseries_conditional(ts_norm, reference, experiment, alpha, verbose)
+  - Compare two groups at each timepoint using pre-computed size factors
+  - Returns artemis_ts_de
+ARTEMIS_timeseries_temporal(ts_norm, comparisons, alpha, verbose)
+  - Compare consecutive/all timepoints (groups pooled) using pre-computed size factors
+  - Returns artemis_ts_de
+
+--- limma workflow (log2-scale data: Olink NPX, log2 mass spec, microarray) ---
+ARTEMIS_normalize_timeseries_limma(matrix, targets, group_col, time_col, batch_col, verbose)
+  - Validates and stores log2-scale matrix; no transformation applied
+  - batch_col auto-prepended to covariates in downstream comparison functions
+  - Warns if matrix looks like raw counts
+  - Returns artemis_ts_norm_limma
+ARTEMIS_timeseries_conditional_limma(ts_norm, reference, experiment, block_col,
+                                      covariates, alpha, verbose)
+  - Compare two groups at each timepoint using limma linear models
+  - block_col: repeated measures via duplicateCorrelation (e.g. crossover design)
+  - Returns artemis_ts_de (same class as DESeq2 version for downstream compatibility)
+ARTEMIS_timeseries_temporal_limma(ts_norm, comparisons, block_col, covariates,
+                                   alpha, verbose)
+  - Compare consecutive/all timepoints (groups pooled) using limma
+  - block_col: paired design (e.g. SubjectID when same subjects measured at each TP)
+  - Returns artemis_ts_de
 
 artemis_utils.R:
 ----------------

@@ -331,6 +331,10 @@ ELEUTHIA_load_olink <- function(npx_file,
 #'   top N variables per PC. NULL shows all tested variables. Default: NULL.
 #' @param ntop_pca Integer or NULL. Number of most variable proteins used for
 #'   PCA. NULL uses all proteins. Default: NULL.
+#' @param batch_plots Named list of ggplot objects for batch-check PCA plots.
+#'   Each element is saved as \code{qc/pca_batch_{name}.png}. Supply one plot
+#'   coloured by PlateID for a standard batch check, or a before/after pair
+#'   when batch correction has been applied. Default: NULL (no plots saved).
 #' @param verbose Logical. Print progress. Default: TRUE.
 #'
 #' @return Invisibly returns NULL. All outputs are written to disk.
@@ -380,6 +384,8 @@ ELEUTHIA_export_olink_qc <- function(olink_data,
                                       p_threshold   = 0.05,
                                       heatmap_top_n = NULL,
                                       ntop_pca      = NULL,
+                                      batch_plots   = NULL,
+                                      qc_steps      = NULL,
                                       verbose       = TRUE) {
 
   if (!inherits(olink_data, "olink_data"))
@@ -422,30 +428,66 @@ ELEUTHIA_export_olink_qc <- function(olink_data,
 
   # ---------------------------------------------------------------------------
   # 2. QC plots
+  # Accepts either a single AETHER_plot_olink_qc() list (backward compatible)
+  # or a named list of such lists for multiple passes (e.g. pre/post filtering).
+  # A single set is detected by the presence of $npx_distributions at the top
+  # level; it is wrapped internally so the saving loop is uniform.
   # ---------------------------------------------------------------------------
 
-  if (!is.null(qc_plots$npx_distributions)) {
-    ggplot2::ggsave(file.path(dir_qc, "npx_distributions.png"),
-                    qc_plots$npx_distributions,
-                    width = 9, height = 5, dpi = 150)
+  if (!is.null(qc_plots)) {
+    qc_sets <- if (!is.null(qc_plots$npx_distributions)) {
+      setNames(list(qc_plots), "")  # single set — no filename prefix
+    } else {
+      qc_plots                     # named list of sets
+    }
+
+    for (set_nm in names(qc_sets)) {
+      pfx   <- if (nzchar(set_nm)) paste0(set_nm, "_") else ""
+      plots <- qc_sets[[set_nm]]
+      saved <- character(0L)
+
+      if (!is.null(plots$npx_distributions)) {
+        fname <- paste0(pfx, "npx_distributions.png")
+        ggplot2::ggsave(file.path(dir_qc, fname),
+                        plots$npx_distributions, width = 9, height = 5, dpi = 150)
+        saved <- c(saved, fname)
+      }
+
+      if (!is.null(plots$sample_qc_table)) {
+        fname <- paste0(pfx, "sample_qc.csv")
+        utils::write.csv(plots$sample_qc_table,
+                         file.path(dir_qc, fname), row.names = FALSE)
+        saved <- c(saved, fname)
+      }
+
+      if (!is.null(plots$warn_proteins)) {
+        fname <- paste0(pfx, "warn_proteins.png")
+        ggplot2::ggsave(file.path(dir_qc, fname),
+                        plots$warn_proteins, width = 7, height = 4, dpi = 150)
+        saved <- c(saved, fname)
+      }
+
+      if (verbose && length(saved) > 0L)
+        cat("[ELEUTHIA]   [qc]  ", paste(saved, collapse = ", "), "\n")
+    }
   }
 
-  if (!is.null(qc_plots$sample_qc_table)) {
-    utils::write.csv(qc_plots$sample_qc_table,
-                     file.path(dir_qc, "sample_qc.csv"),
-                     row.names = FALSE)
-  }
+  # ---------------------------------------------------------------------------
+  # 2b. Batch-check PCA plots (user-supplied)
+  # ---------------------------------------------------------------------------
 
-  if (!is.null(qc_plots$warn_proteins)) {
-    ggplot2::ggsave(file.path(dir_qc, "warn_proteins.png"),
-                    qc_plots$warn_proteins,
-                    width = 7, height = 4, dpi = 150)
-  }
+  if (!is.null(batch_plots)) {
+    if (!is.list(batch_plots) || is.null(names(batch_plots)))
+      stop("batch_plots must be a named list of ggplot objects.")
 
-  if (verbose) {
-    saved_qc <- c("npx_distributions.png", "sample_qc.csv",
-                  if (!is.null(qc_plots$warn_proteins)) "warn_proteins.png")
-    cat("[ELEUTHIA]   [qc]  ", paste(saved_qc, collapse = ", "), "\n")
+    for (nm in names(batch_plots)) {
+      out_path <- file.path(dir_qc, paste0("pca_batch_", nm, ".png"))
+      ggplot2::ggsave(out_path, batch_plots[[nm]], width = 7, height = 5, dpi = 150)
+    }
+
+    if (verbose)
+      cat("[ELEUTHIA]   [qc]  batch PCA:", length(batch_plots), "plot(s) —",
+          paste0("pca_batch_", names(batch_plots), ".png", collapse = ", "), "\n")
   }
 
   # ---------------------------------------------------------------------------
@@ -456,61 +498,128 @@ ELEUTHIA_export_olink_qc <- function(olink_data,
   ameta <- olink_data$assay_meta
   pmat  <- assoc$pvalues
 
+  bar <- strrep("=", 72)
+  sep <- strrep("-", 72)
+
   lines <- c(
-    strrep("=", 72),
-    "OLINK QC EXPORT SUMMARY",
+    bar,
+    "OLINK QC SUMMARY",
     paste("Generated:", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
-    strrep("=", 72),
-    "",
-    "--- Data ---",
-    paste("Proteins :", nrow(olink_data$wide)),
-    paste("Samples  :", ncol(olink_data$wide)),
+    bar,
     ""
   )
 
-  if ("outlier" %in% colnames(smeta)) {
-    n_out <- sum(smeta$outlier, na.rm = TRUE)
+  # --- Filter chain (populated when qc_steps is provided) ---
+  if (!is.null(qc_steps) && is.list(qc_steps) && length(qc_steps) > 0L) {
+
+    raw_entry   <- qc_steps[["raw"]]
+    filter_keys <- setdiff(names(qc_steps), "raw")
+
+    if (!is.null(raw_entry)) {
+      lines <- c(lines,
+                 "RAW DATA (post-load)",
+                 paste0("  Proteins : ", raw_entry$n_proteins),
+                 paste0("  Samples  : ", raw_entry$n_samples,
+                        "  (includes controls and QC failures)"),
+                 "", sep, "FILTER CHAIN", sep, "")
+    }
+
+    fmt_dim <- function(before, after) {
+      if (is.na(before)) return(as.character(after))
+      d <- after - before
+      if (d == 0) paste0(before, " -> ", after, "  (unchanged)")
+      else        paste0(before, " -> ", after, "  (removed ", abs(d), ")")
+    }
+
+    prev_s <- if (!is.null(raw_entry)) raw_entry$n_samples  else NA_integer_
+    prev_p <- if (!is.null(raw_entry)) raw_entry$n_proteins else NA_integer_
+
+    for (i in seq_along(filter_keys)) {
+      e   <- qc_steps[[filter_keys[[i]]]]
+      thr <- if (!is.na(e$threshold) && nzchar(e$threshold)) e$threshold else "-"
+
+      lines <- c(lines,
+                 paste0("[", i, "] ", e$step),
+                 paste0("    ", e$description),
+                 paste0("    Threshold  : ", thr),
+                 paste0("    Samples    : ", fmt_dim(prev_s, e$n_samples)),
+                 paste0("    Proteins   : ", fmt_dim(prev_p, e$n_proteins)),
+                 "")
+
+      prev_s <- e$n_samples
+      prev_p <- e$n_proteins
+    }
+
+    raw_s <- if (!is.null(raw_entry)) raw_entry$n_samples  else NA_integer_
+    raw_p <- if (!is.null(raw_entry)) raw_entry$n_proteins else NA_integer_
+    fin_s <- ncol(olink_data$wide)
+    fin_p <- nrow(olink_data$wide)
+
+    pct <- function(raw, fin) {
+      if (is.na(raw) || raw == 0L) return("")
+      paste0("  (removed ", raw - fin, " of ", raw, ", ",
+             round(100 * (raw - fin) / raw, 1), "%)")
+    }
+
     lines <- c(lines,
-               paste("Outliers flagged:", n_out),
-               if (n_out > 0L)
-                 paste("  IDs:", paste(smeta[[sid_col]][smeta$outlier &
-                                         !is.na(smeta$outlier)],
-                                       collapse = ", ")),
+               sep,
+               "FINAL DATA",
+               paste0("  Proteins : ", fin_p, pct(raw_p, fin_p)),
+               paste0("  Samples  : ", fin_s, pct(raw_s, fin_s)),
+               "")
+
+  } else {
+    lines <- c(lines,
+               "FINAL DATA",
+               paste0("  Proteins : ", nrow(olink_data$wide)),
+               paste0("  Samples  : ", ncol(olink_data$wide)),
                "")
   }
 
-  if ("SampleQC" %in% colnames(smeta)) {
-    qc_tbl <- table(smeta$SampleQC)
-    lines  <- c(lines, "--- SampleQC ---",
-                paste0("  ", names(qc_tbl), ": ", as.integer(qc_tbl)), "")
-  }
-
+  # --- AssayQC warn (final set) ---
   if (!is.null(ameta) && "warn_fraction" %in% colnames(ameta)) {
     lines <- c(lines,
-               "--- AssayQC warn fraction ---",
-               paste("  Proteins with any WARN    :",
-                     sum(ameta$warn_fraction > 0,    na.rm = TRUE)),
-               paste("  Proteins with WARN >= 10% :",
-                     sum(ameta$warn_fraction >= 0.1, na.rm = TRUE)),
+               sep,
+               "ASSAYQC WARN (final set)",
+               paste0("  Proteins with any WARN    : ",
+                      sum(ameta$warn_fraction > 0,    na.rm = TRUE)),
+               paste0("  Proteins with WARN >= 10% : ",
+                      sum(ameta$warn_fraction >= 0.1, na.rm = TRUE)),
                "")
   }
 
+  # --- SampleQC table (final set) ---
+  if ("SampleQC" %in% colnames(smeta)) {
+    qc_tbl <- table(smeta$SampleQC)
+    lines  <- c(lines,
+                sep,
+                "SAMPLEQC (final set)",
+                paste0("  ", names(qc_tbl), " : ", as.integer(qc_tbl)),
+                "")
+  }
+
+  # --- PC-metadata associations ---
   n_sig_per_var <- colSums(pmat < p_threshold, na.rm = TRUE)
   sig_vars      <- names(n_sig_per_var)[n_sig_per_var > 0L]
   lines <- c(lines,
-             "--- PC-Metadata Association ---",
-             paste("  p_threshold                    :", p_threshold),
-             paste("  Variables significant in >=1 PC:", length(sig_vars)),
+             sep,
+             paste0("PC-METADATA ASSOCIATION (p < ", p_threshold, ")"),
+             paste0("  Variables significant in >=1 PC : ", length(sig_vars)),
              if (length(sig_vars) > 0L)
-               paste("  Variables:", paste(sig_vars, collapse = ", ")),
+               paste0("  Variables : ", paste(sig_vars, collapse = ", ")),
              "")
 
+  # --- Export parameters ---
   lines <- c(lines,
-             "--- Parameters ---",
-             paste("  top_n_vars    :", top_n_vars),
-             paste("  heatmap_top_n :", if (is.null(heatmap_top_n)) "NULL" else heatmap_top_n),
-             paste("  ntop_pca      :", if (is.null(ntop_pca))      "NULL" else ntop_pca),
-             strrep("=", 72))
+             sep,
+             "EXPORT PARAMETERS",
+             paste0("  p_threshold   : ", p_threshold),
+             paste0("  top_n_vars    : ", top_n_vars),
+             paste0("  heatmap_top_n : ",
+                    if (is.null(heatmap_top_n)) "NULL" else heatmap_top_n),
+             paste0("  ntop_pca      : ",
+                    if (is.null(ntop_pca)) "NULL" else ntop_pca),
+             bar)
 
   writeLines(lines, file.path(dir_qc, "summary.txt"))
   if (verbose) cat("[ELEUTHIA]   [qc]  summary.txt\n")

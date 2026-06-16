@@ -180,6 +180,19 @@ ELEUTHIA_load_peaks_from_sheet <- function(sample_sheet,
 }
 
 
+#' Load a BED File
+#'
+#' @description Reads a BED format file (BED3, BED6, narrowPeak, broadPeak, etc.)
+#'   into a data.frame with standardized column names. The first three columns are
+#'   always named \code{chr}, \code{start}, \code{end}; additional columns are named
+#'   \code{name}, \code{score}, \code{strand} where present.
+#'
+#' @param file_path Character string. Path to the BED file.
+#'
+#' @return A data.frame with at minimum columns: \code{chr}, \code{start}, \code{end}.
+#'   Coordinates are returned as-read (BED 0-based half-open intervals).
+#'
+#' @export
 ELEUTHIA_load_bed <- function(file_path) {
 
   if (!file.exists(file_path)) {
@@ -226,9 +239,14 @@ ELEUTHIA_load_bed <- function(file_path) {
 #'   in to be included in consensus (default = 1, include all).
 #' @param merge_distance Integer. Maximum distance (bp) between peaks to merge
 #'   them into a single region (default = 0, only merge overlapping peaks).
+#' @param sample_groups Named character vector or NULL. Maps sample IDs (names)
+#'   to group labels (values). When provided, a \code{groups} column is added to
+#'   the output containing sorted, comma-separated unique group labels that
+#'   contributed to each consensus peak (default = NULL, no group column added).
 #' @param verbose Logical. Print progress messages (default = TRUE).
 #'
-#' @return A data.frame with columns: chr, start, end, peak_id, n_samples.
+#' @return A data.frame with columns: chr, start, end, peak_id, n_samples, and
+#'   optionally groups (when \code{sample_groups} is supplied).
 #'   Each row represents a consensus peak region.
 #'
 #' @details

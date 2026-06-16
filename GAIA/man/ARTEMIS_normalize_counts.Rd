@@ -20,8 +20,10 @@ of counts. Must include a group column.}
 
 \item{group_col}{Character. Column in targets for group labels. Default: "group".}
 
-\item{batch_col}{Character or NULL. Optional batch column to include in design.
-Default: NULL.}
+\item{batch_col}{Character or NULL. Optional column name for a single blocking
+variable to include in the design formula as \code{~ batch_col + condition}.
+Default: NULL. \strong{Limitation:} only one blocking variable is supported;
+multi-variable designs are not yet implemented.}
 
 \item{verbose}{Logical. Print progress. Default: TRUE.}
 }

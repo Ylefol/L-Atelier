@@ -372,3 +372,81 @@ HADES_filter_olink_proteins <- function(olink_data,
 
   return(result)
 }
+
+
+#' Filter Olink Proteins by AssayQC Warn Fraction
+#'
+#' @description Removes proteins (rows) from an \code{olink_data} object whose
+#' AssayQC warn fraction across samples exceeds a threshold. A high warn
+#' fraction indicates systematic assay instability for that protein.
+#'
+#' \code{warn_fraction} is computed at load time by \code{ELEUTHIA_load_olink()}
+#' and stored in \code{$assay_meta}. It reflects the proportion of samples
+#' where that protein received \code{AssayQC == "WARN"}.
+#'
+#' @param olink_data An \code{olink_data} object from \code{ELEUTHIA_load_olink()}.
+#' @param max_warn_fraction Numeric (0–1). Maximum allowable proportion of samples
+#'   with \code{AssayQC == "WARN"} for a protein to be retained. Proteins
+#'   exceeding this threshold are removed. Default: \code{0.2} (20%). No
+#'   established universal standard exists; verify this threshold against your
+#'   panel and study design.
+#' @param verbose Logical. Print filtering summary. Default: TRUE.
+#'
+#' @return A filtered \code{olink_data} object. \code{$wide}, \code{$data}, and
+#'   \code{$assay_meta} contain only retained proteins. \code{$sample_meta} is
+#'   unchanged.
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' ol <- HADES_filter_olink(ol_raw)
+#' ol <- HADES_filter_olink_proteins(ol, max_na_fraction = 0.2)
+#' ol <- HADES_filter_olink_lod(ol, max_lod_fraction = 0.5)
+#' ol <- HADES_filter_olink_assay_warn(ol, max_warn_fraction = 0.2)
+#' }
+HADES_filter_olink_assay_warn <- function(olink_data,
+                                           max_warn_fraction = 0.2,
+                                           verbose           = TRUE) {
+
+  if (!inherits(olink_data, "olink_data"))
+    stop("olink_data must be an olink_data object from ELEUTHIA_load_olink().")
+
+  ameta    <- olink_data$assay_meta
+  n_before <- nrow(ameta)
+
+  if (!"warn_fraction" %in% colnames(ameta))
+    stop("$assay_meta does not contain 'warn_fraction'. ",
+         "Ensure data was loaded with ELEUTHIA_load_olink().")
+
+  keep_mask  <- is.na(ameta$warn_fraction) | ameta$warn_fraction <= max_warn_fraction
+  n_removed  <- sum(!keep_mask)
+  n_retained <- sum(keep_mask)
+
+  if (verbose) {
+    cat("[HADES] AssayQC warn filter:\n")
+    cat("  Threshold : warn fraction >", max_warn_fraction, "\n")
+    cat("  Removed  :", n_removed,  "proteins\n")
+    cat("  Retained :", n_retained, "of", n_before, "proteins\n")
+  }
+
+  keep_ids   <- ameta$OlinkID[keep_mask]
+  ameta_filt <- ameta[keep_mask, , drop = FALSE]
+  rownames(ameta_filt) <- NULL
+
+  wide_mat  <- olink_data$wide[rownames(olink_data$wide) %in% keep_ids, , drop = FALSE]
+
+  data_filt <- olink_data$data[olink_data$data$OlinkID %in% keep_ids, ]
+  rownames(data_filt) <- NULL
+
+  result <- list(
+    data        = data_filt,
+    wide        = wide_mat,
+    sample_meta = olink_data$sample_meta,
+    assay_meta  = ameta_filt,
+    params      = olink_data$params
+  )
+  class(result) <- c("olink_data", "list")
+
+  return(result)
+}
