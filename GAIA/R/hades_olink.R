@@ -284,7 +284,7 @@ HADES_detect_outliers_olink <- function(olink_data,
       cat("[HADES] No outliers to remove.\n")
   }
 
-  rownames(smeta) <- NULL
+  rownames(smeta) <- smeta[[sid_col]]
 
   result <- list(
     data        = data_df,

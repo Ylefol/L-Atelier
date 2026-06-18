@@ -228,6 +228,7 @@ ELEUTHIA_load_olink <- function(npx_file,
     if (verbose)
       cat("[ELEUTHIA]   Joined", length(new_cols), "metadata columns onto sample_meta\n")
   }
+  rownames(sample_meta) <- sample_meta[[sample_col]]
 
   # ---------------------------------------------------------------------------
   # Build $data (long format — measurement columns only, no metadata)

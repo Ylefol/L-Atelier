@@ -331,6 +331,64 @@ AETHER_plot_gost_dotplot <- function(gost_result,
 }
 
 
+#' Plot Full (Unfiltered) g:GOSt Manhattan Plot
+#'
+#' @description Wraps \code{gprofiler2::gostplot()} to render the traditional,
+#' interactive g:GOSt Manhattan-style plot for a single gene list/module,
+#' showing every evaluated term — not just those passing the significance
+#' threshold. Complements the significance-filtered results from
+#' \code{APOLLO_enrich_gost()} so a cluster's biology can still be inspected
+#' visually when no term clears multiple-testing correction.
+#'
+#' @param gost_result A single raw gost result object — one element of
+#'   \code{enrich_result$results} (e.g. \code{enrich_result$results[["C1"]]})
+#'   as returned by \code{APOLLO_enrich_gost()}. This already holds the full,
+#'   unfiltered term set.
+#' @param capped Logical. Cap the -log10(p-value) y-axis at 16 for readability
+#'   (gprofiler2 default behavior). Default: TRUE.
+#' @param save_html Character or NULL. Path to save as a standalone
+#'   interactive HTML file. Default: NULL.
+#'
+#' @return A plotly htmlwidget object.
+#'
+#' @details
+#' Interactive only — gprofiler2's Manhattan plot is plotly-native and has no
+#' meaningful static (ggplot2) equivalent; hovering each point reveals the
+#' term name, source, and p-value, which is what makes the non-significant
+#' terms interpretable.
+#'
+#' @examples
+#' \dontrun{
+#' enrich <- APOLLO_enrich_gost(cluster_genes)
+#' AETHER_plot_gost_full(enrich$results[["C1"]], save_html = "C1_gostplot_full.html")
+#'
+#' }
+#' @export
+AETHER_plot_gost_full <- function(gost_result, capped = TRUE, save_html = NULL) {
+
+  if (!requireNamespace("gprofiler2", quietly = TRUE)) {
+    stop("Package 'gprofiler2' is required. Install with: install.packages('gprofiler2')")
+  }
+
+  if (is.null(gost_result) || is.null(gost_result$result) || nrow(gost_result$result) == 0) {
+    stop("'gost_result' has no terms to plot.")
+  }
+
+  p <- gprofiler2::gostplot(gost_result, capped = capped, interactive = TRUE)
+
+  if (!is.null(save_html)) {
+    if (!requireNamespace("htmlwidgets", quietly = TRUE)) {
+      warning("htmlwidgets package needed for HTML export.")
+    } else {
+      htmlwidgets::saveWidget(p, file = save_html, selfcontained = TRUE)
+      cat("[AETHER] Saved full gostplot to:", save_html, "\n")
+    }
+  }
+
+  return(p)
+}
+
+
 #' Calculate Odds Ratio from Enrichment Results
 #'
 #' @description Helper function to calculate odds ratio from GeneRatio and
@@ -2089,6 +2147,159 @@ AETHER_plot_enrichment_map <- function(enrichment_result,
       legend.position = "right",
       plot.margin     = ggplot2::margin(10, 10, 10, 10)
     )
+
+  return(p)
+}
+
+
+###############################################################################
+########### GSEA Result Visualizations (fgsea) ###########
+###############################################################################
+
+#' NES Dotplot for GSEA Results
+#'
+#' @description Creates a dotplot showing the top enriched and depleted gene
+#' sets from a GSEA result (\code{APOLLO_gsea()}), ranked by normalized
+#' enrichment score (NES).
+#'
+#' @param gsea_result An \code{apollo_gsea} object from \code{APOLLO_gsea()},
+#'   or a data.frame with columns \code{pathway}, \code{NES}, \code{padj},
+#'   \code{size} (typically \code{$results} or \code{$significant}).
+#' @param top_n Integer. Total number of gene sets to show, split between top
+#'   enriched (NES > 0) and top depleted (NES < 0) by padj. Default: 20.
+#' @param title Character. Plot title. Default: "GSEA".
+#' @param font_size Numeric. Base font size for pathway labels. Default: 8.
+#' @param max_label_length Integer. Maximum characters for pathway names
+#'   before truncation. Default: 55.
+#'
+#' @return A ggplot object, or \code{NULL} (with a warning) if there are no
+#'   results to plot.
+#'
+#' @details
+#' Dot size = number of genes in the leading edge (\code{size} column); dot
+#' color = -log10(padj). A dashed vertical line marks NES = 0.
+#'
+#' @examples
+#' \dontrun{
+#' gsea_result <- APOLLO_gsea(ranked, collection = c("H", "C2:CP:REACTOME"))
+#' p <- AETHER_plot_gsea_dotplot(gsea_result, top_n = 30)
+#' }
+#' @export
+AETHER_plot_gsea_dotplot <- function(gsea_result,
+                                      top_n = 20,
+                                      title = "GSEA",
+                                      font_size = 8,
+                                      max_label_length = 55) {
+
+  if (inherits(gsea_result, "apollo_gsea")) {
+    df <- gsea_result$results
+  } else if (is.data.frame(gsea_result)) {
+    df <- gsea_result
+  } else {
+    stop("gsea_result must be an apollo_gsea object or data.frame")
+  }
+
+  required_cols <- c("pathway", "NES", "padj", "size")
+  missing_cols <- setdiff(required_cols, colnames(df))
+  if (length(missing_cols) > 0) {
+    stop("Missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+
+  df <- df[!is.na(df$padj) & !is.na(df$NES), , drop = FALSE]
+  if (nrow(df) == 0) {
+    warning("No GSEA results to plot")
+    return(NULL)
+  }
+
+  n_each  <- ceiling(top_n / 2)
+  pos_df  <- df[df$NES > 0, , drop = FALSE]
+  neg_df  <- df[df$NES < 0, , drop = FALSE]
+  pos_top <- head(pos_df[order(pos_df$padj), ], n_each)
+  neg_top <- head(neg_df[order(neg_df$padj), ], n_each)
+  plot_df <- rbind(pos_top, neg_top)
+
+  if (nrow(plot_df) == 0) {
+    warning("No gene sets remaining after enriched/depleted split")
+    return(NULL)
+  }
+
+  plot_df$label <- ifelse(
+    nchar(plot_df$pathway) > max_label_length,
+    paste0(substr(plot_df$pathway, 1, max_label_length - 3), "..."),
+    plot_df$pathway
+  )
+  plot_df       <- plot_df[order(plot_df$NES), , drop = FALSE]
+  plot_df$label <- factor(plot_df$label, levels = unique(plot_df$label))
+
+  p <- ggplot(plot_df, aes(x = NES, y = label, size = size, color = -log10(padj))) +
+    geom_point() +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey50", linewidth = 0.5) +
+    scale_color_gradient(low = "#deebf7", high = "#08519c", name = "-log10(padj)") +
+    scale_size_continuous(name = "Gene set\noverlap", range = c(2, 8)) +
+    labs(
+      title = title,
+      subtitle = paste0("Top ", nrow(pos_top), " enriched / ",
+                        nrow(neg_top), " depleted (by padj)"),
+      x = "NES", y = NULL
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(face = "bold", size = font_size + 4),
+      plot.subtitle = element_text(size = font_size + 1, color = "gray40"),
+      axis.text.y = element_text(size = font_size),
+      legend.position = "right",
+      panel.grid.major = element_line(color = "gray90"),
+      panel.grid.minor = element_blank()
+    )
+
+  return(p)
+}
+
+
+#' Running-Score (Mountain) Plot for a Single GSEA Pathway
+#'
+#' @description Wraps \code{fgsea::plotEnrichment()} to draw the running
+#' enrichment score curve for one gene set from a GSEA result
+#' (\code{APOLLO_gsea()}).
+#'
+#' @param gsea_result An \code{apollo_gsea} object from \code{APOLLO_gsea()}.
+#'   Must retain \code{$gene_sets} and \code{$ranked_genes} (both included by
+#'   default).
+#' @param pathway Character. Name of the gene set to plot (must be present in
+#'   \code{gsea_result$gene_sets}).
+#' @param title Character or \code{NULL}. Plot title. \code{NULL} (default)
+#'   uses the pathway name.
+#'
+#' @return A ggplot object.
+#'
+#' @examples
+#' \dontrun{
+#' gsea_result <- APOLLO_gsea(ranked, collection = "H")
+#' p <- AETHER_plot_gsea_enrichment(gsea_result, "HALLMARK_INFLAMMATORY_RESPONSE")
+#' }
+#' @export
+AETHER_plot_gsea_enrichment <- function(gsea_result, pathway, title = NULL) {
+
+  if (!inherits(gsea_result, "apollo_gsea")) {
+    stop("gsea_result must be an apollo_gsea object from APOLLO_gsea()")
+  }
+
+  if (!requireNamespace("fgsea", quietly = TRUE)) {
+    stop("Package 'fgsea' is required. Install with: BiocManager::install('fgsea')")
+  }
+
+  if (!pathway %in% names(gsea_result$gene_sets)) {
+    stop("pathway '", pathway, "' not found in gsea_result$gene_sets. ",
+         "Use one of the names in gsea_result$results$pathway that passed ",
+         "min_size/max_size filtering.")
+  }
+
+  p <- fgsea::plotEnrichment(
+    pathway = gsea_result$gene_sets[[pathway]],
+    stats   = gsea_result$ranked_genes
+  )
+
+  p <- p + ggtitle(title %||% pathway) + theme_minimal()
 
   return(p)
 }

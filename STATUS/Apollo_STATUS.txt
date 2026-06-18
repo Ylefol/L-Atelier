@@ -1,7 +1,7 @@
 ================================================================================
 APOLLO STATUS - Annotation & Enrichment
 ================================================================================
-Last Updated: 2026-02-19
+Last Updated: 2026-06-17
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -15,8 +15,38 @@ APOLLO_get_dorothea(...)
   - Retrieve DoRothEA TF regulatory network
 APOLLO_get_progeny(...)
   - Retrieve PROGENy pathway network
-APOLLO_get_ppi(...)
+APOLLO_get_ppi(genes, ..., min_resources=1, drop_isolates=FALSE, ...)
   - Retrieve protein-protein interaction network
+  - Uses OmnipathR::import_all_interactions() (renamed from all_interactions()
+    in OmnipathR >= 3.x; update if a future OmnipathR version renames it again)
+  - drop_isolates=TRUE removes query genes with zero interactions (degree 0)
+    from the returned graph instead of keeping them as disconnected nodes
+APOLLO_get_string_ppi(genes, score_threshold=400, network_type="functional",
+  image_format="image", image_path=NULL, ...)
+  - Queries the STRING REST API (string-db.org/api) via POST requests
+    (curl package, new Suggests dependency) — identifiers go in the POST
+    body, not a GET query string, avoiding the URL-length ceiling GET hit
+    once gene lists ran into the hundreds (confirmed failing ~615 mapped
+    genes; switched to POST after diagnosing that as the root cause of a
+    "cannot open the connection" error that looked like a network/IDE
+    issue but reproduced identically in Positron and a plain terminal)
+  - Internal helper .apollo_string_api_post() also surfaces the real HTTP
+    status code + response body on failure, instead of read.delim()'s
+    generic connection-failure message — makes transient STRING outages
+    distinguishable from real request errors going forward
+  - Returns apollo_string_ppi S3: $graph (same shape as APOLLO_get_ppi's
+    igraph, so it's a drop-in replacement), $string_ids, $interaction_df,
+    $image_path, $params
+  - Downloads STRING's own rendered network image by default
+    (image_format="image"); STRING's layout engine often avoids node/label
+    overlap better than re-laying out the same edges with
+    AETHER_plot_ppi_network() — added specifically to address that issue
+  - image_path is required when image_format != "none"
+  - Unmapped genes (failed STRING ID resolution) are kept as isolated nodes
+    in $graph, matching APOLLO_get_ppi()'s n_query_genes/n_mapped_genes
+    graph-attribute contract
+  - Verified end-to-end with 730 mapped genes / 1300 query genes (POST body
+    ~13KB) — no practical ceiling left for realistic PART cluster sizes
 APOLLO_list_activity_databases()
   - List available activity inference databases
 
@@ -38,10 +68,29 @@ APOLLO_extract_cluster_genes(modules, modules_of_interest=NULL, exclude_grey=TRU
   - Extract named gene list from clustering results for enrichment analysis
   - Accepts wgcna_modules, wgcna_hubs, or artemis_part objects
   - exclude_grey=TRUE removes grey module (WGCNA) or C0 outliers (PART)
-APOLLO_enrich_gost(genes, ...)
+APOLLO_enrich_gost(genes, significant=TRUE, ...)
   - Run gprofiler2 enrichment analysis
+  - Always calls gprofiler2::gost(significant=FALSE) internally (single API call);
+    significant=TRUE/FALSE here only controls client-side filtering of
+    $combined/$summary, via gprofiler2's own "significant" column
+  - $results holds the FULL unfiltered gost object per module/gene list
+    (every evaluated term, regardless of significance) — used by
+    AETHER_plot_gost_full() for the traditional g:GOSt Manhattan plot
 APOLLO_filter_enrichment(enrichment_result, ...)
   - Filter enrichment results by significance / source
+APOLLO_rank_from_de(de_result, rank_by="t", gene_col="feature_id", comparison=NULL, ...)
+  - Build a ranked named vector (gene -> stat) for GSEA from an artemis_limma
+    or artemis_ts_de result
+  - rank_by: "t" (limma t / DESeq2 stat, auto-detected), "log2FoldChange",
+    or "signed_neg_log10p"
+  - comparison: selects which comparison for artemis_ts_de (multi-comparison) results
+APOLLO_gsea(ranked_genes, gene_sets=NULL, collection=c("H","C2","C5"), ...)
+  - Gene Set Enrichment Analysis via fgsea::fgseaMultilevel()
+  - gene_sets=NULL fetches MSigDB collections via msigdbr (colon notation for
+    subcategories, e.g. "C2:CP:REACTOME")
+  - Returns apollo_gsea S3: $results, $significant, $ranked_genes, $gene_sets,
+    $params
+  - Ported from CAULDRON's KERAUNOS_gsea()
 
 apollo_motif_enrichment.R:
 ---------------------------
@@ -98,4 +147,8 @@ DEPENDENCIES / NOTES
   calling APOLLO_convert_genes()
 - External: gprofiler2, clusterProfiler, AnnotationDbi, ChIPseeker,
   GenomicRanges, IRanges (all in Suggests)
+- curl: required by APOLLO_get_string_ppi() (POST requests to the STRING
+  API); in Suggests
 - HOMER motif enrichment requires HOMER to be installed system-wide
+- fgsea, msigdbr: in Suggests; required for APOLLO_gsea() (msigdbr only
+  needed when gene_sets=NULL)

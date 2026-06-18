@@ -61,7 +61,11 @@ upper limit, matches gprofiler online defaults).}
 this are skipped. Prevents slow, uninformative enrichment on very large
 gene sets (e.g., WGCNA grey module). Default: 10000. Set to NULL to disable.}
 
-\item{significant}{Logical. Only return significant results. Default: TRUE.}
+\item{significant}{Logical. Only include significant results in
+\code{combined}/\code{summary}. All terms are always fetched from
+gprofiler2 in a single API call regardless of this setting (filtering is
+applied client-side), so toggling this does not incur extra requests.
+Default: TRUE.}
 
 \item{exclude_iea}{Logical. Exclude GO terms inferred from electronic annotation. Default: FALSE.}
 
@@ -69,8 +73,10 @@ gene sets (e.g., WGCNA grey module). Default: 10000. Set to NULL to disable.}
 }
 \value{
 A list with class "gost_enrichment" containing:
-\item{results}{Named list of gost result objects, one per gene list}
-\item{combined}{Combined data.frame of all results with 'query' column indicating source}
+\item{results}{Named list of FULL (unfiltered) gost result objects, one
+per gene list — includes every evaluated term regardless of
+significance, for use with \code{AETHER_plot_gost_full()}}
+\item{combined}{Combined data.frame of \code{significant}-filtered results with 'query' column indicating source}
 \item{summary}{Summary data.frame with counts per gene list and source}
 \item{metadata}{List of analysis parameters}
 }

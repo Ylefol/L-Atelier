@@ -276,6 +276,9 @@ AETHER_plot_part_heatmap <- function(part_result,
     # Save to file
     ext <- tolower(tools::file_ext(save_path))
     if (ext == "png") {
+      # At res=150, 50 in = 7 500 px — safely within Cairo's ~32 767 px/side limit.
+      width  <- min(width, 50)
+      height <- min(height, 50)
       grDevices::png(save_path, width = width, height = height, units = "in", res = 150)
     } else if (ext == "pdf") {
       grDevices::pdf(save_path, width = width, height = height)
@@ -654,6 +657,163 @@ AETHER_plot_cluster_means <- function(part_result,
     theme_bw() +
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold"),
+      legend.position = "bottom"
+    )
+
+  return(p)
+}
+
+
+# ==============================================================================
+# CLUSTER MEANS BY GROUP (cross-sectional, no timepoint axis)
+# ==============================================================================
+
+#' Plot Cluster Mean Expression by Group
+#'
+#' Companion plot to \code{AETHER_plot_part_heatmap()} for cross-sectional
+#' (non-time-series) PART results. Shows the mean expression per cluster per
+#' group as a dodged bar chart, offering a compact summary view when the
+#' heatmap itself is too large to read column-by-column.
+#'
+#' @param part_result An \code{artemis_part} object from \code{ARTEMIS_part()}.
+#' @param sample_info Data.frame with sample metadata. Must have rownames
+#'   matching colnames of the PART data matrix.
+#' @param group_col Character. Group column in sample_info. Default: "group".
+#' @param clusters Character vector of clusters to plot. NULL = all
+#'   non-outlier clusters, in the same order as \code{part_result$cluster_colors}
+#'   (matching the row-block order of the PART heatmap). Default: NULL.
+#' @param group_colors Named character vector of colors for groups. NULL =
+#'   generated with the same default palette/ordering logic used by
+#'   \code{AETHER_plot_part_heatmap()}, so colors match between the two
+#'   plots when both are called with the same \code{sample_info}/\code{group_col}.
+#'   Default: NULL.
+#' @param error_bars Character. "se" (standard error), "sd" (standard
+#'   deviation), or "none". Default: "se".
+#' @param title Character or NULL. Plot title. Default: NULL (auto-generated).
+#'
+#' @return A ggplot object.
+#'
+#' @details
+#' For each sample, the mean z-score across genes in a cluster is computed
+#' first; bars then show the mean (± error) of those per-sample cluster means
+#' within each group. Cluster x-axis labels are colored using
+#' \code{part_result$cluster_colors} to visually match the heatmap's row
+#' annotation blocks.
+#'
+#' @examples
+#' \dontrun{
+#' AETHER_plot_cluster_group_means(part_result, sample_info, group_col = "Group")
+#'
+#' }
+#' @export
+AETHER_plot_cluster_group_means <- function(part_result,
+                                             sample_info,
+                                             group_col = "group",
+                                             clusters = NULL,
+                                             group_colors = NULL,
+                                             error_bars = c("se", "sd", "none"),
+                                             title = NULL) {
+
+  error_bars <- match.arg(error_bars)
+
+  if (!inherits(part_result, "artemis_part")) {
+    stop("'part_result' must be an artemis_part object from ARTEMIS_part()")
+  }
+  if (!group_col %in% colnames(sample_info)) {
+    stop("'", group_col, "' column not found in sample_info")
+  }
+
+  mat  <- part_result$data
+  cmap <- part_result$cluster_map
+
+  # --- Align + order samples by group (mirrors AETHER_plot_part_heatmap) ---
+  common_samples <- intersect(colnames(mat), rownames(sample_info))
+  if (length(common_samples) == 0) {
+    stop("No matching samples between part_result and sample_info rownames")
+  }
+  sample_info <- sample_info[common_samples, , drop = FALSE]
+  sample_info <- sample_info[order(sample_info[[group_col]]), , drop = FALSE]
+  mat <- mat[, rownames(sample_info), drop = FALSE]
+  groups <- sample_info[[group_col]]
+
+  # --- Cluster selection / ordering (mirrors heatmap row-block order) ---
+  cluster_colors <- part_result$cluster_colors
+  if (is.null(clusters)) {
+    clusters <- names(cluster_colors)
+    clusters <- clusters[clusters != "C0"]
+  }
+
+  gene_cluster <- setNames(cmap$cluster, cmap$gene)
+
+  # --- Group colors (same default palette/ordering logic as the heatmap) ---
+  if (!is.null(group_colors)) {
+    group_levels <- names(group_colors)
+    group_levels <- group_levels[group_levels %in% unique(groups)]
+  } else {
+    group_levels <- unique(groups)
+    group_pal <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3",
+                   "#FF7F00", "#FFFF33", "#A65628", "#F781BF")
+    group_colors <- setNames(group_pal[seq_along(group_levels)], group_levels)
+  }
+
+  # --- Per-sample cluster means, then aggregate to cluster x group ---
+  agg_rows <- list()
+  for (cl in clusters) {
+    cl_genes <- names(gene_cluster)[gene_cluster == cl]
+    if (length(cl_genes) == 0) next
+    cl_mat <- mat[cl_genes, , drop = FALSE]
+    for (samp in colnames(cl_mat)) {
+      agg_rows[[length(agg_rows) + 1]] <- data.frame(
+        cluster   = cl,
+        sample    = samp,
+        group     = as.character(sample_info[samp, group_col]),
+        mean_expr = mean(cl_mat[, samp], na.rm = TRUE),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  if (length(agg_rows) == 0) {
+    stop("No genes found for the requested clusters.")
+  }
+
+  plot_df <- do.call(rbind, agg_rows)
+
+  agg_final <- stats::aggregate(
+    mean_expr ~ cluster + group, data = plot_df,
+    FUN = function(x) c(mean = mean(x), sd = stats::sd(x), n = length(x))
+  )
+  agg_final <- do.call(data.frame, agg_final)
+  colnames(agg_final) <- c("cluster", "group", "mean_expr", "sd_expr", "n")
+  agg_final$sd_expr[is.na(agg_final$sd_expr)] <- 0
+  agg_final$se_expr <- agg_final$sd_expr / sqrt(agg_final$n)
+
+  agg_final$cluster <- factor(agg_final$cluster, levels = clusters)
+  agg_final$group   <- factor(agg_final$group, levels = group_levels)
+
+  # --- Build plot ---
+  p <- ggplot(agg_final, aes(x = cluster, y = mean_expr, fill = group)) +
+    geom_col(position = position_dodge(width = 0.8), width = 0.7, color = "grey30")
+
+  if (error_bars != "none") {
+    err_col <- if (error_bars == "se") "se_expr" else "sd_expr"
+    p <- p + geom_errorbar(
+      aes(ymin = mean_expr - .data[[err_col]], ymax = mean_expr + .data[[err_col]]),
+      position = position_dodge(width = 0.8), width = 0.25
+    )
+  }
+
+  p <- p +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+    scale_fill_manual(values = group_colors) +
+    labs(
+      x = "Cluster", y = "Mean Expression (z-score)", fill = "Group",
+      title = if (is.null(title)) "PART Cluster Mean Expression by Group" else title
+    ) +
+    theme_bw() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      axis.text.x = element_text(color = cluster_colors[clusters], face = "bold"),
       legend.position = "bottom"
     )
 

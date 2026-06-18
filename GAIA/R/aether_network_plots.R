@@ -43,6 +43,17 @@
 #' @param edge_color Character. Edge color. Default: "gray70".
 #' @param size_range Numeric vector of length 2. Min and max node sizes.
 #'   Default: c(2, 10).
+#' @param group_labels Named character vector. Maps a discrete \code{color_by}
+#'   group (e.g. PART cluster "C1", "C2", ...) to a label string (e.g. its
+#'   top enriched GO term from \code{APOLLO_enrich_gost()}). One label is
+#'   placed at the centroid of each group's nodes. Only applies when
+#'   \code{color_by} produces a discrete grouping (e.g. a named character
+#'   vector of cluster assignments) — ignored with a warning for continuous
+#'   coloring ("degree", "betweenness", or a numeric named vector).
+#'   Default: NULL (no group labels).
+#' @param group_label_size Numeric. Font size for group labels. Default: 3.5.
+#' @param group_label_color Character. Text color for group labels.
+#'   Default: "black".
 #' @param title Character. Plot title. Default: NULL (auto-generated).
 #' @param seed Integer. Random seed for reproducible layouts. Default: 42.
 #'
@@ -61,6 +72,11 @@
 #' fc <- c(TP53 = 2.1, BRCA1 = -1.5, EGFR = 0.3, MYC = 3.2)
 #' p <- AETHER_plot_ppi_network(graph, color_by = fc, colors = c("blue", "white", "red"))
 #'
+#' # Label each PART cluster with its top enriched GO term
+#' top_terms <- c(C1 = "immune response", C2 = "coagulation cascade")
+#' p <- AETHER_plot_ppi_network(graph, color_by = clusters,
+#'                               group_labels = top_terms)
+#'
 #' }
 #' @export
 AETHER_plot_ppi_network <- function(graph,
@@ -73,6 +89,9 @@ AETHER_plot_ppi_network <- function(graph,
                                      edge_alpha = 0.3,
                                      edge_color = "gray70",
                                      size_range = c(2, 10),
+                                     group_labels = NULL,
+                                     group_label_size = 3.5,
+                                     group_label_color = "black",
                                      title = NULL,
                                      seed = 42) {
 
@@ -165,8 +184,9 @@ AETHER_plot_ppi_network <- function(graph,
 
   # --- Build plot ---
   set.seed(seed)
+  layout_obj <- ggraph::create_layout(graph, layout = layout)
 
-  p <- ggraph::ggraph(graph, layout = layout) +
+  p <- ggraph::ggraph(layout_obj) +
     ggraph::geom_edge_link(alpha = edge_alpha, color = edge_color) +
     ggraph::geom_node_point(aes(size = size_var, color = color_var)) +
     scale_size_continuous(range = size_range, name = "Size") +
@@ -212,6 +232,49 @@ AETHER_plot_ppi_network <- function(graph,
     }
   }
 
+  # --- Group labels (e.g. PART cluster -> top enriched term) ---
+  # layout_obj carries every vertex attribute set on graph (including
+  # color_var), so per-group centroids are a simple aggregate over x/y.
+  if (!is.null(group_labels)) {
+    if (!is_discrete) {
+      warning("'group_labels' requires a discrete color_by (e.g. cluster ",
+              "assignments); ignoring.")
+    } else {
+      centroid_df <- stats::aggregate(cbind(x, y) ~ color_var, data = layout_obj, FUN = mean)
+      centroid_df$label <- group_labels[as.character(centroid_df$color_var)]
+      centroid_df <- centroid_df[!is.na(centroid_df$label), , drop = FALSE]
+
+      if (nrow(centroid_df) == 0) {
+        warning("None of the names in 'group_labels' matched any color ",
+                "group; no labels added.")
+      } else if (requireNamespace("ggrepel", quietly = TRUE)) {
+        p <- p + ggrepel::geom_label_repel(
+          data = centroid_df,
+          mapping = aes(x = x, y = y, label = label),
+          inherit.aes = FALSE,
+          size = group_label_size,
+          color = group_label_color,
+          fontface = "bold",
+          fill = "white",
+          alpha = 0.85,
+          max.overlaps = Inf,
+          seed = seed
+        )
+      } else {
+        p <- p + ggplot2::geom_label(
+          data = centroid_df,
+          mapping = aes(x = x, y = y, label = label),
+          inherit.aes = FALSE,
+          size = group_label_size,
+          color = group_label_color,
+          fontface = "bold",
+          fill = "white",
+          alpha = 0.85
+        )
+      }
+    }
+  }
+
   return(p)
 }
 
@@ -236,6 +299,14 @@ AETHER_plot_ppi_network <- function(graph,
 #' @param layout Character. Layout algorithm when physics=FALSE.
 #'   Options: "layout_with_fr", "layout_nicely", "layout_in_circle".
 #'   Default: "layout_with_fr".
+#' @param group_labels Named character vector. Maps a discrete \code{color_by}
+#'   group (e.g. PART cluster "C1", "C2", ...) to a label string (e.g. its
+#'   top enriched GO term from \code{APOLLO_enrich_gost()}). Added to each
+#'   matching node's hover tooltip as "Cluster" and "Top term" lines (no
+#'   separate legend is drawn — see \code{\link{AETHER_plot_ppi_network}}'s
+#'   static \code{group_labels} for that). Only applies when \code{color_by}
+#'   produces a discrete grouping — ignored with a warning otherwise.
+#'   Default: NULL.
 #' @param title Character. Plot title. Default: NULL.
 #' @param save_html Character. Path to save as standalone HTML file. Default: NULL.
 #' @param seed Integer. Random seed for layout. Default: 42.
@@ -250,6 +321,11 @@ AETHER_plot_ppi_network <- function(graph,
 #' # Save to HTML
 #' AETHER_plot_ppi_network_interactive(graph, save_html = "network.html")
 #'
+#' # Show cluster + top enriched term in each node's tooltip
+#' top_terms <- c(C1 = "immune response", C2 = "coagulation cascade")
+#' AETHER_plot_ppi_network_interactive(graph, color_by = clusters,
+#'                                      group_labels = top_terms)
+#'
 #' }
 #' @export
 AETHER_plot_ppi_network_interactive <- function(graph,
@@ -260,6 +336,7 @@ AETHER_plot_ppi_network_interactive <- function(graph,
                                                  show_labels = TRUE,
                                                  physics = TRUE,
                                                  layout = "layout_with_fr",
+                                                 group_labels = NULL,
                                                  title = NULL,
                                                  save_html = NULL,
                                                  seed = 42) {
@@ -303,6 +380,8 @@ AETHER_plot_ppi_network_interactive <- function(graph,
   }
 
   # --- Color ---
+  node_groups <- rep(NA_character_, n_nodes)
+
   if (is.null(color_by)) {
     node_colors <- rep("#97C2FC", n_nodes)
   } else if (is.character(color_by) && length(color_by) == 1 && !color_by %in% node_names) {
@@ -323,6 +402,7 @@ AETHER_plot_ppi_network_interactive <- function(graph,
     } else {
       groups <- as.character(color_by[node_names])
       groups[is.na(groups)] <- "other"
+      node_groups <- groups
 
       if (!is.null(colors) && !is.null(names(colors))) {
         color_map <- colors
@@ -338,15 +418,39 @@ AETHER_plot_ppi_network_interactive <- function(graph,
     node_colors <- rep("#97C2FC", n_nodes)
   }
 
+  # --- Group labels (e.g. PART cluster -> top enriched term) ---
+  # Folded into each node's tooltip rather than a separate legend, since
+  # visNetwork tooltips already carry per-node degree/betweenness.
+  if (!is.null(group_labels)) {
+    if (all(is.na(node_groups))) {
+      warning("'group_labels' requires a discrete color_by (e.g. cluster ",
+              "assignments); ignoring.")
+      group_labels <- NULL
+    }
+  }
+
   # --- Build nodes data.frame ---
+  node_title <- paste0("<b>", node_names, "</b><br>",
+                        "Degree: ", igraph::degree(graph), "<br>",
+                        "Betweenness: ", round(igraph::betweenness(graph), 1))
+
+  if (!all(is.na(node_groups))) {
+    has_group <- !is.na(node_groups)
+    node_title[has_group] <- paste0(node_title[has_group], "<br>Cluster: ", node_groups[has_group])
+
+    if (!is.null(group_labels)) {
+      node_term <- unname(group_labels[node_groups])
+      has_term <- has_group & !is.na(node_term)
+      node_title[has_term] <- paste0(node_title[has_term], "<br>Top term: ", node_term[has_term])
+    }
+  }
+
   nodes <- data.frame(
     id    = node_names,
     label = if (show_labels) node_names else rep("", n_nodes),
     size  = size_scaled,
     color = node_colors,
-    title = paste0("<b>", node_names, "</b><br>",
-                   "Degree: ", igraph::degree(graph), "<br>",
-                   "Betweenness: ", round(igraph::betweenness(graph), 1)),
+    title = node_title,
     stringsAsFactors = FALSE
   )
 

@@ -299,6 +299,9 @@ APOLLO_get_progeny <- function(organism = "human",
 #' @param min_resources Integer. Minimum number of databases supporting an
 #'   interaction for it to be included. Default: 1. Higher values = more
 #'   stringent filtering.
+#' @param drop_isolates Logical. Remove query genes with zero interactions
+#'   (degree 0) from the returned graph, instead of keeping them as
+#'   disconnected nodes. Default: FALSE.
 #' @param directed Logical. Whether to return directed interactions.
 #'   Default: FALSE (undirected PPI network).
 #' @param verbose Logical. Print network summary. Default: TRUE.
@@ -340,6 +343,7 @@ APOLLO_get_ppi <- function(genes,
                             organism = 9606,
                             resources = NULL,
                             min_resources = 1,
+                            drop_isolates = FALSE,
                             directed = FALSE,
                             verbose = TRUE) {
 
@@ -370,7 +374,7 @@ APOLLO_get_ppi <- function(genes,
   interactions <- tryCatch({
     args <- list(organism = organism)
     if (!is.null(resources)) args$resources <- resources
-    do.call(OmnipathR::all_interactions, args)
+    do.call(OmnipathR::import_all_interactions, args)
   }, error = function(e) {
     stop("Failed to fetch interactions from OmniPath: ", e$message, call. = FALSE)
   })
@@ -479,7 +483,298 @@ APOLLO_get_ppi <- function(genes,
     }
   }
 
+  # --- Drop isolated nodes (degree 0) if requested ---
+  if (drop_isolates) {
+    n_isolated <- sum(igraph::V(graph)$degree == 0)
+    if (n_isolated > 0) {
+      graph <- igraph::delete_vertices(graph, igraph::V(graph)[igraph::V(graph)$degree == 0])
+      if (verbose) cat("   Dropped", n_isolated, "isolated node(s) (degree 0)\n")
+    }
+  }
+
   return(graph)
+}
+
+
+#' Get protein-protein interaction network directly from STRING
+#'
+#' @description Queries the STRING REST API directly (rather than via
+#' OmniPath) for a set of genes, returning both an igraph network object
+#' (with the same shape as \code{\link{APOLLO_get_ppi}}, so it can be used
+#' as a drop-in replacement) and, optionally, STRING's own rendered network
+#' image. STRING's image renderer uses its own layout engine, which is
+#' often better at avoiding node/label overlap than re-laying out the same
+#' edges with \code{\link{AETHER_plot_ppi_network}}.
+#'
+#' @param genes Character vector of gene symbols to include in the network.
+#' @param organism Integer. NCBI taxonomy ID. Default: 9606 (human).
+#' @param score_threshold Integer (0-1000). STRING's \code{required_score}
+#'   (combined confidence score cutoff). Default: 400 (STRING's own
+#'   "medium confidence" default).
+#' @param network_type Character. "functional" (default; includes predicted/
+#'   indirect functional associations, STRING's website default) or
+#'   "physical" (direct physical binding interactions only).
+#' @param add_nodes Integer. Number of extra first-shell interactors STRING
+#'   should add beyond the query gene list. Default: 0 (within-list network
+#'   only, matching \code{APOLLO_get_ppi()}'s default behavior).
+#' @param image_format Character. Which STRING-rendered image to download:
+#'   "image" (default, PNG), "highres_image" (high-resolution PNG), "svg"
+#'   (vector), or "none" (skip image download entirely).
+#' @param image_path Character. File path to save the downloaded image.
+#'   Required when \code{image_format != "none"}.
+#' @param verbose Logical. Print progress and network summary. Default: TRUE.
+#'
+#' @return A list of class "apollo_string_ppi" with:
+#'   \describe{
+#'     \item{graph}{igraph object — same vertex/edge/graph attribute shape
+#'       as \code{APOLLO_get_ppi()}'s return value.}
+#'     \item{string_ids}{data.frame. Raw STRING ID mapping for the query genes.}
+#'     \item{interaction_df}{data.frame. Edge list with STRING combined scores.}
+#'     \item{image_path}{Character or NULL. Path to the downloaded image, if any.}
+#'     \item{params}{List of the call parameters used.}
+#'   }
+#'
+#' @details
+#' This calls the STRING REST API (string-db.org/api) directly over HTTP
+#' using POST requests (via the \code{curl} package), with identifiers sent
+#' in the request body rather than a GET query string — this avoids the
+#' URL-length ceiling that GET hits once gene lists run into the hundreds
+#' (STRING's own documented recommendation for large identifier lists).
+#' Gene symbols are first resolved to STRING IDs via the
+#' \code{get_string_ids} endpoint; genes that fail to resolve are reported
+#' and kept as isolated nodes in the returned graph (for parity with
+#' \code{APOLLO_get_ppi()}'s \code{n_query_genes}/\code{n_mapped_genes}
+#' graph attributes).
+#'
+#' On a non-200 STRING API response, the actual HTTP status code and
+#' response body are included in the error (rather than the generic
+#' connection-failure message a GET-based \code{url()} connection would
+#' give), to make transient vs. persistent failures easier to tell apart.
+#'
+#' @examples
+#' \dontrun{
+#' # Basic STRING network, with STRING's own rendered image
+#' res <- APOLLO_get_string_ppi(c("TP53", "BRCA1", "EGFR", "MYC", "CDK2"),
+#'                               image_path = "string_network.png")
+#'
+#' # Data only, no image, stricter confidence threshold
+#' res <- APOLLO_get_string_ppi(genes, score_threshold = 700,
+#'                               image_format = "none")
+#'
+#' # Feed the graph into the existing ggraph-based plot for comparison
+#' p <- AETHER_plot_ppi_network(res$graph, layout = "stress")
+#' }
+#' @export
+APOLLO_get_string_ppi <- function(genes,
+                                   organism = 9606,
+                                   score_threshold = 400,
+                                   network_type = c("functional", "physical"),
+                                   add_nodes = 0,
+                                   image_format = c("image", "highres_image", "svg", "none"),
+                                   image_path = NULL,
+                                   verbose = TRUE) {
+
+  if (!requireNamespace("igraph", quietly = TRUE)) {
+    stop("Package 'igraph' is required.", call. = FALSE)
+  }
+  if (!requireNamespace("curl", quietly = TRUE)) {
+    stop("Package 'curl' is required. Install with:\n",
+         "  install.packages('curl')", call. = FALSE)
+  }
+
+  network_type <- match.arg(network_type)
+  image_format <- match.arg(image_format)
+
+  if (image_format != "none" && is.null(image_path)) {
+    stop("'image_path' must be provided when image_format != 'none'.", call. = FALSE)
+  }
+
+  genes <- unique(genes)
+  n_query <- length(genes)
+
+  if (n_query < 2) {
+    stop("At least 2 genes are required to build a network.", call. = FALSE)
+  }
+
+  caller_id <- "GAIA_ZERO_DAWN"
+  api_base <- "https://string-db.org/api"
+
+  if (verbose) {
+    cat("[APOLLO] Fetching PPI network from STRING API...\n")
+    cat("   Query genes:", n_query, "\n")
+    cat("   Network type:", network_type, "| Required score:", score_threshold, "\n")
+  }
+
+  # --- Resolve gene symbols to STRING IDs ---
+  id_resp <- .apollo_string_api_post(
+    "tsv/get_string_ids",
+    list(
+      identifiers     = paste(utils::URLencode(genes, reserved = TRUE), collapse = "%0d"),
+      species         = organism,
+      limit           = 1,
+      echo_query      = 1,
+      caller_identity = caller_id
+    ),
+    api_base = api_base
+  )
+  id_map <- utils::read.delim(text = rawToChar(id_resp$content), stringsAsFactors = FALSE)
+
+  if (is.null(id_map) || nrow(id_map) == 0 || !"stringId" %in% colnames(id_map)) {
+    stop("STRING API returned no ID mappings for the provided genes.", call. = FALSE)
+  }
+
+  mapped_genes <- unique(id_map$queryItem)
+  unmapped <- setdiff(genes, mapped_genes)
+
+  if (verbose) {
+    cat("   Mapped:", length(mapped_genes), "/", n_query, "genes\n")
+    if (length(unmapped) > 0) {
+      cat("   Unmapped (kept as isolated nodes):", paste(unmapped, collapse = ", "), "\n")
+    }
+  }
+
+  # --- Fetch interaction network ---
+  string_id_params <- list(
+    identifiers     = paste(utils::URLencode(id_map$stringId, reserved = TRUE), collapse = "%0d"),
+    species         = organism,
+    required_score  = score_threshold,
+    network_type    = network_type,
+    add_nodes       = add_nodes,
+    caller_identity = caller_id
+  )
+
+  net_resp <- .apollo_string_api_post("tsv/network", string_id_params, api_base = api_base)
+  net_df <- if (length(net_resp$content) == 0) {
+    data.frame()
+  } else {
+    utils::read.delim(text = rawToChar(net_resp$content), stringsAsFactors = FALSE)
+  }
+
+  # --- Build edge data.frame ---
+  if (is.null(net_df) || nrow(net_df) == 0) {
+    edge_df <- data.frame(from = character(0), to = character(0),
+                           score = numeric(0), stringsAsFactors = FALSE)
+  } else {
+    edge_df <- data.frame(
+      from  = net_df$preferredName_A,
+      to    = net_df$preferredName_B,
+      score = net_df$score,
+      stringsAsFactors = FALSE
+    )
+    edge_df <- edge_df[edge_df$from != edge_df$to, ]
+
+    # Normalize undirected edges (alphabetical order), keep highest score
+    edge_df$key <- apply(edge_df[, c("from", "to")], 1, function(x) paste(sort(x), collapse = "_"))
+    edge_df <- edge_df[order(-edge_df$score), ]
+    edge_df <- edge_df[!duplicated(edge_df$key), ]
+    edge_df$key <- NULL
+  }
+
+  # --- Build igraph ---
+  if (nrow(edge_df) > 0) {
+    graph <- igraph::graph_from_data_frame(edge_df, directed = FALSE, vertices = NULL)
+  } else {
+    graph <- igraph::make_empty_graph(directed = FALSE)
+  }
+
+  missing_genes <- setdiff(genes, igraph::V(graph)$name)
+  if (length(missing_genes) > 0) {
+    graph <- igraph::add_vertices(graph, length(missing_genes), name = missing_genes)
+  }
+
+  igraph::V(graph)$degree <- igraph::degree(graph)
+  igraph::V(graph)$betweenness <- igraph::betweenness(graph)
+
+  igraph::graph_attr(graph, "organism") <- organism
+  igraph::graph_attr(graph, "n_query_genes") <- n_query
+  igraph::graph_attr(graph, "n_mapped_genes") <- sum(igraph::V(graph)$degree > 0)
+  igraph::graph_attr(graph, "source") <- "STRING_API"
+  igraph::graph_attr(graph, "network_type") <- network_type
+  igraph::graph_attr(graph, "score_threshold") <- score_threshold
+
+  attr(graph, "interaction_df") <- edge_df
+
+  if (verbose) {
+    cat("   Nodes:", igraph::vcount(graph), "\n")
+    cat("   Edges:", igraph::ecount(graph), "\n")
+    n_connected <- sum(igraph::V(graph)$degree > 0)
+    n_isolated <- igraph::vcount(graph) - n_connected
+    cat("   Connected:", n_connected, "| Isolated:", n_isolated, "\n")
+    if (igraph::ecount(graph) > 0) {
+      cat("   Mean degree:", round(mean(igraph::V(graph)$degree), 1), "\n")
+      top_hubs <- sort(igraph::V(graph)$degree, decreasing = TRUE)
+      top_hubs <- head(top_hubs[top_hubs > 0], 5)
+      cat("   Top hubs:", paste(names(top_hubs), paste0("(", top_hubs, ")"),
+                               collapse = ", "), "\n")
+    }
+  }
+
+  # --- Download STRING's rendered network image ---
+  if (image_format != "none") {
+    tryCatch({
+      img_resp <- .apollo_string_api_post(paste0(image_format, "/network"),
+                                           string_id_params, api_base = api_base)
+      writeBin(img_resp$content, image_path)
+    }, error = function(e) {
+      warning("Failed to download STRING network image: ", e$message, call. = FALSE)
+      image_path <<- NULL
+    })
+    if (verbose && !is.null(image_path)) cat("[APOLLO] STRING network image saved:", image_path, "\n")
+  } else {
+    image_path <- NULL
+  }
+
+  result <- list(
+    graph = graph,
+    string_ids = id_map,
+    interaction_df = edge_df,
+    image_path = image_path,
+    params = list(
+      organism = organism,
+      score_threshold = score_threshold,
+      network_type = network_type,
+      add_nodes = add_nodes,
+      image_format = image_format
+    )
+  )
+  class(result) <- "apollo_string_ppi"
+  return(result)
+}
+
+
+#' POST a form-encoded request to the STRING API
+#'
+#' @description Sends \code{params} as an \code{application/x-www-form-urlencoded}
+#' POST body (the same key=value pairs STRING's GET endpoints accept as query
+#' parameters, just relocated to the request body). Used by
+#' \code{\link{APOLLO_get_string_ppi}} instead of GET so identifier lists in
+#' the hundreds/thousands don't hit the URL-length ceiling GET requests run
+#' into. Values already containing percent-encoded characters (e.g. the
+#' \code{identifiers} field, joined with \code{\%0d}) are passed through as-is.
+#'
+#' @param path Character. API path after \code{api_base/}, e.g.
+#'   \code{"tsv/network"} or \code{"image/network"}.
+#' @param params Named list of POST body fields (character/numeric scalars).
+#' @param api_base Character. STRING API base URL.
+#'
+#' @return The raw response list from \code{curl::curl_fetch_memory()}
+#'   (\code{$status_code}, \code{$content}, ...).
+#' @keywords internal
+.apollo_string_api_post <- function(path, params, api_base = "https://string-db.org/api") {
+  body <- paste(paste0(names(params), "=", params), collapse = "&")
+  handle <- curl::new_handle(postfields = body)
+
+  resp <- tryCatch(
+    curl::curl_fetch_memory(paste0(api_base, "/", path), handle = handle),
+    error = function(e) stop("Failed to reach STRING API (", path, "): ", e$message, call. = FALSE)
+  )
+
+  if (resp$status_code != 200) {
+    stop("STRING API request to '", path, "' failed with HTTP ", resp$status_code,
+         ": ", rawToChar(resp$content), call. = FALSE)
+  }
+
+  resp
 }
 
 

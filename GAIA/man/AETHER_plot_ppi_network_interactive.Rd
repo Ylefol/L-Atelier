@@ -13,6 +13,7 @@ AETHER_plot_ppi_network_interactive(
   show_labels = TRUE,
   physics = TRUE,
   layout = "layout_with_fr",
+  group_labels = NULL,
   title = NULL,
   save_html = NULL,
   seed = 42
@@ -41,6 +42,15 @@ Set FALSE for static layout (faster for large networks).}
 Options: "layout_with_fr", "layout_nicely", "layout_in_circle".
 Default: "layout_with_fr".}
 
+\item{group_labels}{Named character vector. Maps a discrete \code{color_by}
+group (e.g. PART cluster "C1", "C2", ...) to a label string (e.g. its
+top enriched GO term from \code{APOLLO_enrich_gost()}). Added to each
+matching node's hover tooltip as "Cluster" and "Top term" lines (no
+separate legend is drawn — see \code{\link{AETHER_plot_ppi_network}}'s
+static \code{group_labels} for that). Only applies when \code{color_by}
+produces a discrete grouping — ignored with a warning otherwise.
+Default: NULL.}
+
 \item{title}{Character. Plot title. Default: NULL.}
 
 \item{save_html}{Character. Path to save as standalone HTML file. Default: NULL.}
@@ -62,6 +72,11 @@ AETHER_plot_ppi_network_interactive(graph, color_by = "degree")
 
 # Save to HTML
 AETHER_plot_ppi_network_interactive(graph, save_html = "network.html")
+
+# Show cluster + top enriched term in each node's tooltip
+top_terms <- c(C1 = "immune response", C2 = "coagulation cascade")
+AETHER_plot_ppi_network_interactive(graph, color_by = clusters,
+                                     group_labels = top_terms)
 
 }
 }

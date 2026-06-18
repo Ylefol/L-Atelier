@@ -15,6 +15,9 @@ AETHER_plot_ppi_network(
   edge_alpha = 0.3,
   edge_color = "gray70",
   size_range = c(2, 10),
+  group_labels = NULL,
+  group_label_size = 3.5,
+  group_label_color = "black",
   title = NULL,
   seed = 42
 )
@@ -61,6 +64,20 @@ colors. For continuous: vector of 2-3 colors for gradient. Default: NULL
 \item{size_range}{Numeric vector of length 2. Min and max node sizes.
 Default: c(2, 10).}
 
+\item{group_labels}{Named character vector. Maps a discrete \code{color_by}
+group (e.g. PART cluster "C1", "C2", ...) to a label string (e.g. its
+top enriched GO term from \code{APOLLO_enrich_gost()}). One label is
+placed at the centroid of each group's nodes. Only applies when
+\code{color_by} produces a discrete grouping (e.g. a named character
+vector of cluster assignments) — ignored with a warning for continuous
+coloring ("degree", "betweenness", or a numeric named vector).
+Default: NULL (no group labels).}
+
+\item{group_label_size}{Numeric. Font size for group labels. Default: 3.5.}
+
+\item{group_label_color}{Character. Text color for group labels.
+Default: "black".}
+
 \item{title}{Character. Plot title. Default: NULL (auto-generated).}
 
 \item{seed}{Integer. Random seed for reproducible layouts. Default: 42.}
@@ -85,6 +102,11 @@ p <- AETHER_plot_ppi_network(graph, color_by = clusters)
 # Color by fold change
 fc <- c(TP53 = 2.1, BRCA1 = -1.5, EGFR = 0.3, MYC = 3.2)
 p <- AETHER_plot_ppi_network(graph, color_by = fc, colors = c("blue", "white", "red"))
+
+# Label each PART cluster with its top enriched GO term
+top_terms <- c(C1 = "immune response", C2 = "coagulation cascade")
+p <- AETHER_plot_ppi_network(graph, color_by = clusters,
+                              group_labels = top_terms)
 
 }
 }

@@ -1,7 +1,7 @@
 ================================================================================
 ELEUTHIA STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-06-15
+Last Updated: 2026-06-17
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -94,8 +94,19 @@ ELEUTHIA_export_homer_results(homer_result, output_dir, ...)
 
 eleuthia_export_shared.R:
 --------------------------
-ELEUTHIA_export_enrichment(enrichment_result, output_dir, ...)
+ELEUTHIA_export_enrichment(enrichment_result, output_dir, save_full_gostplot=TRUE, ...)
   - Export enrichment results (shared helper used across export modules)
+  - <prefix>_by_module/<module>.csv now holds ALL evaluated terms per module
+    (unfiltered for significance, with a `significant` column), pulled from
+    enrichment$results rather than the significance-filtered `combined` table
+  - <prefix>_combined.csv / by_source CSVs remain significance-filtered
+  - save_full_gostplot=TRUE: also writes one interactive HTML per module
+    (gostplot_full_<module>.html) via AETHER_plot_gost_full(), showing ALL
+    evaluated terms — generated even for modules with zero significant terms
+ELEUTHIA_export_gsea(gsea_result, output_dir, prefix="gsea", ...)
+  - Export APOLLO_gsea() results: full + significant CSVs, NES dotplot,
+    per-pathway running-score plots (capped via max_enrichment_plots), RDS
+  - Ported from CAULDRON's TALARIA_export_gsea()
 
 eleuthia_logging.R:
 -------------------

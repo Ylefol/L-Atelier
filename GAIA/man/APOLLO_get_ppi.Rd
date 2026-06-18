@@ -9,6 +9,7 @@ APOLLO_get_ppi(
   organism = 9606,
   resources = NULL,
   min_resources = 1,
+  drop_isolates = FALSE,
   directed = FALSE,
   verbose = TRUE
 )
@@ -26,6 +27,10 @@ Default: NULL (all available). Examples: "STRING", "BioGRID", "IntAct",
 \item{min_resources}{Integer. Minimum number of databases supporting an
 interaction for it to be included. Default: 1. Higher values = more
 stringent filtering.}
+
+\item{drop_isolates}{Logical. Remove query genes with zero interactions
+(degree 0) from the returned graph, instead of keeping them as
+disconnected nodes. Default: FALSE.}
 
 \item{directed}{Logical. Whether to return directed interactions.
 Default: FALSE (undirected PPI network).}

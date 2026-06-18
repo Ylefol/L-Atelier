@@ -11,6 +11,7 @@ ELEUTHIA_export_enrichment(
   by_source = FALSE,
   by_module = TRUE,
   save_plots = TRUE,
+  save_full_gostplot = TRUE,
   plot_top_n = 10,
   plot_format = "png",
   plot_width = 10,
@@ -29,9 +30,17 @@ ELEUTHIA_export_enrichment(
 \item{by_source}{Logical. Create separate files per source (GO:BP, KEGG, etc.). Default: FALSE.}
 
 \item{by_module}{Logical. Create separate files per module/cluster (all sources
-combined per query). Default: TRUE.}
+combined per query). Unlike \code{combined}/\code{by_source}, these hold
+EVERY evaluated term (not just significance-filtered ones) with a
+\code{significant} column to filter on, since \code{enrichment$results}
+already stores the full unfiltered per-module gost output. Default: TRUE.}
 
 \item{save_plots}{Logical. Generate dotplots per source. Default: TRUE.}
+
+\item{save_full_gostplot}{Logical. Also generate one traditional, interactive
+g:GOSt Manhattan plot per module (saved as HTML), showing ALL evaluated
+terms regardless of significance. Unlike the significance-filtered dotplots,
+this is generated even for modules with zero significant terms. Default: TRUE.}
 
 \item{plot_top_n}{Integer. Number of top terms per module in dotplots. Default: 10.}
 
@@ -55,11 +64,15 @@ and optionally generates dotplots for each source.
 \details{
 Creates the following files:
 \itemize{
-\item \if{html}{\out{<prefix>}}_combined.csv: All results in one table
+\item \if{html}{\out{<prefix>}}_combined.csv: Significance-filtered results in one table
 \item \if{html}{\out{<prefix>}}_summary.csv: Summary counts per module/source
-\item \if{html}{\out{<prefix>}}_by_module/\if{html}{\out{<module>}}.csv: Results split by module/cluster (default)
-\item \if{html}{\out{<prefix>}}_by_source/\if{html}{\out{<source>}}.csv: Results split by source (if by_source = TRUE)
+\item \if{html}{\out{<prefix>}}_by_module/\if{html}{\out{<module>}}.csv: ALL evaluated terms per module/cluster,
+unfiltered for significance (has a \code{significant} column) (default)
+\item \if{html}{\out{<prefix>}}_by_source/\if{html}{\out{<source>}}.csv: Significance-filtered results split by source
+(if by_source = TRUE)
 \item \if{html}{\out{<prefix>}}\emph{plots/dotplot}\if{html}{\out{<source>}}.png: Dotplot per source (if save_plots = TRUE)
+\item \if{html}{\out{<prefix>}}\emph{plots/gostplot_full}\if{html}{\out{<module>}}.html: Interactive, unfiltered g:GOSt
+Manhattan plot per module (if save_full_gostplot = TRUE)
 \item \if{html}{\out{<prefix>}}.rds: Full gost_enrichment object (if save_rds = TRUE)
 }
 

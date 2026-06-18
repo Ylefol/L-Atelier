@@ -288,8 +288,10 @@ ELEUTHIA_export_dea_results <- function(output_dir,
         tryCatch({
           n_genes <- nrow(part_result$data)
           n_samples <- ncol(part_result$data)
-          hm_width <- max(8, n_samples * 0.4 + 4)
           hm_height <- max(6, min(n_genes * 0.02 + 3, 20))
+          # Width capped at height (rather than a flat value) so very large
+          # sample counts can't produce an excessively wide/short image.
+          hm_width  <- min(hm_height, max(8, n_samples * 0.4 + 4))
 
           if (plot_format %in% c("png", "both")) {
             hm_file <- file.path(plot_dir, paste0(prefix, "_part_heatmap.png"))
@@ -319,6 +321,21 @@ ELEUTHIA_export_dea_results <- function(output_dir,
           }
         }, error = function(e) {
           if (verbose) cat("[ELEUTHIA]   Warning: Could not create heatmap -", e$message, "\n")
+        })
+
+        # Cluster means by group — compact companion to the heatmap
+        tryCatch({
+          p_means <- AETHER_plot_cluster_group_means(
+            part_result, sample_info,
+            group_col = group_col
+          )
+          means_files <- .save_ggplot(p_means, plot_dir,
+                                      paste0(prefix, "_part_cluster_means"), plot_format,
+                                      width = max(8, part_result$n_clusters * 1.2), height = 6)
+          files_created <- c(files_created, means_files)
+          if (verbose) cat("[ELEUTHIA]   Cluster means by group:", basename(means_files[1]), "\n")
+        }, error = function(e) {
+          if (verbose) cat("[ELEUTHIA]   Warning: Could not create cluster means plot -", e$message, "\n")
         })
       } else if (save_plots && is.null(sample_info)) {
         if (verbose) cat("[ELEUTHIA]   Note: sample_info not provided, skipping heatmap\n")

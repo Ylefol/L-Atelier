@@ -196,8 +196,10 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
         tryCatch({
           n_genes <- nrow(part_result$data)
           n_samples <- ncol(part_result$data)
-          hm_width <- max(8, n_samples * 0.4 + 4)
           hm_height <- max(6, min(n_genes * 0.02 + 3, 20))
+          # Width capped at height (rather than a flat value) so very large
+          # sample counts can't produce an excessively wide/short image.
+          hm_width  <- min(hm_height, max(8, n_samples * 0.4 + 4))
 
           if (plot_format %in% c("png", "both")) {
             AETHER_plot_part_heatmap(

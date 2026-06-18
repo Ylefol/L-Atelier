@@ -484,13 +484,19 @@ APOLLO_extract_cluster_genes <- function(modules,
 #' @param max_query_size Maximum number of genes per query. Gene lists exceeding
 #'   this are skipped. Prevents slow, uninformative enrichment on very large
 #'   gene sets (e.g., WGCNA grey module). Default: 10000. Set to NULL to disable.
-#' @param significant Logical. Only return significant results. Default: TRUE.
+#' @param significant Logical. Only include significant results in
+#'   \code{combined}/\code{summary}. All terms are always fetched from
+#'   gprofiler2 in a single API call regardless of this setting (filtering is
+#'   applied client-side), so toggling this does not incur extra requests.
+#'   Default: TRUE.
 #' @param exclude_iea Logical. Exclude GO terms inferred from electronic annotation. Default: FALSE.
 #' @param verbose Logical. Print progress. Default: TRUE.
 #'
 #' @return A list with class "gost_enrichment" containing:
-#'   \item{results}{Named list of gost result objects, one per gene list}
-#'   \item{combined}{Combined data.frame of all results with 'query' column indicating source}
+#'   \item{results}{Named list of FULL (unfiltered) gost result objects, one
+#'     per gene list — includes every evaluated term regardless of
+#'     significance, for use with \code{AETHER_plot_gost_full()}}
+#'   \item{combined}{Combined data.frame of \code{significant}-filtered results with 'query' column indicating source}
 #'   \item{summary}{Summary data.frame with counts per gene list and source}
 #'   \item{metadata}{List of analysis parameters}
 #'
@@ -572,7 +578,12 @@ APOLLO_enrich_gost <- function(gene_lists,
         domain_scope = domain_scope,
         custom_bg = custom_bg,
         evcodes = TRUE,  # Include gene IDs in results
-        significant = significant,
+        # Always fetch ALL evaluated terms (not just significant ones): the
+        # `significant` column gprofiler2 computes is filtered on client-side
+        # below, and the full object is kept in $results for
+        # AETHER_plot_gost_full(). Avoids a second API call to get unfiltered
+        # terms for that plot.
+        significant = FALSE,
         exclude_iea = exclude_iea
       )
     }, error = function(e) {
@@ -581,26 +592,36 @@ APOLLO_enrich_gost <- function(gene_lists,
     })
 
     if (!is.null(gost_result) && !is.null(gost_result$result) && nrow(gost_result$result) > 0) {
-      # Filter by term size
+      # Store the FULL (unfiltered) gost object regardless of significance —
+      # used by AETHER_plot_gost_full() to plot every evaluated term.
+      results[[name]] <- gost_result
+
+      # Filter by term size, then (optionally) by significance for combined/summary
       result_df <- gost_result$result
       result_df <- result_df[result_df$term_size >= min_term_size &
                              result_df$term_size <= max_term_size, ]
 
+      if (significant) {
+        if ("significant" %in% colnames(result_df)) {
+          result_df <- result_df[result_df$significant, ]
+        } else {
+          result_df <- result_df[!is.na(result_df$p_value) &
+                                   result_df$p_value <= user_threshold, ]
+        }
+      }
+
       if (nrow(result_df) > 0) {
         n_sig <- nrow(result_df)
-        if (verbose) cat(n_sig, "significant terms\n")
-
-        # Store full gost object
-        results[[name]] <- gost_result
+        if (verbose) cat(n_sig, if (significant) "significant terms\n" else "terms (unfiltered)\n")
 
         # Add module identifier and combine
         result_df$module <- name
         combined_list[[name]] <- result_df
       } else {
-        if (verbose) cat("No terms within size range\n")
+        if (verbose) cat("No", if (significant) "significant terms\n" else "terms within size range\n")
       }
     } else {
-      if (verbose) cat("No significant terms\n")
+      if (verbose) cat("No terms returned\n")
     }
   }
 
@@ -727,4 +748,354 @@ APOLLO_filter_enrichment <- function(enrich_result,
   }
 
   return(df)
+}
+
+
+###############################################################################
+########### Gene Set Enrichment Analysis (GSEA, fgsea) ###########
+###############################################################################
+
+#' Build a ranked gene vector for GSEA from a differential expression result
+#'
+#' Extracts a named numeric vector (gene -> ranking statistic) from an
+#' \code{artemis_limma} or \code{artemis_ts_de} result, suitable for
+#' \code{APOLLO_gsea()}.
+#'
+#' @param de_result An \code{artemis_limma} object (from
+#'   \code{ARTEMIS_limma_de()}), an \code{artemis_ts_de} object (from
+#'   \code{ARTEMIS_timeseries_conditional()}/\code{_temporal()} or their
+#'   \code{_limma} counterparts), or a plain data.frame with the relevant
+#'   columns.
+#' @param rank_by Character. Ranking statistic:
+#'   \describe{
+#'     \item{\code{"t"}}{The test statistic - limma's \code{t} column or
+#'       DESeq2's \code{stat} column (whichever is present is used
+#'       automatically). Accounts for both effect size and precision; the
+#'       recommended default.}
+#'     \item{\code{"log2FoldChange"}}{Fold change only - ignores variance.}
+#'     \item{\code{"signed_neg_log10p"}}{\code{sign(log2FoldChange) *
+#'       -log10(pvalue)}. Useful when no test statistic column is available.}
+#'   }
+#'   Default: \code{"t"}.
+#' @param gene_col Character. Column in the results data.frame to use as gene
+#'   names. Default: \code{"feature_id"}. Use \code{"original_id"} for Olink
+#'   data when the gene sets are expected to match the matrix's original IDs
+#'   (e.g. OlinkIDs) rather than the substituted \code{feature_id_col} symbols.
+#' @param comparison Character, integer, or \code{NULL}. For
+#'   \code{artemis_ts_de} objects (which contain multiple comparisons): the
+#'   comparison name or index to extract. \code{NULL} uses the first
+#'   comparison and prints a note. Ignored for \code{artemis_limma} and
+#'   data.frame inputs.
+#' @param verbose Logical. Print progress. Default: TRUE.
+#'
+#' @return Named numeric vector, sorted descending, NA values removed,
+#'   duplicate gene names removed (first occurrence kept).
+#'
+#' @examples
+#' \dontrun{
+#' de <- ARTEMIS_limma_de(ol$wide, ol$sample_meta, group_col = "Group",
+#'                         reference = "Control", experiment = "Sepsis")
+#' ranked <- APOLLO_rank_from_de(de, rank_by = "t")
+#'
+#' # From a timeseries result, specific comparison
+#' ranked_tp2 <- APOLLO_rank_from_de(temp_de, rank_by = "t",
+#'                                    comparison = "2_vs_1")
+#' }
+#' @export
+APOLLO_rank_from_de <- function(de_result,
+                                 rank_by    = c("t", "log2FoldChange", "signed_neg_log10p"),
+                                 gene_col   = "feature_id",
+                                 comparison = NULL,
+                                 verbose    = TRUE) {
+
+  rank_by <- match.arg(rank_by)
+
+  # ---------------------------------------------------------------------------
+  # Resolve the results data.frame
+  # ---------------------------------------------------------------------------
+  if (inherits(de_result, "artemis_limma")) {
+    df <- de_result$results
+
+  } else if (inherits(de_result, "artemis_ts_de")) {
+    comp_names <- names(de_result$results)
+    if (is.null(comparison)) {
+      comparison <- comp_names[1]
+      if (verbose) {
+        cat("[APOLLO] No comparison specified; using '", comparison, "'\n", sep = "")
+      }
+    } else if (is.numeric(comparison)) {
+      comparison <- comp_names[comparison]
+    }
+    if (!comparison %in% comp_names) {
+      stop("comparison '", comparison, "' not found. Available: ",
+           paste(comp_names, collapse = ", "))
+    }
+    df <- de_result$results[[comparison]]$results
+
+  } else if (is.data.frame(de_result)) {
+    df <- de_result
+
+  } else {
+    stop("'de_result' must be an artemis_limma object, an artemis_ts_de ",
+         "object, or a data.frame.")
+  }
+
+  if (!gene_col %in% colnames(df)) {
+    stop("gene_col '", gene_col, "' not found in results. Available columns: ",
+         paste(colnames(df), collapse = ", "))
+  }
+
+  # ---------------------------------------------------------------------------
+  # Build the ranking statistic
+  # ---------------------------------------------------------------------------
+  if (rank_by == "t") {
+    stat_col <- if ("t" %in% colnames(df)) "t" else if ("stat" %in% colnames(df)) "stat" else NULL
+    if (is.null(stat_col)) {
+      stop("rank_by='t' requires a 't' (limma) or 'stat' (DESeq2) column ",
+           "in the results. Use rank_by='log2FoldChange' or ",
+           "'signed_neg_log10p' instead.")
+    }
+    stat_vec <- df[[stat_col]]
+    if (verbose && stat_col == "stat") {
+      cat("[APOLLO] Using DESeq2 'stat' column as the ranking statistic ",
+          "(equivalent role to limma 't')\n", sep = "")
+    }
+
+  } else if (rank_by == "log2FoldChange") {
+    if (!"log2FoldChange" %in% colnames(df)) {
+      stop("rank_by='log2FoldChange' requires a 'log2FoldChange' column.")
+    }
+    stat_vec <- df$log2FoldChange
+
+  } else {
+    if (!all(c("log2FoldChange", "pvalue") %in% colnames(df))) {
+      stop("rank_by='signed_neg_log10p' requires 'log2FoldChange' and ",
+           "'pvalue' columns.")
+    }
+    stat_vec <- sign(df$log2FoldChange) * -log10(df$pvalue)
+  }
+
+  ranked <- stats::setNames(stat_vec, as.character(df[[gene_col]]))
+
+  # ---------------------------------------------------------------------------
+  # Clean: drop NA, deduplicate, sort descending
+  # ---------------------------------------------------------------------------
+  ranked <- ranked[!is.na(ranked)]
+  if (anyDuplicated(names(ranked))) {
+    n_dup  <- sum(duplicated(names(ranked)))
+    ranked <- ranked[!duplicated(names(ranked))]
+    if (verbose) cat("[APOLLO] Removed", n_dup, "duplicate gene names (kept first occurrence)\n")
+  }
+  ranked <- sort(ranked, decreasing = TRUE)
+
+  if (verbose) {
+    cat("[APOLLO] Ranked", length(ranked), "genes by '", rank_by, "'\n", sep = "")
+  }
+
+  return(ranked)
+}
+
+
+#' Gene Set Enrichment Analysis (fgsea)
+#'
+#' Runs \code{fgsea::fgseaMultilevel()} on a pre-ranked gene list against a
+#' collection of gene sets. Gene sets can be supplied as a named list or
+#' fetched automatically from MSigDB via \code{msigdbr}. Use
+#' \code{APOLLO_rank_from_de()} to build \code{ranked_genes} from an
+#' \code{artemis_limma} or \code{artemis_ts_de} result.
+#'
+#' @param ranked_genes Named numeric vector. Names are gene symbols (or IDs
+#'   matching the gene sets); values are the ranking statistic (e.g. limma's
+#'   \code{t}, DESeq2's \code{stat}, or signed -log10(p)). Must have names.
+#' @param gene_sets Named list of character vectors (gene set name -> member
+#'   genes), or \code{NULL} to fetch from MSigDB via \code{msigdbr}.
+#' @param species Character. Species name passed to \code{msigdbr::msigdbr()}
+#'   when \code{gene_sets = NULL}. Default: \code{"Homo sapiens"}.
+#' @param collection Character vector. MSigDB collection codes to fetch when
+#'   \code{gene_sets = NULL}. Default: \code{c("H", "C2", "C5")}. A
+#'   subcategory can be appended with a colon (e.g. \code{"C2:CP:REACTOME"},
+#'   \code{"C5:GO:BP"}).
+#' @param min_size Integer. Minimum gene set size (after overlap with ranked
+#'   genes). Default: 15.
+#' @param max_size Integer. Maximum gene set size. Default: 500.
+#' @param fdr_threshold Numeric. FDR threshold for \code{$significant}.
+#'   Default: 0.05.
+#' @param verbose Logical. Print progress and summary. Default: TRUE.
+#'
+#' @return An S3 object of class \code{"apollo_gsea"} containing:
+#'   \describe{
+#'     \item{results}{Full fgsea result data.frame (ordered by padj):
+#'       pathway, pval, padj, ES, NES, size, leadingEdge (collapsed string),
+#'       collection (if gene sets came from msigdbr).}
+#'     \item{significant}{\code{results} filtered to \code{fdr_threshold}.}
+#'     \item{ranked_genes}{The input vector, NA-removed and sorted descending.}
+#'     \item{gene_sets}{Named list of only the gene sets actually tested
+#'       (passed min/max size) - used by \code{AETHER_plot_gsea_enrichment()}.}
+#'     \item{params}{List of parameters used.}
+#'   }
+#'
+#' @details
+#' Requires the \code{fgsea} package (Suggests). When \code{gene_sets = NULL},
+#' also requires \code{msigdbr} (Suggests).
+#'
+#' @examples
+#' \dontrun{
+#' ranked <- APOLLO_rank_from_de(de, rank_by = "t")
+#' gsea_result <- APOLLO_gsea(ranked, collection = c("H", "C2:CP:REACTOME"))
+#'
+#' # Custom gene sets
+#' my_sets <- list(my_pathway = c("TP53", "BRCA1", "EGFR"))
+#' gsea_result <- APOLLO_gsea(ranked, gene_sets = my_sets)
+#' }
+#' @export
+APOLLO_gsea <- function(ranked_genes,
+                         gene_sets     = NULL,
+                         species       = "Homo sapiens",
+                         collection    = c("H", "C2", "C5"),
+                         min_size      = 15L,
+                         max_size      = 500L,
+                         fdr_threshold = 0.05,
+                         verbose       = TRUE) {
+
+  if (!requireNamespace("fgsea", quietly = TRUE)) {
+    stop("Package 'fgsea' is required. Install with: BiocManager::install('fgsea')")
+  }
+
+  if (is.null(names(ranked_genes)) || length(ranked_genes) == 0L) {
+    stop("'ranked_genes' must be a named numeric vector (names = gene IDs).")
+  }
+
+  # Remove NA, deduplicate names (keep first occurrence), sort descending
+  ranked_genes <- ranked_genes[!is.na(ranked_genes)]
+  if (anyDuplicated(names(ranked_genes))) {
+    n_dup <- sum(duplicated(names(ranked_genes)))
+    ranked_genes <- ranked_genes[!duplicated(names(ranked_genes))]
+    if (verbose) cat("[APOLLO] Removed", n_dup, "duplicate gene names (kept first occurrence)\n")
+  }
+  ranked_genes <- sort(ranked_genes, decreasing = TRUE)
+
+  if (verbose) {
+    cat("[APOLLO] Gene Set Enrichment Analysis (fgsea)\n")
+    cat("    Ranked genes:", length(ranked_genes), "\n")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Resolve gene sets
+  # ---------------------------------------------------------------------------
+  pathway_to_col <- NULL   # populated below when gene_sets come from msigdbr
+  if (is.null(gene_sets)) {
+    if (!requireNamespace("msigdbr", quietly = TRUE)) {
+      stop("Package 'msigdbr' is required when gene_sets = NULL. ",
+           "Install with: install.packages('msigdbr')")
+    }
+
+    if (verbose) {
+      cat("    Gene sets   : MSigDB (", paste(collection, collapse = " + "),
+          ") for ", species, "\n", sep = "")
+    }
+
+    gs_dfs <- lapply(collection, function(col) {
+      cat_sub  <- strsplit(col, ":", fixed = TRUE)[[1]]
+      cat_code <- cat_sub[1]
+      subcat   <- if (length(cat_sub) > 1) cat_sub[2] else NULL
+
+      tryCatch(
+        msigdbr::msigdbr(species = species, category = cat_code, subcategory = subcat),
+        error = function(e) {
+          warning("msigdbr failed for collection '", col, "': ", conditionMessage(e))
+          NULL
+        }
+      )
+    })
+    gs_dfs <- Filter(Negate(is.null), gs_dfs)
+
+    if (length(gs_dfs) == 0L) {
+      stop("No gene sets retrieved from MSigDB. Check species name and collection codes.")
+    }
+
+    gs_df     <- do.call(rbind, gs_dfs)
+    gene_sets <- split(gs_df$gene_symbol, gs_df$gs_name)
+
+    unique_gs      <- gs_df[!duplicated(gs_df$gs_name), ]
+    pathway_to_col <- setNames(unique_gs$gs_collection, unique_gs$gs_name)
+  }
+
+  if (!is.list(gene_sets) || is.null(names(gene_sets))) {
+    stop("'gene_sets' must be a named list of character vectors.")
+  }
+
+  if (verbose) {
+    cat("    Testing", length(gene_sets), "gene sets against",
+        format(length(ranked_genes), big.mark = ","), "ranked genes...\n\n")
+  }
+
+  res <- fgsea::fgseaMultilevel(
+    pathways = gene_sets,
+    stats    = ranked_genes,
+    minSize  = as.integer(min_size),
+    maxSize  = as.integer(max_size),
+    eps      = 0
+  )
+
+  res_df <- as.data.frame(res)
+  res_df$leadingEdge <- vapply(
+    res$leadingEdge,
+    function(x) paste(x, collapse = ", "),
+    character(1)
+  )
+  res_df <- res_df[order(res_df$padj, na.last = TRUE), , drop = FALSE]
+  rownames(res_df) <- NULL
+
+  if (!is.null(pathway_to_col)) {
+    res_df$collection <- pathway_to_col[res_df$pathway]
+  }
+
+  sig <- res_df[!is.na(res_df$padj) & res_df$padj < fdr_threshold, , drop = FALSE]
+
+  if (verbose) {
+    n_enriched <- sum(sig$NES > 0, na.rm = TRUE)
+    n_depleted <- sum(sig$NES < 0, na.rm = TRUE)
+    cat("[APOLLO] --- Summary ---\n")
+    cat("    Gene sets tested:", nrow(res_df), "\n")
+    cat("    FDR <", fdr_threshold, ":", nrow(sig), "significant (",
+        n_enriched, "enriched,", n_depleted, "depleted)\n")
+  }
+
+  # Keep only tested gene sets (passed min/max size) for enrichment plots
+  tested_sets <- gene_sets[names(gene_sets) %in% res_df$pathway]
+
+  result <- list(
+    results      = res_df,
+    significant  = sig,
+    ranked_genes = ranked_genes,
+    gene_sets    = tested_sets,
+    params       = list(
+      species       = species,
+      collection    = collection,
+      min_size      = min_size,
+      max_size      = max_size,
+      n_genes       = length(ranked_genes),
+      n_sets        = nrow(res_df),
+      fdr_threshold = fdr_threshold
+    )
+  )
+  class(result) <- c("apollo_gsea", "list")
+
+  return(result)
+}
+
+
+#' @method print apollo_gsea
+#' @export
+print.apollo_gsea <- function(x, ...) {
+  cat("GSEA Result (fgsea)\n")
+  cat("------------------------------\n")
+  cat("Ranked genes : ", x$params$n_genes, "\n", sep = "")
+  cat("Gene sets    : ", x$params$n_sets, " tested\n", sep = "")
+  n_enr <- sum(x$significant$NES > 0, na.rm = TRUE)
+  n_dep <- sum(x$significant$NES < 0, na.rm = TRUE)
+  cat("Significant (FDR < ", x$params$fdr_threshold, "): ", nrow(x$significant),
+      " (enriched: ", n_enr, ", depleted: ", n_dep, ")\n", sep = "")
+  cat("\nSlots: $results, $significant, $ranked_genes, $gene_sets, $params\n")
+  invisible(x)
 }

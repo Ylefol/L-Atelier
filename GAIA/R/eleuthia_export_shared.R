@@ -99,8 +99,15 @@
 #' @param prefix Prefix for output filenames. Default: "enrichment".
 #' @param by_source Logical. Create separate files per source (GO:BP, KEGG, etc.). Default: FALSE.
 #' @param by_module Logical. Create separate files per module/cluster (all sources
-#'   combined per query). Default: TRUE.
+#'   combined per query). Unlike \code{combined}/\code{by_source}, these hold
+#'   EVERY evaluated term (not just significance-filtered ones) with a
+#'   \code{significant} column to filter on, since \code{enrichment$results}
+#'   already stores the full unfiltered per-module gost output. Default: TRUE.
 #' @param save_plots Logical. Generate dotplots per source. Default: TRUE.
+#' @param save_full_gostplot Logical. Also generate one traditional, interactive
+#'   g:GOSt Manhattan plot per module (saved as HTML), showing ALL evaluated
+#'   terms regardless of significance. Unlike the significance-filtered dotplots,
+#'   this is generated even for modules with zero significant terms. Default: TRUE.
 #' @param plot_top_n Integer. Number of top terms per module in dotplots. Default: 10.
 #' @param plot_format Character. Plot file format: "png", "pdf", or "both". Default: "png".
 #' @param plot_width Numeric. Plot width in inches. Default: 10.
@@ -112,11 +119,15 @@
 #'
 #' @details
 #' Creates the following files:
-#' - <prefix>_combined.csv: All results in one table
+#' - <prefix>_combined.csv: Significance-filtered results in one table
 #' - <prefix>_summary.csv: Summary counts per module/source
-#' - <prefix>_by_module/<module>.csv: Results split by module/cluster (default)
-#' - <prefix>_by_source/<source>.csv: Results split by source (if by_source = TRUE)
+#' - <prefix>_by_module/<module>.csv: ALL evaluated terms per module/cluster,
+#'   unfiltered for significance (has a `significant` column) (default)
+#' - <prefix>_by_source/<source>.csv: Significance-filtered results split by source
+#'   (if by_source = TRUE)
 #' - <prefix>_plots/dotplot_<source>.png: Dotplot per source (if save_plots = TRUE)
+#' - <prefix>_plots/gostplot_full_<module>.html: Interactive, unfiltered g:GOSt
+#'   Manhattan plot per module (if save_full_gostplot = TRUE)
 #' - <prefix>.rds: Full gost_enrichment object (if save_rds = TRUE)
 #'
 #' The "module" column contains whatever labels were used in the original query
@@ -139,6 +150,7 @@ ELEUTHIA_export_enrichment <- function(enrichment,
                                         by_source = FALSE,
                                         by_module = TRUE,
                                         save_plots = TRUE,
+                                        save_full_gostplot = TRUE,
                                         plot_top_n = 10,
                                         plot_format = "png",
                                         plot_width = 10,
@@ -226,17 +238,27 @@ ELEUTHIA_export_enrichment <- function(enrichment,
 
   # --------------------------------------------------------------------------
   # By module
+  # Pulled from enrichment$results (the FULL, unfiltered per-module gost
+  # objects), not from `combined` — so these CSVs hold every evaluated term
+  # (with its own `significant` column to filter on later), not just the
+  # significance-filtered subset. Still respects min_term_size/max_term_size.
   # --------------------------------------------------------------------------
-  if (by_module && nrow(combined) > 0) {
+  if (by_module && length(enrichment$results) > 0) {
     module_dir <- file.path(output_dir, paste0(prefix, "_by_module"))
     if (!dir.exists(module_dir)) {
       dir.create(module_dir)
     }
 
-    modules <- unique(combined$module)
-    for (mod in modules) {
-      mod_df <- combined[combined$module == mod, ]
+    min_ts <- enrichment$metadata$min_term_size %||% 1
+    max_ts <- enrichment$metadata$max_term_size %||% Inf
+
+    for (mod in names(enrichment$results)) {
+      mod_df <- enrichment$results[[mod]]$result
+      if (is.null(mod_df) || nrow(mod_df) == 0) next
+
+      mod_df <- mod_df[mod_df$term_size >= min_ts & mod_df$term_size <= max_ts, ]
       if (nrow(mod_df) > 0) {
+        mod_df$module <- mod
         mod_file <- file.path(module_dir, paste0(mod, ".csv"))
         write.csv(.flatten_list_cols(mod_df), mod_file, row.names = FALSE)
         files_created <- c(files_created, mod_file)
@@ -379,6 +401,34 @@ ELEUTHIA_export_enrichment <- function(enrichment,
   }
 
   # --------------------------------------------------------------------------
+  # Full (unfiltered) gostplots — one interactive HTML per module
+  # Independent of `combined`/significance filtering: enrichment$results holds
+  # every evaluated term per module, so modules with zero significant terms
+  # still get a plot (the whole point — seeing non-significant clusters' biology).
+  # --------------------------------------------------------------------------
+  if (save_plots && save_full_gostplot && length(enrichment$results) > 0) {
+    plot_dir <- file.path(output_dir, paste0(prefix, "_plots"))
+    if (!dir.exists(plot_dir)) dir.create(plot_dir)
+
+    if (verbose) cat("[ELEUTHIA] Generating full (unfiltered) gostplots...\n")
+
+    for (mod in names(enrichment$results)) {
+      html_file <- file.path(plot_dir, paste0("gostplot_full_", mod, ".html"))
+      ok <- tryCatch({
+        AETHER_plot_gost_full(enrichment$results[[mod]], save_html = html_file)
+        TRUE
+      }, error = function(e) {
+        if (verbose) cat("[ELEUTHIA] Warning: full gostplot failed for", mod, "-", e$message, "\n")
+        FALSE
+      })
+      if (ok) {
+        files_created <- c(files_created, html_file)
+        if (verbose) cat("  ", mod, "\n", sep = "")
+      }
+    }
+  }
+
+  # --------------------------------------------------------------------------
   # Save RDS
   # --------------------------------------------------------------------------
   if (save_rds) {
@@ -392,6 +442,181 @@ ELEUTHIA_export_enrichment <- function(enrichment,
     cat("\n[ELEUTHIA]  Export Summary \n")
     cat("    Total files created:", length(files_created), "\n")
     cat("    Total terms exported:", nrow(combined), "\n")
+  }
+
+  invisible(files_created)
+}
+
+
+#' Export GSEA results to files
+#'
+#' Exports fgsea results (from \code{APOLLO_gsea()}) to CSV files and
+#' optionally generates an NES dotplot and per-pathway running-score
+#' enrichment plots for significant pathways.
+#'
+#' @param gsea_result An \code{apollo_gsea} object from \code{APOLLO_gsea()}.
+#' @param output_dir Output directory path.
+#' @param prefix Prefix for output filenames. Default: "gsea".
+#' @param plot_top_n Integer. Number of top pathways (by padj, split
+#'   enriched/depleted) shown in the dotplot. Default: 20.
+#' @param save_plots Logical. Generate dotplot and enrichment plots. Default: TRUE.
+#' @param do_enrichment_plots Logical. Generate per-pathway running-score
+#'   plots for significant pathways. Default: TRUE.
+#' @param max_enrichment_plots Integer. Cap on the number of per-pathway
+#'   plots generated (ordered by padj), to avoid producing hundreds of files
+#'   when many pathways are significant. Default: 20.
+#' @param plot_format Character. "png", "pdf", or "both". Default: "png".
+#' @param plot_width Numeric. Dotplot width in inches. Default: 10.
+#' @param save_rds Logical. Save full apollo_gsea object as RDS. Default: TRUE.
+#' @param verbose Logical. Print progress. Default: TRUE.
+#'
+#' @return Invisible character vector of file paths created.
+#'
+#' @details
+#' Creates the following files:
+#' - <prefix>_results.csv: full fgsea results (all tested gene sets)
+#' - <prefix>_significant.csv: results filtered to the FDR threshold used in
+#'   APOLLO_gsea()
+#' - <prefix>_plots/dotplot.<ext>: NES dotplot (top plot_top_n pathways)
+#' - <prefix>_plots/enrichment_<pathway>.<ext>: running-score plot per
+#'   significant pathway (up to max_enrichment_plots), if
+#'   do_enrichment_plots = TRUE
+#' - <prefix>.rds: full apollo_gsea object (if save_rds = TRUE)
+#'
+#' @examples
+#' \dontrun{
+#' ranked <- APOLLO_rank_from_de(de, rank_by = "t")
+#' gsea_result <- APOLLO_gsea(ranked, collection = c("H", "C2:CP:REACTOME"))
+#' ELEUTHIA_export_gsea(gsea_result, "results/gsea")
+#' }
+#' @export
+ELEUTHIA_export_gsea <- function(gsea_result,
+                                  output_dir,
+                                  prefix               = "gsea",
+                                  plot_top_n           = 20,
+                                  save_plots           = TRUE,
+                                  do_enrichment_plots  = TRUE,
+                                  max_enrichment_plots = 20,
+                                  plot_format          = "png",
+                                  plot_width           = 10,
+                                  save_rds             = TRUE,
+                                  verbose              = TRUE) {
+
+  if (!inherits(gsea_result, "apollo_gsea")) {
+    stop("gsea_result must be an apollo_gsea object from APOLLO_gsea()")
+  }
+
+  if (verbose) cat("[ELEUTHIA] Exporting GSEA Results\n")
+
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+    if (verbose) cat("[ELEUTHIA] Created directory:", output_dir, "\n")
+  }
+
+  files_created <- character(0)
+  results_df    <- gsea_result$results
+
+  # --------------------------------------------------------------------------
+  # Flatten any list columns before CSV export
+  # --------------------------------------------------------------------------
+  .flatten_list_cols <- function(df) {
+    if (nrow(df) == 0) return(df)
+    list_cols <- sapply(df, is.list)
+    for (col in names(list_cols)[list_cols]) {
+      df[[col]] <- sapply(df[[col]], function(x) {
+        if (is.null(x) || length(x) == 0) NA_character_ else paste(x, collapse = ",")
+      })
+    }
+    df
+  }
+
+  # --------------------------------------------------------------------------
+  # Full + significant results CSVs
+  # --------------------------------------------------------------------------
+  results_file <- file.path(output_dir, paste0(prefix, "_results.csv"))
+  write.csv(.flatten_list_cols(results_df), results_file, row.names = FALSE)
+  files_created <- c(files_created, results_file)
+  if (verbose) cat("[ELEUTHIA] Results:", results_file, "\n")
+
+  sig_file <- file.path(output_dir, paste0(prefix, "_significant.csv"))
+  write.csv(.flatten_list_cols(gsea_result$significant), sig_file, row.names = FALSE)
+  files_created <- c(files_created, sig_file)
+  if (verbose) cat("[ELEUTHIA] Significant:", sig_file, "\n")
+
+  # --------------------------------------------------------------------------
+  # Plots
+  # --------------------------------------------------------------------------
+  if (save_plots && nrow(results_df) > 0) {
+    plot_dir <- file.path(output_dir, paste0(prefix, "_plots"))
+    if (!dir.exists(plot_dir)) dir.create(plot_dir)
+
+    if (verbose) cat("    Generating dotplot...\n")
+
+    p_dot <- tryCatch({
+      AETHER_plot_gsea_dotplot(gsea_result, top_n = plot_top_n)
+    }, error = function(e) {
+      if (verbose) cat("[ELEUTHIA] Warning: Could not create dotplot -", e$message, "\n")
+      NULL
+    })
+
+    if (!is.null(p_dot)) {
+      dot_height <- min(20, max(6, plot_top_n * 0.3))
+      saved <- .save_ggplot(p_dot, plot_dir, "dotplot", plot_format,
+                             width = plot_width, height = dot_height)
+      files_created <- c(files_created, saved)
+      if (verbose) cat("[ELEUTHIA] Dotplot saved\n")
+    }
+
+    # ------------------------------------------------------------------------
+    # Per-pathway running-score plots (significant pathways, capped)
+    # ------------------------------------------------------------------------
+    if (do_enrichment_plots && nrow(gsea_result$significant) > 0) {
+      sig_ordered   <- gsea_result$significant[order(gsea_result$significant$padj), ]
+      plot_pathways <- utils::head(sig_ordered$pathway, max_enrichment_plots)
+
+      if (verbose) {
+        cap_note <- if (nrow(sig_ordered) > length(plot_pathways)) {
+          paste0(" (capped from ", nrow(sig_ordered), ")")
+        } else ""
+        cat("    Generating", length(plot_pathways), "enrichment plot(s)", cap_note, "...\n")
+      }
+
+      for (pw in plot_pathways) {
+        p_enr <- tryCatch({
+          AETHER_plot_gsea_enrichment(gsea_result, pathway = pw)
+        }, error = function(e) {
+          if (verbose) cat("[ELEUTHIA] Warning: Enrichment plot failed for '",
+                            pw, "' -", e$message, "\n")
+          NULL
+        })
+
+        if (!is.null(p_enr)) {
+          pw_clean <- gsub("[^A-Za-z0-9_]+", "_", pw)
+          saved <- .save_ggplot(p_enr, plot_dir, paste0("enrichment_", pw_clean),
+                                 plot_format, width = 8, height = 5)
+          files_created <- c(files_created, saved)
+        }
+      }
+      if (verbose) cat("[ELEUTHIA] Enrichment plots saved to:", plot_dir, "/\n")
+    }
+  }
+
+  # --------------------------------------------------------------------------
+  # Save RDS
+  # --------------------------------------------------------------------------
+  if (save_rds) {
+    rds_file <- file.path(output_dir, paste0(prefix, ".rds"))
+    saveRDS(gsea_result, rds_file)
+    files_created <- c(files_created, rds_file)
+    if (verbose) cat("[ELEUTHIA] RDS:", rds_file, "\n")
+  }
+
+  if (verbose) {
+    cat("\n[ELEUTHIA] --- Export Summary ---\n")
+    cat("    Total files created:", length(files_created), "\n")
+    cat("    Gene sets tested:", nrow(results_df), "\n")
+    cat("    Significant (FDR <", gsea_result$params$fdr_threshold, "):",
+        nrow(gsea_result$significant), "\n")
   }
 
   invisible(files_created)

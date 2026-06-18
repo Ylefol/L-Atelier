@@ -1,7 +1,7 @@
 ================================================================================
 AETHER STATUS - Visualization
 ================================================================================
-Last Updated: 2026-06-05
+Last Updated: 2026-06-17
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -195,6 +195,13 @@ aether_enrichment_plots.R:
 ---------------------------
 AETHER_plot_gost_dotplot(enrichment_result, ...)
   - Multi-module dotplot for gprofiler2 enrichment
+AETHER_plot_gost_full(gost_result, capped=TRUE, save_html=NULL)
+  - Traditional g:GOSt Manhattan plot (gprofiler2::gostplot) for ONE module,
+    showing every evaluated term regardless of significance
+  - gost_result = a single raw element of a gost_enrichment$results list
+    (full/unfiltered, as stored by APOLLO_enrich_gost())
+  - Interactive only (plotly); save_html writes a standalone HTML via htmlwidgets
+  - Requires: gprofiler2, htmlwidgets (Suggests)
 AETHER_plot_enrichment_dotplot(enrichment_result, ...)
   - Dotplot for enrichment results
 AETHER_plot_enrichment_bar(enrichment_result, ...)
@@ -231,6 +238,16 @@ AETHER_plot_go_treemap(enrichment_result, orgdb, ont="BP", top_n=20L, threshold=
   - Returns invisible list of reducedTerms data.frames (one per ontology)
   - Requires: rrvgo (Bioconductor), treemap (CRAN), OrgDb package for organism
 
+AETHER_plot_gsea_dotplot(gsea_result, top_n=20, title="GSEA", ...)
+  - NES dotplot for APOLLO_gsea() results: top enriched + depleted gene sets
+  - Accepts apollo_gsea object or data.frame ($results/$significant)
+  - Dot size = leading-edge gene count; color = -log10(padj); dashed line at NES=0
+  - Ported from CAULDRON's internal .talaria_gsea_dotplot()
+AETHER_plot_gsea_enrichment(gsea_result, pathway, title=NULL)
+  - Running-score ("mountain plot") for one gene set; wraps fgsea::plotEnrichment()
+  - Requires gsea_result$gene_sets and $ranked_genes (both kept by APOLLO_gsea())
+  - Ported from CAULDRON's internal .talaria_gsea_enrichment_plot()
+
 aether_statistics_plots.R:
 --------------------------
 AETHER_plot_annotation_comparison(annotation_test, colors=NULL,
@@ -264,10 +281,21 @@ AETHER_plot_motif_comparison(homer_result, ...)
 
 aether_network_plots.R:
 -----------------------
-AETHER_plot_ppi_network(ppi_data, ...)
+AETHER_plot_ppi_network(ppi_data, group_labels=NULL, group_label_size=3.5,
+                         group_label_color="black", ...)
   - Static PPI network plot (ggraph)
-AETHER_plot_ppi_network_interactive(ppi_data, ...)
+  - group_labels: named vector (color_by group -> label text, e.g. PART
+    cluster -> top enriched term) placed at each group's node centroid;
+    requires discrete color_by (e.g. cluster assignments); uses
+    ggrepel::geom_label_repel if available, else ggplot2::geom_label
+AETHER_plot_ppi_network_interactive(ppi_data, group_labels=NULL, ...)
   - Interactive PPI network plot (visNetwork)
+  - group_labels: same named vector contract as the static plot's
+    group_labels (color_by group -> label text, e.g. PART cluster -> top
+    enriched term), but no separate legend is drawn — instead "Cluster: "
+    and "Top term: " lines are appended to each matching node's hover
+    tooltip, alongside the existing Degree/Betweenness lines; requires
+    discrete color_by, ignored with a warning otherwise
 
 aether_part_wgcna_circos.R:
 ----------------------------
@@ -292,6 +320,14 @@ AETHER_plot_cluster_trajectories(part_result, ...)
   - Cluster trajectories over time
 AETHER_plot_cluster_means(part_result, ...)
   - Cluster mean expression profiles
+AETHER_plot_cluster_group_means(part_result, sample_info, group_col="group",
+                                 clusters=NULL, group_colors=NULL,
+                                 error_bars="se"|"sd"|"none", title=NULL)
+  - Cross-sectional companion to AETHER_plot_part_heatmap (no timepoint axis)
+  - Dodged bar chart: mean per-sample cluster z-score, aggregated by group
+  - Default cluster order/colors and group color palette match
+    AETHER_plot_part_heatmap exactly when called with the same sample_info/group_col
+  - Cluster x-axis labels colored via part_result$cluster_colors
 AETHER_plot_timeseries_summary(part_result, ...)
   - Summary plot for time series analysis
 
@@ -331,4 +367,5 @@ DEPENDENCIES / NOTES
 - GO treemap: rrvgo (Bioconductor), treemap (CRAN), OrgDb pkg for organism
   (org.Hs.eg.db for human, org.Mm.eg.db for mouse, etc.)
 - GO DAG: GO.db (Bioconductor), ggraph, igraph (both already in Suggests)
+- GSEA: fgsea (Bioconductor, Suggests); required for AETHER_plot_gsea_enrichment()
 - WGCNA plot functions require WGCNA package (Imports)
