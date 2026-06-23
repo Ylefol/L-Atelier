@@ -32,8 +32,8 @@
 #'   \item{wide}{Numeric matrix: proteins (rows) x samples (cols).
 #'     Rownames = Protein.Group. Colnames = parsed SampleID.
 #'     Values are log2-transformed intensities; zeros and negatives become NA.}
-#'   \item{sample_meta}{Per-sample data.frame: SampleID, SampleType, plus any
-#'     columns joined from \code{metadata_file}.}
+#'   \item{sample_meta}{Per-sample data.frame: SampleID, SampleType, PlateID,
+#'     plus any columns joined from \code{metadata_file}.}
 #'   \item{protein_meta}{Per-protein data.frame with annotation columns from
 #'     the input file (e.g. Protein.Group, Protein.Names, Genes,
 #'     First.Protein.Description). Rownames match \code{rownames($wide)}.}
@@ -45,6 +45,13 @@
 #' (e.g. \code{E:\\DATA\\plate1\\SEP101-7_S1-B5_1_6544.d}). The parser strips
 #' the directory prefix and the well/run suffix (\code{_S<N>...}) to extract
 #' the meaningful identifier (\code{SEP101-7}).
+#'
+#' \strong{Plate parsing:} \code{PlateID} is taken from the immediate parent
+#' directory of each sample's file path (e.g. \code{.../plate_1/sample.d} ->
+#' \code{"plate_1"}). Flat column names with no directory component (e.g.
+#' some non-DIA-NN exports) yield \code{NA}. Unlike sample type, this works
+#' the same way for every sample (including pools/controls), since it does
+#' not depend on a metadata join.
 #'
 #' \strong{Sample type classification:}
 #' \itemize{
@@ -160,6 +167,13 @@ ELEUTHIA_load_massspec <- function(ms_file,
   # Strip trailing .d if not caught above (plain .d files)
   parsed_ids <- sub("\\.d$", "", parsed_ids, ignore.case = TRUE)
 
+  # Parse PlateID from the immediate parent directory of the path (e.g.
+  # ".../plate_1/897_S1-C7_1_6529.d" -> "plate_1"). Column names with no
+  # directory component (flat exports) yield NA.
+  plate_norm <- gsub("\\\\", "/", raw_col_names)
+  plate_ids  <- basename(dirname(plate_norm))
+  plate_ids[plate_ids %in% c(".", "")] <- NA_character_
+
   # Deduplicate: pool runs and repeated samples produce the same parsed ID
   if (anyDuplicated(parsed_ids)) {
     n_duped    <- sum(duplicated(parsed_ids))
@@ -236,6 +250,7 @@ ELEUTHIA_load_massspec <- function(ms_file,
   sample_meta <- data.frame(
     SampleID   = parsed_ids,
     SampleType = sample_type,
+    PlateID    = plate_ids,
     stringsAsFactors = FALSE
   )
   colnames(sample_meta)[1L] <- sample_col

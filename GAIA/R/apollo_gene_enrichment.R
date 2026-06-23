@@ -995,9 +995,15 @@ APOLLO_gsea <- function(ranked_genes,
     }
 
     gs_dfs <- lapply(collection, function(col) {
+      # msigdbr subcollection codes can themselves contain a colon (e.g.
+      # "GO:BP", "CP:REACTOME"), so everything after the first ":" must be
+      # rejoined rather than truncated to the second token only -- taking
+      # just cat_sub[2] silently fetched the wrong (broader) gene set for
+      # "C2:CP:REACTOME" (all of C2:CP, not just REACTOME) and an invalid
+      # subcategory for "C5:GO:BP" ("GO" instead of "GO:BP").
       cat_sub  <- strsplit(col, ":", fixed = TRUE)[[1]]
       cat_code <- cat_sub[1]
-      subcat   <- if (length(cat_sub) > 1) cat_sub[2] else NULL
+      subcat   <- if (length(cat_sub) > 1) paste(cat_sub[-1], collapse = ":") else NULL
 
       tryCatch(
         msigdbr::msigdbr(species = species, category = cat_code, subcategory = subcat),

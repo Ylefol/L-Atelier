@@ -87,7 +87,13 @@ APOLLO_rank_from_de(de_result, rank_by="t", gene_col="feature_id", comparison=NU
 APOLLO_gsea(ranked_genes, gene_sets=NULL, collection=c("H","C2","C5"), ...)
   - Gene Set Enrichment Analysis via fgsea::fgseaMultilevel()
   - gene_sets=NULL fetches MSigDB collections via msigdbr (colon notation for
-    subcategories, e.g. "C2:CP:REACTOME")
+    subcategories, e.g. "C2:CP:REACTOME", "C5:GO:BP")
+  - Fixed 2026-06-22: subcategory parsing used to take only the second
+    colon-delimited token, truncating "C2:CP:REACTOME" to subcategory "CP"
+    (silently fetched ALL of C2:CP -- Biocarta/KEGG/PID/Reactome/WikiPathways
+    combined, not just Reactome) and "C5:GO:BP" to "GO" (invalid, errored).
+    Now rejoins everything after the first colon. Any past GSEA run using a
+    multi-segment subcategory like "C2:CP:REACTOME" should be re-run.
   - Returns apollo_gsea S3: $results, $significant, $ranked_genes, $gene_sets,
     $params
   - Ported from CAULDRON's KERAUNOS_gsea()

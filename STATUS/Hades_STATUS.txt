@@ -16,6 +16,12 @@ HADES_filter_massspec(massspec_data, keep_types="SAMPLE", max_sample_na_fraction
 HADES_filter_massspec_proteins(massspec_data, max_na_fraction=0.5, verbose=TRUE)
   - Removes proteins with NA fraction > max_na_fraction across samples
   - Default 0.5 (higher than Olink's 0.2 — DIA data has inherently high missingness)
+  - Also removes rows with no primary protein identifier (protein_meta's
+    first column is NA) BEFORE the missingness filter -- catches search
+    report summary/statistic rows (e.g. DIA-NN's "Sum intensities", "Number
+    of valid values" appended to the bottom of the report) that
+    ELEUTHIA_load_massspec() assigns a placeholder rowname to but are not
+    real protein measurements (added 2026-06-22, SEPSOMICS dataset had 2)
   - Updates $wide and $protein_meta; $sample_meta unchanged
 HADES_detect_outliers_massspec(massspec_data, n_pcs=5, threshold=3, method="sd", filter=FALSE, verbose=TRUE)
   - PCA-based multivariate outlier detection (mirrors HADES_detect_outliers_olink)

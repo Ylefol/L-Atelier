@@ -98,6 +98,17 @@ HADES_filter_massspec <- function(massspec_data,
 #' typically has high per-protein missingness, so a higher threshold than
 #' used for Olink data is appropriate.
 #'
+#' Also removes rows with no primary protein identifier (the first column of
+#' \code{$protein_meta} is \code{NA}) before applying the missingness
+#' threshold. Some search engine report exports (e.g. DIA-NN) append
+#' summary-statistic rows to the bottom of the table -- e.g. "Sum
+#' intensities", "Number of valid values" -- which are per-sample QC
+#' statistics about the search itself, not protein measurements.
+#' \code{ELEUTHIA_load_massspec()} assigns these a row-indexed placeholder
+#' rowname so the matrix stays valid, but preserves the true \code{NA} in
+#' \code{$protein_meta}'s identifier column, which is what this function
+#' checks.
+#'
 #' @param massspec_data A \code{massspec_data} object, usually after
 #'   \code{HADES_filter_massspec()}.
 #' @param max_na_fraction Numeric (0–1). Maximum allowable proportion of NA
@@ -122,7 +133,30 @@ HADES_filter_massspec_proteins <- function(massspec_data,
   if (!inherits(massspec_data, "massspec_data"))
     stop("massspec_data must be a massspec_data object from ELEUTHIA_load_massspec().")
 
-  wide     <- massspec_data$wide
+  wide  <- massspec_data$wide
+  pmeta <- massspec_data$protein_meta
+
+  # Drop non-protein summary rows (no primary identifier) before the
+  # missingness filter -- these typically have 0% missingness themselves
+  # (a real value in every sample) so the threshold below would never
+  # catch them.
+  id_col <- colnames(pmeta)[1]
+  no_id  <- is.na(pmeta[[id_col]])
+  if (any(no_id)) {
+    if (verbose) {
+      cat("[HADES]   Removing", sum(no_id), "row(s) with no primary protein ",
+          "identifier (non-protein summary rows, not measurements):\n", sep = "")
+      dropped <- pmeta[no_id, , drop = FALSE]
+      for (i in seq_len(nrow(dropped))) {
+        vals <- as.character(dropped[i, ])
+        vals <- vals[!is.na(vals)]
+        cat("        ", paste(vals, collapse = " | "), "\n")
+      }
+    }
+    wide  <- wide[!no_id, , drop = FALSE]
+    pmeta <- pmeta[!no_id, , drop = FALSE]
+  }
+
   n_before <- nrow(wide)
 
   na_fracs  <- rowMeans(is.na(wide))
@@ -139,7 +173,7 @@ HADES_filter_massspec_proteins <- function(massspec_data,
   }
 
   wide_mat <- wide[keep_mask, , drop = FALSE]
-  pmeta    <- massspec_data$protein_meta[keep_mask, , drop = FALSE]
+  pmeta    <- pmeta[keep_mask, , drop = FALSE]
 
   result <- list(
     wide         = wide_mat,

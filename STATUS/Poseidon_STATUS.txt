@@ -1,32 +1,105 @@
 ================================================================================
 POSEIDON STATUS - Preprocessing & Normalization
 ================================================================================
-Last Updated: 2026-05-06
+Last Updated: 2026-06-19 (rev 2)
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
 
-poseidon_preprocessing.R:
---------------------------
-POSEIDON_scale_data(X, ...)
-  - Scale data (centering, unit variance, or 0-1 normalization)
-POSEIDON_filter_zero_variance(X_list, ...)
-  - Remove zero-variance features from dataset list
-POSEIDON_filter_shared_variance(X_list, by_row, ...)
-  - Filter features by shared variance across datasets
-POSEIDON_validate_multi_dataset(X_list, ...)
-  - Validate sample alignment across multiple omics datasets
-POSEIDON_filter_low_counts(counts, ...)
-  - Filter low count genes (count-based; complements Eleuthia loader)
-POSEIDON_plot_batch_pca(counts, sample_sheet, ...)
-  - PCA plot coloured by batch for visual batch effect assessment
+poseidon_feature_filtering.R:
+------------------------------
+Generic matrix / list-of-matrices operations (no quant_result structure
+assumed) used to prepare features for integration methods like sCCA.
+
+POSEIDON_scale_data(X, center=TRUE, scale=TRUE)
+  - Wrapper around base::scale with consistent handling
+POSEIDON_filter_zero_variance(X, variance_threshold=0, ...)
+  - Remove zero/near-zero variance features; handles single matrix or list
+POSEIDON_filter_shared_variance(X_list, by_row=TRUE, ...)
+  - Keep only features with variance > threshold in ALL datasets
+POSEIDON_filter_top_variable(X, n_top=5000, ...)
+  - Keep top N most variable features per dataset (single value or named list)
+POSEIDON_filter_low_variance(X, bottom_pct=0.5, ...)
+  - Remove bottom % of features by variance (conservative noise removal)
+POSEIDON_validate_multi_dataset(X_list, sample_names=NULL)
+  - Checks matching sample counts, no NAs, valid dimensions across a dataset list
+POSEIDON_filter_pairwise_identical(X, tolerance=1e-10, ...)
+  - Debug filter: removes features where any sample pair is identical
+    (would produce NaN when scaled within a CV fold). Not for production use.
+
+poseidon_sample_management.R:
+------------------------------
+Operations on the $counts + $targets ("quant_result") structure used by the
+ATAC-seq/ChIP-seq/RNA-seq quantification pipelines.
+
+POSEIDON_filter_low_counts(quant_result, min_count=10, min_samples=2, ...)
+  - Remove features not meeting a count threshold in enough samples
+POSEIDON_filter_by_group(quant_result, group_col="group", groups, ...)
+  - Keep only samples in specified group(s)
+POSEIDON_filter_by_metadata(quant_result, column, values, ...)
+  - Keep only samples matching value(s) in any metadata column
+POSEIDON_match_samples(data_list, match_col="bio_rep", ...)
+  - Filter multiple quant_results to samples present in all of them
+POSEIDON_average_tech_reps(quant_result, bio_rep_col, tech_rep_col, ...)
+  - Average technical replicates into one observation per biological sample
+
+poseidon_batch_correction.R:
+------------------------------
+POSEIDON_correct_batch_counts(quant_result, batch_col="batch", group_col="group",
+                               method="combat", log_transform=TRUE, ...)
+  - Batch correction via ComBat (sva) or limma::removeBatchEffect
+  - Operates on quant_result ($counts numeric matrix); optionally preserves a
+    biological group column as a covariate via model.matrix
+  - Renamed from POSEIDON_correct_batch() (2026-06-19) once a second,
+    massspec-specific function was added - no backwards-compatibility shim,
+    callers (e.g. projects/SMUG1_lisa/process_data.R) need updating on next run
+POSEIDON_correct_batch_massspec(massspec_data, batch_col="PlateID", group_col=NULL,
+                                 method="combat", impute_method="batchmean", verbose=TRUE)
+  - Batch correction via ComBat or limma::removeBatchEffect for massspec_data
+    objects ($wide log2 matrix + $sample_meta)
+  - Unlike the counts version: no log2(x+1)/back-transform (data is already
+    log2), and NAs are handled via a disposable imputed working copy used
+    only to make ComBat/limma runnable - corrected values are written back
+    only at originally non-NA cells, real NAs stay NA
+  - impute_method controls how that disposable working copy is filled:
+    "batchmean" (default) imputes each protein's mean WITHIN its own batch
+    (observed cells only, falling back to the global mean if a protein has
+    zero observed values in a batch); "global" imputes the protein's mean
+    across all samples (the original behavior). Comparison on the SEPSOMICS
+    dataset (projects/SEPSOMICS/massSpec_imputation_comparison.R, 2026-06-22)
+    showed "global" under-corrects high-missingness proteins (mean
+    between-batch variance removed: 84.1% vs 99.5% for "batchmean"; gap grows
+    with missingness, Spearman rho=0.95) - "global" kept as an explicit
+    option since this was only verified on one dataset/filtering setup
+  - group_col NA values (e.g. POOL samples with no biological group) get
+    their own "no_group" factor level rather than being dropped
+POSEIDON_plot_batch_pca(quant_result, batch_col="batch", group_col="group", ...)
+  - PCA scatter colored by batch, shaped by group, for before/after comparison
+  - Note: this is a plotting function under a POSEIDON_ prefix rather than
+    AETHER_ - flagged as a naming/placement inconsistency, not yet resolved
+
+poseidon_normalization.R:
+------------------------------
 POSEIDON_normalize_massspec(wide, verbose=TRUE)
   - Per-sample median centering for log2-scale DIA mass spectrometry matrices
   - Subtracts per-sample median (non-NA values) to remove run-to-run intensity shifts
   - Takes a proteins x samples matrix; returns the same dimensions
   - Use: ms$wide <- POSEIDON_normalize_massspec(ms$wide)
 
+poseidon_regression_prep.R:
+------------------------------
+Encoding and scaling of mixed (categorical + quantitative) data ahead of
+penalized regression (Group LASSO via grpreg) in Minerva.
+
+POSEIDON_encode_for_regression(data, target_var, encoding="dummy", ...)
+  - Separates target, dummy/effect-codes categorical predictors, builds Group
+    LASSO group mapping (var_mapping$groups)
+POSEIDON_scale_predictors(X, method="zscore", exclude_binary=TRUE, ...)
+  - Scales predictors (zscore/minmax/robust); excludes binary/dummy columns by default
+
+poseidon_imputation.R:
+------------------------------
 POSEIDON_mice_impute(data, n_imputations=100, method="pmm", max_iter=20,
                      log_vars=NULL, seed=42, verbose=TRUE)
   - Multiple imputation by chained equations (MICE) for clinical/mixed numeric data
@@ -36,6 +109,12 @@ POSEIDON_mice_impute(data, n_imputations=100, method="pmm", max_iter=20,
   - Intended as input to ARTEMIS_consensus_cluster()
   - Requires mice package (soft dep: install.packages("mice"))
 
+poseidon_preprocessing.R:
+------------------------------
+Now empty - all functions formerly here were split into the topic-specific
+files above (no code changes). Kept as a placeholder pointing to the new
+files rather than deleted; can be removed entirely once confirmed unneeded.
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -44,12 +123,16 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- Batch effect correction wrappers (ComBat via sva, limma::removeBatchEffect)
 - CPM / TPM / RPKM normalization functions
 - Quantile normalization
+- Resolve POSEIDON_plot_batch_pca's module-prefix inconsistency (plotting
+  function under POSEIDON_ instead of AETHER_) - deferred, larger change
 
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- sva (ComBat), limma: in Suggests — load manually for batch correction
-- preprocessCore: in Suggests — for quantile normalization
+- sva (ComBat), limma: in Suggests - required by POSEIDON_correct_batch
+- preprocessCore: in Suggests - for quantile normalization (not yet implemented)
+- mice: in Suggests - required by POSEIDON_mice_impute
+- grpreg: in Suggests - intended consumer of POSEIDON_encode_for_regression /
+  POSEIDON_scale_predictors output (Minerva)
