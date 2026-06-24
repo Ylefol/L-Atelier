@@ -69,6 +69,8 @@ Suggests:
     e1071,
     parallel,
     preprocessCore,
+    vsn,
+    imputeLCMD,
     rtracklayer,
     patchwork,
     rrvgo,

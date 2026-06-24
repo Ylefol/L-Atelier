@@ -85,6 +85,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
                                                 gene_selection = NULL,
                                                 enrichment = NULL,
                                                 sample_info = NULL,
+                                                sample_col = NULL,
                                                 time_col = "timepoint",
                                                 group_col = "group",
                                                 save_plots = TRUE,
@@ -204,6 +205,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
           if (plot_format %in% c("png", "both")) {
             AETHER_plot_part_heatmap(
               part_result, sample_info,
+              sample_col = sample_col,
               group_col = group_col, time_col = time_col,
               save_path = file.path(plot_dir, "part_heatmap.png"),
               width = hm_width, height = hm_height
@@ -212,6 +214,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
           if (plot_format %in% c("pdf", "both")) {
             AETHER_plot_part_heatmap(
               part_result, sample_info,
+              sample_col = sample_col,
               group_col = group_col, time_col = time_col,
               save_path = file.path(plot_dir, "part_heatmap.pdf"),
               width = hm_width, height = hm_height

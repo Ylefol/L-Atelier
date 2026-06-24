@@ -2,32 +2,51 @@
 % Please edit documentation in R/poseidon_normalization.R
 \name{POSEIDON_normalize_massspec}
 \alias{POSEIDON_normalize_massspec}
-\title{Median-Centre a Log2 Mass Spectrometry Intensity Matrix}
+\title{Normalize a Log2 Mass Spectrometry Intensity Matrix}
 \usage{
-POSEIDON_normalize_massspec(wide, verbose = TRUE)
+POSEIDON_normalize_massspec(
+  wide,
+  method = c("vsn", "median_centering"),
+  verbose = TRUE
+)
 }
 \arguments{
 \item{wide}{Numeric matrix, proteins (rows) × samples (cols). Values must be
-log2-transformed (as produced by \code{ELEUTHIA_load_massspec()}). Do NOT
-pass raw intensities.}
+log2-transformed (as produced by \code{ELEUTHIA_load_massspec()}). Both
+methods expect log2 input; VSN back-transforms to raw intensities internally
+before fitting.}
+
+\item{method}{Character. Normalization method: \code{"vsn"} (default) or
+\code{"median_centering"}.}
 
 \item{verbose}{Logical. Print normalization summary. Default: TRUE.}
 }
 \value{
-A numeric matrix of the same dimensions with per-sample median
-subtracted. NA values are unchanged.
+A numeric matrix of the same dimensions, normalized. NA values are
+preserved in their original positions.
 }
 \description{
-Applies per-sample median centering to a log2-scale intensity
-matrix. Subtracts the per-sample median (computed on non-NA values) from each
-column. This removes systematic run-to-run intensity shifts that persist after
-DIA-NN MaxLFQ quantification, without distorting relative protein abundances.
+Normalizes a log2-scale DIA mass spectrometry intensity matrix
+using either Variance Stabilizing Normalization (VSN, default) or per-sample
+median centering.
 }
 \details{
-Median centering is a standard post-processing step for DIA proteomics data.
-After centering, each sample has a median of approximately zero (on the log2
-scale), making cross-sample comparisons valid without distorting the relative
-ordering of proteins within a sample.
+\strong{VSN} (Huber et al. 2002, Bioinformatics): fits a generalized
+log (glog/arsinh) calibration per sample via robust iterative regression on
+the raw intensity scale. Simultaneously normalizes cross-sample shifts AND
+stabilizes variance across the full intensity range (heteroscedasticity
+correction) — proteins at low and high abundance are treated equally. Output
+is on a log2-like scale (the "h" scale). Because the pipeline stores log2
+data in \code{ms$wide}, VSN mode back-transforms (\code{2^wide}) before
+fitting and re-applies the original NA mask after, since \code{vsn::justvsn()}
+fitting is driven by observed values only.
+Requires the \code{vsn} Bioconductor package:
+\code{BiocManager::install("vsn")}.
+
+\strong{Median centering}: subtracts the per-sample median (non-NA values)
+from each column. Removes run-to-run location shifts on the log2 scale but
+does not correct heteroscedasticity. Retained as a lightweight fallback or
+for comparison.
 
 For the analysis pipeline:
 \preformatted{
@@ -37,6 +56,6 @@ ms$wide <- POSEIDON_normalize_massspec(ms$wide)
 \examples{
 \dontrun{
 ms <- HADES_filter_massspec_proteins(ms, max_na_fraction = 0.5)
-ms$wide <- POSEIDON_normalize_massspec(ms$wide)
+ms$wide <- POSEIDON_normalize_massspec(ms$wide, method = "vsn")
 }
 }

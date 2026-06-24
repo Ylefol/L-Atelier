@@ -22,9 +22,13 @@
 #' }
 #'
 #' @param part_result An \code{artemis_part} object from \code{ARTEMIS_part()}.
-#' @param sample_info Data.frame with sample metadata. Rownames must match
-#'   colnames of the PART data matrix. Required column: group.
+#' @param sample_info Data.frame with sample metadata. Required column: group.
 #'   Optional: timepoint (for time series data).
+#' @param sample_col Character or NULL. Column in sample_info whose values are
+#'   sample identifiers matching \code{colnames(part_result$data)}. When provided,
+#'   sets \code{rownames(sample_info)} to that column before matching — use this
+#'   when rownames are integer indices rather than SampleIDs (e.g. after
+#'   subsetting with a logical mask). Default: NULL (rownames used as-is).
 #' @param group_col Character. Column name in sample_info for group. Default: "group".
 #' @param time_col Character or NULL. Column name in sample_info for timepoint.
 #'   Default: NULL. If NULL or column not found, timepoint annotation is skipped
@@ -81,6 +85,7 @@
 #' @export
 AETHER_plot_part_heatmap <- function(part_result,
                                       sample_info,
+                                      sample_col = NULL,
                                       group_col = "group",
                                       time_col = NULL,
                                       group_colors = NULL,
@@ -121,6 +126,7 @@ AETHER_plot_part_heatmap <- function(part_result,
 
   # --- Prepare matrix and align samples ---
   mat <- part_result$data
+  if (!is.null(sample_col)) rownames(sample_info) <- sample_info[[sample_col]]
   common_samples <- intersect(colnames(mat), rownames(sample_info))
   if (length(common_samples) == 0) {
     stop("No matching samples between part_result and sample_info rownames")
@@ -708,6 +714,7 @@ AETHER_plot_cluster_means <- function(part_result,
 #' @export
 AETHER_plot_cluster_group_means <- function(part_result,
                                              sample_info,
+                                             sample_col = NULL,
                                              group_col = "group",
                                              clusters = NULL,
                                              group_colors = NULL,
@@ -727,6 +734,7 @@ AETHER_plot_cluster_group_means <- function(part_result,
   cmap <- part_result$cluster_map
 
   # --- Align + order samples by group (mirrors AETHER_plot_part_heatmap) ---
+  if (!is.null(sample_col)) rownames(sample_info) <- sample_info[[sample_col]]
   common_samples <- intersect(colnames(mat), rownames(sample_info))
   if (length(common_samples) == 0) {
     stop("No matching samples between part_result and sample_info rownames")

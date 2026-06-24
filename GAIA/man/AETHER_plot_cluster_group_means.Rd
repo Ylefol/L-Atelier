@@ -7,6 +7,7 @@
 AETHER_plot_cluster_group_means(
   part_result,
   sample_info,
+  sample_col = NULL,
   group_col = "group",
   clusters = NULL,
   group_colors = NULL,

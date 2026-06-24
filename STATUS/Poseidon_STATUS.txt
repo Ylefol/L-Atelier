@@ -1,7 +1,7 @@
 ================================================================================
 POSEIDON STATUS - Preprocessing & Normalization
 ================================================================================
-Last Updated: 2026-06-19 (rev 2)
+Last Updated: 2026-06-24
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -81,9 +81,14 @@ POSEIDON_plot_batch_pca(quant_result, batch_col="batch", group_col="group", ...)
 
 poseidon_normalization.R:
 ------------------------------
-POSEIDON_normalize_massspec(wide, verbose=TRUE)
-  - Per-sample median centering for log2-scale DIA mass spectrometry matrices
-  - Subtracts per-sample median (non-NA values) to remove run-to-run intensity shifts
+POSEIDON_normalize_massspec(wide, method=c("vsn","median_centering"), verbose=TRUE)
+  - Normalizes log2-scale DIA mass spectrometry matrix
+  - method="vsn" (default): back-transforms 2^wide, fits vsn::justvsn() per sample
+    (robust glog/arsinh calibration), restores original NA positions. Corrects both
+    cross-sample location shifts AND heteroscedasticity (variance instability across
+    intensity range). Requires vsn (BiocManager::install("vsn")).
+  - method="median_centering": subtracts per-sample median on log2 scale; lightweight
+    fallback, no heteroscedasticity correction
   - Takes a proteins x samples matrix; returns the same dimensions
   - Use: ms$wide <- POSEIDON_normalize_massspec(ms$wide)
 
@@ -100,6 +105,20 @@ POSEIDON_scale_predictors(X, method="zscore", exclude_binary=TRUE, ...)
 
 poseidon_imputation.R:
 ------------------------------
+POSEIDON_impute_massspec(massspec_data, verbose=TRUE)
+  - QRILC imputation for massspec_data objects (Lazar et al. 2016)
+  - MNAR-appropriate: assumes missing = below instrument detection limit;
+    fits quantile regression per sample to estimate the left-censored tail,
+    draws imputed values from that estimated distribution
+  - Call AFTER normalization and batch correction (imputed values land on the
+    final processed scale)
+  - Stores original NA positions in massspec_data$na_mask (logical matrix,
+    same dims as $wide) so real vs imputed values remain distinguishable
+  - Updates massspec_data$wide to a fully NA-free matrix
+  - Records method/counts in massspec_data$params$imputation
+  - Requires imputeLCMD (install.packages("imputeLCMD"); or
+    remotes::install_github("cran/imputeLCMD") if archived from CRAN)
+
 POSEIDON_mice_impute(data, n_imputations=100, method="pmm", max_iter=20,
                      log_vars=NULL, seed=42, verbose=TRUE)
   - Multiple imputation by chained equations (MICE) for clinical/mixed numeric data
@@ -132,6 +151,10 @@ PLANNED / TODO
 DEPENDENCIES / NOTES
 ================================================================================
 - sva (ComBat), limma: in Suggests - required by POSEIDON_correct_batch
+- vsn: in Suggests - required by POSEIDON_normalize_massspec(method="vsn");
+  BiocManager::install("vsn")
+- imputeLCMD: in Suggests - required by POSEIDON_impute_massspec();
+  install.packages("imputeLCMD") or remotes::install_github("cran/imputeLCMD")
 - preprocessCore: in Suggests - for quantile normalization (not yet implemented)
 - mice: in Suggests - required by POSEIDON_mice_impute
 - grpreg: in Suggests - intended consumer of POSEIDON_encode_for_regression /

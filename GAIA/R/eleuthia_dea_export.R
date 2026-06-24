@@ -91,6 +91,7 @@ ELEUTHIA_export_dea_results <- function(output_dir,
                                          l2fc_thresh = 1.0,
                                          p_thresh = 0.05,
                                          sample_info = NULL,
+                                         sample_col = NULL,
                                          group_col = "group",
                                          save_plots = TRUE,
                                          plot_format = "png",
@@ -297,6 +298,7 @@ ELEUTHIA_export_dea_results <- function(output_dir,
             hm_file <- file.path(plot_dir, paste0(prefix, "_part_heatmap.png"))
             AETHER_plot_part_heatmap(
               part_result, sample_info,
+              sample_col = sample_col,
               group_col = group_col,
               time_col = NULL,  # Not time series
               save_path = hm_file,
@@ -311,6 +313,7 @@ ELEUTHIA_export_dea_results <- function(output_dir,
             hm_file <- file.path(plot_dir, paste0(prefix, "_part_heatmap.pdf"))
             AETHER_plot_part_heatmap(
               part_result, sample_info,
+              sample_col = sample_col,
               group_col = group_col,
               time_col = NULL,
               save_path = hm_file,
@@ -327,6 +330,7 @@ ELEUTHIA_export_dea_results <- function(output_dir,
         tryCatch({
           p_means <- AETHER_plot_cluster_group_means(
             part_result, sample_info,
+            sample_col = sample_col,
             group_col = group_col
           )
           means_files <- .save_ggplot(p_means, plot_dir,

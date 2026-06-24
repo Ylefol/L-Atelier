@@ -25,7 +25,11 @@
 #' splits.
 #'
 #' @param mat Numeric matrix with features (genes) as rows and samples as
-#'   columns. Rownames are used as feature identifiers.
+#'   columns. Rownames are used as feature identifiers. Must not contain NA --
+#'   the Gap statistic's reference generation (\code{ref_gen = "PC"}) requires
+#'   a complete matrix for \code{svd()}. Impute deliberately beforehand if
+#'   your data has real missingness (e.g. proteomics/mass-spec); PART itself
+#'   has no NA-aware mode.
 #' @param q Numeric (0-1). Tuning parameter controlling splitting aggressiveness.
 #'   Threshold = (1-q) quantile of dendrogram heights. Lower q = less splitting.
 #'   Default: 0.25.
@@ -105,6 +109,17 @@ ARTEMIS_part <- function(mat,
 
   if (is.null(rownames(mat))) {
     stop("'mat' must have rownames (feature identifiers)")
+  }
+  if (anyNA(mat)) {
+    n_na <- sum(is.na(mat))
+    pct_na <- round(100 * n_na / length(mat), 1)
+    stop(
+      "'mat' contains ", n_na, " missing value(s) (", pct_na, "% of cells).\n",
+      "ARTEMIS_part() cannot cluster data with NA: the Gap statistic's ",
+      "reference-distribution step (ref_gen = \"PC\") projects the matrix ",
+      "onto its own principal components via svd(), which requires a ",
+      "complete matrix."
+    )
   }
   if (nrow(mat) < 2 * min_size) {
     stop("Too few features (", nrow(mat), ") for min_size = ", min_size,

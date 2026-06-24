@@ -572,6 +572,7 @@ APOLLO_get_string_ppi <- function(genes,
                                    add_nodes = 0,
                                    image_format = c("image", "highres_image", "svg", "none"),
                                    image_path = NULL,
+                                   white_background = TRUE,
                                    verbose = TRUE) {
 
   if (!requireNamespace("igraph", quietly = TRUE)) {
@@ -719,6 +720,25 @@ APOLLO_get_string_ppi <- function(genes,
       warning("Failed to download STRING network image: ", e$message, call. = FALSE)
       image_path <<- NULL
     })
+
+    # STRING PNGs have a transparent background; flatten onto white if requested
+    if (white_background && !is.null(image_path) &&
+        image_format %in% c("image", "highres_image")) {
+      if (!requireNamespace("png", quietly = TRUE)) {
+        warning("Package 'png' needed for white_background = TRUE. ",
+                "Install with: install.packages('png')", call. = FALSE)
+      } else {
+        img <- png::readPNG(image_path)
+        if (length(dim(img)) == 3 && dim(img)[3] == 4) {
+          alpha   <- img[, , 4]
+          flat    <- img
+          for (ch in 1:3) flat[, , ch] <- alpha * img[, , ch] + (1 - alpha) * 1
+          flat[, , 4] <- 1
+          png::writePNG(flat, image_path)
+        }
+      }
+    }
+
     if (verbose && !is.null(image_path)) cat("[APOLLO] STRING network image saved:", image_path, "\n")
   } else {
     image_path <- NULL

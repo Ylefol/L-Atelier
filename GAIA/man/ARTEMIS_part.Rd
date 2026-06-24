@@ -19,7 +19,11 @@ ARTEMIS_part(
 }
 \arguments{
 \item{mat}{Numeric matrix with features (genes) as rows and samples as
-columns. Rownames are used as feature identifiers.}
+columns. Rownames are used as feature identifiers. Must not contain NA --
+the Gap statistic's reference generation (\code{ref_gen = "PC"}) requires
+a complete matrix for \code{svd()}. Impute deliberately beforehand if
+your data has real missingness (e.g. proteomics/mass-spec); PART itself
+has no NA-aware mode.}
 
 \item{q}{Numeric (0-1). Tuning parameter controlling splitting aggressiveness.
 Threshold = (1-q) quantile of dendrogram heights. Lower q = less splitting.

@@ -1,7 +1,7 @@
 ================================================================================
 AETHER STATUS - Visualization
 ================================================================================
-Last Updated: 2026-06-17
+Last Updated: 2026-06-24
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -314,17 +314,24 @@ AETHER_plot_feature_weights(weights, ...)
 
 aether_timeseries_plots.R:
 ---------------------------
-AETHER_plot_part_heatmap(part_result, ...)
-  - PART clustering heatmap
+AETHER_plot_part_heatmap(part_result, sample_info, sample_col=NULL, group_col="group",
+                          time_col=NULL, group_colors=NULL, time_colors=NULL,
+                          show_row_names=FALSE, show_column_labels=TRUE,
+                          row_names_side="right", save_path=NULL, width=10, height=12)
+  - PART clustering heatmap (ComplexHeatmap, TiSA style)
+  - sample_col: column in sample_info holding SampleIDs matching colnames(part_result$data);
+    sets rownames(sample_info) before matching — required when sample_info has integer
+    row indices instead of SampleIDs (e.g. after subsetting with a logical mask)
 AETHER_plot_cluster_trajectories(part_result, ...)
   - Cluster trajectories over time
 AETHER_plot_cluster_means(part_result, ...)
   - Cluster mean expression profiles
-AETHER_plot_cluster_group_means(part_result, sample_info, group_col="group",
-                                 clusters=NULL, group_colors=NULL,
+AETHER_plot_cluster_group_means(part_result, sample_info, sample_col=NULL,
+                                 group_col="group", clusters=NULL, group_colors=NULL,
                                  error_bars="se"|"sd"|"none", title=NULL)
   - Cross-sectional companion to AETHER_plot_part_heatmap (no timepoint axis)
   - Dodged bar chart: mean per-sample cluster z-score, aggregated by group
+  - sample_col: same rownames fix as AETHER_plot_part_heatmap
   - Default cluster order/colors and group color palette match
     AETHER_plot_part_heatmap exactly when called with the same sample_info/group_col
   - Cluster x-axis labels colored via part_result$cluster_colors

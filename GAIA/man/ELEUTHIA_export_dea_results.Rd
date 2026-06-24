@@ -13,6 +13,7 @@ ELEUTHIA_export_dea_results(
   l2fc_thresh = 1,
   p_thresh = 0.05,
   sample_info = NULL,
+  sample_col = NULL,
   group_col = "group",
   save_plots = TRUE,
   plot_format = "png",

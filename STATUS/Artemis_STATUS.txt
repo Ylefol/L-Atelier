@@ -169,6 +169,12 @@ artemis_part_clustering.R:
 ---------------------------
 ARTEMIS_part(expr_matrix, ...)
   - PART (Partition Around medoids for Time series) clustering
+  - Requires a complete matrix (no NA) -- Gap statistic's ref_gen="PC" needs
+    svd() on the full matrix. Fails fast with an explanatory stop() if mat
+    contains NA, instead of the cryptic "infinite or missing values in 'x'"
+    error from svd() (added 2026-06-23, surfaced by mass-spec proteomics
+    data, which has real missingness). Caller must impute deliberately
+    beforehand if clustering data with missingness.
 ARTEMIS_part_summary(part_result, ...)
   - Summary statistics for PART clustering result
 

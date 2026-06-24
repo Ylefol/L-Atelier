@@ -14,7 +14,7 @@
 #'     named \code{run_id} will be created inside it.}
 #'   \item{genome_dir}{Absolute path to the split-pipe genome directory
 #'     (built with \code{split-pipe --mode mkref}).}
-#'   \item{chemistry}{Library chemistry version: \code{"v2"} or \code{"v3"}.}
+#'   \item{chemistry}{Library chemistry version: \code{"v2"}, \code{"v3"}, or \code{"v4"}.}
 #'   \item{kit}{Library kit: \code{"WT"}, \code{"WT_mini"}, \code{"WT_mega"},
 #'     \code{"WT_mega_384"}, \code{"WT_penta"}, or \code{"WT_penta_384"}.}
 #' }

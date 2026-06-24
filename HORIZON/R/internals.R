@@ -14,7 +14,7 @@
 # HORIZON_validate_parse_sheet() (required columns already enforced upstream).
 # Stops with an error on any invalid value.
 .validate_chemistry_kit <- function(ss) {
-  valid_chemistry <- c("v2", "v3")
+  valid_chemistry <- c("v2", "v3", "v4")
   bad_chem <- setdiff(unique(ss$chemistry[nzchar(ss$chemistry)]), valid_chemistry)
   if (length(bad_chem) > 0)
     stop("Invalid chemistry value(s): ", paste(bad_chem, collapse = ", "),

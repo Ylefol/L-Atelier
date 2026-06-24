@@ -11,6 +11,7 @@ ELEUTHIA_export_timeseries_results(
   gene_selection = NULL,
   enrichment = NULL,
   sample_info = NULL,
+  sample_col = NULL,
   time_col = "timepoint",
   group_col = "group",
   save_plots = TRUE,

@@ -7,6 +7,7 @@
 AETHER_plot_part_heatmap(
   part_result,
   sample_info,
+  sample_col = NULL,
   group_col = "group",
   time_col = NULL,
   group_colors = NULL,
@@ -22,9 +23,14 @@ AETHER_plot_part_heatmap(
 \arguments{
 \item{part_result}{An \code{artemis_part} object from \code{ARTEMIS_part()}.}
 
-\item{sample_info}{Data.frame with sample metadata. Rownames must match
-colnames of the PART data matrix. Required column: group.
+\item{sample_info}{Data.frame with sample metadata. Required column: group.
 Optional: timepoint (for time series data).}
+
+\item{sample_col}{Character or NULL. Column in sample_info whose values are
+sample identifiers matching \code{colnames(part_result$data)}. When provided,
+sets \code{rownames(sample_info)} to that column before matching — use this
+when rownames are integer indices rather than SampleIDs (e.g. after
+subsetting with a logical mask). Default: NULL (rownames used as-is).}
 
 \item{group_col}{Character. Column name in sample_info for group. Default: "group".}
 

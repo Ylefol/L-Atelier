@@ -12,6 +12,7 @@ APOLLO_get_string_ppi(
   add_nodes = 0,
   image_format = c("image", "highres_image", "svg", "none"),
   image_path = NULL,
+  white_background = TRUE,
   verbose = TRUE
 )
 }

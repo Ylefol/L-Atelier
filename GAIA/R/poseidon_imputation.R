@@ -2,6 +2,107 @@
 ############################# Imputation #######################################
 ###############################################################################
 
+#' QRILC Imputation for Mass Spectrometry Data
+#'
+#' @description Imputes missing values in a \code{massspec_data} object using
+#' Quantile Regression Imputation of Left-Censored data (QRILC, Lazar et al.
+#' 2016). Designed for DIA proteomics data where missingness is predominantly
+#' MNAR (missing-not-at-random) due to values falling below the instrument
+#' detection limit.
+#'
+#' @param massspec_data A \code{massspec_data} S3 object as produced by
+#'   \code{ELEUTHIA_load_massspec()} and processed through
+#'   \code{POSEIDON_normalize_massspec()} and
+#'   \code{POSEIDON_correct_batch_massspec()}. The \code{$wide} slot must be a
+#'   log-scale matrix (log2 or VSN glog) with NAs marking missing proteins.
+#' @param verbose Logical. Print imputation summary. Default: TRUE.
+#'
+#' @return The input \code{massspec_data} object with three modifications:
+#' \describe{
+#'   \item{\code{$wide}}{Fully imputed matrix — no NAs.}
+#'   \item{\code{$na_mask}}{Logical matrix (same dimensions as \code{$wide}),
+#'     TRUE at positions that were originally NA. Retained so downstream code
+#'     can distinguish real measurements from imputed values if needed.}
+#'   \item{\code{$params$imputation}}{List recording method, total imputed
+#'     count, and percentage.}
+#' }
+#'
+#' @details
+#' QRILC assumes that missing values exist because the true protein abundance
+#' fell below the detection limit of the instrument (left-censoring). For each
+#' sample, it fits a quantile regression model using the observed intensity
+#' distribution to estimate the shape of the unobserved left tail, then draws
+#' imputed values from that estimated tail. The censoring threshold is inferred
+#' per sample from its own missing-value proportion — no explicit threshold
+#' parameter is required.
+#'
+#' This function should be called \strong{after} normalization and batch
+#' correction, so that imputed values land on the final processed scale. The
+#' original NA positions are preserved in \code{$na_mask} so that differential
+#' analysis can be made aware of which values are synthetic.
+#'
+#' Requires the \code{imputeLCMD} package:
+#' \code{install.packages("imputeLCMD")}. If not on CRAN, install from GitHub:
+#' \code{remotes::install_github("cran/imputeLCMD")}.
+#'
+#' @references Lazar, C. et al. (2016). Accounting for the Multiple Natures of
+#'   Missing Values in Label-Free Quantitative Proteomics Data Sets to Compare
+#'   Imputation Strategies. \emph{Journal of Proteome Research}, 15(4),
+#'   1116–1125.
+#'
+#' @export
+POSEIDON_impute_massspec <- function(massspec_data, verbose = TRUE) {
+
+  if (!requireNamespace("imputeLCMD", quietly = TRUE))
+    stop("Package 'imputeLCMD' is required for QRILC imputation.\n",
+         "Install via: install.packages('imputeLCMD')\n",
+         "If not on CRAN: remotes::install_github('cran/imputeLCMD')",
+         call. = FALSE)
+
+  wide <- massspec_data$wide
+
+  if (!is.matrix(wide))
+    stop("massspec_data$wide must be a numeric matrix (proteins x samples).",
+         call. = FALSE)
+
+  n_na <- sum(is.na(wide))
+
+  if (n_na == 0L) {
+    if (verbose)
+      cat("[POSEIDON] No missing values in massspec_data$wide — skipping QRILC.\n")
+    return(massspec_data)
+  }
+
+  pct_na      <- round(100 * n_na / length(wide), 1)
+  n_by_sample <- colSums(is.na(wide))
+
+  if (verbose) {
+    cat("[POSEIDON] QRILC imputation (mass spec):\n")
+    cat("    Proteins:", nrow(wide), " | Samples:", ncol(wide), "\n")
+    cat("    Total missing: ", n_na, " (", pct_na, "%)\n", sep = "")
+    cat("    Per-sample range: [",
+        min(n_by_sample), ", ", max(n_by_sample), "] missing values\n", sep = "")
+    cat("    Storing original NA positions in massspec_data$na_mask\n")
+  }
+
+  massspec_data$na_mask <- is.na(wide)
+
+  # impute.QRILC() returns an unnamed list: [[1]] = imputed matrix, [[2]] = model
+  qrilc_result       <- imputeLCMD::impute.QRILC(wide)
+  massspec_data$wide <- qrilc_result[[1]]
+
+  massspec_data$params$imputation <- list(
+    method      = "QRILC",
+    n_imputed   = n_na,
+    pct_imputed = pct_na
+  )
+
+  if (verbose)
+    cat("[POSEIDON] QRILC imputation complete. massspec_data$wide is now NA-free.\n")
+
+  return(massspec_data)
+}
+
 #' Multiple Imputation by Chained Equations (MICE)
 #'
 #' @description Imputes missing values in a numeric data frame using MICE with
