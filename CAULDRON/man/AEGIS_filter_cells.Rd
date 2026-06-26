@@ -13,6 +13,7 @@ AEGIS_filter_cells(
   min_features = NULL,
   max_features = NULL,
   max_pct_mt = NULL,
+  filter_mt = TRUE,
   remove_doublets = TRUE,
   verbose = TRUE
 )
@@ -33,7 +34,14 @@ Default \code{3}.}
 (\code{detected}).}
 
 \item{max_pct_mt}{Numeric. Hard ceiling on \\% mitochondrial counts.
-Applied in both adaptive and fixed modes when provided.}
+Applied in both adaptive and fixed modes when provided, unless
+\code{filter_mt = FALSE}.}
+
+\item{filter_mt}{Logical. Whether to apply mitochondrial filtering.
+When \code{FALSE}, MT\\% is excluded from adaptive outlier detection
+and any \code{max_pct_mt} hard ceiling is ignored. Default \code{TRUE}.
+Set to \code{FALSE} for protocols where MT\\% is not a reliable damage
+indicator (e.g. PARSE Biosciences fixed-cell experiments).}
 
 \item{remove_doublets}{Logical. Also remove cells classified as doublets by
 \code{scDblFinder.class}.  Default \code{TRUE}.}
@@ -62,7 +70,8 @@ of \code{min_counts}, \code{max_counts}, \code{min_features},
 }
 
 In either mode, \code{max_pct_mt} acts as an additional hard ceiling if
-supplied alongside \code{mode = "adaptive"}.
+supplied alongside \code{mode = "adaptive"}, but only when
+\code{filter_mt = TRUE}.
 
 Requires \code{\link{AEGIS_compute_qc_metrics}} to have been run first.
 If \code{remove_doublets = TRUE}, also requires

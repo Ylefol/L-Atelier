@@ -796,7 +796,8 @@ AETHER_plot_coverage_tracks <- function(bigwig_files      = NULL,
 
   # --- Extract gene models ----------------------------------------------------
   if (!is.null(at$txdb)) {
-    gm <- .AETHER_gene_models_txdb(at$txdb, region_gr, show_cds, verbose)
+    gm <- .AETHER_gene_models_txdb(at$txdb, region_gr, show_cds, verbose,
+                                   gene_name_map = at$gene_name_map)
   } else {
     gm <- .AETHER_gene_models_gtf(at$gtf_file, region_gr, chr,
                                    at$chr_mapping, show_cds, verbose)
@@ -983,7 +984,8 @@ AETHER_plot_coverage_tracks <- function(bigwig_files      = NULL,
 
 
 # Extract gene models from a TxDb object (fast — uses indexed SQL queries)
-.AETHER_gene_models_txdb <- function(txdb, region_gr, show_cds, verbose) {
+.AETHER_gene_models_txdb <- function(txdb, region_gr, show_cds, verbose,
+                                     gene_name_map = NULL) {
   if (!requireNamespace("GenomicFeatures", quietly = TRUE))
     stop("GenomicFeatures required: BiocManager::install('GenomicFeatures')",
          call. = FALSE)
@@ -1001,8 +1003,14 @@ AETHER_plot_coverage_tracks <- function(bigwig_files      = NULL,
     return(list(genes = data.frame(), exons = data.frame(), cds = NULL))
 
   gene_ids   <- names(genes_in_reg)
-  # Strip common NCBI "gene-" prefix for cleaner display labels
-  gene_names <- sub("^gene-", "", gene_ids)
+  # Use provided symbol map if available; fall back to stripping NCBI "gene-" prefix
+  if (!is.null(gene_name_map)) {
+    gene_names <- ifelse(gene_ids %in% names(gene_name_map),
+                         gene_name_map[gene_ids],
+                         sub("^gene-", "", gene_ids))
+  } else {
+    gene_names <- sub("^gene-", "", gene_ids)
+  }
 
   genes_df <- data.frame(
     gene_id    = gene_ids,

@@ -215,7 +215,8 @@ AEGIS_detect_doublets <- function(sce,
 #' }
 #'
 #' In either mode, \code{max_pct_mt} acts as an additional hard ceiling if
-#' supplied alongside \code{mode = "adaptive"}.
+#' supplied alongside \code{mode = "adaptive"}, but only when
+#' \code{filter_mt = TRUE}.
 #'
 #' Requires \code{\link{AEGIS_compute_qc_metrics}} to have been run first.
 #' If \code{remove_doublets = TRUE}, also requires
@@ -231,7 +232,13 @@ AEGIS_detect_doublets <- function(sce,
 #' @param min_features,max_features Numeric. Hard bounds on detected genes
 #'   (\code{detected}).
 #' @param max_pct_mt Numeric. Hard ceiling on \% mitochondrial counts.
-#'   Applied in both adaptive and fixed modes when provided.
+#'   Applied in both adaptive and fixed modes when provided, unless
+#'   \code{filter_mt = FALSE}.
+#' @param filter_mt Logical. Whether to apply mitochondrial filtering.
+#'   When \code{FALSE}, MT\% is excluded from adaptive outlier detection
+#'   and any \code{max_pct_mt} hard ceiling is ignored. Default \code{TRUE}.
+#'   Set to \code{FALSE} for protocols where MT\% is not a reliable damage
+#'   indicator (e.g. PARSE Biosciences fixed-cell experiments).
 #' @param remove_doublets Logical. Also remove cells classified as doublets by
 #'   \code{scDblFinder.class}.  Default \code{TRUE}.
 #' @param verbose Logical. Print a removal summary. Default \code{TRUE}.
@@ -246,6 +253,7 @@ AEGIS_filter_cells <- function(sce,
                                 min_features    = NULL,
                                 max_features    = NULL,
                                 max_pct_mt      = NULL,
+                                filter_mt       = TRUE,
                                 remove_doublets = TRUE,
                                 verbose         = TRUE) {
 
@@ -271,7 +279,7 @@ AEGIS_filter_cells <- function(sce,
 
   # ── Adaptive mode ────────────────────────────────────────────────────────────
   if (mode == "adaptive") {
-    sub_fields <- intersect("subsets_mt_percent", names(cd))
+    sub_fields <- if (isTRUE(filter_mt)) intersect("subsets_mt_percent", names(cd)) else character(0)
 
     filters <- scuttle::perCellQCFilters(
       as.data.frame(cd),
@@ -313,7 +321,7 @@ AEGIS_filter_cells <- function(sce,
   }
 
   # ── Hard MT ceiling (both modes) ─────────────────────────────────────────────
-  if (!is.null(max_pct_mt) && "subsets_mt_percent" %in% names(cd)) {
+  if (isTRUE(filter_mt) && !is.null(max_pct_mt) && "subsets_mt_percent" %in% names(cd)) {
     mask                   <- cd$subsets_mt_percent > max_pct_mt
     reasons[["hard_mt_cap"]] <- sum(mask, na.rm = TRUE)
     discard                <- discard | mask
