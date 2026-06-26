@@ -2,7 +2,7 @@
 
 Single-cell and single-nuclei RNA-seq analysis toolkit. The single-cell counterpart to GAIA, designed to handle the full scRNA-seq / snRNA-seq workflow: from raw count matrices through QC, normalization, clustering, annotation, differential expression, trajectory inference, and cell-cell communication analysis.
 
-Part of the [ZERO_DAWN](../) repository. Built on `SingleCellExperiment` (Bioconductor). Follows the same modular architecture as GAIA, with subordinate modules named after Hephaestus's creations from Greek mythology — a thematic reference to the Cauldron facilities in *Horizon Zero Dawn*, which were themselves controlled by HEPHAESTUS.
+Part of the [L-Atelier](../) repository. Built on `SingleCellExperiment` (Bioconductor). Follows the same modular architecture as GAIA, with subordinate modules named after Hephaestus's creations from Greek mythology.
 
 > **Status:** Early development. Module files are scaffolded but most functions are not yet implemented.
 
@@ -35,7 +35,7 @@ CAULDRON is built on `SingleCellExperiment` (Bioconductor), chosen for its progr
 
 ```r
 install.packages("devtools")
-devtools::install("path/to/ZERO_DAWN/CAULDRON")
+devtools::install("path/to/L-Atelier/CAULDRON")
 library(CAULDRON)
 ```
 

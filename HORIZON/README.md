@@ -2,7 +2,7 @@
 
 Upstream bioinformatics processing package for bulk sequencing data. Handles QC, adapter trimming, alignment, BAM processing, read counting, BigWig generation, and chromatin accessibility / ChIP-seq / CUT&TAG peak calling — the computational work that sits upstream of GAIA.
 
-Part of the [ZERO_DAWN](../) repository. Unlike GAIA and CAULDRON, HORIZON has no named sub-modules; the wrapped tools serve that role implicitly. HORIZON has no hard dependency on GAIA or CAULDRON, and vice versa — the interface is file format compatibility.
+Part of the [L-Atelier](../) repository. Unlike GAIA and CAULDRON, HORIZON has no named sub-modules; the wrapped tools serve that role implicitly. HORIZON has no hard dependency on GAIA or CAULDRON, and vice versa — the interface is file format compatibility.
 
 ---
 
@@ -25,7 +25,7 @@ R >= 4.1.0 is required.
 
 ```r
 install.packages("devtools")
-devtools::install("path/to/ZERO_DAWN/HORIZON")
+devtools::install("path/to/L-Atelier/HORIZON")
 library(HORIZON)
 ```
 

@@ -2,7 +2,7 @@
 
 Multi-omics integration toolkit for CUT&TAG, ATAC-seq, and RNA-seq analysis. Covers quality control, preprocessing, annotation, enrichment, integration, machine learning, statistical analysis, visualization, and reporting.
 
-Part of the [ZERO_DAWN](../) repository. Named after the central AI system from *Horizon Zero Dawn*; its nine subordinate modules are each named after a figure from Greek mythology.
+Part of the [L-Atelier](../) repository. Its nine subordinate modules are each named after a figure from Greek mythology.
 
 ---
 
@@ -12,7 +12,7 @@ GAIA is an R package installed directly from the repository. R >= 4.1.0 is requi
 
 ```r
 install.packages("devtools")
-devtools::install("path/to/ZERO_DAWN/GAIA")
+devtools::install("path/to/L-Atelier/GAIA")
 library(GAIA)
 ```
 

@@ -1,10 +1,8 @@
-# ZERO_DAWN
+# L-Atelier
 
 A private multi-omics analysis toolkit for RNAseq, ATACseq, CUT&TAG, and proteomics data. The repository houses four companion R packages that together cover the full analysis lifecycle — from raw sequencing files to integrated multi-omics results.
 
 This toolkit was developed with the aid of Claude Code as a means to test and familiarise with a new coding workflow.
-
-> **Naming note:** The repository name ZERO_DAWN is temporary and will be updated before any public release. Package names (GAIA, HORIZON, CAULDRON, CYAN) are permanent.
 
 ---
 
@@ -12,7 +10,7 @@ This toolkit was developed with the aid of Claude Code as a means to test and fa
 
 ### [GAIA](GAIA/) — Multi-omics Analysis
 
-The primary analysis package. Covers the full downstream analytical workflow for bulk multi-omics data: quality control, preprocessing, annotation, enrichment, integration, machine learning, statistical analysis, visualization, and reporting. Named after the central AI system from *Horizon Zero Dawn*; its nine subordinate modules are named after figures from Greek mythology.
+The primary analysis package. Covers the full downstream analytical workflow for bulk multi-omics data: quality control, preprocessing, annotation, enrichment, integration, machine learning, statistical analysis, visualization, and reporting. Its nine subordinate modules are named after figures from Greek mythology.
 
 → See [`GAIA/README.md`](GAIA/README.md) for installation, modules, and references.
 
@@ -39,7 +37,7 @@ A focused package for specialised genomic analyses that sit outside the scope of
 ## Repository Structure
 
 ```
-ZERO_DAWN/
+L-Atelier/
 ├── GAIA/               # Bulk multi-omics analysis package
 ├── HORIZON/            # Upstream processing package
 ├── CAULDRON/           # Single-cell analysis package (early development)
