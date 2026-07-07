@@ -10,6 +10,7 @@ TALOS_run_umap(
   n_pcs = 30L,
   n_neighbors = 15L,
   min_dist = 0.1,
+  use_graph = TRUE,
   seed = 42L,
   verbose = TRUE
 )

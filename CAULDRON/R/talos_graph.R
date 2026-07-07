@@ -56,6 +56,7 @@ TALOS_build_graph <- function(sce,
   g <- scran::buildSNNGraph(t(input_mat), k = as.integer(k), type = type)
 
   metadata(sce)$snn_graph <- g
+  metadata(sce)$snn_k     <- as.integer(k)
 
   if (isTRUE(verbose))
     cat(sprintf(

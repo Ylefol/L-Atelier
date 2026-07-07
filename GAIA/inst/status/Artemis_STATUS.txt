@@ -1,7 +1,7 @@
 ================================================================================
 ARTEMIS MODULE STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-02-12
+Last Updated: 2026-07-07
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -31,16 +31,11 @@ ARTEMIS_normalize_counts(counts, targets, group_col, batch_col, verbose)
   - Returns "artemis_norm" object with: dds, norm_counts, targets, size_factors
   - Ensures consistent normalization across all subsequent comparisons
 
-ARTEMIS_differential_counts(quant_result, reference, experiment,
-                             group_col, batch_col, alpha, verbose)
-  - General-purpose differential analysis using DESeq2
-  - Works with any count data: RNA-seq, ATAC-seq, CUT&TAG, ChIP-seq
-  - Accepts two input types:
-    - quant_result (list with counts + targets): standard single comparison
-    - artemis_norm object: uses pre-computed size factors, subsets to groups
-  - Strict two-group comparison (reference vs experiment)
-  - Optional batch correction via design formula (~ batch + group)
-  - Validates: exactly 2 groups, minimum 2 replicates each, integer counts
+ARTEMIS_differential_counts(norm_data, reference, experiment, alpha, verbose)
+  - Pairwise differential analysis using DESeq2
+  - Requires artemis_norm object from ARTEMIS_normalize_counts() — no raw counts path
+  - Inherits size factors and batch correction from the norm object
+  - Subsets to the two groups of interest, preserving full-dataset size factors
   - Returns: per-feature stats (log2FC, pvalue, padj), DESeqDataSet, norm_counts, summary
 
 ARTEMIS_select_de_genes(de_results, l2fc_thresh, p_col, p_thresh, gene_col, union, verbose)
@@ -346,6 +341,86 @@ ARTEMIS_cibersort(mixture, cibersort_path, sig_matrix, output_dir, mixture_name,
   - Requires: CIBERSORT.R source file + signature matrix (e.g., LM22.txt)
   - CIBERSORT dependencies: e1071, parallel, preprocessCore
 
+artemis_isoform_switch.R:
+-------------------------
+ARTEMIS_isoform_switch(counts, targets, reference, experiment,
+                        group_col="group", gtf_path, method="DEXSeq",
+                        alpha=0.05, dIF_cutoff=0.1,
+                        min_gene_expression=1, min_transcript_expression=1,
+                        fix_stringtie_annotation=FALSE, verbose=TRUE)
+  - Differential isoform usage analysis via IsoformSwitchAnalyzeR
+  - Complements ARTEMIS_differential_counts(): detects changes in which isoform
+    is used, not just whether total gene expression changes
+  - Accepts raw integer counts (nanopore/IsoQuant/FLAMES) or estimated counts
+    (Salmon/kallisto); compatible with both short- and long-read data
+  - method: "DEXSeq" (neg. binomial, default) or "satuRn" (quasi-binomial;
+    replaces DRIMSeq in IsoformSwitchAnalyzeR >= 2.x)
+  - dIF_cutoff: minimum delta Isoform Fraction (default 0.1 = 10% shift)
+    — not an established standard, verify for your context
+  - Internally: importRdata → preFilter (removeSingleIsoformGenes=TRUE)
+    → isoformSwitchTestDEXSeq/satuRn → extractSwitchSummary
+  - addAnnotatedORFs=TRUE in importRdata enables structural consequences
+    (NMD, ORF similarity, intron retention) without external tools
+  - Returns artemis_isoform_switch S3 object:
+    $switch_list (full switchAnalyzeRlist), $isoform_results (per-isoform df
+    sorted by q-value), $summary (top-level counts), $n_switches, $params
+  - Requires: IsoformSwitchAnalyzeR (Bioconductor, Suggests)
+  - Known upstream issue (worked around internally): isoformSwitchTestSatuRn()
+    calls the unqualified rowData() without importing it in
+    IsoformSwitchAnalyzeR's NAMESPACE (confirmed present in 2.2.0, current
+    Bioconductor release as of 2026-07). Because we call IsoformSwitchAnalyzeR
+    via `::` rather than library(), its Depends chain never gets attached, so
+    rowData() would otherwise error with "could not find function". Fixed by
+    attaching SummarizedExperiment internally when method="satuRn" (no-op if
+    already attached).
+  - Expected warning (benign, not a bug): "Using row.names as isoform_id" —
+    importRdata confirming it used counts matrix rownames as transcript IDs,
+    which is exactly this function's design (no separate isoform_id column).
+  - method="satuRn" passes diagplots=FALSE to isoformSwitchTestSatuRn() to
+    suppress satuRn::testDTU()'s built-in p-value calibration plots (Frequency
+    histogram + Density plot per contrast) — those are satuRn's own
+    diagnostics drawn as a side effect, not this package's AETHER plotting
+    layer, so they were silenced rather than left to print unexpectedly.
+  - fix_stringtie_annotation (default FALSE) controls importRdata's
+    fixStringTieAnnotationProblem. CONFIRMED root cause of the
+    "gene_ids or isoform_ids were not unique... removed N gene_id" warning
+    when using a clean, directly-annotated reference GTF (verified on real
+    SEPSOMICS nanopore data, 2026-07-07): with the ISAS default (TRUE), the
+    StringTie-rescue logic overwrites gene_id with a gene NAME/symbol (not
+    the ENSG id) for the majority of genes — confirmed only 7954/25191
+    surviving gene_id values were still ENSG-formatted, rest were symbols
+    (e.g. "AAAS", "ABCC1"). Gene symbols aren't guaranteed unique across the
+    genome (paralogs/pseudogenes/readthrough genes can share a symbol), so
+    genuinely different genes on different chromosomes end up sharing a
+    gene_id and get flagged/removed (1105 genes in that run). Setting
+    fix_stringtie_annotation=FALSE eliminates the warning entirely, keeps
+    100% of surviving gene_id values as proper ENSG ids, and retains MORE
+    genes overall (28427 vs 25191) since nothing is wrongly dropped. Only
+    set TRUE if gtf_path is itself a StringTie/discovery-mode annotation
+    with synthetic gene IDs (e.g. MSTRG.xxx) that actually need rescuing.
+  - NO confounder/covariate adjustment support (documented limitation, not a
+    bug): the internal design matrix only has sampleID + condition columns.
+    IsoformSwitchAnalyzeR's isoformSwitchTestDEXSeq()/isoformSwitchTestSatuRn()
+    both support additional cofactor columns (batch, sex, age, etc.) on the
+    design matrix automatically, and isoformSwitchTestDEXSeq() further supports
+    extracting confounder-corrected effect sizes (IF/dIF) via
+    correctForConfoundingFactors=TRUE — but this wrapper does not expose that
+    path. Correct for known confounders prior to calling this function.
+
+ARTEMIS_isoform_switch_consequences(switch_result, cpat_file=NULL,
+                                     signalp_file=NULL, pfam_file=NULL,
+                                     cpat_cutoff=0.725, verbose=TRUE)
+  - Optional consequence annotation layer for artemis_isoform_switch objects
+  - At least one of cpat_file/signalp_file/pfam_file must be provided
+  - Structural consequences (intron_retention, ORF_seq_similarity, NMD_status)
+    always included — no external tool needed beyond the GTF ORF annotation
+  - External tool consequences added when files provided:
+    cpat_file → coding_potential | pfam_file → domains_identified
+    signalp_file → signal_peptide_identified
+  - cpat_cutoff: human default 0.725, mouse 0.44 — no universal standard
+  - Returns updated artemis_isoform_switch with $consequence_summary
+    (sar$switchConsequence data.frame) and updated $switch_list
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -369,7 +444,8 @@ DEPENDENCIES
             cluster (for Gower distance, PAM, silhouette),
             WGCNA (for co-expression network analysis),
             decoupleR (for TF/pathway activity inference),
-            stats (for PART clustering: hclust, dist, cutree, kmeans, cor, svd)
+            stats (for PART clustering: hclust, dist, cutree, kmeans, cor, svd),
+            IsoformSwitchAnalyzeR (Bioconductor, Suggests) for isoform switch
 
 ================================================================================
 NOTES

@@ -255,6 +255,7 @@ TALOS_tune_umap <- function(sce,
                               n_pcs             = 30L,
                               knn_k             = 15L,
                               cluster_col       = "cluster",
+                              use_graph         = TRUE,
                               seed              = 42L,
                               verbose           = TRUE) {
 
@@ -262,11 +263,10 @@ TALOS_tune_umap <- function(sce,
               paste0("TALOS_run_scvi() [use_rep = '", use_rep, "']")
   .talos_check_dimred(sce, use_rep, run_fn)
 
-  rep_mat           <- reducedDim(sce, use_rep)
-  n_dims            <- if (use_rep == "PCA") min(as.integer(n_pcs), ncol(rep_mat)) else ncol(rep_mat)
-  input_mat         <- rep_mat[, seq_len(n_dims), drop = FALSE]
-  n_neighbors_range <- as.integer(n_neighbors_range)
-  knn_k             <- as.integer(knn_k)
+  rep_mat   <- reducedDim(sce, use_rep)
+  n_dims    <- if (use_rep == "PCA") min(as.integer(n_pcs), ncol(rep_mat)) else ncol(rep_mat)
+  input_mat <- rep_mat[, seq_len(n_dims), drop = FALSE]
+  knn_k     <- as.integer(knn_k)
 
   has_clusters <- cluster_col %in% names(colData(sce))
   if (!has_clusters && verbose)
@@ -276,19 +276,125 @@ TALOS_tune_umap <- function(sce,
 
   # ── Pre-compute KNN reference in representation space (once) ─────────────────
   if (verbose) cat(sprintf("  Computing KNN reference in %s space ...\n", use_rep))
-  knn_ref <- BiocNeighbors::findKNN(input_mat, k = knn_k)$index   # cells × k
+  knn_ref <- BiocNeighbors::findKNN(input_mat, k = knn_k)$index
 
+  # ── Graph-aligned mode ───────────────────────────────────────────────────────
+  # n_neighbors is fixed by the SNN graph; only min_dist is swept.
+  if (isTRUE(use_graph)) {
+    if (!requireNamespace("uwot", quietly = TRUE))
+      stop("Package 'uwot' is required for use_graph = TRUE. ",
+           "Install via: install.packages('uwot')", call. = FALSE)
+    g <- metadata(sce)$snn_graph
+    if (is.null(g))
+      stop("use_graph = TRUE requires metadata(sce)$snn_graph. ",
+           "Run TALOS_build_graph() first.", call. = FALSE)
+
+    adj   <- igraph::as_adjacency_matrix(g, attr = "weight", sparse = TRUE)
+    max_w <- max(adj@x)
+    if (max_w > 1) adj@x <- adj@x / max_w
+
+    k_graph  <- metadata(sce)$snn_k %||%
+                 as.integer(round(mean(igraph::degree(g))))
+    n_combos <- length(min_dist_range)
+
+    if (verbose)
+      cat(sprintf(
+        "── TALOS: UMAP sweep (graph-aligned) %s\n  Input      : SNN graph  |  k = %s\n  min_dist   : %s\n  Combos     : %s  (n_neighbors fixed by graph)\n%s\n",
+        strrep("─", 19),
+        k_graph,
+        paste(min_dist_range, collapse = ", "),
+        n_combos,
+        strrep("─", 56)))
+
+    results    <- vector("list", n_combos)
+    embeddings <- vector("list", n_combos)
+
+    for (i in seq_along(min_dist_range)) {
+      md <- min_dist_range[i]
+      if (verbose)
+        cat(sprintf("  (%d/%d) min_dist = %.2f ...\n", i, n_combos, md))
+
+      set.seed(seed)
+      umap_coords <- uwot::umap(
+        X            = adj,
+        n_components = 2L,
+        n_neighbors  = k_graph,
+        min_dist     = md,
+        verbose      = FALSE
+      )
+      rownames(umap_coords) <- colnames(sce)
+
+      embeddings[[i]] <- umap_coords
+      knn_ov          <- .talos_knn_overlap(knn_ref, umap_coords, knn_k)
+
+      mean_sil <- if (has_clusters) {
+        labels <- as.integer(factor(colData(sce)[[cluster_col]]))
+        if (length(unique(labels)) > 1L) {
+          sil <- cluster::silhouette(labels, dist(umap_coords))
+          mean(sil[, "sil_width"])
+        } else NA_real_
+      } else NA_real_
+
+      results[[i]] <- data.frame(
+        n_neighbors = k_graph,
+        min_dist    = md,
+        knn_overlap = round(knn_ov, 4),
+        mean_sil    = if (has_clusters) round(mean_sil, 4) else NA_real_
+      )
+    }
+
+    res_df <- do.call(rbind, results)
+    res_df$composite <- {
+      s1 <- .talos_safe_norm(res_df$knn_overlap)
+      s2 <- if (has_clusters) .talos_safe_norm(res_df$mean_sil) else rep(0, nrow(res_df))
+      if (has_clusters) (s1 + s2) / 2 else s1
+    }
+
+    best_i      <- which.max(res_df$composite)
+    best_params <- list(n_neighbors = k_graph,
+                        min_dist    = res_df$min_dist[best_i])
+
+    p <- .talos_tune_umap_graph_plot(res_df, best_params, has_clusters)
+
+    if (verbose)
+      cat(sprintf(
+        "%s\n  Best min_dist: %.2f  (composite = %.3f)\n%s\n",
+        strrep("─", 56),
+        best_params$min_dist, res_df$composite[best_i],
+        strrep("─", 56)))
+
+    return(structure(
+      list(results     = res_df,
+           embeddings  = embeddings,
+           plot        = p,
+           best_params = best_params,
+           params      = list(type              = "umap",
+                              use_rep           = use_rep,
+                              n_dims            = n_dims,
+                              n_neighbors_range = k_graph,
+                              min_dist_range    = min_dist_range,
+                              knn_k             = knn_k,
+                              cluster_col       = cluster_col,
+                              use_graph         = TRUE,
+                              seed              = seed,
+                              has_clusters      = has_clusters)),
+      class = "talos_embedding_sweep"
+    ))
+  }
+
+  # ── Default mode: independent KNN graph ──────────────────────────────────────
+  n_neighbors_range <- as.integer(n_neighbors_range)
   n_combos <- length(n_neighbors_range) * length(min_dist_range)
+
   if (verbose)
     cat(sprintf(
-      "\u2500\u2500 TALOS: UMAP sweep %s\n  n_neighbors: %s\n  min_dist   : %s\n  Input      : %s (%s dims)  |  knn_k: %s\n  Combos     : %s\n%s\n",
-      strrep("\u2500", 37),
+      "── TALOS: UMAP sweep %s\n  n_neighbors: %s\n  min_dist   : %s\n  Input      : %s (%s dims)  |  knn_k: %s\n  Combos     : %s\n%s\n",
+      strrep("─", 37),
       paste(n_neighbors_range, collapse = ", "),
       paste(min_dist_range,    collapse = ", "),
       use_rep, n_dims, knn_k, n_combos,
-      strrep("\u2500", 56)))
+      strrep("─", 56)))
 
-  # ── Sweep ────────────────────────────────────────────────────────────────────
   results    <- vector("list", n_combos)
   embeddings <- vector("list", n_combos)
   run_i      <- 0L
@@ -308,9 +414,9 @@ TALOS_tune_umap <- function(sce,
                                   min_dist    = md,
                                   name        = "UMAP_sweep")
 
-      emb_mat            <- reducedDim(sce_tmp, "UMAP_sweep")
+      emb_mat             <- reducedDim(sce_tmp, "UMAP_sweep")
       embeddings[[run_i]] <- emb_mat
-      knn_ov             <- .talos_knn_overlap(knn_ref, emb_mat, knn_k)
+      knn_ov              <- .talos_knn_overlap(knn_ref, emb_mat, knn_k)
 
       mean_sil <- if (has_clusters) {
         labels <- as.integer(factor(colData(sce_tmp)[[cluster_col]]))
@@ -330,8 +436,6 @@ TALOS_tune_umap <- function(sce,
   }
 
   res_df <- do.call(rbind, results)
-
-  # ── Composite score and best params ──────────────────────────────────────────
   res_df$composite <- {
     s1 <- .talos_safe_norm(res_df$knn_overlap)
     s2 <- if (has_clusters) .talos_safe_norm(res_df$mean_sil) else rep(0, nrow(res_df))
@@ -347,10 +451,10 @@ TALOS_tune_umap <- function(sce,
   if (verbose)
     cat(sprintf(
       "%s\n  Best combo : n_neighbors = %d, min_dist = %.2f  (composite = %.3f)\n%s\n",
-      strrep("\u2500", 56),
+      strrep("─", 56),
       best_params$n_neighbors, best_params$min_dist,
       res_df$composite[best_i],
-      strrep("\u2500", 56)))
+      strrep("─", 56)))
 
   structure(
     list(results     = res_df,
@@ -364,6 +468,7 @@ TALOS_tune_umap <- function(sce,
                             min_dist_range    = min_dist_range,
                             knn_k             = knn_k,
                             cluster_col       = cluster_col,
+                            use_graph         = FALSE,
                             seed              = seed,
                             has_clusters      = has_clusters)),
     class = "talos_embedding_sweep"
@@ -654,6 +759,36 @@ print.talos_embedding_sweep <- function(x, ...) {
   rng <- range(x, na.rm = TRUE)
   if (rng[2] - rng[1] < .Machine$double.eps) return(rep(0, length(x)))
   (x - rng[1]) / (rng[2] - rng[1])
+}
+
+
+# Line plot for UMAP sweep in graph-aligned mode (min_dist only).
+.talos_tune_umap_graph_plot <- function(res_df, best_params, has_sil) {
+  metrics    <- if (has_sil) c("knn_overlap", "mean_sil", "composite") else c("knn_overlap")
+  labels_map <- c(knn_overlap = "KNN overlap",
+                  mean_sil    = "Mean silhouette (2D)",
+                  composite   = "Composite score")
+
+  df_long <- do.call(rbind, lapply(metrics, function(m) {
+    data.frame(min_dist = res_df$min_dist,
+               metric   = labels_map[m],
+               value    = res_df[[m]])
+  }))
+  df_long$metric <- factor(df_long$metric, levels = labels_map[metrics])
+
+  ggplot(df_long, aes(x = min_dist, y = value)) +
+    geom_line(colour = "#4E79A7", linewidth = 0.8) +
+    geom_point(colour = "#4E79A7", size = 2.5) +
+    geom_vline(xintercept = best_params$min_dist,
+               linetype = "dashed", colour = "#E15759", linewidth = 0.7) +
+    facet_wrap(~ metric, scales = "free_y", ncol = 1) +
+    labs(x       = "min_dist",
+         y       = NULL,
+         title   = "UMAP min_dist sweep (graph-aligned)",
+         caption = sprintf("Red dashed: suggested min_dist = %.2f  |  n_neighbors fixed at %d",
+                           best_params$min_dist, best_params$n_neighbors)) +
+    theme_bw(base_size = 12) +
+    theme(panel.grid.minor = element_blank())
 }
 
 

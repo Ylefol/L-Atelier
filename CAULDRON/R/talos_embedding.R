@@ -90,6 +90,83 @@ TALOS_run_pca <- function(sce,
 }
 
 
+#' Harmony batch integration
+#'
+#' Corrects batch effects in the PCA embedding using Harmony, while preserving
+#' genuine biological variation. The harmonised embedding is stored in
+#' \code{reducedDims(sce)[["Harmony"]]} and is designed to be passed directly
+#' to \code{\link{TALOS_build_graph}} via \code{use_rep = "Harmony"}.
+#'
+#' Harmony iteratively finds soft cell-type clusters and removes the component
+#' of each cluster's centroid that varies across batches, leaving genuine
+#' between-condition differences intact.
+#'
+#' @param sce A \code{SingleCellExperiment} with \code{reducedDims(sce)[["PCA"]]}
+#'   populated by \code{\link{TALOS_run_pca}}.
+#' @param batch_col Character. Column in \code{colData(sce)} identifying the
+#'   batch variable. Default \code{"sample_id"}.
+#' @param n_pcs Integer. Number of PCA dimensions to pass to Harmony.
+#'   Default \code{30L}.
+#' @param theta Numeric. Diversity penalty — higher values enforce stronger
+#'   mixing across batches. Default \code{2}.
+#' @param max_iter Integer. Maximum Harmony iterations. Default \code{10L}.
+#' @param seed Integer. Random seed. Default \code{42L}.
+#' @param verbose Logical. Print progress. Default \code{TRUE}.
+#'
+#' @return SCE with \code{reducedDims(sce)[["Harmony"]]} populated (cells x
+#'   \code{n_pcs} matrix). Downstream call:
+#'   \code{TALOS_build_graph(sce, use_rep = "Harmony")}.
+#' @export
+TALOS_run_harmony <- function(sce,
+                               batch_col = "sample_id",
+                               n_pcs     = 30L,
+                               theta     = 2,
+                               max_iter  = 10L,
+                               seed      = 42L,
+                               verbose   = TRUE) {
+
+  .talos_check_dimred(sce, "PCA", "TALOS_run_pca()")
+
+  if (!batch_col %in% colnames(colData(sce)))
+    stop("'", batch_col, "' not found in colData(sce). Available: ",
+         paste(colnames(colData(sce)), collapse = ", "), call. = FALSE)
+
+  n_dims    <- min(as.integer(n_pcs), ncol(reducedDim(sce, "PCA")))
+  n_batches <- length(unique(colData(sce)[[batch_col]]))
+
+  if (isTRUE(verbose)) {
+    cat(sprintf(
+      "── TALOS: Harmony %s\n  Source  : PCA (%d dims)\n  Batch   : %s (%d levels)\n  theta   : %g | max_iter: %d\n",
+      strrep("─", 40),
+      n_dims, batch_col, n_batches,
+      theta, as.integer(max_iter)
+    ))
+  }
+
+  set.seed(seed)
+  sce <- harmony::RunHarmony(
+    object         = sce,
+    group.by.vars  = batch_col,
+    dims.use       = seq_len(n_dims),
+    theta          = theta,
+    max_iter       = as.integer(max_iter),
+    reduction.save = "Harmony",
+    verbose        = FALSE
+  )
+
+  if (isTRUE(verbose)) {
+    cat(sprintf(
+      "  Stored  : reducedDims(sce)[['Harmony']] (%s cells x %d dims)\n%s\n",
+      format(ncol(sce), big.mark = ","),
+      n_dims,
+      strrep("─", 56)
+    ))
+  }
+
+  sce
+}
+
+
 #' UMAP embedding
 #'
 #' Computes a 2-dimensional UMAP embedding from a reduced-dimension
@@ -120,35 +197,85 @@ TALOS_run_umap <- function(sce,
                             n_pcs       = 30L,
                             n_neighbors = 15L,
                             min_dist    = 0.1,
+                            use_graph   = TRUE,
                             seed        = 42L,
                             verbose     = TRUE) {
 
-  run_fn <- if (use_rep == "PCA") "TALOS_run_pca()" else
-              paste0("TALOS_run_scvi() [use_rep = '", use_rep, "']")
-  .talos_check_dimred(sce, use_rep, run_fn)
+  if (isTRUE(use_graph)) {
+    # \u2500\u2500 Graph-aligned mode \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    # Use the pre-built SNN graph from TALOS_build_graph() directly as UMAP
+    # input, bypassing uwot's internal KNN step. This ensures clustering and
+    # UMAP operate on exactly the same neighbourhood structure.
+    g <- metadata(sce)$snn_graph
+    if (is.null(g))
+      stop("use_graph = TRUE requires metadata(sce)$snn_graph. ",
+           "Run TALOS_build_graph() first.", call. = FALSE)
 
-  rep_mat <- reducedDim(sce, use_rep)
-  n_dims  <- if (use_rep == "PCA") {
-    min(as.integer(n_pcs), ncol(rep_mat))
+    if (!requireNamespace("uwot", quietly = TRUE))
+      stop("Package 'uwot' is required for use_graph = TRUE. ",
+           "Install via: install.packages('uwot')", call. = FALSE)
+
+    # Convert SNN igraph -> sparse adjacency matrix (values = SNN edge weights)
+    adj <- igraph::as_adjacency_matrix(g, attr = "weight", sparse = TRUE)
+
+    # Normalize weights to [0, 1]: scran's rank-based SNN weights can exceed 1;
+    # uwot expects affinity values in this range for fuzzy set construction.
+    max_w <- max(adj@x)
+    if (max_w > 1) adj@x <- adj@x / max_w
+
+    # Retrieve k from TALOS_build_graph(); fall back to mean graph degree.
+    k_graph <- metadata(sce)$snn_k %||%
+                as.integer(round(mean(igraph::degree(g))))
+
+    set.seed(seed)
+    umap_coords <- uwot::umap(
+      X            = adj,
+      n_components = 2L,
+      n_neighbors  = k_graph,
+      min_dist     = min_dist,
+      verbose      = FALSE
+    )
+    rownames(umap_coords) <- colnames(sce)
+    colnames(umap_coords) <- c("UMAP1", "UMAP2")
+    reducedDim(sce, "UMAP") <- umap_coords
+
+    if (isTRUE(verbose))
+      cat(sprintf(
+        "\u2500\u2500 TALOS: UMAP %s\n  Input      : SNN graph (metadata(sce)$snn_graph)\n  Graph mode : TRUE \u2014 aligned with TALOS_build_graph()\n  k (graph)  : %s  |  min_dist: %s\n  Stored as  : reducedDims(sce)[[\"UMAP\"]]\n%s\n",
+        strrep("\u2500", 43),
+        k_graph, min_dist,
+        strrep("\u2500", 56)
+      ))
+
   } else {
-    ncol(rep_mat)
+    # \u2500\u2500 Default mode: independent KNN graph \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    run_fn <- if (use_rep == "PCA") "TALOS_run_pca()" else
+                paste0("TALOS_run_scvi() [use_rep = '", use_rep, "']")
+    .talos_check_dimred(sce, use_rep, run_fn)
+
+    rep_mat <- reducedDim(sce, use_rep)
+    n_dims  <- if (use_rep == "PCA") {
+      min(as.integer(n_pcs), ncol(rep_mat))
+    } else {
+      ncol(rep_mat)
+    }
+
+    set.seed(seed)
+    sce <- scater::runUMAP(sce,
+                            dimred      = use_rep,
+                            n_dimred    = n_dims,
+                            n_neighbors = as.integer(n_neighbors),
+                            min_dist    = min_dist,
+                            name        = "UMAP")
+
+    if (isTRUE(verbose))
+      cat(sprintf(
+        "\u2500\u2500 TALOS: UMAP %s\n  Input      : %s (%s dims)\n  n_neighbors: %s  |  min_dist: %s\n  Stored as  : reducedDims(sce)[[\"UMAP\"]]\n%s\n",
+        strrep("\u2500", 43),
+        use_rep, n_dims, n_neighbors, min_dist,
+        strrep("\u2500", 56)
+      ))
   }
-
-  set.seed(seed)
-  sce <- scater::runUMAP(sce,
-                          dimred      = use_rep,
-                          n_dimred    = n_dims,
-                          n_neighbors = as.integer(n_neighbors),
-                          min_dist    = min_dist,
-                          name        = "UMAP")
-
-  if (isTRUE(verbose))
-    cat(sprintf(
-      "\u2500\u2500 TALOS: UMAP %s\n  Input      : %s (%s dims)\n  n_neighbors: %s  |  min_dist: %s\n  Stored as  : reducedDims(sce)[[\"UMAP\"]]\n%s\n",
-      strrep("\u2500", 43),
-      use_rep, n_dims, n_neighbors, min_dist,
-      strrep("\u2500", 56)
-    ))
 
   sce
 }

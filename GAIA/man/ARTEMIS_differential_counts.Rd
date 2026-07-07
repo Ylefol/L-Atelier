@@ -5,40 +5,23 @@
 \title{Differential Analysis for Count Data}
 \usage{
 ARTEMIS_differential_counts(
-  quant_result,
+  norm_data,
   reference,
   experiment,
-  group_col = "group",
-  batch_col = NULL,
   alpha = 0.05,
   verbose = TRUE
 )
 }
 \arguments{
-\item{quant_result}{Either:
-\itemize{
-\item A quantification result list with \code{counts} (raw integer matrix)
-and \code{targets} (sample metadata), optionally \code{annotation}
-\item An \code{artemis_norm} object from \code{ARTEMIS_normalize_counts()}.
-When using pre-normalized data, the function subsets to the two groups
-while preserving the size factors estimated on the full dataset.
-}}
+\item{norm_data}{An \code{artemis_norm} object from
+\code{ARTEMIS_normalize_counts()}. Size factors and batch correction
+settings are inherited from this object.}
 
 \item{reference}{Character. The reference/baseline group label (e.g., "WT").
 This is the denominator in fold change calculations.}
 
 \item{experiment}{Character. The experimental/comparison group label
 (e.g., "KO"). This is the numerator in fold change calculations.}
-
-\item{group_col}{Character. Column name in targets containing group labels
-(default = "group"). Ignored if quant_result is artemis_norm (uses stored value).}
-
-\item{batch_col}{Character or NULL. Optional column name for a single
-blocking variable to include in the design formula as \code{~ batch_col + group}
-(default = NULL). Accepts any sample metadata column — batch, clone, tech_rep, etc.
-Ignored if quant_result is artemis_norm (uses stored value).
-\strong{Limitation:} only one blocking variable is supported. Multi-variable
-designs (e.g., \code{~ batch + clone + group}) are not yet implemented.}
 
 \item{alpha}{Numeric. FDR threshold for summary statistics (default = 0.05).}
 
@@ -48,8 +31,7 @@ designs (e.g., \code{~ batch + clone + group}) are not yet implemented.}
 A list containing:
 \describe{
 \item{results}{Data.frame with per-feature DESeq2 results: feature_id,
-(annotation columns if available), baseMean, log2FoldChange, lfcSE,
-stat, pvalue, padj}
+baseMean, log2FoldChange, lfcSE, stat, pvalue, padj}
 \item{dds}{The DESeqDataSet object for further analysis}
 \item{summary}{List with summary statistics: n_features, n_sig_up,
 n_sig_down, n_tested, alpha}
@@ -59,68 +41,33 @@ n_sig_down, n_tested, alpha}
 }
 \description{
 Performs differential analysis on count data using DESeq2.
-Works with any count-based data: RNA-seq, ATAC-seq, CUT&TAG, ChIP-seq, etc.
+Requires an \code{artemis_norm} object from \code{ARTEMIS_normalize_counts()}
+as input, ensuring size factors and batch correction are set consistently
+across all comparisons before any DEA is run.
 }
 \details{
-This function supports two workflows:
-
-\strong{Single comparison:} Pass raw counts directly. Size factors are
-estimated on the two groups being compared.
-
-\strong{Multiple comparisons:} First call \code{ARTEMIS_normalize_counts()}
-on the full dataset, then pass the result to this function for each pairwise
-comparison. This ensures consistent size factors across all comparisons.
-
-The function:
-\enumerate{
-\item Validates that exactly two groups are present (subsets if using artemis_norm)
-\item Validates that both groups have at least 2 replicates
-\item Creates DESeq2 dataset with design ~ group (or ~ batch + group)
-\item Runs DESeq2 with default settings
-\item Returns per-feature statistics with multiple testing correction
-}
-
-The reference level is set so that positive log2FC means higher in experiment
-compared to reference.
-}
-\section{Data Types}{
-
-This function is designed to work with any count-based quantification:
+Always call \code{ARTEMIS_normalize_counts()} on the full dataset first, then
+pass the result here for each pairwise comparison. This ensures:
 \itemize{
-\item RNA-seq gene/transcript counts
-\item ATAC-seq counts at peaks/regions
-\item CUT&TAG/ChIP-seq counts at binding sites
-\item Any other integer count matrix
-}
+\item Size factors are estimated on all samples, not just the two being compared
+\item Batch correction is configured in one place and applied consistently
+\item Normalized counts are available for visualization before running DEA
 }
 
+The function subsets to the two groups of interest, preserves the pre-computed
+size factors, estimates dispersions, and runs the Wald test. Positive log2FC
+means higher in experiment relative to reference.
+}
 \examples{
 \dontrun{
-# Single comparison (size factors estimated on these two groups)
-de_result <- ARTEMIS_differential_counts(
-  quant_result,
-  reference = "WT",
-  experiment = "KO"
-)
+# Step 1: Normalize full dataset (with optional batch correction)
+norm_data <- ARTEMIS_normalize_counts(counts, sample_sheet, batch_col = "batch")
 
-# Multiple comparisons from same experiment (recommended)
-# Step 1: Normalize full dataset once
-norm_data <- ARTEMIS_normalize_counts(counts, sample_sheet)
-
-# Step 2: Run each comparison (uses pre-computed size factors)
-dea_A_vs_B <- ARTEMIS_differential_counts(norm_data, "B", "A")
-dea_C_vs_B <- ARTEMIS_differential_counts(norm_data, "B", "C")
-
-# With batch correction
-result <- ARTEMIS_differential_counts(
-  counts_data,
-  reference = "WT",
-  experiment = "KO",
-  batch_col = "batch"
-)
+# Step 2: Run each pairwise comparison
+dea_KO_vs_WT  <- ARTEMIS_differential_counts(norm_data, "WT", "KO")
+dea_OE_vs_WT  <- ARTEMIS_differential_counts(norm_data, "WT", "OE")
 
 # View significant features
-sig_features <- subset(result$results, padj < 0.05)
-
+sig_features <- subset(dea_KO_vs_WT$results, padj < 0.05)
 }
 }

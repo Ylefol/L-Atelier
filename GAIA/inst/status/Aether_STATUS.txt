@@ -1,7 +1,7 @@
 ================================================================================
 AETHER MODULE STATUS - Visualization
 ================================================================================
-Last Updated: 2026-02-16
+Last Updated: 2026-07-07
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -88,6 +88,38 @@ AETHER_plot_fc_vs_signal(shift_result, fc_threshold, n_label, title)
   - Fold change vs mean signal strength plot
   - Identifies if high/low signal regions behave differently
   - Labels most extreme points
+
+isoform_switch_plots.R:
+-----------------------
+AETHER_plot_isoform_switch_volcano(switch_result, label_col, genes_of_interest,
+                                    show_non_sig_interest, label_top_n, q_col,
+                                    dIF_cutoff, alpha, title, colors,
+                                    point_size, point_alpha)
+  - Volcano plot (dIF vs -log10(q-value)) for artemis_isoform_switch objects
+    (from ARTEMIS_isoform_switch())
+  - Four categories: up (increased usage), down (decreased usage), low_dIF
+    (significant but below dIF_cutoff), non_sig
+  - dIF_cutoff/alpha default to switch_result$params values if NULL
+  - q_col: "isoform_switch_q_value" (default) or "gene_switch_q_value"
+  - Same labeling conventions as AETHER_plot_volcano (genes_of_interest,
+    label_top_n via ggrepel)
+
+AETHER_plot_isoform_switch_gene(switch_result, gene_id, isoform_id, IF_cutoff,
+                                 dIF_cutoff, alphas, ...)
+  - Thin wrapper around IsoformSwitchAnalyzeR::switchPlot() for
+    artemis_isoform_switch objects
+  - Fills in condition1/condition2 from switch_result$params$reference/
+    $experiment (matches ARTEMIS_isoform_switch()'s internal
+    comparisonsToMake orientation) and dIFcutoff/alphas from
+    switch_result$params$dIF_cutoff/$alpha (both overridable)
+  - gene_id XOR isoform_id required; validated against
+    switch_result$isoform_results before calling switchPlot() for a clear
+    error on typos/pre-filtered genes (gene name/symbol not supported, only
+    gene_id)
+  - switchPlot() draws its composite plot directly to the current graphics
+    device (grid viewports) as a side effect — not a single combinable
+    ggplot object; this wrapper returns its result invisibly
+  - IN PROGRESS: summary bar plot planned for this file, not yet implemented
 
 enrichment_plots.R:
 -------------------

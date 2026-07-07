@@ -32,14 +32,10 @@ used for Olink data is appropriate.
 
 Also removes rows with no primary protein identifier (the first column of
 \code{$protein_meta} is \code{NA}) before applying the missingness
-threshold. Some search engine report exports (e.g. DIA-NN) append
-summary-statistic rows to the bottom of the table -- e.g. "Sum
-intensities", "Number of valid values" -- which are per-sample QC
-statistics about the search itself, not protein measurements.
-\code{ELEUTHIA_load_massspec()} assigns these a row-indexed placeholder
-rowname so the matrix stays valid, but preserves the true \code{NA} in
-\code{$protein_meta}'s identifier column, which is what this function
-checks.
+threshold. \code{ELEUTHIA_load_massspec()} already drops DIA-NN summary
+rows (e.g. "Sum intensities", "Number of valid values") at load time, so
+this check acts as a secondary safety net for \code{massspec_data} objects
+constructed outside of \code{ELEUTHIA_load_massspec()}.
 }
 \examples{
 \dontrun{

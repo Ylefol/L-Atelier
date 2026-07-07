@@ -151,7 +151,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   # ---------------------------------------------------------------------------
   # Check required columns
   # ---------------------------------------------------------------------------
-  base_required <- c("file_loc", "file_name", "group", "omics", "format", "bed_loc")
+  base_required <- c("file_loc", "file_name", "group", "omics", "format")
   extra_required <- if (cohort_mode) character(0) else c("bio_rep", "tech_rep", "batch")
   required_cols  <- c(base_required, extra_required)
 
@@ -230,14 +230,20 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
     }
   }
 
-  # bed_loc can be NA for counts format
+  # bed_loc is required only for peaks/bed formats
   needs_bed <- sample_sheet$format %in% c("peaks", "bed")
-  bed_missing <- needs_bed & (is.na(sample_sheet$bed_loc) |
-                               trimws(sample_sheet$bed_loc) == "" |
-                               sample_sheet$bed_loc == "NA")
-  if (any(bed_missing)) {
-    errors <- c(errors, paste("bed_loc is required for peaks/bed formats but missing for",
-                              sum(bed_missing), "row(s)"))
+  if (any(needs_bed)) {
+    if (!"bed_loc" %in% colnames(sample_sheet)) {
+      errors <- c(errors, "bed_loc column is required when format is 'peaks' or 'bed'")
+    } else {
+      bed_missing <- needs_bed & (is.na(sample_sheet$bed_loc) |
+                                   trimws(sample_sheet$bed_loc) == "" |
+                                   sample_sheet$bed_loc == "NA")
+      if (any(bed_missing)) {
+        errors <- c(errors, paste("bed_loc is required for peaks/bed formats but missing for",
+                                  sum(bed_missing), "row(s)"))
+      }
+    }
   }
 
   # ---------------------------------------------------------------------------
@@ -261,7 +267,7 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
   # ---------------------------------------------------------------------------
   # Check quantification BED file existence
   # ---------------------------------------------------------------------------
-  if (check_files && check_beds && length(errors) == 0) {
+  if (check_files && check_beds && length(errors) == 0 && "bed_loc" %in% colnames(sample_sheet)) {
     if (verbose) cat("[ELEUTHIA] Checking quantification BED file paths...\n")
 
     bed_rows <- which(sample_sheet$format %in% c("peaks", "bed"))

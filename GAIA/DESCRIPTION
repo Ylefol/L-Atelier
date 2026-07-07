@@ -78,5 +78,6 @@ Suggests:
     GO.db,
     arrow,
     readxl,
+    IsoformSwitchAnalyzeR,
     testthat (>= 3.0.0)
 Config/roxygen2/version: 8.0.0

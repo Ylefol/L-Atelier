@@ -1,21 +1,54 @@
 ================================================================================
 KERAUNOS STATUS - Differential Expression & Gene Set Enrichment
 ================================================================================
-Last Updated: 2026-03-10
+Last Updated: 2026-06-30
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
 keraunos_expression.R:
 ----------------------
+KERAUNOS_fetch_marker_genes(source=c("C8","PanglaoDB"), species="Homo sapiens",
+                             tissue=NULL, path=NULL, verbose=TRUE)
+  - Retrieves all gene symbols annotated as cell type markers in a curated database
+  - source="C8": MSigDB collection C8 via msigdbr (~15,000 genes in human); aggregates
+    PanglaoDB, CellMarker, DICE, Blueprint, Monaco, HPCA gene sets
+  - source="PanglaoDB": reads local TSV file (no R package required — panglaodb is
+    unmaintained); default path= data/PanglaoDB_markers.tsv relative to getwd();
+    supports tissue= filter (e.g. tissue="Brain");
+    species="Hs"/"Mm"/"both" or full species name ("Homo sapiens" → "Hs")
+  - Returns: sorted character vector of unique gene symbols
+  - Use with restrict_to= in KERAUNOS_score_markers() to filter out lncRNAs,
+    ribosomal genes, and housekeeping genes from reported markers
+
+KERAUNOS_score_markers(sce, cluster_col="cluster", assay_name="logcounts",
+                        block_col=NULL, restrict_to=NULL, min_auc=0.5,
+                        top_n=10L, verbose=TRUE)
+  - RECOMMENDED for cell type annotation: effect-size scoring via scran::scoreMarkers()
+  - No p-values — avoids inflation from non-independence of single cells
+  - Returns per-gene pairwise effect sizes: median.AUC, rank.AUC, median.logFC.cohen, etc.
+  - rank.AUC: minimum rank across all pairwise AUC comparisons (lower = better discriminator)
+  - min_auc: filter genes below median.AUC threshold (0.5 = random; 1.0 = perfect)
+  - block_col: optional sample/batch blocking to control for confounders
+  - restrict_to: optional character vector (from KERAUNOS_fetch_marker_genes()) —
+    limits $top to known marker genes only; $markers list retains all genes
+  - Returns keraunos_markers (fully ASPIS-compatible):
+      $markers — named list of scoreMarkers DataFrames per cluster (all genes)
+      $top     — tidy top-N table: cluster/gene/Top(=rank.AUC)/median_auc/mean_effect/FDR(=NA)
+      $params  — parameters; $params$method = "scoreMarkers"
+
 KERAUNOS_find_markers(sce, cluster_col="cluster", assay_name="logcounts",
                        test_type="wilcox", pval_type="any", direction="up",
-                       min_prop=0.5, top_n=10L, fdr_threshold=0.05, verbose=TRUE)
+                       min_prop=0.5, block_col=NULL, top_n=10L,
+                       fdr_threshold=0.05, verbose=TRUE)
   - Pairwise cluster marker identification via scran::findMarkers()
+  - Use when p-values/FDR are needed (e.g. stringent filtering); prefer
+    KERAUNOS_score_markers() for annotation
   - test_type: "wilcox" (default; AUC effect size), "t" (logFC), "binom"
   - pval_type: "any" (significant in any pairwise comparison; most permissive),
     "some" (>= min_prop), "all" (all comparisons; most stringent)
   - direction: "up" (default — upregulated markers), "down", "any"
+  - block_col: optional colData column for sample/batch blocking
   - Returns keraunos_markers: $markers (named list of DataFrames per cluster),
     $top (tidy top-N table: cluster/gene/Top/p.value/FDR/mean_effect), $params
   - mean_effect: mean AUC across pairwise comps (wilcox) or mean logFC (t)
@@ -150,7 +183,9 @@ PLANNED / TODO
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- scran (Imports): findMarkers — used by find_markers and contrast_groups
+- scran (Imports): findMarkers, scoreMarkers — used by find_markers, score_markers, contrast_groups
+- PanglaoDB (source="PanglaoDB"): reads local TSV at data/PanglaoDB_markers.tsv — no R package
+  needed. Download from https://panglaodb.se/markers.html
 - DESeq2 (Suggests): de_pseudobulk; accessed via requireNamespace() + DESeq2::
 - fgsea (Suggests): gsea; accessed via requireNamespace() + fgsea::
 - gprofiler2 (Suggests): ora; accessed via requireNamespace() + gprofiler2::
@@ -160,6 +195,7 @@ DEPENDENCIES / NOTES
   KERAUNOS_contrast_groups() is cell-level (quick/exploratory only).
 - ggrepel (Suggests): gene labels on volcano/MA plots in export_de
 - ORA uses gprofiler2 (consistent with GAIA's ARTEMIS module); GSEA uses fgsea.
+- Internal helpers: .keraunos_extract_top() (findMarkers), .keraunos_extract_top_score() (scoreMarkers), %||% operator
 - S3 classes: keraunos_markers, keraunos_contrast, keraunos_pseudobulk,
   keraunos_gsea, keraunos_gsea_multi, keraunos_ora, keraunos_ora_multi
   — all have print() methods

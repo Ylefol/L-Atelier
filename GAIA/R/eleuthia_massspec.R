@@ -41,28 +41,34 @@
 #' }
 #'
 #' @details
-#' \strong{Sample ID parsing:} DIA-NN encodes sample paths as column names
-#' (e.g. \code{E:\\DATA\\plate1\\SEP101-7_S1-B5_1_6544.d}). The parser strips
-#' the directory prefix and the well/run suffix (\code{_S<N>...}) to extract
-#' the meaningful identifier (\code{SEP101-7}).
+#' \strong{Expected input format:} Column names must follow the standardised
+#' convention produced by the project's \code{prep_MS_data.R} script:
+#' \code{{SampleID}_Plate {N}} (e.g. \code{"1027_Plate 1"},
+#' \code{"SEP001-3_Plate 7"}, \code{"pool1_Plate 12"}). Raw DIA-NN file paths
+#' are not supported; data must be prepared through \code{prep_MS_data.R} first.
 #'
-#' \strong{Plate parsing:} \code{PlateID} is taken from the immediate parent
-#' directory of each sample's file path (e.g. \code{.../plate_1/sample.d} ->
-#' \code{"plate_1"}). Flat column names with no directory component (e.g.
-#' some non-DIA-NN exports) yield \code{NA}. Unlike sample type, this works
-#' the same way for every sample (including pools/controls), since it does
-#' not depend on a metadata join.
+#' \strong{Sample ID parsing:} \code{PlateID} is extracted from the
+#' \code{_Plate N} suffix; \code{SampleID} is everything before it. Column
+#' names that do not match the \code{_Plate N} suffix pattern yield
+#' \code{PlateID = NA} and \code{SampleID = original column name}.
 #'
 #' \strong{Sample type classification:}
 #' \itemize{
-#'   \item \code{"SAMPLE"} — numeric IDs only (e.g. 1027, 688). These match the
-#'     Olink SampleID and have metadata available.
-#'   \item \code{"SEP_SAMPLE"} — \code{SEP###-#} biological samples without
-#'     metadata in the current metadata file. Excluded by default in
-#'     \code{HADES_filter_massspec()}.
-#'   \item \code{"CONTROL"} — \code{SEP_CTR_*} QC control samples.
-#'   \item \code{"POOL"} — pooled QC samples (\code{pool*}).
-#'   \item \code{"OTHER"} — anything else.
+#'   \item \code{"SAMPLE"} — any biological sample with a recognised SampleID
+#'     pattern: pure numeric IDs (e.g. \code{1027}), \code{SEP###-#}
+#'     longitudinal samples (e.g. \code{SEP001-3}), and \code{SEP_CTR_*}
+#'     control samples. All three map to \code{"SAMPLE"} because their
+#'     biological distinction (group, timepoint, cohort) is captured in the
+#'     metadata via the \code{Group} column — SampleType does not need to
+#'     re-encode it.
+#'   \item \code{"POOL"} — pooled QC injections (\code{pool*}). Present on
+#'     every plate for batch drift monitoring. No metadata entry.
+#'   \item \code{"OTHER"} — any column whose parsed SampleID does not match
+#'     any of the above patterns. Most commonly caused by samples that were
+#'     not renamed via \code{prep_MS_data.R}, ad-hoc sub-cohort naming, or
+#'     samples intentionally absent from the metadata file. These columns
+#'     cannot be joined to metadata and are dropped by
+#'     \code{HADES_filter_massspec()} by default.
 #' }
 #'
 #' \strong{Log2 transformation:} Raw DIA intensities are on a linear scale.
@@ -160,43 +166,66 @@ ELEUTHIA_load_massspec <- function(ms_file,
 
   raw_col_names <- colnames(raw)[sample_idx]
 
-  # Strip directory prefix (handles both \ and /)
-  parsed_ids <- sub(".*[/\\\\]", "", raw_col_names)
-  # Strip well/run suffix: _S<digit>... (e.g. _S1-B5_1_6544.d)
-  parsed_ids <- sub("_S[0-9]+[-_].*", "", parsed_ids)
-  # Strip trailing .d if not caught above (plain .d files)
-  parsed_ids <- sub("\\.d$", "", parsed_ids, ignore.case = TRUE)
+  # Parse SampleID and PlateID from standardised column names.
+  # Expected format: {SampleID}_Plate {N}
+  # e.g. "1027_Plate 1", "SEP001-3_Plate 7", "pool1_Plate 12"
+  has_plate  <- grepl("_Plate [0-9]+$", raw_col_names)
+  plate_ids  <- ifelse(has_plate,
+                       sub(".*_(Plate [0-9]+)$", "\\1", raw_col_names),
+                       NA_character_)
+  parsed_ids <- ifelse(has_plate,
+                       sub("_Plate [0-9]+$", "", raw_col_names),
+                       raw_col_names)
 
-  # Parse PlateID from the immediate parent directory of the path (e.g.
-  # ".../plate_1/897_S1-C7_1_6529.d" -> "plate_1"). Column names with no
-  # directory component (flat exports) yield NA.
-  plate_norm <- gsub("\\\\", "/", raw_col_names)
-  plate_ids  <- basename(dirname(plate_norm))
-  plate_ids[plate_ids %in% c(".", "")] <- NA_character_
+  if (verbose && any(!has_plate))
+    cat("[ELEUTHIA]   Warning:", sum(!has_plate),
+        "column(s) do not match the '{SampleID}_Plate N' convention — PlateID set to NA\n")
 
-  # Deduplicate: pool runs and repeated samples produce the same parsed ID
   if (anyDuplicated(parsed_ids)) {
     n_duped    <- sum(duplicated(parsed_ids))
     parsed_ids <- make.unique(parsed_ids, sep = "_")
     if (verbose)
       cat("[ELEUTHIA]   Deduplicated", n_duped,
-          "repeated sample IDs (pool runs etc.) with make.unique()\n")
+          "repeated sample IDs with make.unique()\n")
   }
 
   # ---------------------------------------------------------------------------
   # Classify sample types
   # ---------------------------------------------------------------------------
 
-  sample_type <- ifelse(grepl("^SEP_CTR", parsed_ids),                 "CONTROL",
-                 ifelse(grepl("^pool", parsed_ids, ignore.case = TRUE), "POOL",
-                 ifelse(grepl("^SEP[0-9]+-", parsed_ids),               "SEP_SAMPLE",
-                 ifelse(grepl("^[0-9]+$", parsed_ids),                   "SAMPLE",
-                                                                         "OTHER"))))
+  is_pool   <- grepl("^pool", parsed_ids, ignore.case = TRUE)
+  is_sample <- grepl("^[0-9]+$", parsed_ids) |
+               grepl("^SEP[0-9]+-", parsed_ids) |
+               grepl("^SEP_CTR", parsed_ids)
+
+  sample_type <- ifelse(is_pool,   "POOL",
+                 ifelse(is_sample, "SAMPLE",
+                                   "OTHER"))
 
   type_tbl <- table(sample_type)
   if (verbose) {
     cat("[ELEUTHIA]   Sample types: ",
         paste(names(type_tbl), type_tbl, sep = "=", collapse = ", "), "\n")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Drop rows with no primary protein identifier
+  # DIA-NN appends summary-statistic rows (e.g. "Sum intensities",
+  # "Number of valid values") with empty Protein.Group fields. These are
+  # per-run QC statistics, not protein measurements, and must be excluded
+  # before matrix construction. Gene ID is intentionally not used here:
+  # valid proteins may lack a gene symbol (e.g. immunoglobulin constant
+  # regions), but every real protein row has a Protein.Group accession.
+  # ---------------------------------------------------------------------------
+
+  protein_id_col <- colnames(raw)[annot_idx[1L]]
+  valid_prot     <- !is.na(raw[[protein_id_col]]) &
+                    nzchar(trimws(as.character(raw[[protein_id_col]])))
+  if (any(!valid_prot)) {
+    if (verbose)
+      cat("[ELEUTHIA]   Dropped", sum(!valid_prot),
+          "row(s) with no Protein.Group identifier (DIA-NN summary rows)\n")
+    raw <- raw[valid_prot, , drop = FALSE]
   }
 
   # ---------------------------------------------------------------------------
@@ -216,17 +245,7 @@ ELEUTHIA_load_massspec <- function(ms_file,
   wide_mat <- log2(wide_mat)
 
   # Rownames: use first annotation column as protein ID (Protein.Group)
-  protein_id_col <- colnames(raw)[annot_idx[1L]]
-  prot_ids       <- as.character(raw[[protein_id_col]])
-  # Replace NA protein IDs (rare in some DIA-NN outputs) with row placeholders
-  na_prot <- is.na(prot_ids)
-  if (any(na_prot)) {
-    prot_ids[na_prot] <- paste0("unknown_protein_", which(na_prot))
-    if (verbose)
-      cat("[ELEUTHIA]   Replaced", sum(na_prot),
-          "NA Protein.Group entries with row-indexed placeholders\n")
-  }
-  # Ensure unique rownames
+  prot_ids <- as.character(raw[[protein_id_col]])
   if (anyDuplicated(prot_ids))
     prot_ids <- make.unique(prot_ids, sep = "_dup")
   rownames(wide_mat) <- prot_ids
@@ -297,6 +316,8 @@ ELEUTHIA_load_massspec <- function(ms_file,
       cat("[ELEUTHIA]   Joined", length(new_cols), "metadata columns;",
           n_matched, "of", nrow(sample_meta), "samples matched\n")
   }
+
+  rownames(sample_meta) <- sample_meta[[sample_col]]
 
   # ---------------------------------------------------------------------------
   # Assemble output

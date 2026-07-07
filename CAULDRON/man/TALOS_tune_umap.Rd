@@ -12,6 +12,7 @@ TALOS_tune_umap(
   n_pcs = 30L,
   knn_k = 15L,
   cluster_col = "cluster",
+  use_graph = TRUE,
   seed = 42L,
   verbose = TRUE
 )

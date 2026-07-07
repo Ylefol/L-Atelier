@@ -83,6 +83,10 @@
 #'   \code{"down"}, or \code{"any"}.
 #' @param min_prop Numeric. Minimum proportion of comparisons required when
 #'   \code{pval_type = "some"}. Default \code{0.5}.
+#' @param block_col Character or \code{NULL}. \code{colData} column to use as a
+#'   blocking factor (e.g. sample ID).  When provided, each pairwise comparison
+#'   is stratified by block, controlling for batch or sample effects.
+#'   Default \code{NULL} (no blocking).
 #' @param top_n Integer. Maximum number of top markers per cluster in the tidy
 #'   summary table. Default \code{10L}.
 #' @param fdr_threshold Numeric. FDR cut-off for the tidy summary table.
@@ -105,6 +109,7 @@ KERAUNOS_find_markers <- function(sce,
                                    pval_type     = c("any", "some", "all"),
                                    direction     = c("up", "down", "any"),
                                    min_prop      = 0.5,
+                                   block_col     = NULL,
                                    top_n         = 10L,
                                    fdr_threshold = 0.05,
                                    verbose       = TRUE) {
@@ -119,13 +124,18 @@ KERAUNOS_find_markers <- function(sce,
   if (!cluster_col %in% names(colData(sce)))
     stop("cluster_col '", cluster_col, "' not found in colData(sce).",
          call. = FALSE)
+  if (!is.null(block_col) && !block_col %in% names(colData(sce)))
+    stop("block_col '", block_col, "' not found in colData(sce).", call. = FALSE)
 
   clusters   <- colData(sce)[[cluster_col]]
   n_clusters <- length(unique(clusters))
+  block      <- if (!is.null(block_col)) colData(sce)[[block_col]] else NULL
 
   if (isTRUE(verbose))
     cat("Finding markers across ", n_clusters, " clusters (",
-            test_type, " test, pval_type=", pval_type, ")...")
+            test_type, " test, pval_type=", pval_type,
+            if (!is.null(block_col)) paste0(", blocked by ", block_col) else "",
+            ")...")
 
   markers_list <- scran::findMarkers(
     sce,
@@ -134,7 +144,8 @@ KERAUNOS_find_markers <- function(sce,
     test.type  = test_type,
     pval.type  = pval_type,
     direction  = direction,
-    min.prop   = min_prop
+    min.prop   = min_prop,
+    block      = block
   )
 
   top_df <- .keraunos_extract_top(markers_list, as.integer(top_n),
@@ -166,7 +177,9 @@ KERAUNOS_find_markers <- function(sce,
         cluster_col = cluster_col, assay_name = assay_name,
         test_type = test_type, pval_type = pval_type,
         direction = direction, min_prop = min_prop,
-        top_n = top_n, fdr_threshold = fdr_threshold
+        block_col = block_col,
+        top_n = top_n, fdr_threshold = fdr_threshold,
+        method = "findMarkers"
       )
     ),
     class = "keraunos_markers"
@@ -176,11 +189,356 @@ KERAUNOS_find_markers <- function(sce,
 #' @export
 print.keraunos_markers <- function(x, ...) {
   cat("keraunos_markers object\n")
+  cat("  Method    :", x$params$method %||% "findMarkers", "\n")
   cat("  Clusters  :", length(x$markers), "\n")
-  cat("  Top genes :", nrow(x$top), "rows (top", x$params$top_n,
-      "per cluster at FDR <", x$params$fdr_threshold, ")\n")
+  if (identical(x$params$method, "scoreMarkers")) {
+    cat("  Top genes :", nrow(x$top), "rows (top", x$params$top_n,
+        "per cluster, median AUC >=", x$params$min_auc, ")\n")
+  } else {
+    cat("  Top genes :", nrow(x$top), "rows (top", x$params$top_n,
+        "per cluster at FDR <", x$params$fdr_threshold, ")\n")
+  }
   cat("  Access    : $markers (list), $top (data.frame), $params\n")
   invisible(x)
+}
+
+
+# ==============================================================================
+# Annotation-focused marker scoring
+# ==============================================================================
+
+# Internal helper: extract top-N genes per cluster from scran::scoreMarkers() output.
+# restrict_to: optional character vector — only genes in this set are considered.
+.keraunos_extract_top_score <- function(score_list, top_n, min_auc,
+                                         restrict_to = NULL) {
+  rows <- lapply(names(score_list), function(cl) {
+    df         <- as.data.frame(score_list[[cl]])
+    df$gene    <- rownames(df)
+    df$cluster <- cl
+
+    if (!is.null(restrict_to))
+      df <- df[df$gene %in% restrict_to, , drop = FALSE]
+
+    if (!is.null(min_auc) && "median.AUC" %in% names(df))
+      df <- df[!is.na(df$median.AUC) & df$median.AUC >= min_auc, , drop = FALSE]
+
+    if (nrow(df) == 0L) return(NULL)
+
+    if ("rank.AUC" %in% names(df) && "median.AUC" %in% names(df))
+      df <- df[order(df$rank.AUC, -df$median.AUC), , drop = FALSE]
+
+    if (nrow(df) > top_n) df <- df[seq_len(top_n), , drop = FALSE]
+
+    data.frame(
+      cluster     = df$cluster,
+      gene        = df$gene,
+      Top         = if ("rank.AUC"   %in% names(df)) df$rank.AUC   else NA_integer_,
+      median_auc  = if ("median.AUC" %in% names(df)) df$median.AUC else NA_real_,
+      mean_effect = if ("median.AUC" %in% names(df)) df$median.AUC else NA_real_,
+      FDR         = NA_real_,
+      stringsAsFactors = FALSE
+    )
+  })
+  out <- do.call(rbind, Filter(Negate(is.null), rows))
+  if (!is.null(out) && nrow(out) > 0L) rownames(out) <- NULL
+  out
+}
+
+`%||%` <- function(a, b) if (!is.null(a)) a else b
+
+
+#' Annotation-focused cluster marker scoring
+#'
+#' Scores cluster markers using pairwise effect sizes via
+#' \code{scran::scoreMarkers()}.  Unlike \code{\link{KERAUNOS_find_markers}},
+#' this function does not compute p-values; instead it returns AUC and Cohen's d
+#' summaries across all pairwise cluster comparisons.  This is the recommended
+#' approach when the goal is cell type annotation rather than hypothesis testing,
+#' as p-values from single-cell tests are heavily inflated due to non-independence
+#' of cells.
+#'
+#' Genes are ranked by \code{rank.AUC} (the minimum rank across all pairwise
+#' AUC comparisons — lower is better) and filtered by \code{min_auc}
+#' (\code{median.AUC >= min_auc} across pairwise comparisons, where 0.5 = random
+#' and 1.0 = perfect classifier).
+#'
+#' The returned object is a \code{keraunos_markers} and is fully compatible with
+#' \code{ASPIS_plot_marker_dotplot()} and \code{ASPIS_plot_marker_heatmap()}.
+#'
+#' @param sce A \code{SingleCellExperiment} with a \code{logcounts} (or other)
+#'   assay.
+#' @param cluster_col Character. \code{colData} column with cluster labels.
+#'   Default \code{"cluster"}.
+#' @param assay_name Character. Assay to score. Default \code{"logcounts"}.
+#' @param block_col Character or \code{NULL}. \code{colData} column to use as a
+#'   blocking factor (e.g. sample ID).  Stratifies each pairwise comparison by
+#'   block, controlling for batch or sample effects.  Default \code{NULL}.
+#' @param restrict_to Character vector or \code{NULL}.  When provided, only genes
+#'   present in this set are considered when building the tidy \code{$top} table.
+#'   The full \code{$markers} list is unaffected (all genes are scored).  Use
+#'   \code{\link{KERAUNOS_fetch_marker_genes}} to obtain a validated whitelist from
+#'   MSigDB C8 or PanglaoDB, which filters out uninformative features such as
+#'   lncRNAs, ribosomal genes, and ubiquitous housekeeping genes.
+#'   Default \code{NULL} (no restriction).
+#' @param min_auc Numeric. Minimum \code{median.AUC} for a gene to appear in
+#'   the tidy summary table.  AUC of 0.5 = no better than random; 1.0 = perfect
+#'   classifier.  Default \code{0.5}.
+#' @param top_n Integer. Maximum number of top markers per cluster in the tidy
+#'   summary table, ranked by \code{rank.AUC}.  Default \code{10L}.
+#' @param verbose Logical. Print a summary. Default \code{TRUE}.
+#'
+#' @return A \code{keraunos_markers} object (list) with:
+#'   \itemize{
+#'     \item \code{$markers} — named list of DataFrames from
+#'       \code{scran::scoreMarkers()}, one per cluster.  Each DataFrame contains
+#'       per-gene effect size summaries (\code{median.AUC}, \code{rank.AUC},
+#'       \code{median.logFC.cohen}, etc.).
+#'     \item \code{$top} — tidy data.frame of top markers (columns:
+#'       cluster, gene, Top, median_auc, mean_effect, FDR).
+#'       \code{Top = rank.AUC}; \code{FDR = NA} (no p-values).
+#'     \item \code{$params} — list of parameters used.
+#'   }
+#' @export
+KERAUNOS_score_markers <- function(sce,
+                                    cluster_col  = "cluster",
+                                    assay_name   = "logcounts",
+                                    block_col    = NULL,
+                                    restrict_to  = NULL,
+                                    min_auc      = 0.5,
+                                    top_n        = 10L,
+                                    verbose      = TRUE) {
+
+  if (!assay_name %in% assayNames(sce))
+    stop("Assay '", assay_name, "' not found.  Run PYRI_normalize() first.",
+         call. = FALSE)
+  if (!cluster_col %in% names(colData(sce)))
+    stop("cluster_col '", cluster_col, "' not found in colData(sce).",
+         call. = FALSE)
+  if (!is.null(block_col) && !block_col %in% names(colData(sce)))
+    stop("block_col '", block_col, "' not found in colData(sce).", call. = FALSE)
+
+  clusters   <- colData(sce)[[cluster_col]]
+  n_clusters <- length(unique(clusters))
+  block      <- if (!is.null(block_col)) colData(sce)[[block_col]] else NULL
+
+  if (isTRUE(verbose)) {
+    cat("[KERAUNOS] Scoring markers across ", n_clusters, " clusters",
+        if (!is.null(block_col)) paste0(" (blocked by ", block_col, ")") else "",
+        "...\n", sep = "")
+    if (!is.null(restrict_to)) {
+      n_in_sce <- sum(restrict_to %in% rownames(sce))
+      cat("    Restricting $top to known marker genes: ",
+          format(length(restrict_to), big.mark = ","), " provided, ",
+          format(n_in_sce, big.mark = ","), " present in SCE.\n", sep = "")
+    }
+  }
+
+  score_list <- scran::scoreMarkers(
+    sce,
+    groups     = clusters,
+    assay.type = assay_name,
+    block      = block
+  )
+
+  top_df <- .keraunos_extract_top_score(score_list, as.integer(top_n),
+                                         min_auc, restrict_to)
+
+  if (isTRUE(verbose)) {
+    n_per <- vapply(names(score_list), function(cl) {
+      sum(!is.na(top_df$cluster) & top_df$cluster == cl)
+    }, integer(1L))
+
+    restrict_line <- if (!is.null(restrict_to))
+      paste0("\n  Restricted : known marker genes whitelist (",
+             format(length(restrict_to), big.mark = ","), " genes)")
+    else ""
+
+    cat(sprintf(
+      "── KERAUNOS: score_markers %s\n  Clusters   : %d\n  min AUC    : %.2f%s\n  Top genes  : %s total (range %d–%d per cluster)\n  Stored as  : keraunos_markers object\n%s\n",
+      strrep("─", 28),
+      n_clusters,
+      if (is.null(min_auc)) 0 else min_auc,
+      restrict_line,
+      format(nrow(top_df), big.mark = ","),
+      min(n_per), max(n_per),
+      strrep("─", 56)
+    ))
+  }
+
+  structure(
+    list(
+      markers = score_list,
+      top     = top_df,
+      params  = list(
+        cluster_col  = cluster_col,
+        assay_name   = assay_name,
+        block_col    = block_col,
+        restrict_to  = restrict_to,
+        min_auc      = min_auc,
+        top_n        = as.integer(top_n),
+        method       = "scoreMarkers"
+      )
+    ),
+    class = "keraunos_markers"
+  )
+}
+
+
+# ==============================================================================
+# Known cell type marker gene databases
+# ==============================================================================
+
+#' Fetch known cell type marker genes from a curated database
+#'
+#' Retrieves the union of all gene symbols annotated as cell type markers across
+#' a curated database.  The resulting character vector is intended to be passed
+#' to the \code{restrict_to} parameter of \code{\link{KERAUNOS_score_markers}},
+#' limiting reported markers to biologically validated genes and filtering out
+#' uninformative features such as long non-coding RNAs, ribosomal genes, and
+#' ubiquitously expressed housekeeping genes.
+#'
+#' @section Sources:
+#' \describe{
+#'   \item{\code{"C8"} (default)}{MSigDB collection C8 — cell type signature
+#'     gene sets aggregated from PanglaoDB, CellMarker, DICE, Blueprint, Monaco,
+#'     HPCA, and others (~15,000 unique genes in human).  Requires the
+#'     \code{msigdbr} package, which is already used by
+#'     \code{\link{KERAUNOS_gsea}}.}
+#'   \item{\code{"PanglaoDB"}}{PanglaoDB marker database (~8,000 marker
+#'     associations across >1,100 cell types in human and mouse).  Reads from a
+#'     local TSV file (download from \url{https://panglaodb.se/markers.html}).
+#'     Default path: \code{data/PanglaoDB_markers.tsv} relative to the current
+#'     working directory.  Override with the \code{path} argument.  Supports
+#'     tissue filtering via the \code{tissue} argument.}
+#' }
+#'
+#' @param source Character. Database to query: \code{"C8"} (default) or
+#'   \code{"PanglaoDB"}.
+#' @param species Character.  Species for gene symbol resolution.
+#'   For \code{source = "C8"}: full species name passed to \code{msigdbr}
+#'   (e.g. \code{"Homo sapiens"}, \code{"Mus musculus"}).
+#'   For \code{source = "PanglaoDB"}: \code{"Hs"} (human, default),
+#'   \code{"Mm"} (mouse), or \code{"both"} (no species filter).
+#'   Default \code{"Homo sapiens"}.
+#' @param tissue Character or \code{NULL}.  For \code{source = "PanglaoDB"}
+#'   only: restrict to markers annotated for a specific tissue/organ
+#'   (e.g. \code{"Brain"}).  Case-insensitive partial match against the
+#'   \code{organ} column.  \code{NULL} (default) returns all tissues.
+#' @param path Character or \code{NULL}.  For \code{source = "PanglaoDB"}
+#'   only: path to the local PanglaoDB markers TSV file.  When \code{NULL}
+#'   (default), looks for \code{data/PanglaoDB_markers.tsv} relative to the
+#'   current working directory.
+#' @param verbose Logical. Print a summary. Default \code{TRUE}.
+#'
+#' @return A sorted character vector of unique gene symbols known to be cell
+#'   type markers in the chosen database.
+#'
+#' @examples
+#' \dontrun{
+#' known_markers <- KERAUNOS_fetch_marker_genes(source = "C8",
+#'                                               species = "Homo sapiens")
+#' markers <- KERAUNOS_score_markers(sce, restrict_to = known_markers)
+#'
+#' # PanglaoDB — brain markers only
+#' brain_markers <- KERAUNOS_fetch_marker_genes(source = "PanglaoDB",
+#'                                               tissue = "Brain")
+#' }
+#' @export
+KERAUNOS_fetch_marker_genes <- function(source  = c("C8", "PanglaoDB"),
+                                         species = "Homo sapiens",
+                                         tissue  = NULL,
+                                         path    = NULL,
+                                         verbose = TRUE) {
+  source <- match.arg(source)
+
+  genes <- if (source == "C8") {
+
+    if (!requireNamespace("msigdbr", quietly = TRUE))
+      stop("Package 'msigdbr' is required for source = 'C8'.\n",
+           "  Install via: install.packages(\"msigdbr\")", call. = FALSE)
+
+    if (isTRUE(verbose))
+      cat("[KERAUNOS] Fetching C8 cell type marker genes from MSigDB (",
+          species, ")...\n", sep = "")
+
+    gs_df <- tryCatch(
+      as.data.frame(msigdbr::msigdbr(species = species, collection = "C8")),
+      error = function(e)
+        stop("msigdbr failed for C8: ", conditionMessage(e), call. = FALSE)
+    )
+
+    if (!"gene_symbol" %in% names(gs_df))
+      stop("Unexpected msigdbr output — 'gene_symbol' column not found.",
+           call. = FALSE)
+
+    unique(gs_df$gene_symbol)
+
+  } else {
+
+    # Resolve file path
+    tsv_path <- if (!is.null(path)) path else
+      file.path(getwd(), "data", "PanglaoDB_markers.tsv")
+
+    if (!file.exists(tsv_path))
+      stop("PanglaoDB TSV file not found at: ", tsv_path, "\n",
+           "  Download from https://panglaodb.se/markers.html and place at\n",
+           "  data/PanglaoDB_markers.tsv (or pass path= explicitly).",
+           call. = FALSE)
+
+    if (isTRUE(verbose))
+      cat("[KERAUNOS] Reading PanglaoDB markers from: ", tsv_path,
+          if (!is.null(tissue)) paste0(" (tissue = '", tissue, "')") else "",
+          "\n", sep = "")
+
+    db <- tryCatch(
+      read.delim(tsv_path, stringsAsFactors = FALSE),
+      error = function(e)
+        stop("Failed to read PanglaoDB TSV: ", conditionMessage(e), call. = FALSE)
+    )
+
+    # Column names after read.delim: spaces become dots.
+    # Expected: official.gene.symbol, species, organ
+    if (!"official.gene.symbol" %in% names(db))
+      stop("Expected column 'official gene symbol' not found in PanglaoDB TSV.\n",
+           "  Available columns: ", paste(names(db), collapse = ", "),
+           call. = FALSE)
+
+    # Species filter — PanglaoDB encodes as "Hs", "Mm", or "Mm Hs" / "Hs Mm"
+    sp_code <- switch(
+      tolower(trimws(species)),
+      "homo sapiens" = "Hs",
+      "mus musculus" = "Mm",
+      species  # pass through "Hs" / "Mm" / "both" directly
+    )
+
+    if (!identical(sp_code, "both") && "species" %in% names(db))
+      db <- db[grepl(sp_code, db$species, fixed = TRUE), , drop = FALSE]
+
+    if (!is.null(tissue) && "organ" %in% names(db))
+      db <- db[grepl(tissue, db$organ, ignore.case = TRUE), , drop = FALSE]
+
+    if (nrow(db) == 0L)
+      stop("No markers found in PanglaoDB for the given species/tissue filter.",
+           call. = FALSE)
+
+    unique(db$official.gene.symbol)
+  }
+
+  genes <- sort(unique(genes[!is.na(genes) & nzchar(genes)]))
+
+  if (isTRUE(verbose)) {
+    cat(sprintf(
+      "── KERAUNOS: fetch_marker_genes %s\n  Source     : %s\n  Species    : %s%s\n  Result     : %s unique gene symbols\n%s\n",
+      strrep("─", 22),
+      source,
+      species,
+      if (!is.null(tissue)) paste0("\n  Tissue     : ", tissue) else "",
+      format(length(genes), big.mark = ","),
+      strrep("─", 56)
+    ))
+  }
+
+  genes
 }
 
 
@@ -983,7 +1341,7 @@ KERAUNOS_gsea <- function(ranked_genes,
 
       tryCatch(
         msigdbr::msigdbr(species = species, db_species = db_species,
-                         category = cat, subcategory = subc),
+                         collection = cat, subcollection = subc),
         error = function(e) {
           warning("msigdbr failed for collection '", col, "': ",
                   conditionMessage(e), call. = FALSE)
@@ -1410,7 +1768,7 @@ KERAUNOS_gsea_pseudobulk <- function(de_result,
       subc <- if (length(cat_sub) > 1) cat_sub[2] else NULL
       tryCatch(
         msigdbr::msigdbr(species = species, db_species = db_species,
-                         category = cat, subcategory = subc),
+                         collection = cat, subcollection = subc),
         error = function(e) {
           warning("msigdbr failed for collection '", col, "': ",
                   conditionMessage(e), call. = FALSE)

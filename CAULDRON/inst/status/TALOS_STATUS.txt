@@ -1,7 +1,7 @@
 ================================================================================
 TALOS STATUS - Dimensionality Reduction & Clustering
 ================================================================================
-Last Updated: 2026-03-06
+Last Updated: 2026-07-01
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -36,10 +36,25 @@ TALOS_run_pca(sce, n_pcs=50, use_hvg=TRUE, assay_name="logcounts",
   - Prints variance explained by first 5 PCs
   - Stored as reducedDims(sce)[["PCA"]] with percentVar and rotation attributes
 
-TALOS_run_umap(sce, n_pcs=30, n_neighbors=15, min_dist=0.1, seed=42,
-               verbose=TRUE)
-  - Runs UMAP via scater::runUMAP() on PCA space
-  - n_pcs: number of PCA components to use as input
+TALOS_run_harmony(sce, batch_col="sample_id", n_pcs=30, theta=2,
+                   max_iter=10, seed=42, verbose=TRUE)
+  - Batch integration via harmony::RunHarmony() (SCE dispatch, harmony v2)
+  - Operates on reducedDims(sce)[["PCA"]]; corrects clone/sample-level drift
+    while preserving genuine between-condition biological variation
+  - batch_col: any colData column; use "sample_id" to correct per-sample effects
+  - theta: diversity penalty — higher = stronger mixing (default 2 is standard)
+  - Stored as reducedDims(sce)[["Harmony"]] (cells x n_pcs)
+  - Recommended order: run_pca → run_harmony → build_graph(use_rep="Harmony")
+    → cluster → run_umap(use_graph=TRUE)
+
+TALOS_run_umap(sce, use_rep="PCA", n_pcs=30, n_neighbors=15, min_dist=0.1,
+               use_graph=TRUE, seed=42, verbose=TRUE)
+  - use_graph=TRUE (default): uses the pre-built SNN graph from metadata(sce)$snn_graph
+    (set by TALOS_build_graph()) directly as uwot input, bypassing internal KNN;
+    n_neighbors is ignored; k is retrieved from metadata(sce)$snn_k; ensures
+    clustering and UMAP operate on the same neighbourhood structure (true alignment)
+  - SNN weights are normalized to [0,1] before passing to uwot (required for
+    rank-based weights; Jaccard weights are already in range)
   - Stored as reducedDims(sce)[["UMAP"]]
 
 TALOS_run_tsne(sce, n_pcs=30, perplexity=30, max_iter=1000, seed=42,
@@ -50,7 +65,8 @@ TALOS_run_tsne(sce, n_pcs=30, perplexity=30, max_iter=1000, seed=42,
 TALOS_build_graph(sce, n_pcs=30, k=20, type="rank", verbose=TRUE)
   - Builds SNN graph via scran::buildSNNGraph() on PCA space
   - type: edge weight scheme — "rank" (default), "number", "jaccard"
-  - Stored as metadata(sce)$snn_graph
+  - Stored as metadata(sce)$snn_graph; k stored as metadata(sce)$snn_k
+    (consumed by TALOS_run_umap(use_graph=TRUE) for graph-aligned UMAP)
 
 TALOS_cluster(sce, method="leiden", resolution=1.0, cluster_col="cluster",
                seed=42, verbose=TRUE)
@@ -75,15 +91,16 @@ TALOS_tune_k(sce, k_range=seq(5,50,by=5), n_pcs=30, type="rank",
 
 TALOS_tune_umap(sce, n_neighbors_range=c(10,15,20,30,50),
                  min_dist_range=c(0.05,0.1,0.3,0.5), n_pcs=30, knn_k=15,
-                 cluster_col="cluster", seed=42, verbose=TRUE)
-  - Sweeps n_neighbors × min_dist grid for UMAP
+                 cluster_col="cluster", use_graph=TRUE, seed=42, verbose=TRUE)
+  - use_graph=TRUE (default): n_neighbors is fixed by the SNN graph (k from metadata(sce)$snn_k);
+    only min_dist is swept; each run calls uwot::umap(X=adj, ...) directly;
+    plot switches to a line plot over min_dist (tile heatmap has no n_neighbors axis)
   - Metrics: KNN overlap (Jaccard, PCA vs embedding) + mean silhouette in 2D
   - Both normalised to [0,1] and averaged into a composite score
   - Silhouette skipped if cluster_col not found in colData
   - Returns talos_embedding_sweep: results df, embeddings list (cells×2 per combo),
-    tile heatmap ggplot, best_params (n_neighbors + min_dist), params
+    ggplot, best_params (n_neighbors + min_dist), params
   - KNN reference computed once in PCA space via BiocNeighbors::findKNN()
-  - Embedding matrices stored in sweep$embeddings for use by ASPIS_plot_embedding_grid
 
 TALOS_tune_resolution(sce, resolution_range=seq(0.1,2.0,by=0.1),
                        method="both", n_pcs=30, compute_silhouette=TRUE,
@@ -134,7 +151,11 @@ DEPENDENCIES / NOTES
   modularity — always available in practice since scran depends on it
 - cluster (Suggests): silhouette — used by TALOS_tune_k/umap/tsne(); standard R package
 - BiocNeighbors (Imports): findKNN — used by TALOS_tune_umap/tsne() for KNN overlap metric
-- Recommended order: run_pca → run_umap/run_tsne → build_graph → cluster
+- uwot (Suggests): umap — used by TALOS_run_umap(use_graph=TRUE) for graph-aligned mode
+- Recommended order (no integration): run_pca → build_graph → cluster → run_umap(use_graph=TRUE)
+- Recommended order (with Harmony):   run_pca → run_harmony → build_graph(use_rep="Harmony")
+                                       → cluster → run_umap(use_graph=TRUE)
+  (use_graph=FALSE preserves old order: run_pca → run_umap → build_graph → cluster)
 - Both UMAP and tSNE operate on PCA space, not raw gene space
 - HVG input to PCA via metadata(sce)$hvg (set by PYRI_select_hvg)
 - SNN graph stored in metadata(sce)$snn_graph (consumed by TALOS_cluster)

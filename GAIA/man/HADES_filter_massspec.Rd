@@ -6,7 +6,7 @@
 \usage{
 HADES_filter_massspec(
   massspec_data,
-  keep_types = "SAMPLE",
+  keep_types = c("SAMPLE", "POOL"),
   max_sample_na_fraction = 0.9,
   verbose = TRUE
 )
@@ -15,10 +15,15 @@ HADES_filter_massspec(
 \item{massspec_data}{A \code{massspec_data} object from
 \code{ELEUTHIA_load_massspec()}.}
 
-\item{keep_types}{Character vector. SampleType values to retain. Default:
-\code{"SAMPLE"} (numeric-ID biological samples with metadata). Other
-valid values: \code{"SEP_SAMPLE"}, \code{"CONTROL"}, \code{"POOL"},
-\code{"OTHER"}.}
+\item{keep_types}{Character vector. SampleType values to retain. Default
+keeps \code{"SAMPLE"} (all biological samples — numeric IDs, SEP###-#
+longitudinal, and SEP_CTR_* controls; their distinction is carried by the
+\code{Group} metadata column) and \code{"POOL"} (pooled QC injections
+used for batch drift monitoring). \code{"OTHER"} is excluded by default:
+these are columns whose SampleID did not match any known pattern in
+\code{ELEUTHIA_load_massspec()}, most commonly samples not renamed via
+\code{prep_MS_data.R} or absent from the metadata file. They have no
+metadata and cannot be used in any downstream analysis.}
 
 \item{max_sample_na_fraction}{Numeric (0–1). Samples whose log2 NA fraction
 across all proteins exceeds this threshold are removed. Default:
@@ -38,8 +43,8 @@ reflect the retained samples.
 }
 \examples{
 \dontrun{
-ms_raw <- ELEUTHIA_load_massspec("report.pg_matrix.xlsx",
+ms_raw <- ELEUTHIA_load_massspec("prepped_ms_data.csv",
                                   metadata_file = "meta.csv")
-ms <- HADES_filter_massspec(ms_raw, keep_types = "SAMPLE")
+ms <- HADES_filter_massspec(ms_raw)
 }
 }

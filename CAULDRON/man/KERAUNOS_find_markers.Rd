@@ -12,6 +12,7 @@ KERAUNOS_find_markers(
   pval_type = c("any", "some", "all"),
   direction = c("up", "down", "any"),
   min_prop = 0.5,
+  block_col = NULL,
   top_n = 10L,
   fdr_threshold = 0.05,
   verbose = TRUE
@@ -39,6 +40,11 @@ or \code{"binom"}.}
 
 \item{min_prop}{Numeric. Minimum proportion of comparisons required when
 \code{pval_type = "some"}. Default \code{0.5}.}
+
+\item{block_col}{Character or \code{NULL}. \code{colData} column to use as a
+blocking factor (e.g. sample ID).  When provided, each pairwise comparison
+is stratified by block, controlling for batch or sample effects.
+Default \code{NULL} (no blocking).}
 
 \item{top_n}{Integer. Maximum number of top markers per cluster in the tidy
 summary table. Default \code{10L}.}

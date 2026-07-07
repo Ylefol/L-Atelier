@@ -41,7 +41,7 @@
 
 #' @importFrom BiocNeighbors findKNN
 #' @importFrom cluster silhouette
-#' @importFrom scran computeSumFactors modelGeneVar getTopHVGs findMarkers clusterCells buildSNNGraph
+#' @importFrom scran computeSumFactors modelGeneVar getTopHVGs findMarkers scoreMarkers clusterCells buildSNNGraph
 #' @importFrom scater logNormCounts runPCA runUMAP runTSNE plotReducedDim
 #' @importFrom scuttle addPerCellQCMetrics perCellQCMetrics perCellQCFilters
 #' @importFrom scDblFinder scDblFinder

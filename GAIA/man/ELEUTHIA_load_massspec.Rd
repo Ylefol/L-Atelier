@@ -64,28 +64,34 @@ high-missingness samples/proteins, pass the result to
 \code{HADES_filter_massspec()} and \code{HADES_filter_massspec_proteins()}.
 }
 \details{
-\strong{Sample ID parsing:} DIA-NN encodes sample paths as column names
-(e.g. \code{E:\\DATA\\plate1\\SEP101-7_S1-B5_1_6544.d}). The parser strips
-the directory prefix and the well/run suffix (\code{_S<N>...}) to extract
-the meaningful identifier (\code{SEP101-7}).
+\strong{Expected input format:} Column names must follow the standardised
+convention produced by the project's \code{prep_MS_data.R} script:
+\code{{SampleID}_Plate {N}} (e.g. \code{"1027_Plate 1"},
+\code{"SEP001-3_Plate 7"}, \code{"pool1_Plate 12"}). Raw DIA-NN file paths
+are not supported; data must be prepared through \code{prep_MS_data.R} first.
 
-\strong{Plate parsing:} \code{PlateID} is taken from the immediate parent
-directory of each sample's file path (e.g. \code{.../plate_1/sample.d} ->
-\code{"plate_1"}). Flat column names with no directory component (e.g.
-some non-DIA-NN exports) yield \code{NA}. Unlike sample type, this works
-the same way for every sample (including pools/controls), since it does
-not depend on a metadata join.
+\strong{Sample ID parsing:} \code{PlateID} is extracted from the
+\code{_Plate N} suffix; \code{SampleID} is everything before it. Column
+names that do not match the \code{_Plate N} suffix pattern yield
+\code{PlateID = NA} and \code{SampleID = original column name}.
 
 \strong{Sample type classification:}
 \itemize{
-\item \code{"SAMPLE"} — numeric IDs only (e.g. 1027, 688). These match the
-Olink SampleID and have metadata available.
-\item \code{"SEP_SAMPLE"} — \code{SEP###-#} biological samples without
-metadata in the current metadata file. Excluded by default in
-\code{HADES_filter_massspec()}.
-\item \code{"CONTROL"} — \code{SEP_CTR_*} QC control samples.
-\item \code{"POOL"} — pooled QC samples (\code{pool*}).
-\item \code{"OTHER"} — anything else.
+\item \code{"SAMPLE"} — any biological sample with a recognised SampleID
+pattern: pure numeric IDs (e.g. \code{1027}), \code{SEP###-#}
+longitudinal samples (e.g. \code{SEP001-3}), and \code{SEP_CTR_*}
+control samples. All three map to \code{"SAMPLE"} because their
+biological distinction (group, timepoint, cohort) is captured in the
+metadata via the \code{Group} column — SampleType does not need to
+re-encode it.
+\item \code{"POOL"} — pooled QC injections (\code{pool*}). Present on
+every plate for batch drift monitoring. No metadata entry.
+\item \code{"OTHER"} — any column whose parsed SampleID does not match
+any of the above patterns. Most commonly caused by samples that were
+not renamed via \code{prep_MS_data.R}, ad-hoc sub-cohort naming, or
+samples intentionally absent from the metadata file. These columns
+cannot be joined to metadata and are dropped by
+\code{HADES_filter_massspec()} by default.
 }
 
 \strong{Log2 transformation:} Raw DIA intensities are on a linear scale.
