@@ -4,7 +4,11 @@
 # Wraps HOMER's findMotifsGenome.pl for known motif enrichment and optional
 # de novo motif discovery. Supports single and batch analysis of BED files.
 #
-# Requires HOMER to be installed and on PATH.
+# HOMER runs inside the .gaia_homer_env basilisk environment (see
+# GAIA/R/basilisk.R) -- no manual HOMER/PATH setup needed for the binary
+# itself. HOMER still requires a one-time, separate per-genome data install
+# (`configureHomer.pl -install <genome>`) against that environment before
+# APOLLO_homer_motif_enrichment() can be used with a given genome.
 # See: http://homer.ucsd.edu/homer/
 
 
@@ -215,20 +219,28 @@ APOLLO_extract_summits <- function(peak_files,
 # Internal helpers
 # ==============================================================================
 
-#' Check HOMER installation
-#' @return Path to findMotifsGenome.pl or stops with error
+#' Execute HOMER findMotifsGenome.pl inside the basilisk environment
+#' @return Exit code from findMotifsGenome.pl
 #' @keywords internal
-.homer_check_installation <- function() {
-  homer_path <- Sys.which("findMotifsGenome.pl")
-  if (homer_path == "") {
-    stop(
-      "HOMER not found on PATH.\n",
-      "  Install HOMER: http://homer.ucsd.edu/homer/introduction/install.html\n",
-      "  Ensure findMotifsGenome.pl is on your PATH.",
-      call. = FALSE
-    )
-  }
-  return(homer_path)
+.homer_run <- function(cli_args, output_dir) {
+  basilisk::basiliskRun(
+    env = .gaia_homer_env,
+    fun = function(args, output_dir) {
+      python_bin <- reticulate::py_exe()
+      homer_bin  <- file.path(dirname(python_bin), "findMotifsGenome.pl")
+      if (!file.exists(homer_bin))
+        stop("findMotifsGenome.pl executable not found in basilisk environment ",
+             "bin directory: ", dirname(python_bin), call. = FALSE)
+
+      system2(
+        command = homer_bin,
+        args    = args,
+        stdout  = file.path(output_dir, "homer_stdout.log"),
+        stderr  = file.path(output_dir, "homer_stderr.log")
+      )
+    },
+    args = cli_args, output_dir = output_dir
+  )
 }
 
 
@@ -476,9 +488,6 @@ APOLLO_homer_motif_enrichment <- function(bed_file,
                                            verbose = TRUE) {
 
   # --- Validate inputs ---
-  homer_path <- .homer_check_installation()
-  if (verbose) cat("[APOLLO] HOMER found:", homer_path, "\n")
-
   if (!file.exists(bed_file)) {
     stop("BED file not found: ", bed_file, call. = FALSE)
   }
@@ -503,7 +512,7 @@ APOLLO_homer_motif_enrichment <- function(bed_file,
   )
 
   if (verbose) {
-    cat("[APOLLO] Running HOMER findMotifsGenome.pl...\n")
+    cat("[APOLLO] Running HOMER findMotifsGenome.pl (basilisk environment)...\n")
     cat("    BED file:", bed_file, "\n")
     cat("    Genome:", genome, "\n")
     cat("    Output:", output_dir, "\n")
@@ -513,12 +522,7 @@ APOLLO_homer_motif_enrichment <- function(bed_file,
 
   start_time <- proc.time()
 
-  exit_code <- system2(
-    command = "findMotifsGenome.pl",
-    args    = args,
-    stdout  = file.path(output_dir, "homer_stdout.log"),
-    stderr  = file.path(output_dir, "homer_stderr.log")
-  )
+  exit_code <- .homer_run(args, output_dir)
 
   elapsed <- (proc.time() - start_time)["elapsed"]
 

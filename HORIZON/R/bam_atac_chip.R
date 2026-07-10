@@ -198,6 +198,26 @@ HORIZON_filter_blacklist <- function(sample_sheet,
   if (!file.exists(blacklist_bed))
     stop("Blacklist BED file not found: ", blacklist_bed, call. = FALSE)
 
+  # Sanity-check chromosome naming compatibility before filtering --
+  # bedtools intersect -v silently passes every read through unfiltered when
+  # no chromosome name is shared between the two inputs (e.g. Ensembl "1" vs
+  # UCSC "chr1"), which looks like a successful, low-impact filter rather
+  # than the complete no-op it actually is.
+  bam_header <- .horizon_run_cli("samtools", c("view", "-H", input_bam),
+                                  stdout = TRUE)
+  bam_chrs   <- sub(".*\tSN:([^\t]+).*", "\\1",
+                     grep("^@SQ\t", bam_header, value = TRUE))
+  bl_con  <- gzfile(blacklist_bed, "r")
+  bl_chrs <- unique(sub("\t.*", "", readLines(bl_con)))
+  close(bl_con)
+
+  if (length(intersect(bam_chrs, bl_chrs)) == 0L)
+    stop("No chromosome names in common between the BAM (e.g. '", bam_chrs[1],
+         "') and the blacklist BED (e.g. '", bl_chrs[1], "') for: ", sample_id,
+         "\n  Under this mismatch bedtools intersect -v would silently filter ",
+         "nothing. Fix the naming convention of one file to match the other ",
+         "(e.g. strip/add a 'chr' prefix) before proceeding.", call. = FALSE)
+
   cat("[", sample_id, "] Filtering blacklist regions")
   exit <- .horizon_run_cli(
     "bedtools",

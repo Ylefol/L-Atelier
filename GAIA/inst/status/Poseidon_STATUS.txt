@@ -1,7 +1,7 @@
 ================================================================================
 POSEIDON MODULE STATUS - Preprocessing & Normalization
 ================================================================================
-Last Updated: 2026-02-11
+Last Updated: 2026-07-09
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -38,13 +38,37 @@ POSEIDON_filter_low_counts(quant_result, min_count, min_samples_pct,
   - Filter low-count regions from quantification results
   - Supports group-specific filtering
 
-POSEIDON_correct_batch(quant_result, batch_col, group_col, method, log_transform, verbose)
+POSEIDON_correct_batch_counts(quant_result, batch_col, group_col, method, log_transform, verbose)
   - Batch effect correction using ComBat or limma
-  - Operates on quant_result objects
+  - Operates on quant_result objects (counts + targets)
 
-POSEIDON_plot_batch_pca(quant_result, batch_col, group_col, log_transform, title)
-  - PCA visualization colored by batch/group
-  - For assessing batch effects
+POSEIDON_correct_batch_massspec(massspec_data, batch_col, group_col, method, verbose)
+  - Batch effect correction for massspec_data objects (log2 $wide + $sample_meta)
+
+POSEIDON_correct_ruvg(quant_result, control_genes, k, verbose)
+  - RUVg (RUVSeq) correction of unwanted/technical variation using a
+    caller-supplied set of negative control genes (e.g. housekeeping genes)
+  - Does not ship or assume any particular control gene list -- caller
+    supplies control_genes (a priori housekeeping panel or empirically
+    derived least-DE genes)
+  - Returns quant_result with corrected counts, plus ruvg_W (estimated
+    unwanted-variation factors) and ruvg_control_genes (controls actually
+    found in the data)
+
+POSEIDON_plot_batch_pca(quant_result, batch_col, group_col, log_transform,
+                         title, show_labels, label_size)
+  - PCA visualization colored by batch, shaped by group
+  - show_labels optionally labels each point with its sample ID (ggrepel if
+    installed, plain geom_text fallback otherwise)
+  - For assessing batch/platform effects before and after correction
+
+POSEIDON_aggregate_transcript_to_gene(counts, gtf_file, verbose)
+  - Collapses a transcript x sample count matrix (e.g. Nanopore/long-read
+    quantification) to gene x sample by summing transcript counts per parent
+    gene, using the transcript-to-gene mapping from a GTF
+  - Versioned IDs (ENST*.N / ENSG*.N) used when the GTF provides
+    transcript_version/gene_version, unversioned otherwise
+  - Unmatched transcripts (no GTF entry) are dropped and reported
 
 POSEIDON_filter_by_group(quant_result, group_col, groups, verbose)
   - Subset quant_result to specific groups
@@ -97,4 +121,4 @@ PLANNED / TODO
 DEPENDENCIES
 ================================================================================
 - Uses: Demeter (potentially)
-- External: sva (ComBat), limma
+- External: sva (ComBat), limma, RUVSeq (RUVg), rtracklayer (GTF parsing)

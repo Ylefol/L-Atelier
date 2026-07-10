@@ -9,7 +9,9 @@ POSEIDON_plot_batch_pca(
   batch_col = "batch",
   group_col = "group",
   log_transform = TRUE,
-  title = "PCA - Batch Effect"
+  title = "PCA - Batch Effect",
+  show_labels = FALSE,
+  label_size = 3
 )
 }
 \arguments{
@@ -22,6 +24,11 @@ POSEIDON_plot_batch_pca(
 \item{log_transform}{Logical. Log-transform counts for PCA (default = TRUE).}
 
 \item{title}{Character string. Plot title (default = "PCA - Batch Effect").}
+
+\item{show_labels}{Logical. Label each point with its sample ID. Uses
+ggrepel for non-overlapping placement if installed (default = FALSE).}
+
+\item{label_size}{Numeric. Text size for point labels (default = 3).}
 }
 \value{
 A ggplot object showing PCA colored by batch and shaped by group.

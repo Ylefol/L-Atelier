@@ -396,9 +396,11 @@ print.artemis_isoform_switch <- function(x, ...) {
 #' @details
 #' At least one of \code{cpat_file}, \code{signalp_file}, or \code{pfam_file}
 #' must be provided. Structural consequences (intron retention, ORF sequence
-#' similarity, NMD sensitivity) are always included when ORF annotations are
-#' present from the initial \code{ARTEMIS_isoform_switch()} call (they require
-#' no external tools).
+#' similarity, NMD sensitivity) are always included and require no external
+#' tools, only ORF annotations from the initial \code{ARTEMIS_isoform_switch()}
+#' call; intron retention is classified internally via
+#' \code{IsoformSwitchAnalyzeR::analyzeIntronRetention()} before consequence
+#' analysis runs.
 #'
 #' External tools must be run independently before calling this function.
 #' See the IsoformSwitchAnalyzeR vignette for expected file formats and
@@ -446,6 +448,13 @@ ARTEMIS_isoform_switch_consequences <- function(switch_result,
       pathToSignalPresultFile = signalp_file,
       quiet                   = !verbose
     )
+    # analyzeSignalP() silently skips setting sar$signalPeptideAnalysis (just a
+    # warning) when the result file has zero peptide hits -- track that so the
+    # consequence set below doesn't ask analyzeSwitchConsequences() to test a
+    # slot that was never populated.
+    signalp_has_data <- !is.null(sar$signalPeptideAnalysis)
+    if (verbose && !signalp_has_data)
+      cat("    No signal peptides found -- skipping signal_peptide_identified consequence.\n")
   }
 
   if (!is.null(pfam_file)) {
@@ -459,23 +468,47 @@ ARTEMIS_isoform_switch_consequences <- function(switch_result,
     )
   }
 
+  # intron_retention must be classified with analyzeIntronRetention() before
+  # analyzeSwitchConsequences() can test for it -- it isn't derived from the
+  # ORF annotations alone, unlike ORF_seq_similarity/NMD_status.
+  if (verbose) cat("[ARTEMIS] Classifying intron retention...\n")
+  sar <- IsoformSwitchAnalyzeR::analyzeIntronRetention(
+    switchAnalyzeRlist  = sar,
+    onlySwitchingGenes  = TRUE,
+    alpha               = switch_result$params$alpha,
+    dIFcutoff           = switch_result$params$dIF_cutoff,
+    quiet               = !verbose
+  )
+
   # --- Build consequence set dynamically --------------------------------------
   # Structural consequences are always included (require only ORF annotations
   # from addAnnotatedORFs=TRUE in importRdata, no external tool needed)
   consequences <- c("intron_retention", "ORF_seq_similarity", "NMD_status")
   if (!is.null(cpat_file))    consequences <- c(consequences, "coding_potential")
   if (!is.null(pfam_file))    consequences <- c(consequences, "domains_identified")
-  if (!is.null(signalp_file)) consequences <- c(consequences, "signal_peptide_identified")
+  if (!is.null(signalp_file) && isTRUE(signalp_has_data))
+    consequences <- c(consequences, "signal_peptide_identified")
 
   if (verbose) {
     cat("[ARTEMIS] Consequences to analyze:\n")
     cat("    ", paste(consequences, collapse = ", "), "\n\n")
   }
 
-  sar <- IsoformSwitchAnalyzeR::analyzeSwitchConsequences(
-    switchAnalyzeRlist    = sar,
-    consequencesToAnalyze = consequences,
-    quiet                 = !verbose
+  sar <- tryCatch(
+    IsoformSwitchAnalyzeR::analyzeSwitchConsequences(
+      switchAnalyzeRlist    = sar,
+      consequencesToAnalyze = consequences,
+      quiet                 = !verbose
+    ),
+    error = function(e) {
+      if (grepl("No isoform switches with the analyzed consequences were found",
+                 conditionMessage(e), fixed = TRUE)) {
+        stop("None of the significant isoform switches differ in any of the ",
+             "tested consequences -- likely too few significant switches in ",
+             "the input, not a pipeline error.", call. = FALSE)
+      }
+      stop(e)
+    }
   )
 
   # Extract consequence table from the switchAnalyzeRlist slot

@@ -53,9 +53,11 @@ peptides, and intron retention.
 \details{
 At least one of \code{cpat_file}, \code{signalp_file}, or \code{pfam_file}
 must be provided. Structural consequences (intron retention, ORF sequence
-similarity, NMD sensitivity) are always included when ORF annotations are
-present from the initial \code{ARTEMIS_isoform_switch()} call (they require
-no external tools).
+similarity, NMD sensitivity) are always included and require no external
+tools, only ORF annotations from the initial \code{ARTEMIS_isoform_switch()}
+call; intron retention is classified internally via
+\code{IsoformSwitchAnalyzeR::analyzeIntronRetention()} before consequence
+analysis runs.
 
 External tools must be run independently before calling this function.
 See the IsoformSwitchAnalyzeR vignette for expected file formats and

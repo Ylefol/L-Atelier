@@ -17,6 +17,7 @@ Imports:
     grDevices,
     utils,
     tools,
+    methods,
     rlang,
     circlize,
     ComplexHeatmap,
@@ -79,5 +80,9 @@ Suggests:
     arrow,
     readxl,
     IsoformSwitchAnalyzeR,
+    RUVSeq,
+    basilisk,
+    reticulate,
+    BSgenome,
     testthat (>= 3.0.0)
 Config/roxygen2/version: 8.0.0

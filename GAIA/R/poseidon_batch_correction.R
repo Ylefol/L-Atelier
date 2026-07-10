@@ -199,6 +199,92 @@ POSEIDON_correct_batch_counts <- function(quant_result,
 }
 
 
+#' RUVg Correction Using Control Genes
+#'
+#' @description Removes unwanted (technical) variation from a counts matrix
+#' via RUVSeq's RUVg method, which estimates factors of unwanted variation
+#' from a user-supplied set of negative control genes assumed to be constant
+#' across the samples' biological conditions (e.g. housekeeping genes).
+#'
+#' @param quant_result A list containing:
+#'   \itemize{
+#'     \item counts: Matrix of raw counts (features x samples)
+#'     \item targets: Data.frame with sample metadata
+#'   }
+#' @param control_genes Character vector of feature IDs (matching
+#'   \code{rownames(quant_result$counts)}) to use as negative controls.
+#'   RUVg does not ship or assume any particular list -- housekeeping-gene
+#'   panels or empirically-derived (least-DE) controls must be supplied by
+#'   the caller.
+#' @param k Integer. Number of factors of unwanted variation to estimate
+#'   (default = 1).
+#' @param verbose Logical. Print progress messages (default = TRUE).
+#'
+#' @return The input list with RUVg-corrected counts, plus:
+#'   \itemize{
+#'     \item ruvg_W: matrix of estimated unwanted-variation factors (samples x k)
+#'     \item ruvg_control_genes: the control genes actually used (i.e. found
+#'       in \code{quant_result$counts})
+#'   }
+#'
+#' @details
+#' Requires the \code{RUVSeq} Bioconductor package:
+#' \code{BiocManager::install("RUVSeq")}.
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' housekeeping <- c("ENSG00000075624", "ENSG00000111640")  # ACTB, GAPDH, ...
+#' combined_data <- POSEIDON_correct_ruvg(combined_data, control_genes = housekeeping)
+#' }
+POSEIDON_correct_ruvg <- function(quant_result,
+                                   control_genes,
+                                   k = 1,
+                                   verbose = TRUE) {
+
+  if (!requireNamespace("RUVSeq", quietly = TRUE)) {
+    stop("Package 'RUVSeq' is required for RUVg correction. ",
+         "Install with: BiocManager::install('RUVSeq')")
+  }
+
+  counts <- quant_result$counts
+
+  if (!is.matrix(counts))
+    stop("quant_result$counts must be a matrix (features x samples).", call. = FALSE)
+
+  cIdx <- intersect(control_genes, rownames(counts))
+  n_missing <- length(control_genes) - length(cIdx)
+
+  if (length(cIdx) == 0)
+    stop("None of the supplied control_genes were found in quant_result$counts row names.",
+         call. = FALSE)
+
+  if (verbose) {
+    cat("[POSEIDON] RUVg correction (control-gene factor analysis)\n")
+    cat("    Control genes supplied:", length(control_genes), "\n")
+    cat("    Control genes found in data:", length(cIdx), "\n")
+    if (n_missing > 0)
+      cat("    Not found (skipped):", n_missing, "\n")
+    cat("    Factors of unwanted variation (k):", k, "\n")
+  }
+
+  ruv_result <- RUVSeq::RUVg(x = counts, cIdx = cIdx, k = k)
+
+  quant_result$counts <- ruv_result$normalizedCounts
+  quant_result$ruvg_W <- ruv_result$W
+  quant_result$ruvg_control_genes <- cIdx
+
+  if (verbose) {
+    cat("[POSEIDON] RUVg correction complete.\n")
+    cat("    Output dimensions:", nrow(quant_result$counts), "x",
+        ncol(quant_result$counts), "\n")
+  }
+
+  return(quant_result)
+}
+
+
 #' Batch Correction for Mass Spectrometry Data
 #'
 #' @description Removes batch effects from a \code{massspec_data} object's
@@ -430,6 +516,9 @@ POSEIDON_correct_batch_massspec <- function(massspec_data,
 #' @param group_col Character string. Column name for group (default = "group").
 #' @param log_transform Logical. Log-transform counts for PCA (default = TRUE).
 #' @param title Character string. Plot title (default = "PCA - Batch Effect").
+#' @param show_labels Logical. Label each point with its sample ID. Uses
+#'   ggrepel for non-overlapping placement if installed (default = FALSE).
+#' @param label_size Numeric. Text size for point labels (default = 3).
 #'
 #' @return A ggplot object showing PCA colored by batch and shaped by group.
 #'
@@ -439,7 +528,9 @@ POSEIDON_plot_batch_pca <- function(quant_result,
                                      batch_col = "batch",
                                      group_col = "group",
                                      log_transform = TRUE,
-                                     title = "PCA - Batch Effect") {
+                                     title = "PCA - Batch Effect",
+                                     show_labels = FALSE,
+                                     label_size = 3) {
 
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required for plotting.")
@@ -479,7 +570,26 @@ POSEIDON_plot_batch_pca <- function(quant_result,
   p <- ggplot2::ggplot(pca_data, ggplot2::aes(x = PC1, y = PC2,
                                                color = batch,
                                                shape = group)) +
-    ggplot2::geom_point(size = 3) +
+    ggplot2::geom_point(size = 3)
+
+  if (show_labels) {
+    if (requireNamespace("ggrepel", quietly = TRUE)) {
+      p <- p + ggrepel::geom_text_repel(
+        ggplot2::aes(label = sample_id),
+        size = label_size,
+        max.overlaps = 20,
+        box.padding = 0.3,
+        point.padding = 0.2,
+        segment.color = "grey50",
+        segment.size = 0.3
+      )
+    } else {
+      p <- p + ggplot2::geom_text(ggplot2::aes(label = sample_id), size = label_size,
+                                   vjust = -0.5, hjust = 0.5, check_overlap = TRUE)
+    }
+  }
+
+  p <- p +
     ggplot2::labs(
       title = title,
       x = paste0("PC1 (", var_explained[1], "%)"),

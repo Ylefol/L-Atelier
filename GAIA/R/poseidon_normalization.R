@@ -102,3 +102,89 @@ POSEIDON_normalize_massspec <- function(wide,
 
   return(norm_mat)
 }
+
+
+#' Aggregate Transcript-Level Counts to Gene-Level Counts
+#'
+#' @description Collapses a transcript x sample count matrix (e.g. from
+#' Nanopore/long-read quantification) into a gene x sample matrix by summing
+#' transcript counts per parent gene, using the transcript-to-gene mapping
+#' from a GTF annotation.
+#'
+#' @param counts Numeric matrix, transcripts (rows) x samples (cols).
+#'   Row names must match the \code{transcript_id}(.\code{transcript_version})
+#'   values in \code{gtf_file}.
+#' @param gtf_file Path to the GTF annotation used to quantify \code{counts}.
+#' @param verbose Logical. Print a summary. Default: TRUE.
+#'
+#' @return A numeric matrix, genes (rows) x samples (cols), with row names
+#'   equal to \code{gene_id}(.\code{gene_version}) as found in \code{gtf_file}.
+#'
+#' @details
+#' Transcript and gene IDs are versioned (e.g. \code{"ENST00000511072.5"})
+#' when the GTF provides \code{transcript_version}/\code{gene_version}
+#' attributes, and left unversioned otherwise -- matching whichever
+#' convention the counts were generated with. Transcripts in \code{counts}
+#' with no matching entry in the GTF are dropped (reported when
+#' \code{verbose = TRUE}); this is expected for e.g. spike-ins or
+#' annotation-version mismatches and should be checked if the dropped
+#' fraction is large.
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' gene_counts <- POSEIDON_aggregate_transcript_to_gene(
+#'   counts   = rna_data_Nano$counts,
+#'   gtf_file = "data/Nanopore/Homo_sapiens.GRCh38.115.chr_patch_hapl_scaff.gtf"
+#' )
+#' }
+POSEIDON_aggregate_transcript_to_gene <- function(counts,
+                                                    gtf_file,
+                                                    verbose = TRUE) {
+
+  if (!is.matrix(counts))
+    stop("counts must be a matrix (transcripts x samples).", call. = FALSE)
+
+  if (!file.exists(gtf_file))
+    stop("GTF file not found: ", gtf_file, call. = FALSE)
+
+  gtf <- rtracklayer::readGFF(gtf_file)
+  gtf <- gtf[gtf$type == "transcript", ]
+
+  transcript_id <- if ("transcript_version" %in% colnames(gtf)) {
+    paste(gtf$transcript_id, gtf$transcript_version, sep = ".")
+  } else {
+    as.character(gtf$transcript_id)
+  }
+  gene_id <- if ("gene_version" %in% colnames(gtf)) {
+    paste(gtf$gene_id, gtf$gene_version, sep = ".")
+  } else {
+    as.character(gtf$gene_id)
+  }
+
+  tx2gene <- stats::setNames(gene_id, transcript_id)
+
+  matched <- rownames(counts) %in% names(tx2gene)
+  n_total <- nrow(counts)
+  n_matched <- sum(matched)
+
+  if (n_matched == 0)
+    stop("None of the transcript IDs in 'counts' were found in 'gtf_file'. ",
+         "Check that both use the same ID format (versioned vs unversioned) ",
+         "and annotation release.", call. = FALSE)
+
+  gene_counts <- rowsum(counts[matched, , drop = FALSE],
+                         group = tx2gene[rownames(counts)[matched]])
+
+  if (verbose) {
+    cat("[POSEIDON] Aggregated transcript counts to gene level:\n")
+    cat("    Transcripts:", n_total, "\n")
+    cat("    Matched to GTF:", n_matched, "\n")
+    if (n_matched < n_total)
+      cat("    Dropped (no GTF match):", n_total - n_matched, "\n")
+    cat("    Genes:", nrow(gene_counts), "\n")
+  }
+
+  gene_counts
+}

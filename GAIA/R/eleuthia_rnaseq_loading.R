@@ -88,7 +88,10 @@ ELEUTHIA_load_rnaseq_from_sheet <- function(sample_sheet,
   count_list <- list()
 
   for (i in seq_len(nrow(subset_df))) {
-    sample_id <- subset_df$sample_id[i]
+    # [[<- treats a numeric/integer index as positional, not as a name, so an
+    # un-coerced numeric sample_id (e.g. 1317) would insert far past the end
+    # of count_list instead of naming the entry -- always index by string.
+    sample_id <- as.character(subset_df$sample_id[i])
     file_path <- file.path(subset_df$file_loc[i], subset_df$file_name[i])
 
     if (verbose) {

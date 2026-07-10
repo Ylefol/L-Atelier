@@ -1,7 +1,7 @@
 ================================================================================
 APOLLO MODULE STATUS - Annotation & Enrichment
 ================================================================================
-Last Updated: 2026-02-12
+Last Updated: 2026-07-08
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -139,7 +139,13 @@ motif_enrichment.R:
 APOLLO_homer_motif_enrichment(bed_file, genome, output_dir, size, mask,
                                denovo, denovo_n, bg, nproc, extra_args, verbose)
   - Run HOMER findMotifsGenome.pl on a single BED file
-  - Validates HOMER installation, builds command, runs via system2()
+  - Runs inside the .gaia_homer_env basilisk env (bioconda `homer` package;
+    updated 2026-07-08, was plain Sys.which()/PATH before). Resolves
+    findMotifsGenome.pl from dirname(reticulate::py_exe())'s bin dir via
+    .homer_run(), same pattern as CPAT/SignalP/Pfam in isoform_annotation.R
+  - NOTE: HOMER still needs a one-time, separate per-genome data install
+    (configureHomer.pl -install <genome>) run against .gaia_homer_env before
+    a given genome string works -- basilisk only provisions the binary
   - size: region size (default 200, "given" for actual peak widths)
   - mask: mask repeats (default TRUE, recommended for ATAC)
   - denovo: enable de novo discovery (default FALSE, uses -nomotif)
@@ -176,10 +182,90 @@ APOLLO_get_ppi(genes, organism, resources, min_resources, directed, verbose)
   - Isolated query genes included as disconnected nodes
   - Example: graph <- APOLLO_get_ppi(c("TP53", "BRCA1", "EGFR"))
 
+isoform_annotation.R:
+----------------------
+Runners for the external tools consumed by ARTEMIS_isoform_switch_consequences()
+(cpat_file/signalp_file/pfam_file). Not yet tested end-to-end against real
+CPAT/SignalP/HMMER installs (implemented 2026-07-08; user installing tools
+locally). Basilisk env declarations live in GAIA/R/basilisk.R.
+
+APOLLO_extract_isoform_sequences(switch_result, genome_object, output_dir,
+                                  only_switching_genes, verbose)
+  - Required first step before any of the three runners below
+  - Wraps IsoformSwitchAnalyzeR::extractSequence()
+  - genome_object MUST be a BSgenome object (extractSequence() hard-requires
+    class "BSgenome" -- a plain genome FASTA path is not accepted)
+  - alpha/dIFcutoff always pulled from switch_result$params (not overridable
+    here) to stay consistent with what was already called significant
+  - Returns switch_result with $sequence_files$nt_fasta/$aa_fasta added, and
+    $switch_list updated (sequences cached in the switchAnalyzeRlist too)
+
+APOLLO_run_cpat(switch_result, hexamer_file, logit_model_file, output_dir,
+                 nt_fasta, verbose)
+  - Runs CPAT (coding potential) inside the .gaia_cpat_env basilisk env
+  - hexamer_file/logit_model_file are explicit paths (species-specific CPAT
+    reference files) -- not bundled/auto-fetched, no hardcoded default
+    location (project scripts point these at data/isoform_switch_files/)
+  - IMPORTANT: CPAT's own output columns (ID, mRNA, ORF_strand, ORF_frame,
+    ORF_start, ORF_end, ORF, Fickett, Hexamer, Coding_prob) do NOT match what
+    IsoformSwitchAnalyzeR::analyzeCPAT() parses -- confirmed by reading
+    analyzeCPAT()'s source. This function reformats CPAT's raw
+    *.ORF_prob.best.tsv (falls back to *.ORF_prob.tsv) into the exact
+    6-column layout analyzeCPAT() requires (mRNA_size, ORF_size,
+    Fickett_score, Hexamer_score, coding_prob, id -- order matters, checked
+    with `==` internally) via .apollo_reformat_cpat()
+  - Returns path to the reformatted file, ready for
+    ARTEMIS_isoform_switch_consequences(cpat_file = ...)
+
+APOLLO_run_signalp(switch_result, output_dir, aa_fasta, organism, mode, verbose)
+  - Runs SignalP 6 inside the .gaia_signalp_env basilisk env
+  - SignalP 6 is license-gated (DTU) and not on public PyPI, so the basilisk
+    env only provisions a base Python interpreter -- SignalP 6 itself must be
+    pip-installed manually, once, from the user's licensed wheel into that
+    env (path via basilisk::obtainEnvironmentPath(.gaia_signalp_env)),
+    following DTU's install instructions including the separate model-weights
+    step. This function checks for the installed executable and stops with
+    setup instructions if missing rather than auto-installing.
+  - Raw prediction_results.txt used directly, no reformatting needed --
+    confirmed analyzeSignalP()'s source natively parses SignalP 6's format
+    (detected via a "SignalP-6" header line)
+  - Returns path to prediction_results.txt
+
+APOLLO_run_pfam(switch_result, pfam_dir, output_dir, aa_fasta, nproc, verbose)
+  - Runs pfam_scan.pl (Perl wrapper around HMMER's hmmscan), NOT raw hmmscan
+    directly -- IMPORTANT: analyzePFAM() expects pfam_scan.pl's specific
+    output format (confirmed against ISAS's own bundled example file), raw
+    hmmscan --domtblout output is not compatible
+  - Runs inside the .gaia_pfam_env basilisk env (bioconda's `pfam_scan`
+    recipe bundles pfam_scan.pl + HMMER + the Bio::Pfam::Scan Perl module as
+    conda-declared dependencies, so no manual PfamScan.tar.gz/CPAN setup is
+    needed). basilisk is not Python-specific -- it's a general reproducible
+    conda-env manager; this env just happens to carry a Perl/native-binary
+    tool instead of a Python package, same pattern as CPAT/SignalP otherwise
+    (resolve pfam_scan.pl from dirname(reticulate::py_exe())'s bin dir,
+    system2() it directly)
+  - pfam_dir must contain a pre-pressed (hmmpress) Pfam-A.hmm + Pfam-A.hmm.dat
+  - Returns path to pfam_results.txt
+
+Not yet designed: DeepTMHMM (topology) integration -- ARTEMIS_isoform_switch_
+consequences() has no deeptmhmm_file parameter at all currently. Deferred by
+user ("put a pin on that") until CPAT/SignalP/Pfam are working.
+
 ================================================================================
 IN PROGRESS
 ================================================================================
-None
+- isoform_annotation.R functions implemented but untested against real tool
+  installs (CPAT/SignalP 6/pfam_scan.pl). User is installing these locally;
+  next step is an end-to-end test against real SEPSOMICS data.
+- Bug fixed 2026-07-08 (found during user's first real Pfam test):
+  basilisk::BasiliskEnvironment() requires an explicit version pin on every
+  conda package, not just python -- .gaia_pfam_env's `pfam_scan` and
+  .gaia_homer_env's `homer` entries had none, causing
+  obtainEnvironmentPath()/basiliskRun() to fail with
+  ".check_versions(): versions must be explicitly specified for 'pfam_scan'".
+  Fixed by pinning pfam_scan==1.6 and homer==5.1 (latest bioconda releases at
+  the time) in GAIA/R/basilisk.R. Any future basilisk env added to this file
+  must pin every conda package's version, not just python's.
 
 ================================================================================
 PLANNED / TODO
@@ -203,6 +289,11 @@ DEPENDENCIES
   - Biostrings (for sequence extraction and manipulation)
   - GenomicRanges/IRanges (for GRanges coordinate handling)
   - decoupleR (for prior knowledge networks: CollecTRI, DoRothEA, PROGENy)
+  - basilisk/reticulate (for isoform_annotation.R's CPAT/SignalP/Pfam envs and
+    motif_enrichment.R's HOMER env; pattern mirrors CAULDRON/CYAN, first
+    basilisk usage in GAIA. Not Python-specific -- also used for native-binary/
+    Perl tools (Pfam, HOMER) via bioconda packages, same execution pattern)
+  - BSgenome (genome_object argument to APOLLO_extract_isoform_sequences)
 
 ================================================================================
 NOTES
