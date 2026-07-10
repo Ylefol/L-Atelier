@@ -1,7 +1,7 @@
 ================================================================================
 AETHER MODULE STATUS - Visualization
 ================================================================================
-Last Updated: 2026-07-07
+Last Updated: 2026-07-10
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -503,6 +503,27 @@ AETHER_plot_coverage_tracks(bigwig_files, bed_files, region, chrom_sizes,
 
 .AETHER_parse_region(region)
   - Internal helper: parses region string/vector/GRanges to single GRanges
+
+profile_heatmap.R:
+-------------------
+AETHER_plot_profile_heatmap(bigwig_files, txdb, genes, peaks, window, bin_size,
+                             body_bins, colors, profile_color, cap_quantile,
+                             cap_val, profile_ylim, max_genes, profile_height,
+                             heatmap_height, title, verbose)
+  - deepTools computeMatrix scale-regions style figure: mean profile curve
+    above a row-sorted signal heatmap, one panel per BigWig sample
+  - Gene body scaled to body_bins bins regardless of length; fixed-width
+    flanking bins upstream of TSS / downstream of TES
+  - genes: optional subset; peaks: optional GRanges/BED/narrowPeak filter
+    (keeps only genes whose body+window overlaps a peak), preferred over the
+    max_genes TSS-signal heuristic
+  - colors: ordered low->high vector for scale_fill_gradientn (default an
+    11-stop RdYlBu diverging ramp reproducing the classic deepTools look;
+    pass 2 colors for a plain linear low/high gradient)
+  - cap_val/profile_ylim: shared fixed scales across calls (e.g. mark-level
+    comparability); left NULL to compute per-call from the data
+  - Requires: GenomicRanges, IRanges, S4Vectors, rtracklayer,
+    GenomicFeatures, EnrichedHeatmap, patchwork
 
 ================================================================================
 IN PROGRESS

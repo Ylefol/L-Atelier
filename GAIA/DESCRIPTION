@@ -39,6 +39,7 @@ Suggests:
     Rsubread,
     Biostrings,
     S4Vectors,
+    EnrichedHeatmap,
     ChIPseeker,
     clusterProfiler,
     gprofiler2,

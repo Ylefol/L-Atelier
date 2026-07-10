@@ -12,9 +12,10 @@ AETHER_plot_profile_heatmap(
   window = 3000L,
   bin_size = 50L,
   body_bins = 100L,
-  color_low = "#FFF7EC",
-  color_high = "#7F0000",
+  colors = c("#A50026", "#D73027", "#F46D43", "#FDAE61", "#FEE090", "#FFFFBF", "#E0F3F8",
+    "#ABD9E9", "#74ADD1", "#4575B4", "#313695"),
   profile_color = "#2166AC",
+  raster_interpolate = TRUE,
   cap_quantile = 0.99,
   cap_val = NULL,
   profile_ylim = NULL,
@@ -55,14 +56,22 @@ Default \code{50}.}
 \item{body_bins}{Integer. Number of bins the gene body is scaled to,
 regardless of gene length. Default \code{100}.}
 
-\item{color_low}{Character. Fill colour for zero/low signal.
-Default \code{"#FFF7EC"} (near-white cream).}
-
-\item{color_high}{Character. Fill colour for maximum signal.
-Default \code{"#7F0000"} (dark red).}
+\item{colors}{Character vector of \eqn{\ge} 2 colours, ordered from zero/low
+signal to maximum signal, passed to \code{\link[ggplot2:scale_fill_gradientn]{ggplot2::scale_fill_gradientn()}}.
+Default is an 11-stop red-yellow-blue diverging ramp (matching the
+ColorBrewer/deepTools \code{"RdYlBu"} palette) that gives low signal a distinct
+red, mid-range signal a pale yellow, and high signal a distinct dark blue
+— reproducing the classic deepTools \code{plotHeatmap} look. Supply exactly 2
+colours for a plain low/high linear gradient (the previous behaviour).}
 
 \item{profile_color}{Character. Line and fill colour for the profile curve.
 Default \code{"#2166AC"} (blue).}
+
+\item{raster_interpolate}{Logical. Passed to \code{\link[ggplot2:geom_raster]{ggplot2::geom_raster()}}'s
+\code{interpolate} argument. \code{TRUE} (default) bilinearly blends adjacent
+cells, which avoids an aliased/speckled look when many gene rows are
+downsampled into a shorter rendered image (typical for \code{max_genes} in
+the thousands). Set \code{FALSE} for crisp, unblended per-bin/per-gene pixels.}
 
 \item{cap_quantile}{Numeric in (0,1). Signal values above this quantile are
 capped before display (shared cap across all panels). Default \code{0.99}.}

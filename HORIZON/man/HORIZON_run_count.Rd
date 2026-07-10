@@ -5,8 +5,12 @@
 \title{Count reads per feature using featureCounts}
 \usage{
 HORIZON_run_count(
-  sample_sheet,
-  sample_id,
+  sample_sheet = NULL,
+  sample_id = NULL,
+  bam_file = NULL,
+  output_dir = NULL,
+  paired_end = NULL,
+  strandedness = NULL,
   annotation,
   feature_type = "exon",
   attribute_type = "gene_id",
@@ -17,9 +21,26 @@ HORIZON_run_count(
 }
 \arguments{
 \item{sample_sheet}{Validated sample sheet data.frame from
-\code{\link{HORIZON_validate_sample_sheet}}.}
+\code{\link{HORIZON_validate_sample_sheet}}. Required in sample-sheet
+mode; must be \code{NULL} when \code{bam_file} is supplied.}
 
-\item{sample_id}{Character. Sample ID to process.}
+\item{sample_id}{Character. Sample ID to process (sample-sheet mode).
+Optional in direct BAM mode — inferred from the filename if omitted.}
+
+\item{bam_file}{Character or \code{NULL}. Path to a sorted BAM file. When
+supplied, \code{sample_sheet} must be \code{NULL}. Default \code{NULL}.}
+
+\item{output_dir}{Character or \code{NULL}. Output directory for direct BAM
+mode. Ignored in sample-sheet mode. Defaults to the directory containing
+\code{bam_file}.}
+
+\item{paired_end}{Logical or \code{NULL}. Whether the BAM is paired-end.
+Required in direct BAM mode; read from the sample sheet in sample-sheet
+mode.}
+
+\item{strandedness}{Character or \code{NULL}. One of \code{"unstranded"},
+\code{"forward"}, \code{"reverse"}. Required in direct BAM mode; read
+from the sample sheet in sample-sheet mode.}
 
 \item{annotation}{Character. Path to a GTF/GFF annotation file. Passed to
 \code{annot.ext} in \code{\link[Rsubread]{featureCounts}}.}
@@ -44,12 +65,25 @@ Character. Path to the counts text file, invisibly.
 }
 \description{
 Wraps \code{\link[Rsubread]{featureCounts}} to quantify reads mapping to
-genomic features for a single sample. Strandedness is read directly from the
-sample sheet and mapped to featureCounts integer codes (0 = unstranded,
-1 = forward, 2 = reverse).
+genomic features for a single sample. Strandedness is mapped to
+featureCounts integer codes (0 = unstranded, 1 = forward, 2 = reverse).
 }
 \details{
-Two files are written to \code{<output_dir>/<sample_id>/counts/}:
+\strong{Two usage modes:}
+\enumerate{
+\item \strong{Sample-sheet mode} (default): provide \code{sample_sheet} and
+\code{sample_id}. \code{paired_end} and \code{strandedness} are read from
+the sample sheet row, and the sorted BAM is located at the standard
+HORIZON path (\code{<output_dir>/<sample_id>/aligned/<sample_id>_sorted.bam}).
+Output is written to \code{<output_dir>/<sample_id>/counts/}.
+\item \strong{Direct BAM mode}: provide \code{bam_file} (path to a sorted
+BAM), plus \code{paired_end} and \code{strandedness} explicitly, since
+neither can be reliably inferred without a sample sheet row.
+\code{sample_id} is inferred from the filename if omitted. Output goes
+to \code{output_dir} (defaults to the directory containing the BAM).
+}
+
+Two files are written to the resolved output directory:
 \itemize{
 \item \code{<sample_id>_counts.txt} — tab-delimited table of gene ID and
 raw count (used by \code{\link{HORIZON_aggregate_counts}})

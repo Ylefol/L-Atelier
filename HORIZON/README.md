@@ -65,8 +65,11 @@ All functions write into a consistent tree under `output_dir`:
 └── <sample_id>/
     ├── qc/          # Trimmed FASTQs + fastp HTML/JSON report
     ├── aligned/     # BAM files, BAI indexes, BigWig, fragment size plot
+    ├── counts/      # featureCounts gene-level counts (RNA-seq)
+    ├── salmon/      # Salmon quant.sf (isoform-level RNA-seq)
     └── peaks/       # MACS3 peak files (narrowPeak / broadPeak)
-<output_dir>/aggregated/counts/   # Combined count matrix + metadata (RNA-seq)
+<output_dir>/aggregated/counts/   # Combined gene count matrix + metadata (RNA-seq)
+<output_dir>/aggregated/salmon/   # Combined transcript TPM/count matrices + metadata (RNA-seq)
 ```
 
 ---
@@ -109,8 +112,13 @@ All functions write into a consistent tree under `output_dir`:
 - `HORIZON_call_peaks()` — wraps `macs3 callpeak`; supports ATAC-seq, ChIP-seq (TF and histone), CUT&TAG, CUT&RUN via explicit parameter control
 
 ### Counting and aggregation (RNA-seq)
-- `HORIZON_run_count()` — feature counting (wraps featureCounts via Rsubread)
+- `HORIZON_run_count()` — gene-level feature counting (wraps featureCounts via Rsubread); exon-union counting, not suitable for isoform-level resolution (overlapping-isoform reads are ambiguous/discarded)
 - `HORIZON_aggregate_counts()` — merge per-sample count files into a single matrix
+
+### Transcript quantification (isoform-level RNA-seq)
+- `HORIZON_build_salmon_index()` — decoy-aware Salmon transcriptome index from a GTF + genome FASTA (`GenomicFeatures::extractTranscriptSeqs()`); one-time per reference
+- `HORIZON_run_salmon()` — per-sample `salmon quant` (selective-alignment mode, direct from FASTQ — does not use the genome-aligned BAM); resolves isoform-ambiguous reads via Salmon's EM algorithm, unlike `HORIZON_run_count()`
+- `HORIZON_aggregate_salmon()` — merge per-sample `quant.sf` files into transcript x sample TPM and count matrices
 
 ---
 

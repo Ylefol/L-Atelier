@@ -24,6 +24,8 @@ Imports:
     scales
 Suggests:
     rtracklayer,
-    GenomeInfoDb
+    GenomeInfoDb,
+    GenomicFeatures,
+    Biostrings
 biocViews: Sequencing, RNASeq, Preprocessing, QualityControl, Alignment
 Config/roxygen2/version: 8.0.0

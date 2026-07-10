@@ -42,12 +42,20 @@
 #'   Default `50`.
 #' @param body_bins Integer. Number of bins the gene body is scaled to,
 #'   regardless of gene length. Default `100`.
-#' @param color_low Character. Fill colour for zero/low signal.
-#'   Default `"#FFF7EC"` (near-white cream).
-#' @param color_high Character. Fill colour for maximum signal.
-#'   Default `"#7F0000"` (dark red).
+#' @param colors Character vector of \eqn{\ge} 2 colours, ordered from zero/low
+#'   signal to maximum signal, passed to [ggplot2::scale_fill_gradientn()].
+#'   Default is an 11-stop red-yellow-blue diverging ramp (matching the
+#'   ColorBrewer/deepTools `"RdYlBu"` palette) that gives low signal a distinct
+#'   red, mid-range signal a pale yellow, and high signal a distinct dark blue
+#'   — reproducing the classic deepTools `plotHeatmap` look. Supply exactly 2
+#'   colours for a plain low/high linear gradient (the previous behaviour).
 #' @param profile_color Character. Line and fill colour for the profile curve.
 #'   Default `"#2166AC"` (blue).
+#' @param raster_interpolate Logical. Passed to [ggplot2::geom_raster()]'s
+#'   `interpolate` argument. `TRUE` (default) bilinearly blends adjacent
+#'   cells, which avoids an aliased/speckled look when many gene rows are
+#'   downsampled into a shorter rendered image (typical for `max_genes` in
+#'   the thousands). Set `FALSE` for crisp, unblended per-bin/per-gene pixels.
 #' @param cap_quantile Numeric in (0,1). Signal values above this quantile are
 #'   capped before display (shared cap across all panels). Default `0.99`.
 #' @param max_genes Integer or `NULL`. Hard cap on the number of genes
@@ -87,9 +95,12 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
                                          window         = 3000L,
                                          bin_size       = 50L,
                                          body_bins      = 100L,
-                                         color_low      = "#FFF7EC",
-                                         color_high     = "#7F0000",
+                                         colors         = c("#A50026", "#D73027", "#F46D43",
+                                                             "#FDAE61", "#FEE090", "#FFFFBF",
+                                                             "#E0F3F8", "#ABD9E9", "#74ADD1",
+                                                             "#4575B4", "#313695"),
                                          profile_color  = "#2166AC",
+                                         raster_interpolate = TRUE,
                                          cap_quantile   = 0.99,
                                          cap_val        = NULL,
                                          profile_ylim   = NULL,
@@ -125,6 +136,9 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
   if (!is.list(bigwig_files) || is.null(names(bigwig_files)) ||
       any(names(bigwig_files) == ""))
     stop("bigwig_files must be a named list", call. = FALSE)
+
+  if (!is.character(colors) || length(colors) < 2L)
+    stop("colors must be a character vector of at least 2 colours", call. = FALSE)
 
   # --- Gene positions ---------------------------------------------------------
   if (verbose) cat("[AETHER] Extracting gene positions from TxDb...\n")
@@ -273,9 +287,9 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
       tes_bin       = tes_bin,
       x_breaks      = x_breaks,
       x_labels      = x_labels,
-      color_low     = color_low,
-      color_high    = color_high,
+      colors        = colors,
       profile_color = profile_color,
+      raster_interpolate = raster_interpolate,
       cap_val       = cap_val,
       profile_ylim  = profile_ylim,
       show_y_axis   = (i == 1L),
@@ -492,7 +506,7 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
 # ------------------------------------------------------------------------------
 .aether_phm_build_panel_sr <- function(mat, panel_title, n_up, body_bins, n_down,
                                         tss_bin, tes_bin, x_breaks, x_labels,
-                                        color_low, color_high, profile_color,
+                                        colors, profile_color, raster_interpolate,
                                         cap_val, profile_ylim, show_y_axis,
                                         show_legend) {
 
@@ -538,14 +552,13 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
   )
 
   p_heat <- ggplot(heat_df, aes(x = .data$x, y = .data$y, fill = .data$fill)) +
-    geom_raster(interpolate = FALSE) +
+    geom_raster(interpolate = raster_interpolate) +
     geom_vline(xintercept = tss_bin, color = "white", linetype = "dashed",
                linewidth = 0.4) +
     geom_vline(xintercept = tes_bin, color = "white", linetype = "dashed",
                linewidth = 0.4) +
-    scale_fill_gradient(
-      low    = color_low,
-      high   = color_high,
+    scale_fill_gradientn(
+      colors = colors,
       limits = c(0, cap_val),
       oob    = function(x, range) pmin(pmax(x, range[1]), range[2]),
       name   = "Signal"
