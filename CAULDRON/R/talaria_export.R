@@ -764,8 +764,10 @@ TALARIA_export_de <- function(de_result,
 #'
 #' Writes CSV tables, an RDS object, NES dotplots (one per gene set collection),
 #' and optional per-pathway enrichment score plots for a \code{keraunos_gsea}
-#' or \code{keraunos_gsea_multi} object.  Dotplots are always produced;
-#' enrichment score plots are controlled by \code{do_gsea_plots}.
+#' or \code{keraunos_gsea_multi} object.  Dotplots are controlled by
+#' \code{make_dotplots}; enrichment score plots are controlled by
+#' \code{do_gsea_plots}. CSV/RDS export always happens regardless of either
+#' setting.
 #'
 #' For \code{keraunos_gsea_multi} each cluster gets its own subdirectory.
 #' Enrichment score plots require \code{$ranked_genes} and \code{$gene_sets}
@@ -776,9 +778,16 @@ TALARIA_export_de <- function(de_result,
 #' @param result A \code{keraunos_gsea} or \code{keraunos_gsea_multi} object.
 #' @param output_dir Character. Directory to write into (created if absent).
 #' @param prefix Character. Filename prefix. Default \code{"gsea"}.
+#' @param make_dotplots Logical. Generate NES dotplots (one per gene set
+#'   collection). Set \code{FALSE} when exporting many comparisons at once
+#'   (e.g. all pairwise cluster combinations) to avoid writing one dotplot
+#'   per comparison — CSV/RDS results are still written either way, so
+#'   dotplots can be produced later for a chosen subset by calling this
+#'   function again with \code{make_dotplots = TRUE} on just those results.
+#'   Default \code{TRUE}.
 #' @param do_gsea_plots Logical. Generate per-pathway enrichment score plots
-#'   (running-score curves via \code{fgsea::plotEnrichment}).  NES dotplots
-#'   are always exported regardless of this setting.  Default \code{TRUE}.
+#'   (running-score curves via \code{fgsea::plotEnrichment}).  Default
+#'   \code{TRUE}.
 #' @param top_n Integer. Pathways shown per dotplot (split equally between
 #'   enriched and depleted) and number of enrichment score plots per cluster.
 #'   Default \code{20L}.
@@ -793,6 +802,7 @@ TALARIA_export_de <- function(de_result,
 TALARIA_export_gsea <- function(result,
                                  output_dir,
                                  prefix             = "gsea",
+                                 make_dotplots      = TRUE,
                                  do_gsea_plots      = TRUE,
                                  top_n              = 20L,
                                  plot_width         = 8,
@@ -826,8 +836,9 @@ TALARIA_export_gsea <- function(result,
 
     if (nrow(cl_result$results) == 0L) return(invisible(NULL))
 
-    # ── Dotplots (always) — one per collection if column present ──────────────
-    if ("collection" %in% names(cl_result$results) &&
+    # ── Dotplots (gated by make_dotplots) — one per collection if present ────
+    if (isTRUE(make_dotplots) &&
+        "collection" %in% names(cl_result$results) &&
         !all(is.na(cl_result$results$collection))) {
       collections <- unique(cl_result$results$collection[
         !is.na(cl_result$results$collection)])
@@ -846,7 +857,7 @@ TALARIA_export_gsea <- function(result,
                               paste0(prefix, "_", cl_label, "_dotplot_",
                                      clean(col), ".png")))
       }
-    } else {
+    } else if (isTRUE(make_dotplots)) {
       p_dot <- .talaria_gsea_dotplot(
         cl_result$results, top_n = as.integer(top_n),
         title = paste0("GSEA \u2014 ", gsub("_", " ", cl_label))

@@ -1,13 +1,15 @@
 #' Apollo - Isoform Switch Consequence Tool Wrappers
 #'
 #' @description Runs external protein/transcript annotation tools (CPAT,
-#' SignalP, Pfam via \code{pfam_scan.pl}) against isoforms from an
+#' SignalP, Pfam via \code{pfam_scan.pl}, DeepTMHMM) against isoforms from an
 #' \code{artemis_isoform_switch} object, producing result files consumable by
-#' \code{ARTEMIS_isoform_switch_consequences()}. All three run inside
+#' \code{ARTEMIS_isoform_switch_consequences()}. All four run inside
 #' isolated \pkg{basilisk} environments (see \code{GAIA/R/basilisk.R}) --
 #' CPAT and SignalP are Python tools; Pfam is packaged via bioconda's
 #' \code{pfam_scan} recipe, which basilisk installs the same way regardless
-#' of it being a Perl/native-binary tool rather than a Python one.
+#' of it being a Perl/native-binary tool rather than a Python one; DeepTMHMM
+#' is an academically licensed PyTorch model run from a user-supplied local
+#' checkout rather than an installed executable.
 
 
 # ==============================================================================
@@ -501,5 +503,169 @@ APOLLO_run_pfam <- function(switch_result,
       invisible(exit_code)
     },
     args = cli_args, verbose = verbose
+  )
+}
+
+
+# ==============================================================================
+# DeepTMHMM -- topology prediction
+# ==============================================================================
+
+#' Run DeepTMHMM Topology Prediction
+#'
+#' @description Runs DeepTMHMM (transmembrane helix / signal peptide /
+#' cell-membrane topology prediction) against the amino acid FASTA from
+#' \code{APOLLO_extract_isoform_sequences()}, inside an isolated
+#' \pkg{basilisk} Python environment (\code{.gaia_deeptmhmm_env}).
+#'
+#' @param switch_result An \code{artemis_isoform_switch} object, normally one
+#'   that has already been through \code{APOLLO_extract_isoform_sequences()}.
+#' @param deeptmhmm_dir Character. Path to the locally installed, academically
+#'   licensed DeepTMHMM package directory -- a flat checkout containing
+#'   \code{predict.py}, \code{utils.py}, the \code{experiments/} folder, and
+#'   the five \code{deeptmhmm_cv_*.model} weight files.
+#' @param output_dir Character. Directory \code{predict.py} writes its output
+#'   to. Must \strong{not} already exist -- \code{predict.py} itself checks
+#'   for this and exits with an error if \code{output_dir} is already
+#'   present (unlike \code{APOLLO_run_cpat()}/\code{APOLLO_run_signalp()}/
+#'   \code{APOLLO_run_pfam()}, this function does not pre-create it).
+#' @param aa_fasta Character or \code{NULL}. Amino acid FASTA path. Default
+#'   \code{NULL} uses \code{switch_result$sequence_files$aa_fasta}.
+#' @param verbose Logical. Print progress and DeepTMHMM's own console output.
+#'   Default: \code{TRUE}.
+#'
+#' @return Invisibly, the path to the \code{TMRs.gff3} result file, directly
+#'   compatible with
+#'   \code{IsoformSwitchAnalyzeR::analyzeDeepTMHMM(pathToDeepTMHMMresultFile = ...)}
+#'   / \code{ARTEMIS_isoform_switch_consequences(deeptmhmm_file = ...)}.
+#'
+#' @details
+#' DeepTMHMM is academically licensed (DTU Health Tech / BioLib) and not on
+#' public PyPI/bioconda channels, so \code{.gaia_deeptmhmm_env} only
+#' provisions a base Python 3.8 interpreter -- \code{predict.py}'s own
+#' dependencies (PyTorch, per its bundled \code{requirements.txt}) must be
+#' installed once, manually, into that environment following the license
+#' holder's own \code{README.txt} before calling this function. This
+#' function checks for \code{predict.py} in \code{deeptmhmm_dir} and stops
+#' with setup guidance if it's missing, rather than attempting to install it
+#' automatically (same pattern as \code{APOLLO_run_signalp()}).
+#'
+#' Unlike CPAT/SignalP/Pfam, \code{predict.py} is invoked from within its own
+#' package directory rather than as an installed executable on \code{PATH}:
+#' it loads its five \code{deeptmhmm_cv_*.model} weight files and its own
+#' \code{utils}/\code{experiments.tmhmm3.tm_util} modules via bare relative
+#' paths/imports (confirmed by reading \code{predict.py} directly), so this
+#' function temporarily changes the working directory to
+#' \code{deeptmhmm_dir} for the duration of the call (restored via
+#' \code{on.exit()}, including on error).
+#'
+#' \code{predict.py}'s own \code{requirements.txt} pins
+#' \code{torch==1.5.0+cu92} (a CUDA 9.2-era wheel) -- confirm this actually
+#' resolves on your hardware/driver stack before assuming it as fixed; a
+#' newer CPU-only or different CUDA-version torch build may be needed
+#' instead. GPU vs CPU execution is auto-detected by \code{predict.py} itself
+#' (\code{torch.cuda.is_available()}) and is not controlled by this wrapper.
+#'
+#' @export
+APOLLO_run_deeptmhmm <- function(switch_result,
+                                  deeptmhmm_dir,
+                                  output_dir,
+                                  aa_fasta = NULL,
+                                  verbose  = TRUE) {
+
+  if (!inherits(switch_result, "artemis_isoform_switch"))
+    stop("switch_result must be an artemis_isoform_switch object from ",
+         "ARTEMIS_isoform_switch()", call. = FALSE)
+
+  if (is.null(aa_fasta)) aa_fasta <- switch_result$sequence_files$aa_fasta
+  if (is.null(aa_fasta))
+    stop("No amino acid FASTA available. Run APOLLO_extract_isoform_sequences() ",
+         "first, or supply aa_fasta directly.", call. = FALSE)
+  if (!file.exists(aa_fasta))
+    stop("aa_fasta not found: ", aa_fasta, call. = FALSE)
+
+  if (!dir.exists(deeptmhmm_dir))
+    stop("deeptmhmm_dir not found: ", deeptmhmm_dir, call. = FALSE)
+
+  predict_script <- file.path(deeptmhmm_dir, "predict.py")
+  if (!file.exists(predict_script))
+    stop("predict.py not found in deeptmhmm_dir: ", deeptmhmm_dir, ". DeepTMHMM ",
+         "is academically licensed and not auto-installable -- request a copy ",
+         "from DTU Health Tech/BioLib (licensing@biolib.com, see ",
+         "https://biolib.com/DTU/DeepTMHMM/), extract it, and install its ",
+         "PyTorch dependencies into .gaia_deeptmhmm_env following its own ",
+         "README.txt before calling this function.", call. = FALSE)
+
+  if (dir.exists(output_dir))
+    stop("output_dir already exists: ", output_dir, ". predict.py refuses to ",
+         "run if its output directory is already present -- remove it or ",
+         "choose a new path.", call. = FALSE)
+
+  aa_fasta_abs <- normalizePath(aa_fasta, mustWork = TRUE)
+  # predict.py creates output_dir itself -- it doesn't exist yet, so it can't
+  # be normalizePath(..., mustWork = TRUE) directly. On a non-existent path,
+  # normalizePath(mustWork = FALSE) is unreliable -- on Linux it just returns
+  # relative paths unchanged instead of resolving them. Since .apollo_deeptmhmm_run()
+  # setwd()s into deeptmhmm_dir before invoking predict.py, a still-relative
+  # output_dir_abs would resolve inside deeptmhmm_dir instead of the caller's
+  # intended location. Resolve via the parent directory instead, which does
+  # exist (or can be created without touching output_dir itself).
+  output_parent <- dirname(output_dir)
+  if (!dir.exists(output_parent)) dir.create(output_parent, recursive = TRUE)
+  output_dir_abs <- file.path(normalizePath(output_parent, mustWork = TRUE),
+                               basename(output_dir))
+
+  if (verbose) {
+    cat("[APOLLO] Running DeepTMHMM (basilisk Python environment)...\n")
+    cat("    AA fasta : ", aa_fasta_abs, "\n", sep = "")
+    cat("    DeepTMHMM: ", deeptmhmm_dir, "\n", sep = "")
+  }
+
+  start_time <- proc.time()
+  .apollo_deeptmhmm_run(deeptmhmm_dir, aa_fasta_abs, output_dir_abs, verbose)
+  elapsed <- (proc.time() - start_time)["elapsed"]
+
+  gff3_file <- file.path(output_dir, "TMRs.gff3")
+  if (!file.exists(gff3_file))
+    stop("DeepTMHMM completed but TMRs.gff3 was not found in: ", output_dir,
+         call. = FALSE)
+
+  if (verbose) {
+    cat(" DeepTMHMM completed in", round(elapsed, 1), "seconds.\n")
+    cat("[APOLLO] Result: ", gff3_file, "\n\n", sep = "")
+  }
+
+  invisible(gff3_file)
+}
+
+
+#' Execute DeepTMHMM's predict.py inside the basilisk environment
+#' @keywords internal
+.apollo_deeptmhmm_run <- function(deeptmhmm_dir, fasta, output_dir, verbose) {
+  basilisk::basiliskRun(
+    env = .gaia_deeptmhmm_env,
+    fun = function(deeptmhmm_dir, fasta, output_dir, verbose) {
+      python_bin <- reticulate::py_exe()
+
+      # predict.py loads its five deeptmhmm_cv_*.model weight files and its
+      # own utils/experiments.tmhmm3.tm_util modules via bare relative
+      # paths/imports -- it must be run with this directory as cwd.
+      old_wd <- getwd()
+      on.exit(setwd(old_wd), add = TRUE)
+      setwd(deeptmhmm_dir)
+
+      exit_code <- system2(
+        command = python_bin,
+        args    = c("predict.py", "--fasta", fasta, "--output-dir", output_dir),
+        stdout  = if (verbose) "" else FALSE,
+        stderr  = if (verbose) "" else FALSE
+      )
+      if (exit_code != 0)
+        stop("DeepTMHMM (predict.py) exited with code ", exit_code, ". Re-run ",
+             "with verbose = TRUE to see its own output.", call. = FALSE)
+      invisible(exit_code)
+    },
+    deeptmhmm_dir = deeptmhmm_dir, fasta = fasta, output_dir = output_dir,
+    verbose = verbose
   )
 }

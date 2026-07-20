@@ -285,6 +285,18 @@ print.keraunos_markers <- function(x, ...) {
 #'   classifier.  Default \code{0.5}.
 #' @param top_n Integer. Maximum number of top markers per cluster in the tidy
 #'   summary table, ranked by \code{rank.AUC}.  Default \code{10L}.
+#' @param full_stats Logical.  Passed through to \code{scran::scoreMarkers()}'s
+#'   \code{full.stats} argument.  When \code{TRUE}, each per-cluster DataFrame
+#'   in \code{$markers} additionally carries a \code{full.AUC} (and
+#'   \code{full.logFC.cohen}, \code{full.logFC.detected}) nested column giving
+#'   the per-gene effect size against every *individual* other cluster,
+#'   not just the \code{median}/\code{mean}/\code{min}/\code{max} summary
+#'   across all of them.  Required by
+#'   \code{\link{KERAUNOS_rank_pairwise_markers}} to build a ranked gene list
+#'   for one specific pair of clusters (e.g. for GSEA between two clusters
+#'   without needing pseudobulk replicate samples).  Increases result object
+#'   size roughly in proportion to the number of clusters.  Default
+#'   \code{FALSE} (unchanged from previous behaviour).
 #' @param verbose Logical. Print a summary. Default \code{TRUE}.
 #'
 #' @return A \code{keraunos_markers} object (list) with:
@@ -292,7 +304,8 @@ print.keraunos_markers <- function(x, ...) {
 #'     \item \code{$markers} — named list of DataFrames from
 #'       \code{scran::scoreMarkers()}, one per cluster.  Each DataFrame contains
 #'       per-gene effect size summaries (\code{median.AUC}, \code{rank.AUC},
-#'       \code{median.logFC.cohen}, etc.).
+#'       \code{median.logFC.cohen}, etc.), plus \code{full.*} pairwise columns
+#'       when \code{full_stats = TRUE}.
 #'     \item \code{$top} — tidy data.frame of top markers (columns:
 #'       cluster, gene, Top, median_auc, mean_effect, FDR).
 #'       \code{Top = rank.AUC}; \code{FDR = NA} (no p-values).
@@ -306,6 +319,7 @@ KERAUNOS_score_markers <- function(sce,
                                     restrict_to  = NULL,
                                     min_auc      = 0.5,
                                     top_n        = 10L,
+                                    full_stats   = FALSE,
                                     verbose      = TRUE) {
 
   if (!assay_name %in% assayNames(sce))
@@ -337,7 +351,8 @@ KERAUNOS_score_markers <- function(sce,
     sce,
     groups     = clusters,
     assay.type = assay_name,
-    block      = block
+    block      = block,
+    full.stats = full_stats
   )
 
   top_df <- .keraunos_extract_top_score(score_list, as.integer(top_n),
@@ -376,11 +391,96 @@ KERAUNOS_score_markers <- function(sce,
         restrict_to  = restrict_to,
         min_auc      = min_auc,
         top_n        = as.integer(top_n),
+        full_stats   = isTRUE(full_stats),
         method       = "scoreMarkers"
       )
     ),
     class = "keraunos_markers"
   )
+}
+
+
+#' Pairwise ranked gene list from marker scores (for pairwise GSEA)
+#'
+#' Extracts a per-gene ranking statistic for one specific pair of clusters
+#' from a \code{\link{KERAUNOS_score_markers}} result run with
+#' \code{full_stats = TRUE}.  Unlike \code{$top}/\code{$markers}' default
+#' summary columns (\code{median.AUC}, etc., aggregated across *every* other
+#' cluster), this pulls the effect size against exactly \code{cluster2},
+#' giving a proper pairwise ranking for two clusters without requiring
+#' pseudobulk replicate samples — effect sizes are computed at single-cell
+#' resolution by \code{scran::scoreMarkers()}. Feed the result directly into
+#' \code{\link{KERAUNOS_gsea}}'s \code{ranked_genes} argument.
+#'
+#' @param markers_result A \code{keraunos_markers} object from
+#'   \code{KERAUNOS_score_markers(..., full_stats = TRUE)}.
+#' @param cluster1 Character. The focal cluster (positive ranking values mean
+#'   higher in this cluster).
+#' @param cluster2 Character. The comparison cluster (negative ranking values,
+#'   for \code{stat = "AUC"}, mean higher in this cluster).
+#' @param stat Character. Which pairwise effect size to use:
+#'   \code{"AUC"} (default; scaled cell-detection-rank statistic, shifted by
+#'   \code{-0.5} here so 0 = no difference, matching \code{scran}'s convention
+#'   that 0.5 = random/no difference — the shift makes the vector suitable
+#'   as a signed GSEA ranking statistic), \code{"logFC.cohen"} (Cohen's d,
+#'   already signed and centred at 0), or \code{"logFC.detected"} (log-fold
+#'   change in detection rate, already signed).
+#' @param verbose Logical. Print a summary. Default \code{TRUE}.
+#'
+#' @return A named numeric vector (names = gene symbols), NA-removed and
+#'   sorted descending — ready to pass to \code{KERAUNOS_gsea(ranked_genes = )}.
+#'
+#' @export
+KERAUNOS_rank_pairwise_markers <- function(markers_result,
+                                            cluster1,
+                                            cluster2,
+                                            stat    = c("AUC", "logFC.cohen", "logFC.detected"),
+                                            verbose = TRUE) {
+
+  stat <- match.arg(stat)
+
+  if (!inherits(markers_result, "keraunos_markers"))
+    stop("'markers_result' must be a keraunos_markers object from ",
+         "KERAUNOS_score_markers().", call. = FALSE)
+
+  if (!isTRUE(markers_result$params$full_stats))
+    stop("'markers_result' was scored without full_stats = TRUE, so no ",
+         "per-cluster-pair effect sizes are available (only aggregated ",
+         "median/mean/min/max across all other clusters).  Re-run ",
+         "KERAUNOS_score_markers(sce, ..., full_stats = TRUE).", call. = FALSE)
+
+  cl_names <- names(markers_result$markers)
+  for (cl in c(cluster1, cluster2)) {
+    if (!cl %in% cl_names)
+      stop("Cluster '", cl, "' not found. Available: ",
+           paste(cl_names, collapse = ", "), call. = FALSE)
+  }
+
+  df       <- markers_result$markers[[cluster1]]
+  full_col <- paste0("full.", stat)
+  if (!full_col %in% names(df))
+    stop("Column '", full_col, "' not found in markers_result$markers[['",
+         cluster1, "']].", call. = FALSE)
+
+  pairwise <- df[[full_col]]
+  if (!cluster2 %in% names(pairwise))
+    stop("Cluster '", cluster2, "' not found among the pairwise comparisons ",
+         "for '", cluster1, "'. Available: ",
+         paste(names(pairwise), collapse = ", "), call. = FALSE)
+
+  values <- pairwise[[cluster2]]
+  names(values) <- rownames(df)
+
+  if (identical(stat, "AUC")) values <- values - 0.5
+
+  values <- values[!is.na(values)]
+  values <- sort(values, decreasing = TRUE)
+
+  if (isTRUE(verbose))
+    cat("[KERAUNOS] Pairwise ranked genes: ", cluster1, " vs ", cluster2,
+        " (", stat, "): ", length(values), " genes\n", sep = "")
+
+  values
 }
 
 
@@ -1060,7 +1160,7 @@ print.keraunos_pseudobulk <- function(x, ...) {
 #'
 #' Human collections use plain codes (\code{H}, \code{C2}, \code{C5}, …).
 #' Mouse collections (\code{db_species = "MM"}) use \code{M}-prefixed codes
-#' (\code{MH}, \code{MC2}, \code{MC5}, …).  \code{\link{KERAUNOS_gsea}} adjusts
+#' (\code{MH}, \code{M2}, \code{M5}, …).  \code{\link{KERAUNOS_gsea}} adjusts
 #' these automatically when \code{db_species = "MM"} is set, so you can still
 #' pass \code{collection = c("H", "C2")} and the correct codes will be used.
 #'
@@ -1312,7 +1412,7 @@ KERAUNOS_gsea <- function(ranked_genes,
            "Install via: install.packages(\"msigdbr\")", call. = FALSE)
 
     # Warn if db_species="MM" is set but collection codes look like human codes.
-    # Mouse MSigDB uses "M"-prefixed codes (MH, MC2, MC5…); human uses plain
+    # Mouse MSigDB uses "M"-prefixed codes (MH, M2, M5…); human uses plain
     # codes (H, C2, C5…). The user must supply the correct codes explicitly.
     if (!is.null(db_species) && toupper(db_species) == "MM") {
       wrong <- collection[!grepl("^M", collection)]
@@ -1321,7 +1421,7 @@ KERAUNOS_gsea <- function(ranked_genes,
           "db_species='MM' (mouse) but collection code(s) do not use the ",
           "mouse prefix: ", paste(wrong, collapse = ", "), ".\n",
           "  Mouse MSigDB collections use uppercase M-prefixed codes ",
-          "(e.g. 'MH', 'MC2', 'MC5').\n",
+          "(e.g. 'MH', 'M2', 'M5').\n",
           "  Run KERAUNOS_list_gene_sets(db_species='MM') to see all available codes.",
           call. = FALSE
         )
@@ -1334,13 +1434,24 @@ KERAUNOS_gsea <- function(ranked_genes,
               ") for ", species, db_str, "...")
     }
 
+    # msigdbr::msigdbr()'s db_species argument requires a character vector --
+    # unlike msigdbr_collections(), it errors on NULL rather than falling
+    # back to its own default ("HS"), so NULL must be resolved here.
+    msigdbr_db_species <- if (is.null(db_species)) "HS" else db_species
+
     gs_dfs <- lapply(collection, function(col) {
+      # subcollection codes can themselves contain a colon (e.g. "GO:BP",
+      # "CP:REACTOME"), so everything after the first ":" must be rejoined
+      # rather than truncated to the second token only -- taking just
+      # cat_sub[2] silently fetched the wrong (broader) gene set for
+      # "C2:CP:REACTOME" (all of C2:CP, not just REACTOME) and an invalid
+      # subcollection for "C5:GO:BP" ("GO" instead of "GO:BP").
       cat_sub <- strsplit(col, ":", fixed = TRUE)[[1]]
       cat  <- cat_sub[1]
-      subc <- if (length(cat_sub) > 1) cat_sub[2] else NULL
+      subc <- if (length(cat_sub) > 1) paste(cat_sub[-1], collapse = ":") else NULL
 
       tryCatch(
-        msigdbr::msigdbr(species = species, db_species = db_species,
+        msigdbr::msigdbr(species = species, db_species = msigdbr_db_species,
                          collection = cat, subcollection = subc),
         error = function(e) {
           warning("msigdbr failed for collection '", col, "': ",
@@ -1681,7 +1792,7 @@ KERAUNOS_summarise_de <- function(de_result,
 #'   Default \code{"Homo sapiens"}.
 #' @param db_species Character or \code{NULL}.  MSigDB database to query.
 #'   Use \code{"MM"} for native mouse gene sets (requires M-prefixed
-#'   collection codes, e.g. \code{c("MH", "MC2", "MC5")}).  See
+#'   collection codes, e.g. \code{c("MH", "M2", "M5")}).  See
 #'   \code{\link{KERAUNOS_list_gene_sets}} to browse available codes.
 #' @param collection Character vector. MSigDB collection codes.
 #'   Default \code{c("H", "C2", "C5")}.  Subcategory can be appended with a
@@ -1749,7 +1860,7 @@ KERAUNOS_gsea_pseudobulk <- function(de_result,
           "db_species='MM' (mouse) but collection code(s) do not use the ",
           "mouse prefix: ", paste(wrong, collapse = ", "), ".\n",
           "  Mouse MSigDB collections use uppercase M-prefixed codes ",
-          "(e.g. 'MH', 'MC2', 'MC5').\n",
+          "(e.g. 'MH', 'M2', 'M5').\n",
           "  Run KERAUNOS_list_gene_sets(db_species='MM') to see all available codes.",
           call. = FALSE
         )
@@ -1762,12 +1873,20 @@ KERAUNOS_gsea_pseudobulk <- function(de_result,
               ") for ", species, db_str, "...")
     }
 
+    # msigdbr::msigdbr()'s db_species argument requires a character vector --
+    # unlike msigdbr_collections(), it errors on NULL rather than falling
+    # back to its own default ("HS"), so NULL must be resolved here.
+    msigdbr_db_species <- if (is.null(db_species)) "HS" else db_species
+
     gs_dfs <- lapply(collection, function(col) {
+      # subcollection codes can themselves contain a colon (e.g. "GO:BP",
+      # "CP:REACTOME") -- see the matching comment in KERAUNOS_gsea() above
+      # for why cat_sub[2] alone silently truncates multi-colon codes.
       cat_sub <- strsplit(col, ":", fixed = TRUE)[[1]]
       cat  <- cat_sub[1]
-      subc <- if (length(cat_sub) > 1) cat_sub[2] else NULL
+      subc <- if (length(cat_sub) > 1) paste(cat_sub[-1], collapse = ":") else NULL
       tryCatch(
-        msigdbr::msigdbr(species = species, db_species = db_species,
+        msigdbr::msigdbr(species = species, db_species = msigdbr_db_species,
                          collection = cat, subcollection = subc),
         error = function(e) {
           warning("msigdbr failed for collection '", col, "': ",
@@ -1903,6 +2022,281 @@ print.keraunos_gsea_multi <- function(x, ...) {
   cat("  Clusters   :", x$params$n_clusters_run, "run,",
       length(x$skipped), "skipped\n")
   cat("  Gene sets  :", x$params$n_gene_sets, "tested per cluster\n")
+  cat("  Significant:",
+      format(sum(x$summary$n_sig, na.rm = TRUE), big.mark = ","),
+      paste0("total (FDR < ", x$params$fdr_threshold, ")\n"))
+  cat("  Access     : $results (list), $significant (list), $summary, $params\n")
+  invisible(x)
+}
+
+
+# ==============================================================================
+# Pairwise cluster-vs-cluster GSEA from marker scores (no replicates needed)
+# ==============================================================================
+
+#' Run GSEA between pairs of clusters using marker effect sizes
+#'
+#' A marker-score-based alternative to \code{\link{KERAUNOS_gsea_pseudobulk}}
+#' for comparing specific clusters to each other rather than testing a
+#' condition within each cluster. Ranking statistics come from
+#' \code{scran::scoreMarkers()} pairwise effect sizes (via
+#' \code{\link{KERAUNOS_rank_pairwise_markers}}), computed at single-cell
+#' resolution — unlike DESeq2 pseudobulk DE, this does not require \eqn{\ge2}
+#' biological replicate samples per cluster, making it suitable for comparing
+#' two specific clusters directly (e.g. two developmentally-related or
+#' visually-adjacent clusters) even when sample composition is skewed or a
+#' cluster is dominated by one sample/clone.
+#'
+#' @param markers_result A \code{keraunos_markers} object from
+#'   \code{KERAUNOS_score_markers(sce, ..., full_stats = TRUE)}.
+#' @param cluster_pairs \code{NULL} (default) or a list of length-2 character
+#'   vectors, e.g. \code{list(c("1","2"), c("8","13"))}, restricting the run
+#'   to specific pairs. \code{NULL} runs every pairwise combination of
+#'   clusters present in \code{markers_result}.
+#' @param stat Character. Which pairwise effect size to rank on — see
+#'   \code{\link{KERAUNOS_rank_pairwise_markers}}. Default \code{"AUC"}.
+#' @param gene_sets Named list of character vectors, or \code{NULL} to fetch
+#'   from MSigDB via msigdbr (fetched once and reused across all pairs).
+#' @param species Character. Species for MSigDB gene set retrieval.
+#'   Default \code{"Homo sapiens"}.
+#' @param db_species Character or \code{NULL}. MSigDB database to query.
+#'   \code{NULL} (default): human gene sets; \code{"MM"}: native mouse (use
+#'   \code{M}-prefixed collection codes, e.g. \code{c("MH", "M2", "M5")}).
+#'   See \code{\link{KERAUNOS_list_gene_sets}} to browse available codes.
+#' @param collection Character vector. MSigDB collection codes.
+#'   Default \code{c("H", "C2", "C5")}. Subcollection can be appended with a
+#'   colon, e.g. \code{"C2:CP:REACTOME"}.
+#' @param min_ranked_genes Integer. Minimum number of non-\code{NA} ranked
+#'   genes required to run GSEA for a pair. Pairs below this threshold are
+#'   skipped. Default \code{10L}.
+#' @param min_size Integer. Minimum gene set size after overlap with ranked
+#'   genes. Default \code{15L}.
+#' @param max_size Integer. Maximum gene set size. Default \code{500L}.
+#' @param fdr_threshold Numeric. FDR threshold for \code{$significant}.
+#'   Default \code{0.05}.
+#' @param verbose Logical. Print per-pair progress and a summary table.
+#'   Default \code{TRUE}.
+#'
+#' @return A \code{keraunos_gsea_pairwise} object (also inherits
+#'   \code{keraunos_gsea_multi}, so it is directly compatible with
+#'   \code{\link{TALARIA_export_gsea}}) with:
+#'   \itemize{
+#'     \item \code{$results}     — named list of \code{keraunos_gsea} objects,
+#'       one per pair run (names are \code{"<cluster1>_vs_<cluster2>"}).
+#'     \item \code{$significant} — named list of significant-only
+#'       data.frames, one per pair.
+#'     \item \code{$summary}     — data.frame: comparison / cluster1 /
+#'       cluster2 / n_ranked / n_sets / n_sig / n_enriched / n_depleted.
+#'     \item \code{$skipped}     — character vector of pair labels skipped.
+#'     \item \code{$params}      — parameters used.
+#'   }
+#' @export
+KERAUNOS_gsea_markers_pairwise <- function(markers_result,
+                                            cluster_pairs    = NULL,
+                                            stat             = c("AUC", "logFC.cohen", "logFC.detected"),
+                                            gene_sets        = NULL,
+                                            species          = "Homo sapiens",
+                                            db_species       = NULL,
+                                            collection       = c("H", "C2", "C5"),
+                                            min_ranked_genes = 10L,
+                                            min_size         = 15L,
+                                            max_size         = 500L,
+                                            fdr_threshold    = 0.05,
+                                            verbose          = TRUE) {
+
+  if (!inherits(markers_result, "keraunos_markers"))
+    stop("'markers_result' must be a keraunos_markers object from ",
+         "KERAUNOS_score_markers().", call. = FALSE)
+
+  if (!isTRUE(markers_result$params$full_stats))
+    stop("'markers_result' was scored without full_stats = TRUE, so no ",
+         "per-cluster-pair effect sizes are available. Re-run ",
+         "KERAUNOS_score_markers(sce, ..., full_stats = TRUE).", call. = FALSE)
+
+  stat <- match.arg(stat)
+
+  cl_names <- names(markers_result$markers)
+  if (is.null(cluster_pairs)) {
+    if (length(cl_names) < 2L)
+      stop("'markers_result' has fewer than 2 clusters — nothing to compare.",
+           call. = FALSE)
+    pair_mat     <- utils::combn(cl_names, 2L)
+    cluster_pairs <- lapply(seq_len(ncol(pair_mat)), function(i) pair_mat[, i])
+  } else {
+    bad <- Filter(function(p) length(p) != 2L, cluster_pairs)
+    if (length(bad) > 0L)
+      stop("Every element of 'cluster_pairs' must be a length-2 vector.",
+           call. = FALSE)
+    unknown <- setdiff(unlist(cluster_pairs), cl_names)
+    if (length(unknown) > 0L)
+      stop("Cluster(s) not found in 'markers_result': ",
+           paste(unknown, collapse = ", "), call. = FALSE)
+  }
+
+  # ── Fetch gene sets once ────────────────────────────────────────────────────
+  if (is.null(gene_sets)) {
+    if (!requireNamespace("fgsea", quietly = TRUE))
+      stop("Package 'fgsea' is required.  ",
+           "Install via: BiocManager::install(\"fgsea\")", call. = FALSE)
+    if (!requireNamespace("msigdbr", quietly = TRUE))
+      stop("Package 'msigdbr' is required when gene_sets = NULL.  ",
+           "Install via: install.packages(\"msigdbr\")", call. = FALSE)
+
+    if (!is.null(db_species) && toupper(db_species) == "MM") {
+      wrong <- collection[!grepl("^M", collection)]
+      if (length(wrong) > 0)
+        warning(
+          "db_species='MM' (mouse) but collection code(s) do not use the ",
+          "mouse prefix: ", paste(wrong, collapse = ", "), ".\n",
+          "  Mouse MSigDB collections use uppercase M-prefixed codes ",
+          "(e.g. 'MH', 'M2', 'M5').\n",
+          "  Run KERAUNOS_list_gene_sets(db_species='MM') to see all available codes.",
+          call. = FALSE
+        )
+    }
+
+    if (isTRUE(verbose)) {
+      db_str <- if (!is.null(db_species))
+        paste0(" [db_species=", db_species, "]") else ""
+      cat("Fetching MSigDB gene sets (", paste(collection, collapse = " + "),
+              ") for ", species, db_str, "...")
+    }
+
+    # msigdbr::msigdbr()'s db_species argument requires a character vector --
+    # unlike msigdbr_collections(), it errors on NULL rather than falling
+    # back to its own default ("HS"), so NULL must be resolved here.
+    msigdbr_db_species <- if (is.null(db_species)) "HS" else db_species
+
+    gs_dfs <- lapply(collection, function(col) {
+      cat_sub <- strsplit(col, ":", fixed = TRUE)[[1]]
+      cat  <- cat_sub[1]
+      subc <- if (length(cat_sub) > 1) paste(cat_sub[-1], collapse = ":") else NULL
+      tryCatch(
+        msigdbr::msigdbr(species = species, db_species = msigdbr_db_species,
+                         collection = cat, subcollection = subc),
+        error = function(e) {
+          warning("msigdbr failed for collection '", col, "': ",
+                  conditionMessage(e), call. = FALSE)
+          NULL
+        }
+      )
+    })
+    gs_dfs <- Filter(Negate(is.null), gs_dfs)
+    if (length(gs_dfs) == 0L)
+      stop("No gene sets retrieved from MSigDB.  ",
+           "Check species name and collection codes.", call. = FALSE)
+
+    gs_df     <- do.call(rbind, gs_dfs)
+    gene_sets <- split(gs_df$gene_symbol, gs_df$gs_name)
+    if (isTRUE(verbose))
+      cat("  Retrieved ", format(length(gene_sets), big.mark = ","),
+              " gene sets.")
+  }
+
+  # ── Per-pair GSEA ────────────────────────────────────────────────────────────
+  results_list <- list()
+  sig_list     <- list()
+  skipped      <- character(0)
+
+  summary_rows <- lapply(cluster_pairs, function(p) {
+
+    cl1   <- p[1L]; cl2 <- p[2L]
+    label <- paste0(cl1, "_vs_", cl2)
+
+    ranked <- KERAUNOS_rank_pairwise_markers(markers_result, cl1, cl2,
+                                              stat = stat, verbose = FALSE)
+
+    if (length(ranked) < as.integer(min_ranked_genes)) {
+      if (isTRUE(verbose))
+        cat("  ", label, ": skipped (", length(ranked),
+                " valid ranked genes < min_ranked_genes = ",
+                as.integer(min_ranked_genes), ").")
+      skipped <<- c(skipped, label)
+      return(data.frame(
+        comparison = label, cluster1 = cl1, cluster2 = cl2,
+        n_ranked = length(ranked), n_sets = NA_integer_,
+        n_sig = NA_integer_, n_enriched = NA_integer_, n_depleted = NA_integer_,
+        stringsAsFactors = FALSE
+      ))
+    }
+
+    if (isTRUE(verbose))
+      cat("  ", label, ": ", format(length(ranked), big.mark = ","),
+              " ranked genes...")
+
+    gsea_p <- KERAUNOS_gsea(
+      ranked_genes  = ranked,
+      gene_sets     = gene_sets,
+      species       = species,
+      db_species    = db_species,
+      collection    = collection,
+      min_size      = min_size,
+      max_size      = max_size,
+      fdr_threshold = fdr_threshold,
+      verbose       = FALSE
+    )
+
+    results_list[[label]] <<- gsea_p
+    sig_list[[label]]     <<- gsea_p$significant
+
+    data.frame(
+      comparison = label, cluster1 = cl1, cluster2 = cl2,
+      n_ranked   = length(ranked),
+      n_sets     = nrow(gsea_p$results),
+      n_sig      = nrow(gsea_p$significant),
+      n_enriched = sum(gsea_p$significant$NES > 0, na.rm = TRUE),
+      n_depleted = sum(gsea_p$significant$NES < 0, na.rm = TRUE),
+      stringsAsFactors = FALSE
+    )
+  })
+
+  summary_df <- do.call(rbind, summary_rows)
+
+  if (isTRUE(verbose)) {
+    cat(sprintf(
+      "── KERAUNOS: gsea_markers_pairwise %s\n  Pairs      : %d run, %d skipped\n  FDR < %.2f : %s sig. pathways total\n%s\n",
+      strrep("─", 15),
+      length(results_list),
+      length(skipped),
+      fdr_threshold,
+      format(sum(summary_df$n_sig, na.rm = TRUE), big.mark = ","),
+      strrep("─", 56)
+    ))
+    if (nrow(summary_df) > 0)
+      print(summary_df, row.names = FALSE)
+  }
+
+  structure(
+    list(
+      results     = results_list,
+      significant = sig_list,
+      summary     = summary_df,
+      skipped     = skipped,
+      params      = list(
+        stat             = stat,
+        species          = species,
+        db_species       = db_species,
+        collection       = collection,
+        min_ranked_genes = as.integer(min_ranked_genes),
+        min_size         = min_size,
+        max_size         = max_size,
+        fdr_threshold    = fdr_threshold,
+        n_pairs_run      = length(results_list),
+        n_gene_sets      = length(gene_sets),
+        comparison       = paste0("pairwise marker-based GSEA (", stat, ")")
+      )
+    ),
+    class = c("keraunos_gsea_pairwise", "keraunos_gsea_multi")
+  )
+}
+
+#' @export
+print.keraunos_gsea_pairwise <- function(x, ...) {
+  cat("keraunos_gsea_pairwise object\n")
+  cat("  Ranking    :", x$params$comparison, "\n")
+  cat("  Pairs      :", x$params$n_pairs_run, "run,",
+      length(x$skipped), "skipped\n")
+  cat("  Gene sets  :", x$params$n_gene_sets, "tested per pair\n")
   cat("  Significant:",
       format(sum(x$summary$n_sig, na.rm = TRUE), big.mark = ","),
       paste0("total (FDR < ", x$params$fdr_threshold, ")\n"))

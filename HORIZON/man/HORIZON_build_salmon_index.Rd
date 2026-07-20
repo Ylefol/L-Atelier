@@ -9,6 +9,7 @@ HORIZON_build_salmon_index(
   genome_fasta,
   index_dir,
   kmer_length = 31L,
+  keep_duplicates = FALSE,
   threads = 4L,
   force = FALSE
 )
@@ -25,6 +26,15 @@ in place (\code{.fai}) if not already indexed.}
 length for quasi-mapping). Default 31, appropriate for reads >= 75bp;
 reduce (e.g. to 23) for shorter reads. See the Salmon documentation for
 guidance.}
+
+\item{keep_duplicates}{Logical. Passes \code{--keepDuplicates} to
+\code{salmon index} when \code{TRUE}. Without it, Salmon
+collapses transcripts with identical sequence into a single representative
+ID at index time, silently dropping the others from quantification --
+this matters for isoform-level analyses (e.g. downstream isoform-switch
+testing) where every transcript ID needs its own entry, and is generally
+recommended by Salmon/tximport's own tutorials regardless of downstream
+use. Set \code{FALSE} (default) to match Salmon's own out-of-the-box default.}
 
 \item{threads}{Integer. Threads for \code{salmon index}. Default 4.}
 

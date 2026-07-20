@@ -1,7 +1,7 @@
 ================================================================================
 AETHER MODULE STATUS - Visualization
 ================================================================================
-Last Updated: 2026-07-10
+Last Updated: 2026-07-13
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -364,6 +364,23 @@ AETHER_plot_pca(counts, sample_info, group_col, shape_col, dims, ntop,
   - label_samples: FALSE, TRUE, or "repel" (ggrepel)
   - Prints variance explained per PC
 
+mofa_plots.R:
+-------------
+AETHER_plot_mofa_variance_explained(mofa_result, show_values, colors, title)
+  - Heatmap of variance explained per view and factor
+  - Works with hephaestus_mofa objects from HEPHAESTUS_run_mofa()
+  - Facets by group if the model has more than one
+
+AETHER_plot_mofa_factors(mofa_result, factors, color_by, color_label,
+                          point_size, title)
+  - Scatter plot of sample scores on two MOFA factors
+  - color_by: optional external metadata vector keyed by sample ID
+    (e.g. clinical group/timepoint, not part of the mofa_result itself)
+
+AETHER_plot_mofa_weights(mofa_result, view, factor, top_n, title)
+  - Bar plot of top-loading features for one view/factor
+  - Ranked by absolute weight, colored by sign
+
 part_wgcna_circos.R:
 --------------------
 AETHER_plot_part_wgcna_circos(circos_data, output_file, plot_width, plot_height,
@@ -402,6 +419,7 @@ famd_plots.R       - FAMD visualization (individuals, variables, contrib, scree)
 cluster_plots.R    - Clustering visualization (silhouette, radar profiles)
 coefficient_plots.R - Regression coefficient visualization (forest plot, lambda path)
 wgcna_plots.R      - WGCNA visualization (power, dendrograms, heatmaps, GS vs MM)
+mofa_plots.R       - MOFA2 visualization (variance explained, factor scores, weights)
 activity_plots.R   - DecoupleR activity visualization (heatmaps, method comparison)
 timeseries_plots.R - Time series + PART visualization (heatmaps, trajectories, DEA summary)
 pca_plots.R        - PCA visualization

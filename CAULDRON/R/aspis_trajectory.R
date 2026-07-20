@@ -107,7 +107,22 @@
 
 # Compute Gaussian-weighted velocity field on a regular grid.
 # Returns list(grid_x, grid_y, dx, dy, has_vel, xlim, ylim).
-.aspis_velocity_field <- function(x, y, vx, vy, grid_res, bandwidth) {
+#
+# `ws` (the raw, unnormalised sum of kernel weights reaching a grid point) is
+# also a local density estimate. A Gaussian kernel has infinite support, so
+# with thousands of cells `ws` clears a bare numerical-epsilon threshold at
+# essentially every grid point -- including corners of the bounding box with
+# no nearby cells at all, on a non-convex embedding shape. That let both
+# has_vel and dx/dy be "valid" (but noise-driven, dominated by whichever
+# handful of cells are least-far-away) in genuinely empty space, so seeds
+# landed there and .aspis_interp_vel() never saw an NA to stop a streamline
+# at. min_density masks grid points whose local density falls below a
+# fraction of the peak grid density (mirrors scVelo's own min_mass masking
+# in velocity_embedding_stream) -- both has_vel AND dx/dy are masked so
+# streamlines actually terminate at the edge of real data support instead of
+# wandering through empty margins.
+.aspis_velocity_field <- function(x, y, vx, vy, grid_res, bandwidth,
+                                   min_density = 0.05) {
   pad_x <- diff(range(x)) * 0.05
   pad_y <- diff(range(y)) * 0.05
   xlim  <- range(x) + c(-pad_x,  pad_x)
@@ -121,6 +136,7 @@
   h2      <- 2 * bandwidth^2
   dx_mat  <- matrix(NA_real_, grid_res, grid_res)
   dy_mat  <- matrix(NA_real_, grid_res, grid_res)
+  ws_mat  <- matrix(0,        grid_res, grid_res)
   has_vel <- matrix(FALSE,    grid_res, grid_res)
 
   for (i in seq_len(grid_res)) {
@@ -128,6 +144,7 @@
       d2 <- (x - gx[i])^2 + (y - gy[j])^2
       w  <- exp(-d2 / h2)
       ws <- sum(w)
+      ws_mat[i, j] <- ws
       if (ws > .Machine$double.eps * 100) {
         dx_mat[i, j]  <- sum(w * vx) / ws
         dy_mat[i, j]  <- sum(w * vy) / ws
@@ -135,6 +152,15 @@
       }
     }
   }
+
+  # Mask out low-density grid points -- NA the vectors (not just has_vel) so
+  # streamline interpolation actually stops there instead of extrapolating.
+  density_thresh <- min_density * max(ws_mat)
+  low_density    <- ws_mat < density_thresh
+  dx_mat[low_density]  <- NA_real_
+  dy_mat[low_density]  <- NA_real_
+  has_vel[low_density] <- FALSE
+
   list(grid_x  = gx, grid_y  = gy,
        dx      = dx_mat, dy      = dy_mat,
        has_vel = has_vel,
@@ -344,6 +370,17 @@ ASPIS_plot_velocity <- function(sce,
 #' @param stream_alpha Numeric. Streamline opacity. Default \code{0.8}.
 #' @param bandwidth Numeric or \code{NULL}. Gaussian kernel bandwidth for
 #'   velocity field interpolation.  \code{NULL} auto-scales to grid spacing.
+#' @param min_density Numeric in [0, 1]. Grid points whose local cell density
+#'   falls below this fraction of the grid's peak density are masked out of
+#'   the velocity field entirely (no seeding, streamlines cannot cross them).
+#'   Without this mask, the Gaussian kernel's infinite support means distant
+#'   grid points (e.g. in empty corners of a non-convex embedding) still get
+#'   a spuriously "valid" direction dominated by whichever cells are
+#'   least-far-away, producing streamlines that wander through empty space
+#'   with no relation to the actual data. Raise this value if streamlines
+#'   still appear disconnected from the point cloud; lower it if streamlines
+#'   are being cut off too early near the edges of dense clusters.
+#'   Default \code{0.05}.
 #' @param blob_alpha Numeric. Maximum opacity of KDE polygon fills. Default
 #'   \code{0.25}.
 #' @param blob_bins Integer. Number of density contour levels per cluster.
@@ -373,6 +410,7 @@ ASPIS_plot_velocity_stream <- function(sce,
                                         stream_size   = 0.4,
                                         stream_alpha  = 0.8,
                                         bandwidth     = NULL,
+                                        min_density   = 0.05,
                                         blob_alpha    = 0.25,
                                         blob_bins     = 4,
                                         show_points   = FALSE,
@@ -392,8 +430,9 @@ ASPIS_plot_velocity_stream <- function(sce,
 
   # ── Velocity field & streamlines ──────────────────────────────────────────
   field <- .aspis_velocity_field(df$dim1, df$dim2, df$vel1, df$vel2,
-                                   grid_res  = grid_res,
-                                   bandwidth = bandwidth)
+                                   grid_res    = grid_res,
+                                   bandwidth   = bandwidth,
+                                   min_density = min_density)
 
   # dt: half a grid-cell width in data units (unit-normalised steps)
   dt <- (diff(field$xlim) + diff(field$ylim)) / 2 / grid_res * 0.5

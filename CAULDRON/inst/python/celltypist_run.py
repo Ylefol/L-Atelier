@@ -9,6 +9,12 @@
 #   r_cells           - list/array of cell barcodes
 #   r_model_name      - model filename, e.g. "Mouse_Whole_Brain.pkl"
 #   r_majority_voting - bool: consensus label per over-cluster
+#   r_over_clustering - list of per-cell cluster labels (aligned to r_cells
+#                       order) or None. When provided, passed straight through
+#                       to celltypist.annotate(over_clustering=...), which
+#                       skips CellTypist's own neighbour-graph construction
+#                       and over-clustering (see celltypist/annotate.py:
+#                       over_clustering is only auto-built when None).
 #   r_force_update    - bool: re-download model even if cached
 #
 # Sets in Python global namespace on completion:
@@ -40,7 +46,8 @@ sc.pp.log1p(adata)
 predictions = celltypist.annotate(
     adata,
     model=r_model_name,
-    majority_voting=r_majority_voting
+    majority_voting=r_majority_voting,
+    over_clustering=r_over_clustering
 )
 
 # predicted_labels is a pandas DataFrame; R retrieves it via py_to_r()

@@ -45,13 +45,15 @@ cached internally (\code{ntSequence}/\code{aaSequence}).}
 }
 \description{
 Runs external protein/transcript annotation tools (CPAT,
-SignalP, Pfam via \code{pfam_scan.pl}) against isoforms from an
+SignalP, Pfam via \code{pfam_scan.pl}, DeepTMHMM) against isoforms from an
 \code{artemis_isoform_switch} object, producing result files consumable by
-\code{ARTEMIS_isoform_switch_consequences()}. All three run inside
+\code{ARTEMIS_isoform_switch_consequences()}. All four run inside
 isolated \pkg{basilisk} environments (see \code{GAIA/R/basilisk.R}) --
 CPAT and SignalP are Python tools; Pfam is packaged via bioconda's
 \code{pfam_scan} recipe, which basilisk installs the same way regardless
-of it being a Perl/native-binary tool rather than a Python one.
+of it being a Perl/native-binary tool rather than a Python one; DeepTMHMM
+is an academically licensed PyTorch model run from a user-supplied local
+checkout rather than an installed executable.
 Extract Isoform Nucleotide/Amino Acid Sequences
 
 Extracts nucleotide and amino acid FASTA sequences for the

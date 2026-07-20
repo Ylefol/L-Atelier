@@ -26,7 +26,7 @@ codes to pass to \code{\link{KERAUNOS_gsea}}.
 \details{
 Human collections use plain codes (\code{H}, \code{C2}, \code{C5}, …).
 Mouse collections (\code{db_species = "MM"}) use \code{M}-prefixed codes
-(\code{MH}, \code{MC2}, \code{MC5}, …).  \code{\link{KERAUNOS_gsea}} adjusts
+(\code{MH}, \code{M2}, \code{M5}, …).  \code{\link{KERAUNOS_gsea}} adjusts
 these automatically when \code{db_species = "MM"} is set, so you can still
 pass \code{collection = c("H", "C2")} and the correct codes will be used.
 }

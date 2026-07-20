@@ -1,7 +1,7 @@
 ================================================================================
 KERAUNOS STATUS - Differential Expression & Gene Set Enrichment
 ================================================================================
-Last Updated: 2026-06-30
+Last Updated: 2026-07-17
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -23,7 +23,7 @@ KERAUNOS_fetch_marker_genes(source=c("C8","PanglaoDB"), species="Homo sapiens",
 
 KERAUNOS_score_markers(sce, cluster_col="cluster", assay_name="logcounts",
                         block_col=NULL, restrict_to=NULL, min_auc=0.5,
-                        top_n=10L, verbose=TRUE)
+                        top_n=10L, full_stats=FALSE, verbose=TRUE)
   - RECOMMENDED for cell type annotation: effect-size scoring via scran::scoreMarkers()
   - No p-values — avoids inflation from non-independence of single cells
   - Returns per-gene pairwise effect sizes: median.AUC, rank.AUC, median.logFC.cohen, etc.
@@ -32,10 +32,32 @@ KERAUNOS_score_markers(sce, cluster_col="cluster", assay_name="logcounts",
   - block_col: optional sample/batch blocking to control for confounders
   - restrict_to: optional character vector (from KERAUNOS_fetch_marker_genes()) —
     limits $top to known marker genes only; $markers list retains all genes
+  - full_stats=TRUE (added 2026-07-17): passes through to scran::scoreMarkers()'s
+    full.stats — adds full.AUC/full.logFC.cohen/full.logFC.detected nested columns
+    giving the per-gene effect size against each INDIVIDUAL other cluster (not just
+    the median/mean/min/max summary across all others). Required by
+    KERAUNOS_rank_pairwise_markers() / KERAUNOS_gsea_markers_pairwise() for genuine
+    cluster-A-vs-cluster-B comparisons. Increases object size; default FALSE (unchanged
+    behaviour) since most callers only need the aggregated summary stats.
   - Returns keraunos_markers (fully ASPIS-compatible):
       $markers — named list of scoreMarkers DataFrames per cluster (all genes)
       $top     — tidy top-N table: cluster/gene/Top(=rank.AUC)/median_auc/mean_effect/FDR(=NA)
-      $params  — parameters; $params$method = "scoreMarkers"
+      $params  — parameters; $params$method = "scoreMarkers"; $params$full_stats
+
+KERAUNOS_rank_pairwise_markers(markers_result, cluster1, cluster2,
+                                stat=c("AUC","logFC.cohen","logFC.detected"),
+                                verbose=TRUE)
+  - Added 2026-07-17. Extracts a named, NA-dropped, descending-sorted ranked gene
+    vector for ONE specific pair of clusters from a full_stats=TRUE
+    KERAUNOS_score_markers() result — ready to pass straight into
+    KERAUNOS_gsea(ranked_genes=...)
+  - stat="AUC" (default): scran's AUC shifted by -0.5 here (0 = no difference,
+    matches scran's 0.5=random convention) so the vector is signed for GSEA;
+    "logFC.cohen"/"logFC.detected": already signed, used as-is
+  - Errors clearly if markers_result$params$full_stats is not TRUE (points user
+    back to re-running KERAUNOS_score_markers with full_stats=TRUE)
+  - Effect sizes are single-cell resolution — no pseudobulk replicate samples
+    needed, unlike KERAUNOS_de_pseudobulk()
 
 KERAUNOS_find_markers(sce, cluster_col="cluster", assay_name="logcounts",
                        test_type="wilcox", pval_type="any", direction="up",
@@ -90,7 +112,7 @@ KERAUNOS_de_pseudobulk(sce, condition_col, sample_col, cluster_col="cluster",
 
 KERAUNOS_list_gene_sets(db_species=NULL, verbose=TRUE)
   - Wraps msigdbr::msigdbr_collections() with formatted grouped output
-  - Groups by database: HS (human, plain codes H/C2/C5…) vs MM (mouse, MH/MC2/MC5…)
+  - Groups by database: HS (human, plain codes H/C2/C5…) vs MM (mouse, MH/M2/M5…)
   - db_species: NULL (both), "HS" (human only), "MM" (mouse only)
   - Compatible with both old (gs_cat/gs_subcat) and new (gs_collection/gs_subcollection)
     msigdbr column naming conventions
@@ -112,10 +134,24 @@ KERAUNOS_gsea(ranked_genes, gene_sets=NULL, species="Homo sapiens",
   - gene_sets as named list: uses user-supplied sets (bypasses msigdbr)
   - db_species=NULL: human gene sets (default); db_species="MM": native mouse
   - collection codes (human): "H" (hallmarks), "C2" (curated), "C5" (ontology)
-    subcategory with colon e.g. "C2:CP:REACTOME"
+    subcollection with colon e.g. "C2:CP:REACTOME", "C5:GO:BP"
   - collection codes (mouse, db_species="MM"): user must supply correct codes
-    (MH, MC2, MC5…); wrapper warns if plain human codes are detected but does
+    (MH, M2, M5…); wrapper warns if plain human codes are detected but does
     not auto-correct — use KERAUNOS_list_gene_sets(db_species="MM") to browse
+  - Fixed 2026-07-17: multi-colon subcollection codes (e.g. "C2:CP:REACTOME",
+    "C5:GO:BP") were being truncated to just the second token ("CP", "GO"),
+    silently fetching the wrong (broader) gene set. Now rejoins everything
+    after the first colon. Same bug/fix applied to KERAUNOS_gsea_pseudobulk()
+    below. Same session, GAIA's APOLLO_gsea() was migrated from msigdbr's
+    deprecated category/subcategory args to collection/subcollection to match
+    the installed msigdbr (>= 10.0) — KERAUNOS_gsea() was already on that API.
+  - Fixed 2026-07-17 (later same day): db_species=NULL (the documented default)
+    was passed straight through to msigdbr::msigdbr(), which errors ("db_species
+    is not a character vector") — unlike msigdbr_collections() (used by
+    KERAUNOS_list_gene_sets()), msigdbr() does not accept NULL and fall back to
+    its own default. Now resolved to "HS" locally before the call when NULL.
+    Same bug/fix applied to KERAUNOS_gsea_pseudobulk() and
+    KERAUNOS_gsea_markers_pairwise() below, and to GAIA's APOLLO_gsea().
   - Deduplicates ranked_genes names (keeps first occurrence)
   - Returns keraunos_gsea: $results (full df, ordered by padj),
     $significant (filtered), $params
@@ -169,6 +205,29 @@ KERAUNOS_gsea_pseudobulk(de_result, gene_sets=NULL, species="Homo sapiens",
   - Returns keraunos_gsea_multi: $results (list of keraunos_gsea per cluster),
     $significant (list of sig tables), $summary (cluster summary df),
     $skipped, $params
+
+KERAUNOS_gsea_markers_pairwise(markers_result, cluster_pairs=NULL,
+                                stat=c("AUC","logFC.cohen","logFC.detected"),
+                                gene_sets=NULL, species="Homo sapiens",
+                                db_species=NULL, collection=c("H","C2","C5"),
+                                min_ranked_genes=10L, min_size=15L, max_size=500L,
+                                fdr_threshold=0.05, verbose=TRUE)
+  - Added 2026-07-17. Marker-score-based alternative to
+    KERAUNOS_gsea_pseudobulk() for comparing SPECIFIC clusters to each other
+    (not a condition within each cluster) -- no biological replicate samples
+    required, since ranking comes from single-cell-resolution scran effect
+    sizes via KERAUNOS_rank_pairwise_markers(), not DESeq2
+  - markers_result: a KERAUNOS_score_markers(..., full_stats=TRUE) result
+  - cluster_pairs=NULL: runs every pairwise combination of clusters present
+    (utils::combn); or supply list(c("1","2"), c("8","13"), ...) to restrict
+  - Gene sets fetched ONCE from MSigDB (not per pair) for efficiency
+  - Returns keraunos_gsea_pairwise (also inherits keraunos_gsea_multi, so
+    TALARIA_export_gsea() works on it unchanged): $results (list of
+    keraunos_gsea per pair, names "<cluster1>_vs_<cluster2>"), $significant
+    (list of sig tables), $summary (comparison/cluster1/cluster2/n_ranked/
+    n_sets/n_sig/n_enriched/n_depleted df), $skipped, $params
+  - print.keraunos_gsea_pairwise(): dedicated print method (dual-classed so
+    it dispatches over the shared keraunos_gsea_multi print method)
 
 ================================================================================
 IN PROGRESS

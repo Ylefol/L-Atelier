@@ -8,6 +8,7 @@ PANDORA_annotate_celltypist(
   sce,
   model,
   majority_voting = TRUE,
+  cluster_col = NULL,
   force_update = FALSE,
   label_col = "celltypist_label",
   conf_col = "celltypist_conf",
@@ -23,6 +24,12 @@ PANDORA_annotate_celltypist(
 
 \item{majority_voting}{Logical. Use majority voting within over-clusters
 for more coherent labels.  Default \code{TRUE}.}
+
+\item{cluster_col}{Character or \code{NULL}. \code{colData} column with an
+existing per-cell clustering to use as CellTypist's \code{over_clustering}
+(passed through unchanged, aligned to cell order), instead of letting
+CellTypist build its own neighbour graph and over-cluster from scratch.
+Ignored when \code{majority_voting = FALSE}. Default \code{NULL}.}
 
 \item{force_update}{Logical. Re-download the model even if already cached.
 Default \code{FALSE}.}
@@ -56,4 +63,17 @@ With \code{majority_voting = TRUE} (default), CellTypist over-clusters the
 data internally and assigns a consensus label per cluster by majority vote,
 which typically improves coherence.  With \code{FALSE}, each cell receives
 an independent probabilistic prediction.
+
+By default, CellTypist's internal over-clustering builds its own PCA +
+neighbour graph from scratch on the (freshly normalised) counts passed in —
+independent of any neighbour graph or clustering already computed upstream
+in the SCE (e.g. after batch correction). Supplying \code{cluster_col}
+passes an existing per-cell clustering straight to CellTypist's
+\code{over_clustering} argument as an array aligned to cell order, which
+skips its internal neighbour-graph construction entirely (verified against
+the installed celltypist's \code{annotate()}/\code{Classifier.majority_vote()}
+source: an array-like \code{over_clustering} bypasses \code{over_cluster()}
+and goes directly to majority voting) — so the consensus vote reflects your
+own established clusters/embedding rather than a second, independently
+constructed graph.
 }

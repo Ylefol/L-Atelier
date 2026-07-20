@@ -73,12 +73,30 @@ PANDORA_list_celltypist_models <- function() {
 #' which typically improves coherence.  With \code{FALSE}, each cell receives
 #' an independent probabilistic prediction.
 #'
+#' By default, CellTypist's internal over-clustering builds its own PCA +
+#' neighbour graph from scratch on the (freshly normalised) counts passed in —
+#' independent of any neighbour graph or clustering already computed upstream
+#' in the SCE (e.g. after batch correction). Supplying \code{cluster_col}
+#' passes an existing per-cell clustering straight to CellTypist's
+#' \code{over_clustering} argument as an array aligned to cell order, which
+#' skips its internal neighbour-graph construction entirely (verified against
+#' the installed celltypist's \code{annotate()}/\code{Classifier.majority_vote()}
+#' source: an array-like \code{over_clustering} bypasses \code{over_cluster()}
+#' and goes directly to majority voting) — so the consensus vote reflects your
+#' own established clusters/embedding rather than a second, independently
+#' constructed graph.
+#'
 #' @param sce A \code{SingleCellExperiment} with a \code{"counts"} assay.
 #' @param model Character. Model filename, e.g.
 #'   \code{"Mouse_Whole_Brain.pkl"}.  Use
 #'   \code{\link{PANDORA_list_celltypist_models}} to browse available models.
 #' @param majority_voting Logical. Use majority voting within over-clusters
 #'   for more coherent labels.  Default \code{TRUE}.
+#' @param cluster_col Character or \code{NULL}. \code{colData} column with an
+#'   existing per-cell clustering to use as CellTypist's \code{over_clustering}
+#'   (passed through unchanged, aligned to cell order), instead of letting
+#'   CellTypist build its own neighbour graph and over-cluster from scratch.
+#'   Ignored when \code{majority_voting = FALSE}. Default \code{NULL}.
 #' @param force_update Logical. Re-download the model even if already cached.
 #'   Default \code{FALSE}.
 #' @param label_col Character. \code{colData} column for the result.
@@ -93,6 +111,7 @@ PANDORA_list_celltypist_models <- function() {
 PANDORA_annotate_celltypist <- function(sce,
                                         model,
                                         majority_voting = TRUE,
+                                        cluster_col     = NULL,
                                         force_update    = FALSE,
                                         label_col       = "celltypist_label",
                                         conf_col        = "celltypist_conf",
@@ -101,6 +120,15 @@ PANDORA_annotate_celltypist <- function(sce,
   if (!"counts" %in% assayNames(sce))
     stop("'counts' assay not found. PANDORA_annotate_celltypist() requires ",
          "raw counts — ensure the SCE was loaded via TALARIA.", call. = FALSE)
+
+  if (!is.null(cluster_col)) {
+    if (!cluster_col %in% names(colData(sce)))
+      stop("cluster_col '", cluster_col, "' not found in colData(sce).",
+           call. = FALSE)
+    if (!majority_voting)
+      warning("cluster_col is ignored when majority_voting = FALSE.",
+              call. = FALSE)
+  }
 
   # ── Extract and prepare raw counts ───────────────────────────────────────────
   mat <- counts(sce)
@@ -113,6 +141,12 @@ PANDORA_annotate_celltypist <- function(sce,
   genes <- rownames(sce)
   cells <- colnames(sce)
 
+  # over_clustering aligned to `cells` order (== colnames(sce) order, matching
+  # mat_t/adata.obs_names below) so it can be passed straight through to
+  # celltypist.annotate(over_clustering=...) without any reindexing.
+  over_clustering <- if (!is.null(cluster_col) && majority_voting)
+    as.character(colData(sce)[[cluster_col]]) else NULL
+
   if (isTRUE(verbose))
     cat(sprintf(
       "\u2500\u2500 PANDORA: CellTypist %s\n  Model      : %s\n  Cells      : %s  |  Genes: %s\n  Mode       : %s\n  Running Python...\n",
@@ -120,7 +154,10 @@ PANDORA_annotate_celltypist <- function(sce,
       model,
       format(length(cells), big.mark = ","),
       format(length(genes), big.mark = ","),
-      if (majority_voting) "majority voting" else "per-cell"
+      if (!majority_voting) "per-cell"
+      else if (!is.null(over_clustering))
+        paste0("majority voting (using colData(sce)[[\"", cluster_col, "\"]])")
+      else "majority voting (CellTypist over-clustering)"
     ))
 
   # ── Run CellTypist via basilisk ──────────────────────────────────────────────
@@ -135,6 +172,7 @@ PANDORA_annotate_celltypist <- function(sce,
     cells           = cells,
     model_name      = model,
     majority_voting = majority_voting,
+    over_clustering = over_clustering,
     force_update    = force_update
   )
 
@@ -165,14 +203,16 @@ PANDORA_annotate_celltypist <- function(sce,
 # Variables are injected into Python's __main__ via py_set_attr rather than
 # reticulate::py$  to avoid S3 dispatch issues in the basilisk subprocess.
 
-.pandora_celltypist_run <- function(script, mat_t, genes, cells,
-                                    model_name, majority_voting, force_update) {
+.pandora_celltypist_run <- function(script, mat_t, genes, cells, model_name,
+                                    majority_voting, over_clustering,
+                                    force_update) {
   main <- reticulate::import("__main__")
   reticulate::py_set_attr(main, "r_mat_t",           mat_t)
   reticulate::py_set_attr(main, "r_genes",            genes)
   reticulate::py_set_attr(main, "r_cells",            cells)
   reticulate::py_set_attr(main, "r_model_name",       model_name)
   reticulate::py_set_attr(main, "r_majority_voting",  majority_voting)
+  reticulate::py_set_attr(main, "r_over_clustering",  over_clustering)
   reticulate::py_set_attr(main, "r_force_update",     force_update)
   reticulate::py_run_file(script)
   reticulate::py_to_r(reticulate::py_get_attr(main, "result_df"))

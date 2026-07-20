@@ -1,7 +1,7 @@
 ================================================================================
 ARTEMIS MODULE STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-07-07
+Last Updated: 2026-07-14
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -347,7 +347,8 @@ ARTEMIS_isoform_switch(counts, targets, reference, experiment,
                         group_col="group", gtf_path, method="DEXSeq",
                         alpha=0.05, dIF_cutoff=0.1,
                         min_gene_expression=1, min_transcript_expression=1,
-                        fix_stringtie_annotation=FALSE, verbose=TRUE)
+                        fix_stringtie_annotation=FALSE,
+                        detect_unwanted_effects=TRUE, verbose=TRUE)
   - Differential isoform usage analysis via IsoformSwitchAnalyzeR
   - Complements ARTEMIS_differential_counts(): detects changes in which isoform
     is used, not just whether total gene expression changes
@@ -357,6 +358,16 @@ ARTEMIS_isoform_switch(counts, targets, reference, experiment,
     replaces DRIMSeq in IsoformSwitchAnalyzeR >= 2.x)
   - dIF_cutoff: minimum delta Isoform Fraction (default 0.1 = 10% shift)
     — not an established standard, verify for your context
+  - detect_unwanted_effects: passed to importRdata()'s detectUnwantedEffects
+    (default TRUE, matching IsoformSwitchAnalyzeR's own default). Runs an
+    automatic SVA-style surrogate-variable search and adds any detected
+    covariates to the design matrix before testing — independent of the
+    group_col/condition variable. Unreliable at low replicate counts (e.g.
+    n=3/group): can absorb real condition-driven variance and/or burn
+    residual degrees of freedom, silently killing power (confirmed case:
+    guesstimated 1396-2327 candidate DTU genes pre-test, 0 significant
+    post-test, with "Added 2 batch/covariates" logged by importRdata).
+    Set FALSE for low-replicate designs.
   - Internally: importRdata → preFilter (removeSingleIsoformGenes=TRUE)
     → isoformSwitchTestDEXSeq/satuRn → extractSwitchSummary
   - addAnnotatedORFs=TRUE in importRdata enables structural consequences
@@ -409,14 +420,20 @@ ARTEMIS_isoform_switch(counts, targets, reference, experiment,
 
 ARTEMIS_isoform_switch_consequences(switch_result, cpat_file=NULL,
                                      signalp_file=NULL, pfam_file=NULL,
-                                     cpat_cutoff=0.725, verbose=TRUE)
+                                     deeptmhmm_file=NULL, cpat_cutoff=0.725,
+                                     verbose=TRUE)
   - Optional consequence annotation layer for artemis_isoform_switch objects
-  - At least one of cpat_file/signalp_file/pfam_file must be provided
+  - At least one of cpat_file/signalp_file/pfam_file/deeptmhmm_file must be
+    provided
   - Structural consequences (intron_retention, ORF_seq_similarity, NMD_status)
     always included — no external tool needed beyond the GTF ORF annotation
   - External tool consequences added when files provided:
     cpat_file → coding_potential | pfam_file → domains_identified
     signalp_file → signal_peptide_identified
+    deeptmhmm_file → isoform_topology (TMRs.gff3 from APOLLO_run_deeptmhmm();
+    does not add the related extracellular/intracellular_region_count/length
+    consequence types — call IsoformSwitchAnalyzeR::analyzeSwitchConsequences()
+    directly for those)
   - cpat_cutoff: human default 0.725, mouse 0.44 — no universal standard
   - Returns updated artemis_isoform_switch with $consequence_summary
     (sar$switchConsequence data.frame) and updated $switch_list

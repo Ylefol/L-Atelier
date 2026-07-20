@@ -12,6 +12,7 @@ KERAUNOS_score_markers(
   restrict_to = NULL,
   min_auc = 0.5,
   top_n = 10L,
+  full_stats = FALSE,
   verbose = TRUE
 )
 }
@@ -43,6 +44,19 @@ classifier.  Default \code{0.5}.}
 \item{top_n}{Integer. Maximum number of top markers per cluster in the tidy
 summary table, ranked by \code{rank.AUC}.  Default \code{10L}.}
 
+\item{full_stats}{Logical.  Passed through to \code{scran::scoreMarkers()}'s
+\code{full.stats} argument.  When \code{TRUE}, each per-cluster DataFrame
+in \code{$markers} additionally carries a \code{full.AUC} (and
+\code{full.logFC.cohen}, \code{full.logFC.detected}) nested column giving
+the per-gene effect size against every \emph{individual} other cluster,
+not just the \code{median}/\code{mean}/\code{min}/\code{max} summary
+across all of them.  Required by
+\code{\link{KERAUNOS_rank_pairwise_markers}} to build a ranked gene list
+for one specific pair of clusters (e.g. for GSEA between two clusters
+without needing pseudobulk replicate samples).  Increases result object
+size roughly in proportion to the number of clusters.  Default
+\code{FALSE} (unchanged from previous behaviour).}
+
 \item{verbose}{Logical. Print a summary. Default \code{TRUE}.}
 }
 \value{
@@ -51,7 +65,8 @@ A \code{keraunos_markers} object (list) with:
 \item \code{$markers} — named list of DataFrames from
 \code{scran::scoreMarkers()}, one per cluster.  Each DataFrame contains
 per-gene effect size summaries (\code{median.AUC}, \code{rank.AUC},
-\code{median.logFC.cohen}, etc.).
+\code{median.logFC.cohen}, etc.), plus \code{full.*} pairwise columns
+when \code{full_stats = TRUE}.
 \item \code{$top} — tidy data.frame of top markers (columns:
 cluster, gene, Top, median_auc, mean_effect, FDR).
 \code{Top = rank.AUC}; \code{FDR = NA} (no p-values).

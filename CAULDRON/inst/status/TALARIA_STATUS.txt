@@ -1,7 +1,7 @@
 ================================================================================
 TALARIA STATUS - Import, Export & Format Conversion
 ================================================================================
-Last Updated: 2026-03-10
+Last Updated: 2026-07-17
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -105,17 +105,23 @@ TALARIA_export_de(de_result, output_dir, prefix="de", plots=TRUE,
     Labels top_n genes by significance; requires ggrepel (Suggests)
   - Returns invisibly: character vector of file paths written
 
-TALARIA_export_gsea(result, output_dir, prefix="gsea", plots=TRUE,
-                     top_n=20L, plot_width=8, plot_height=6,
-                     enrich_plot_height=4, verbose=TRUE)
-  - Accepts keraunos_gsea or keraunos_gsea_multi
-  - Writes results CSV(s) + RDS + (if plots=TRUE):
-      dotplot (top_n/2 enriched + top_n/2 depleted by padj; NES on x,
-               dot size=gene set overlap, colour=-log10(padj))
-      enrichment score plots for top_n pathways (fgsea::plotEnrichment)
-  - Multi: per-cluster subdirectory layout
-  - Enrichment plots require ranked_genes + gene_sets stored in object
-    (stored automatically in keraunos_gsea since last KERAUNOS_gsea update)
+TALARIA_export_gsea(result, output_dir, prefix="gsea", make_dotplots=TRUE,
+                     do_gsea_plots=TRUE, top_n=20L, plot_width=8,
+                     plot_height=6, enrich_plot_height=4, verbose=TRUE)
+  - Accepts keraunos_gsea, keraunos_gsea_multi, or keraunos_gsea_pairwise
+    (pairwise inherits keraunos_gsea_multi, works automatically)
+  - Writes results CSV(s) + RDS always; plots gated separately:
+      make_dotplots=TRUE: dotplot per gene set collection (top_n/2 enriched +
+        top_n/2 depleted by padj; NES on x, dot size=overlap, colour=-log10(padj))
+      do_gsea_plots=TRUE: enrichment score plots for top_n pathways
+        (fgsea::plotEnrichment); requires ranked_genes + gene_sets stored in
+        object (stored automatically since last KERAUNOS_gsea update)
+  - Multi/pairwise: per-comparison subdirectory layout (dir name prefixed
+    "cluster_" even for pairwise labels like "cluster_1_vs_2" -- cosmetic only)
+  - make_dotplots split out from do_gsea_plots 2026-07-17 so bulk exports
+    (e.g. all pairwise cluster combinations from
+    KERAUNOS_gsea_markers_pairwise()) can skip writing one dotplot per
+    comparison; call again with make_dotplots=TRUE on a chosen subset later
 
 TALARIA_export_ora(result, output_dir, prefix="ora", plots=TRUE,
                     top_n=20L, plot_width=8, plot_height=7, verbose=TRUE)

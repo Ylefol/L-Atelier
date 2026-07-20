@@ -60,6 +60,13 @@
 #'   \code{FALSE} — only set \code{TRUE} if \code{gtf_path} is itself a
 #'   StringTie/discovery-mode annotation with synthetic gene IDs that need
 #'   rescuing.
+#' @param detect_unwanted_effects Logical. Passed to \code{importRdata()}'s
+#'   \code{detectUnwantedEffects}. When \code{TRUE} (IsoformSwitchAnalyzeR's
+#'   own default, kept here), an SVA-style surrogate-variable search runs
+#'   automatically and any detected covariates are added to the design matrix
+#'   and corrected for before testing -- see \code{@details} below for why
+#'   this can silently erase power at low replicate counts. Default:
+#'   \code{TRUE}.
 #' @param verbose Logical. Print progress. Default: \code{TRUE}.
 #'
 #' @details
@@ -89,15 +96,30 @@
 #' one pair per contrast). Those are satuRn's own diagnostics, drawn as a side
 #' effect, not part of this package's plotting layer (\pkg{AETHER}).
 #'
-#' This function does \emph{not} support confounder/covariate adjustment
-#' (e.g. batch, sex, age). The design matrix built internally only contains
-#' \code{sampleID} and \code{condition} columns. IsoformSwitchAnalyzeR itself
-#' supports additional cofactor columns on the design matrix (taken into
-#' account automatically by both \code{isoformSwitchTestDEXSeq()} and
+#' This function does \emph{not} support user-supplied confounder/covariate
+#' columns (e.g. known batch, sex, age). The design matrix built internally
+#' only contains \code{sampleID} and \code{condition} columns. IsoformSwitchAnalyzeR
+#' itself supports additional cofactor columns on the design matrix (taken
+#' into account automatically by both \code{isoformSwitchTestDEXSeq()} and
 #' \code{isoformSwitchTestSatuRn()}; see its vignette section "How to handle
 #' confounding effects (including batches)"), but that path is not currently
-#' exposed by this wrapper. If your data has known confounders, correct for
-#' them prior to calling this function rather than relying on it here.
+#' exposed by this wrapper. If your data has \emph{known} confounders, correct
+#' for them prior to calling this function rather than relying on it here.
+#'
+#' Separately, \code{importRdata()} (called internally) runs its own automatic
+#' \emph{unwanted-effect} detection (an SVA-style surrogate-variable search,
+#' controlled by \code{detect_unwanted_effects} below) independent of the
+#' user-supplied covariates described above. When it finds candidate surrogate
+#' variables, it adds them to the design matrix and batch-corrects expression
+#' estimates before testing -- this happens even though no covariate columns
+#' were passed in. At low replicate counts (e.g. n = 3/group), this detection
+#' is unreliable: with few samples, group is often the dominant source of
+#' variance, so estimated surrogate variables can end up correlated with
+#' \code{condition} itself, and regardless of correlation, each one consumes a
+#' residual degree of freedom that a small design can't spare. This can turn a
+#' real effect into zero significant results even though a pre-test guesstimate
+#' (printed during import) suggested many candidate genes. Consider
+#' \code{detect_unwanted_effects = FALSE} for low-replicate designs.
 #'
 #' @return An S3 object of class \code{"artemis_isoform_switch"} containing:
 #'   \describe{
@@ -126,6 +148,7 @@ ARTEMIS_isoform_switch <- function(counts,
                                     min_gene_expression       = 1,
                                     min_transcript_expression = 1,
                                     fix_stringtie_annotation  = FALSE,
+                                    detect_unwanted_effects   = TRUE,
                                     verbose                   = TRUE) {
 
   method <- match.arg(method)
@@ -184,7 +207,8 @@ ARTEMIS_isoform_switch <- function(counts,
     cat("    Experiment  : ", experiment, " (n = ", n_experiment, ")\n", sep = "")
     cat("    Transcripts : ", nrow(counts), "\n", sep = "")
     cat("    Method      : ", method, "\n", sep = "")
-    cat("    alpha       : ", alpha, " | dIF cutoff: ", dIF_cutoff, "\n\n", sep = "")
+    cat("    alpha       : ", alpha, " | dIF cutoff: ", dIF_cutoff, "\n", sep = "")
+    cat("    Detect unwanted effects (auto covariates): ", detect_unwanted_effects, "\n\n", sep = "")
   }
 
   # --- Build ISAS design matrix -----------------------------------------------
@@ -210,6 +234,7 @@ ARTEMIS_isoform_switch <- function(counts,
     comparisonsToMake   = comparisons_df,
     addAnnotatedORFs    = TRUE,
     fixStringTieAnnotationProblem = fix_stringtie_annotation,
+    detectUnwantedEffects = detect_unwanted_effects,
     quiet               = !verbose
   )
 
@@ -335,7 +360,8 @@ ARTEMIS_isoform_switch <- function(counts,
       gtf_path                  = gtf_path,
       min_gene_expression       = min_gene_expression,
       min_transcript_expression = min_transcript_expression,
-      fix_stringtie_annotation  = fix_stringtie_annotation
+      fix_stringtie_annotation  = fix_stringtie_annotation,
+      detect_unwanted_effects   = detect_unwanted_effects
     )
   )
   class(result) <- c("artemis_isoform_switch", "list")
@@ -378,6 +404,9 @@ print.artemis_isoform_switch <- function(x, ...) {
 #'   signal peptide annotation. Default: NULL (skipped).
 #' @param pfam_file Character or NULL. Path to Pfam/HMMER output file for
 #'   protein domain annotation. Default: NULL (skipped).
+#' @param deeptmhmm_file Character or NULL. Path to a DeepTMHMM \code{TMRs.gff3}
+#'   result file (e.g. from \code{APOLLO_run_deeptmhmm()}) for cell-membrane
+#'   topology annotation. Default: NULL (skipped).
 #' @param cpat_cutoff Numeric. Coding probability cutoff for CPAT. Human
 #'   default is 0.725, mouse is 0.44. No universal standard — verify for your
 #'   organism. Only used if \code{cpat_file} is provided. Default: \code{0.725}.
@@ -394,13 +423,22 @@ print.artemis_isoform_switch <- function(x, ...) {
 #'   }
 #'
 #' @details
-#' At least one of \code{cpat_file}, \code{signalp_file}, or \code{pfam_file}
-#' must be provided. Structural consequences (intron retention, ORF sequence
-#' similarity, NMD sensitivity) are always included and require no external
-#' tools, only ORF annotations from the initial \code{ARTEMIS_isoform_switch()}
-#' call; intron retention is classified internally via
-#' \code{IsoformSwitchAnalyzeR::analyzeIntronRetention()} before consequence
-#' analysis runs.
+#' At least one of \code{cpat_file}, \code{signalp_file}, \code{pfam_file}, or
+#' \code{deeptmhmm_file} must be provided. Structural consequences (intron
+#' retention, ORF sequence similarity, NMD sensitivity) are always included
+#' and require no external tools, only ORF annotations from the initial
+#' \code{ARTEMIS_isoform_switch()} call; intron retention is classified
+#' internally via \code{IsoformSwitchAnalyzeR::analyzeIntronRetention()}
+#' before consequence analysis runs.
+#'
+#' When \code{deeptmhmm_file} is supplied, this adds the \code{"isoform_topology"}
+#' consequence type (differences in predicted intracellular/transmembrane/
+#' extracellular topology between switching isoforms) -- it does not add the
+#' related \code{extracellular_region_count}/\code{intracellular_region_count}/
+#' \code{extracellular_region_length}/\code{intracellular_region_length} types
+#' \code{analyzeSwitchConsequences()} also supports; call
+#' \code{IsoformSwitchAnalyzeR::analyzeSwitchConsequences()} directly on
+#' \code{switch_result$switch_list} if those are needed.
 #'
 #' External tools must be run independently before calling this function.
 #' See the IsoformSwitchAnalyzeR vignette for expected file formats and
@@ -408,18 +446,19 @@ print.artemis_isoform_switch <- function(x, ...) {
 #'
 #' @export
 ARTEMIS_isoform_switch_consequences <- function(switch_result,
-                                                  cpat_file    = NULL,
-                                                  signalp_file = NULL,
-                                                  pfam_file    = NULL,
-                                                  cpat_cutoff  = 0.725,
-                                                  verbose      = TRUE) {
+                                                  cpat_file      = NULL,
+                                                  signalp_file   = NULL,
+                                                  pfam_file      = NULL,
+                                                  deeptmhmm_file = NULL,
+                                                  cpat_cutoff    = 0.725,
+                                                  verbose        = TRUE) {
 
   if (!inherits(switch_result, "artemis_isoform_switch"))
     stop("switch_result must be an artemis_isoform_switch object from ",
          "ARTEMIS_isoform_switch()")
 
-  if (is.null(cpat_file) && is.null(signalp_file) && is.null(pfam_file))
-    stop("At least one of cpat_file, signalp_file, or pfam_file must be provided.")
+  if (is.null(cpat_file) && is.null(signalp_file) && is.null(pfam_file) && is.null(deeptmhmm_file))
+    stop("At least one of cpat_file, signalp_file, pfam_file, or deeptmhmm_file must be provided.")
 
   sar <- switch_result$switch_list
 
@@ -468,6 +507,17 @@ ARTEMIS_isoform_switch_consequences <- function(switch_result,
     )
   }
 
+  if (!is.null(deeptmhmm_file)) {
+    if (!file.exists(deeptmhmm_file))
+      stop("deeptmhmm_file not found: ", deeptmhmm_file)
+    if (verbose) cat("[ARTEMIS] Adding DeepTMHMM topology...\n")
+    sar <- IsoformSwitchAnalyzeR::analyzeDeepTMHMM(
+      switchAnalyzeRlist        = sar,
+      pathToDeepTMHMMresultFile = deeptmhmm_file,
+      quiet                     = !verbose
+    )
+  }
+
   # intron_retention must be classified with analyzeIntronRetention() before
   # analyzeSwitchConsequences() can test for it -- it isn't derived from the
   # ORF annotations alone, unlike ORF_seq_similarity/NMD_status.
@@ -488,6 +538,7 @@ ARTEMIS_isoform_switch_consequences <- function(switch_result,
   if (!is.null(pfam_file))    consequences <- c(consequences, "domains_identified")
   if (!is.null(signalp_file) && isTRUE(signalp_has_data))
     consequences <- c(consequences, "signal_peptide_identified")
+  if (!is.null(deeptmhmm_file)) consequences <- c(consequences, "isoform_topology")
 
   if (verbose) {
     cat("[ARTEMIS] Consequences to analyze:\n")

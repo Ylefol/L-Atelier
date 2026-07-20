@@ -73,14 +73,20 @@ ASPIS_plot_velocity(sce, dimred="UMAP", colour_by="cluster", arrow_scale=1,
 ASPIS_plot_velocity_stream(sce, dimred="UMAP", colour_by="cluster", grid_res=30,
                             n_streams=200, stream_length=50, stream_colour="black",
                             stream_size=0.4, stream_alpha=0.8, bandwidth=NULL,
-                            blob_alpha=0.25, blob_bins=4, show_points=FALSE,
-                            point_size=0.3, point_alpha=0.3, min_vel_frac=0.05,
-                            palette=NULL, assay_name="logcounts", title=NULL)
+                            min_density=0.05, blob_alpha=0.25, blob_bins=4,
+                            show_points=FALSE, point_size=0.3, point_alpha=0.3,
+                            min_vel_frac=0.05, palette=NULL, assay_name="logcounts",
+                            title=NULL)
   - KDE blob background per cluster (stat_density_2d polygon, one layer per cluster)
   - Streamlines via Gaussian-weighted velocity field on regular grid + Euler integration
   - stream_colour="black": fixed colour; NULL: each streamline coloured by nearest cell cluster
   - Requires discrete colour_by (errors on continuous)
-  - Needs further testing on a larger/denser dataset
+  - min_density: masks grid points below this fraction of peak local cell density (both
+    has_vel AND the dx/dy vectors themselves) so streamlines terminate at the edge of real
+    data support instead of extrapolating through empty space. Fixed 2026-07-17: the
+    Gaussian kernel's infinite support meant the old epsilon-only threshold passed at
+    nearly every grid point (even empty corners of a non-convex embedding), producing
+    streamlines that wandered through white space disconnected from any cell cluster.
 
 tripodes_cytotrace.R:
 ---------------------
@@ -110,8 +116,8 @@ TRIPODES_score_cytotrace_v1(sce, assay_name="logcounts", n_top_genes=200L,
 ================================================================================
 IN PROGRESS
 ================================================================================
-- ASPIS_plot_velocity_stream: implemented and functional; pending validation on
-  a larger/denser dataset (current test data too sparse/fragmented to evaluate)
+- ASPIS_plot_velocity_stream: density-masking bug fixed 2026-07-17 (see aspis_trajectory.R
+  entry above); user re-testing against real Nico_midbrain data now
 
 ================================================================================
 PLANNED / TODO
@@ -176,10 +182,14 @@ ASPIS_plot_trajectory(sce, dimred=NULL, colour_by="monocle_pseudotime",
 ================================================================================
 DEPENDENCIES / NOTES
 ================================================================================
-- scVelo: CAULDRON-managed basilisk env (.cauldron_scvelo_env, cauldron_scvelo_3)
+- scVelo: CAULDRON-managed basilisk env (.cauldron_scvelo_env, cauldron_scvelo_4)
   Python logic in inst/python/scvelo_run.py (same pattern as CellTypist)
   All three velocity modes work (stochastic fixed in scVelo 0.3.x)
   No velociraptor dependency
+  libexpat pinned to 2.6.1 (matches .cauldron_celltypist_env / .cauldron_scvi_env) --
+  fixes intermittent "undefined symbol: XML_SetAllocTrackerActivationThreshold" from
+  pyexpat, caused by the R session's system libexpat (via xml2/XML/libxml2) being
+  inherited by basilisk's forked Python child ahead of the env's own copy
 - monocle3 (Suggests, Step 5): BiocManager::install("cole-trapnell-lab/monocle3")
 - CytoTRACE v1 is pure R — no new dependency
 - RNA velocity requires spliced/unspliced count matrices generated at alignment

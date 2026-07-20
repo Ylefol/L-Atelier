@@ -31,7 +31,7 @@ Default \code{"Homo sapiens"}.}
 
 \item{db_species}{Character or \code{NULL}.  MSigDB database to query.
 Use \code{"MM"} for native mouse gene sets (requires M-prefixed
-collection codes, e.g. \code{c("MH", "MC2", "MC5")}).  See
+collection codes, e.g. \code{c("MH", "M2", "M5")}).  See
 \code{\link{KERAUNOS_list_gene_sets}} to browse available codes.}
 
 \item{collection}{Character vector. MSigDB collection codes.

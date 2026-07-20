@@ -8,6 +8,7 @@ APOLLO_gsea(
   ranked_genes,
   gene_sets = NULL,
   species = "Homo sapiens",
+  db_species = NULL,
   collection = c("H", "C2", "C5"),
   min_size = 15L,
   max_size = 500L,
@@ -26,10 +27,18 @@ genes), or \code{NULL} to fetch from MSigDB via \code{msigdbr}.}
 \item{species}{Character. Species name passed to \code{msigdbr::msigdbr()}
 when \code{gene_sets = NULL}. Default: \code{"Homo sapiens"}.}
 
+\item{db_species}{Character or \code{NULL}. MSigDB species database to
+query. \code{NULL} (default) lets msigdbr use its default (human-centric,
+with orthologs for non-human species). Use \code{"MM"} to query the
+native mouse database (gene sets defined in mouse studies with native
+Mus musculus gene symbols, not human orthologs). Only relevant when
+\code{gene_sets = NULL}.}
+
 \item{collection}{Character vector. MSigDB collection codes to fetch when
 \code{gene_sets = NULL}. Default: \code{c("H", "C2", "C5")}. A
-subcategory can be appended with a colon (e.g. \code{"C2:CP:REACTOME"},
-\code{"C5:GO:BP"}).}
+subcollection can be appended with a colon (e.g. \code{"C2:CP:REACTOME"},
+\code{"C5:GO:BP"}). Mouse-native collections (\code{db_species = "MM"})
+use \code{M}-prefixed codes (e.g. \code{"MH"}, \code{"M2"}, \code{"M5"}).}
 
 \item{min_size}{Integer. Minimum gene set size (after overlap with ranked
 genes). Default: 15.}

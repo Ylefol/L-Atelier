@@ -911,10 +911,17 @@ APOLLO_rank_from_de <- function(de_result,
 #'   genes), or \code{NULL} to fetch from MSigDB via \code{msigdbr}.
 #' @param species Character. Species name passed to \code{msigdbr::msigdbr()}
 #'   when \code{gene_sets = NULL}. Default: \code{"Homo sapiens"}.
+#' @param db_species Character or \code{NULL}. MSigDB species database to
+#'   query. \code{NULL} (default) lets msigdbr use its default (human-centric,
+#'   with orthologs for non-human species). Use \code{"MM"} to query the
+#'   native mouse database (gene sets defined in mouse studies with native
+#'   Mus musculus gene symbols, not human orthologs). Only relevant when
+#'   \code{gene_sets = NULL}.
 #' @param collection Character vector. MSigDB collection codes to fetch when
 #'   \code{gene_sets = NULL}. Default: \code{c("H", "C2", "C5")}. A
-#'   subcategory can be appended with a colon (e.g. \code{"C2:CP:REACTOME"},
-#'   \code{"C5:GO:BP"}).
+#'   subcollection can be appended with a colon (e.g. \code{"C2:CP:REACTOME"},
+#'   \code{"C5:GO:BP"}). Mouse-native collections (\code{db_species = "MM"})
+#'   use \code{M}-prefixed codes (e.g. \code{"MH"}, \code{"M2"}, \code{"M5"}).
 #' @param min_size Integer. Minimum gene set size (after overlap with ranked
 #'   genes). Default: 15.
 #' @param max_size Integer. Maximum gene set size. Default: 500.
@@ -951,6 +958,7 @@ APOLLO_rank_from_de <- function(de_result,
 APOLLO_gsea <- function(ranked_genes,
                          gene_sets     = NULL,
                          species       = "Homo sapiens",
+                         db_species    = NULL,
                          collection    = c("H", "C2", "C5"),
                          min_size      = 15L,
                          max_size      = 500L,
@@ -989,10 +997,31 @@ APOLLO_gsea <- function(ranked_genes,
            "Install with: install.packages('msigdbr')")
     }
 
-    if (verbose) {
-      cat("    Gene sets   : MSigDB (", paste(collection, collapse = " + "),
-          ") for ", species, "\n", sep = "")
+    # Warn if db_species="MM" is set but collection codes look like human codes.
+    # Mouse MSigDB uses "M"-prefixed codes (MH, M2, M5...); human uses plain
+    # codes (H, C2, C5...). The user must supply the correct codes explicitly.
+    if (!is.null(db_species) && toupper(db_species) == "MM") {
+      wrong <- collection[!grepl("^M", collection)]
+      if (length(wrong) > 0) {
+        warning(
+          "db_species='MM' (mouse) but collection code(s) do not use the ",
+          "mouse prefix: ", paste(wrong, collapse = ", "), ".\n",
+          "  Mouse MSigDB collections use uppercase M-prefixed codes ",
+          "(e.g. 'MH', 'M2', 'M5')."
+        )
+      }
     }
+
+    if (verbose) {
+      db_str <- if (!is.null(db_species)) paste0(" [db_species=", db_species, "]") else ""
+      cat("    Gene sets   : MSigDB (", paste(collection, collapse = " + "),
+          ") for ", species, db_str, "\n", sep = "")
+    }
+
+    # msigdbr::msigdbr()'s db_species argument requires a character vector --
+    # unlike msigdbr_collections(), it errors on NULL rather than falling
+    # back to its own default ("HS"), so NULL must be resolved here.
+    msigdbr_db_species <- if (is.null(db_species)) "HS" else db_species
 
     gs_dfs <- lapply(collection, function(col) {
       # msigdbr subcollection codes can themselves contain a colon (e.g.
@@ -1000,13 +1029,14 @@ APOLLO_gsea <- function(ranked_genes,
       # rejoined rather than truncated to the second token only -- taking
       # just cat_sub[2] silently fetched the wrong (broader) gene set for
       # "C2:CP:REACTOME" (all of C2:CP, not just REACTOME) and an invalid
-      # subcategory for "C5:GO:BP" ("GO" instead of "GO:BP").
+      # subcollection for "C5:GO:BP" ("GO" instead of "GO:BP").
       cat_sub  <- strsplit(col, ":", fixed = TRUE)[[1]]
       cat_code <- cat_sub[1]
       subcat   <- if (length(cat_sub) > 1) paste(cat_sub[-1], collapse = ":") else NULL
 
       tryCatch(
-        msigdbr::msigdbr(species = species, category = cat_code, subcategory = subcat),
+        msigdbr::msigdbr(species = species, db_species = msigdbr_db_species,
+                          collection = cat_code, subcollection = subcat),
         error = function(e) {
           warning("msigdbr failed for collection '", col, "': ", conditionMessage(e))
           NULL
@@ -1077,6 +1107,7 @@ APOLLO_gsea <- function(ranked_genes,
     gene_sets    = tested_sets,
     params       = list(
       species       = species,
+      db_species    = db_species,
       collection    = collection,
       min_size      = min_size,
       max_size      = max_size,

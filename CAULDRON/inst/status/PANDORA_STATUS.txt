@@ -69,7 +69,7 @@ PANDORA_list_celltypist_models()
   - Runs via basilisk (isolated Python env, no user setup required)
 
 PANDORA_annotate_celltypist(sce, model, majority_voting=TRUE,
-                              force_update=FALSE,
+                              cluster_col=NULL, force_update=FALSE,
                               label_col="celltypist_label",
                               conf_col="celltypist_conf", verbose=TRUE)
   - Cell type annotation via CellTypist pre-trained models
@@ -79,6 +79,12 @@ PANDORA_annotate_celltypist(sce, model, majority_voting=TRUE,
   - model: model filename e.g. "Mouse_Whole_Brain.pkl"
   - majority_voting=TRUE: consensus label per over-cluster (recommended)
   - majority_voting=FALSE: per-cell probabilistic prediction + conf_score
+  - cluster_col=NULL: colData column with an existing clustering, passed
+    straight through as CellTypist's over_clustering (array-aligned to cell
+    order) instead of letting CellTypist build its own neighbour graph +
+    over-cluster from scratch. Confirmed via celltypist's own annotate.py:
+    an array-like over_clustering skips over_cluster() entirely and goes
+    straight to majority_vote(). Ignored when majority_voting=FALSE.
   - force_update=FALSE: use cached model; TRUE re-downloads
   - Models cached in ~/.celltypist/ (celltypist default; first use downloads)
   - BPCells-aware: converts to dgCMatrix before passing to Python
@@ -122,8 +128,14 @@ DEPENDENCIES / NOTES
 - basilisk (Imports): isolated Python environment management for CellTypist
   Install: BiocManager::install("basilisk")
   First use creates a conda env (~2-3 min); all subsequent calls instant
-  Python env: Python 3.11 + celltypist==1.6.3 + scanpy==1.11.1 + anndata==0.11.4
-  Version suffix in env name (cauldron_celltypist_1): increment on pin updates
+  Python env: Python 3.11 + libexpat==2.6.1 + celltypist==1.6.3 + scanpy==1.11.1 +
+    anndata==0.11.4
+  libexpat pinned to match system libexpat1 (Ubuntu 2.6.1-2ubuntu0.4) -- avoids
+    "undefined symbol: XML_SetAllocTrackerActivationThreshold" from pyexpat.so
+    when a forked basilisk child inherits an already-loaded system libexpat
+    (e.g. via xml2/XML) instead of the env's own newer copy. Same fix as
+    .cauldron_scvi_env in basilisk.R.
+  Version suffix in env name (cauldron_celltypist_2): increment on pin updates
 - celldex (Suggests): celldex reference dataset retrieval (shorthand strings)
   Install: BiocManager::install("celldex")
 - readxl (Suggests): reading bundled ScTypeDB_full.xlsx

@@ -59,6 +59,37 @@
   channels = c("bioconda", "conda-forge", "defaults")
 )
 
+# -- MOFA2 (multi-omics factor analysis) --------------------------------------
+# No .gaia_mofa_env is defined here, unlike the tools above -- MOFA2 (see
+# GAIA/R/hephaestus_MOFA.R, HEPHAESTUS_run_mofa()) is a Bioconductor R
+# package, not a bare CLI tool GAIA drives itself, and it manages its own
+# basilisk-provisioned Python environment internally for its mofapy2 backend
+# (MOFA2::run_mofa(..., use_basilisk = TRUE)). This is a deliberate deviation
+# from the pattern below, not an oversight.
+
+# -- DeepTMHMM (topology prediction) ------------------------------------------
+# DeepTMHMM (DTU Health Tech / BioLib) is academically licensed and not on
+# public PyPI/bioconda channels -- the licensed package (predict.py + its
+# five deeptmhmm_cv_*.model weight files) must be requested separately
+# (licensing@biolib.com, see https://biolib.com/DTU/DeepTMHMM/) and extracted
+# to a directory of the user's choosing (passed as APOLLO_run_deeptmhmm()'s
+# deeptmhmm_dir argument). Its own bundled requirements.txt pins
+# torch==1.5.0+cu92, a CUDA 9.2-era wheel -- confirm this actually resolves
+# against your GPU/driver stack before assuming it as fixed; a newer CPU-only
+# or different CUDA-version torch build may be required instead (an
+# unverified default worth checking, not an established requirement). This
+# environment only provisions the base Python 3.8 interpreter (matching
+# predict.py's own documented requirement) -- torch and the rest of
+# requirements.txt must be installed once, manually, into this environment
+# following the license holder's own README.txt (see
+# basilisk::obtainEnvironmentPath(.gaia_deeptmhmm_env)), same pattern as
+# SignalP 6 above.
+.gaia_deeptmhmm_env <- basilisk::BasiliskEnvironment(
+  envname  = "gaia_deeptmhmm_1",
+  pkgname  = "GAIA",
+  packages = "python==3.8"
+)
+
 # -- HOMER (motif enrichment) --------------------------------------------------
 # findMotifsGenome.pl is packaged on bioconda as `homer`. Note: HOMER also
 # requires per-genome reference data installed separately via its own

@@ -17,6 +17,7 @@ ARTEMIS_isoform_switch(
   min_gene_expression = 1,
   min_transcript_expression = 1,
   fix_stringtie_annotation = FALSE,
+  detect_unwanted_effects = TRUE,
   verbose = TRUE
 )
 }
@@ -71,6 +72,14 @@ chromosomes" collisions, causing genes to be dropped entirely. Default:
 \code{FALSE} — only set \code{TRUE} if \code{gtf_path} is itself a
 StringTie/discovery-mode annotation with synthetic gene IDs that need
 rescuing.}
+
+\item{detect_unwanted_effects}{Logical. Passed to \code{importRdata()}'s
+\code{detectUnwantedEffects}. When \code{TRUE} (IsoformSwitchAnalyzeR's
+own default, kept here), an SVA-style surrogate-variable search runs
+automatically and any detected covariates are added to the design matrix
+and corrected for before testing -- see \code{@details} below for why
+this can silently erase power at low replicate counts. Default:
+\code{TRUE}.}
 
 \item{verbose}{Logical. Print progress. Default: \code{TRUE}.}
 }
@@ -132,13 +141,28 @@ p-value calibration diagplots (a Frequency histogram and a Density plot,
 one pair per contrast). Those are satuRn's own diagnostics, drawn as a side
 effect, not part of this package's plotting layer (\pkg{AETHER}).
 
-This function does \emph{not} support confounder/covariate adjustment
-(e.g. batch, sex, age). The design matrix built internally only contains
-\code{sampleID} and \code{condition} columns. IsoformSwitchAnalyzeR itself
-supports additional cofactor columns on the design matrix (taken into
-account automatically by both \code{isoformSwitchTestDEXSeq()} and
+This function does \emph{not} support user-supplied confounder/covariate
+columns (e.g. known batch, sex, age). The design matrix built internally
+only contains \code{sampleID} and \code{condition} columns. IsoformSwitchAnalyzeR
+itself supports additional cofactor columns on the design matrix (taken
+into account automatically by both \code{isoformSwitchTestDEXSeq()} and
 \code{isoformSwitchTestSatuRn()}; see its vignette section "How to handle
 confounding effects (including batches)"), but that path is not currently
-exposed by this wrapper. If your data has known confounders, correct for
-them prior to calling this function rather than relying on it here.
+exposed by this wrapper. If your data has \emph{known} confounders, correct
+for them prior to calling this function rather than relying on it here.
+
+Separately, \code{importRdata()} (called internally) runs its own automatic
+\emph{unwanted-effect} detection (an SVA-style surrogate-variable search,
+controlled by \code{detect_unwanted_effects} below) independent of the
+user-supplied covariates described above. When it finds candidate surrogate
+variables, it adds them to the design matrix and batch-corrects expression
+estimates before testing -- this happens even though no covariate columns
+were passed in. At low replicate counts (e.g. n = 3/group), this detection
+is unreliable: with few samples, group is often the dominant source of
+variance, so estimated surrogate variables can end up correlated with
+\code{condition} itself, and regardless of correlation, each one consumes a
+residual degree of freedom that a small design can't spare. This can turn a
+real effect into zero significant results even though a pre-test guesstimate
+(printed during import) suggested many candidate genes. Consider
+\code{detect_unwanted_effects = FALSE} for low-replicate designs.
 }

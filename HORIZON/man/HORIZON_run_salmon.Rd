@@ -13,7 +13,7 @@ HORIZON_run_salmon(
   index,
   lib_type = "A",
   threads = 4L,
-  extra_flags = c("--validateMappings"),
+  extra_flags = character(0),
   force = FALSE
 )
 }
@@ -22,13 +22,19 @@ HORIZON_run_salmon(
 sample-sheet mode; must be \code{NULL} when \code{fastq_r1} is supplied.}
 
 \item{sample_id}{Character. Sample ID (sample-sheet mode). Optional in
-direct FASTQ mode -- inferred from \code{fastq_r1} if omitted.}
+direct FASTQ mode -- inferred from the first element of \code{fastq_r1}
+if omitted.}
 
-\item{fastq_r1}{Character or \code{NULL}. Path to (trimmed) R1 FASTQ. When
-supplied, \code{sample_sheet} must be \code{NULL}. Default \code{NULL}.}
+\item{fastq_r1}{Character vector or \code{NULL}. Path(s) to (trimmed) R1
+FASTQ. Multiple files (e.g. multi-lane runs) are passed straight through
+to \code{salmon quant -1}, which treats them as one combined library --
+no pre-concatenation needed. When supplied, \code{sample_sheet} must be
+\code{NULL}. Default \code{NULL}.}
 
-\item{fastq_r2}{Character or \code{NULL}. Path to R2 FASTQ for paired-end
-data (direct FASTQ mode only). \code{NULL} for single-end.}
+\item{fastq_r2}{Character vector or \code{NULL}. Path(s) to R2 FASTQ for
+paired-end data (direct FASTQ mode only), positionally matched to
+\code{fastq_r1} (same length, same lane order). \code{NULL} for
+single-end.}
 
 \item{output_dir}{Character or \code{NULL}. Output directory for direct
 FASTQ mode. Ignored in sample-sheet mode. Defaults to the directory
@@ -46,8 +52,11 @@ corresponding to the sample sheet's \code{strandedness} values).}
 
 \item{extra_flags}{Character vector of additional \code{salmon quant} flags
 appended verbatim (e.g. \code{c("--seqBias", "--gcBias")}). Default
-\code{c("--validateMappings")} (recommended by Salmon for improved
-specificity).}
+\code{character(0)} -- \code{--validateMappings} used to be the default
+here, but current Salmon versions warn that it has no effect (selective
+alignment, what \code{--validateMappings} used to enable, is now always
+the default mapping mode; \code{--sketch} is the flag to opt back into
+pseudoalignment).}
 
 \item{force}{Logical. If \code{FALSE} (default), skip quantification when
 \code{quant.sf} already exists. Set \code{TRUE} to rerun.}

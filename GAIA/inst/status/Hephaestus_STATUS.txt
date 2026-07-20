@@ -1,7 +1,7 @@
 ================================================================================
 HEPHAESTUS MODULE STATUS - Integration Methods
 ================================================================================
-Last Updated: 2026-01-19
+Last Updated: 2026-07-13
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -61,6 +61,29 @@ HEPHAESTUS_updateZ(x, old)
   - Z variable update step
   - Internal function
 
+MOFA.R:
+-------
+HEPHAESTUS_run_mofa(X, groups, num_factors, likelihoods, spikeslab_weights,
+                     spikeslab_factors, scale_views, convergence_mode,
+                     maxiter, drop_factor_threshold, seed, use_basilisk,
+                     outfile, verbose)
+  - Multi-omics factor analysis via MOFA2
+  - Accepts GAIA's standard named list-of-matrices convention (samples x
+    features); unlike ConvCCA/RelPMDCCA, views may have only partial sample
+    overlap -- converted internally to MOFA2's long-format input to avoid
+    MOFA2's stricter matrix-input requirement of identical sample sets
+  - Returns classed hephaestus_mofa object: model, factors, weights,
+    variance_explained, params
+  - Not wired into MINERVA_scca_fit()/MINERVA_cv_scca() (different
+    output contract and model-selection approach; see roxygen @details)
+
+HEPHAESTUS_load_mofa_model(file)
+  - Reloads a trained MOFA2 .hdf5 model into the same hephaestus_mofa shape
+    without retraining
+
+print.hephaestus_mofa(x, ...)
+  - Print method: views, samples, factors, variance explained per view
+
 ================================================================================
 LEGACY FILES (to be removed/archived)
 ================================================================================
@@ -75,7 +98,6 @@ None
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- MOFA/MOFA2
 - Additional integration methods
 - Weighted combination methods
 - Multi-view learning approaches
@@ -84,3 +106,5 @@ PLANNED / TODO
 DEPENDENCIES
 ================================================================================
 - Uses: Demeter (matrix_utils), Minerva (penalty_functions)
+- MOFA2 (Bioconductor, Suggests) -- bundles its own basilisk env for its
+  mofapy2 backend, no .gaia_mofa_env needed in GAIA/R/basilisk.R

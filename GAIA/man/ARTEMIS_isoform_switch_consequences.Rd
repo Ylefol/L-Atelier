@@ -9,6 +9,7 @@ ARTEMIS_isoform_switch_consequences(
   cpat_file = NULL,
   signalp_file = NULL,
   pfam_file = NULL,
+  deeptmhmm_file = NULL,
   cpat_cutoff = 0.725,
   verbose = TRUE
 )
@@ -25,6 +26,10 @@ signal peptide annotation. Default: NULL (skipped).}
 
 \item{pfam_file}{Character or NULL. Path to Pfam/HMMER output file for
 protein domain annotation. Default: NULL (skipped).}
+
+\item{deeptmhmm_file}{Character or NULL. Path to a DeepTMHMM \code{TMRs.gff3}
+result file (e.g. from \code{APOLLO_run_deeptmhmm()}) for cell-membrane
+topology annotation. Default: NULL (skipped).}
 
 \item{cpat_cutoff}{Numeric. Coding probability cutoff for CPAT. Human
 default is 0.725, mouse is 0.44. No universal standard — verify for your
@@ -51,13 +56,22 @@ changes in coding potential, NMD sensitivity, protein domains, signal
 peptides, and intron retention.
 }
 \details{
-At least one of \code{cpat_file}, \code{signalp_file}, or \code{pfam_file}
-must be provided. Structural consequences (intron retention, ORF sequence
-similarity, NMD sensitivity) are always included and require no external
-tools, only ORF annotations from the initial \code{ARTEMIS_isoform_switch()}
-call; intron retention is classified internally via
-\code{IsoformSwitchAnalyzeR::analyzeIntronRetention()} before consequence
-analysis runs.
+At least one of \code{cpat_file}, \code{signalp_file}, \code{pfam_file}, or
+\code{deeptmhmm_file} must be provided. Structural consequences (intron
+retention, ORF sequence similarity, NMD sensitivity) are always included
+and require no external tools, only ORF annotations from the initial
+\code{ARTEMIS_isoform_switch()} call; intron retention is classified
+internally via \code{IsoformSwitchAnalyzeR::analyzeIntronRetention()}
+before consequence analysis runs.
+
+When \code{deeptmhmm_file} is supplied, this adds the \code{"isoform_topology"}
+consequence type (differences in predicted intracellular/transmembrane/
+extracellular topology between switching isoforms) -- it does not add the
+related \code{extracellular_region_count}/\code{intracellular_region_count}/
+\code{extracellular_region_length}/\code{intracellular_region_length} types
+\code{analyzeSwitchConsequences()} also supports; call
+\code{IsoformSwitchAnalyzeR::analyzeSwitchConsequences()} directly on
+\code{switch_result$switch_list} if those are needed.
 
 External tools must be run independently before calling this function.
 See the IsoformSwitchAnalyzeR vignette for expected file formats and

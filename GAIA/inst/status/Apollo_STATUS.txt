@@ -1,7 +1,7 @@
 ================================================================================
 APOLLO MODULE STATUS - Annotation & Enrichment
 ================================================================================
-Last Updated: 2026-07-08
+Last Updated: 2026-07-17
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -112,6 +112,30 @@ APOLLO_filter_enrichment(enrich_result, sources, modules, top_n)
   - Filter gost_enrichment results by source (e.g., "KEGG") or module
   - top_n: keep top N terms per module per source
 
+APOLLO_rank_from_de(de_result, rank_by, gene_col, verbose)
+  - Builds a named ranked gene vector for GSEA from an artemis_limma /
+    artemis_ts_de differential expression result
+
+APOLLO_gsea(ranked_genes, gene_sets, species, db_species, collection,
+            min_size, max_size, fdr_threshold, verbose)
+  - GSEA via fgsea::fgseaMultilevel(); gene_sets=NULL fetches from MSigDB via msigdbr
+  - species: full scientific name (e.g. "Homo sapiens"); db_species: NULL (msigdbr
+    default, human-centric w/ orthologs) or "MM" for native mouse gene sets
+  - collection: MSigDB codes (e.g. "H","C2","C5"); subcollection via colon
+    (e.g. "C2:CP:REACTOME", "C5:GO:BP"); mouse-native codes are M-prefixed (MH,M2,M5)
+  - Updated 2026-07-17: migrated msigdbr call from deprecated category/subcategory
+    args to current collection/subcollection args (installed msigdbr >= 10.0 deprecated
+    the old names); added db_species param, previously unexposed, which meant mouse runs
+    silently got human-ortholog-mapped gene sets instead of native mouse collections
+    unless called with a manually-constructed msigdbr gene_sets list. Mirrors CAULDRON's
+    KERAUNOS_gsea(), which was already on the current API.
+  - Bugfixed same day: db_species=NULL (the documented default) was passed straight
+    through to msigdbr::msigdbr(), which errors ("db_species is not a character
+    vector") -- unlike msigdbr_collections(), msigdbr() does not accept NULL and fall
+    back to its own default. Now resolved to "HS" locally before the call when NULL.
+    Same latent bug existed in (and was fixed in) CAULDRON's KERAUNOS_gsea(),
+    KERAUNOS_gsea_pseudobulk(), and KERAUNOS_gsea_markers_pairwise().
+
 activity_networks.R:
 --------------------
 APOLLO_get_collectri(organism, split_complexes, verbose)
@@ -185,8 +209,9 @@ APOLLO_get_ppi(genes, organism, resources, min_resources, directed, verbose)
 isoform_annotation.R:
 ----------------------
 Runners for the external tools consumed by ARTEMIS_isoform_switch_consequences()
-(cpat_file/signalp_file/pfam_file). Not yet tested end-to-end against real
-CPAT/SignalP/HMMER installs (implemented 2026-07-08; user installing tools
+(cpat_file/signalp_file/pfam_file/deeptmhmm_file). Not yet tested end-to-end
+against real CPAT/SignalP/HMMER/DeepTMHMM installs (CPAT/SignalP/Pfam
+implemented 2026-07-08, DeepTMHMM added 2026-07-14; user installing tools
 locally). Basilisk env declarations live in GAIA/R/basilisk.R.
 
 APOLLO_extract_isoform_sequences(switch_result, genome_object, output_dir,
@@ -247,9 +272,29 @@ APOLLO_run_pfam(switch_result, pfam_dir, output_dir, aa_fasta, nproc, verbose)
   - pfam_dir must contain a pre-pressed (hmmpress) Pfam-A.hmm + Pfam-A.hmm.dat
   - Returns path to pfam_results.txt
 
-Not yet designed: DeepTMHMM (topology) integration -- ARTEMIS_isoform_switch_
-consequences() has no deeptmhmm_file parameter at all currently. Deferred by
-user ("put a pin on that") until CPAT/SignalP/Pfam are working.
+APOLLO_run_deeptmhmm(switch_result, deeptmhmm_dir, output_dir, aa_fasta, verbose)
+  - Runs DeepTMHMM (cell-membrane topology: intracellular/TM helix/
+    extracellular) inside the .gaia_deeptmhmm_env basilisk env
+  - DeepTMHMM is academically licensed (DTU Health Tech/BioLib), not on
+    PyPI/bioconda -- licensed copy already obtained by user, extracted to
+    to_process/DeepTMHMM-Academic-License-v1.0/DeepTMHMM-Academic-License-v1.0/
+    (predict.py + 5 deeptmhmm_cv_*.model weight files). Its own
+    requirements.txt pins torch==1.5.0+cu92 (CUDA 9.2-era) -- unverified
+    whether this resolves on current hardware/drivers, may need a newer
+    torch build; the basilisk env only provisions base Python 3.8, torch/deps
+    must be installed manually into it once, same pattern as SignalP 6.
+  - IMPORTANT (differs from CPAT/SignalP/Pfam): predict.py loads its model
+    weights and utils/experiments.tmhmm3.tm_util modules via bare relative
+    paths/imports, so it MUST be run with deeptmhmm_dir as cwd -- this
+    function temporarily setwd()s into deeptmhmm_dir (restored via on.exit).
+    predict.py also refuses to run if output_dir already exists (exits with
+    an error) -- this function does not pre-create output_dir, unlike the
+    other three runners.
+  - Returns path to TMRs.gff3, ready for
+    ARTEMIS_isoform_switch_consequences(deeptmhmm_file = ...), which adds the
+    "isoform_topology" consequence type (not the related
+    extracellular/intracellular_region_count/length types -- call
+    IsoformSwitchAnalyzeR::analyzeSwitchConsequences() directly for those)
 
 ================================================================================
 IN PROGRESS

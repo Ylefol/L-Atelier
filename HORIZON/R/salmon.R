@@ -32,6 +32,14 @@
 #'   length for quasi-mapping). Default 31, appropriate for reads >= 75bp;
 #'   reduce (e.g. to 23) for shorter reads. See the Salmon documentation for
 #'   guidance.
+#' @param keep_duplicates Logical. Passes \code{--keepDuplicates} to
+#'   \code{salmon index} when \code{TRUE}. Without it, Salmon
+#'   collapses transcripts with identical sequence into a single representative
+#'   ID at index time, silently dropping the others from quantification --
+#'   this matters for isoform-level analyses (e.g. downstream isoform-switch
+#'   testing) where every transcript ID needs its own entry, and is generally
+#'   recommended by Salmon/tximport's own tutorials regardless of downstream
+#'   use. Set \code{FALSE} (default) to match Salmon's own out-of-the-box default.
 #' @param threads Integer. Threads for \code{salmon index}. Default 4.
 #' @param force Logical. Rebuild even if an index already exists at
 #'   \code{index_dir}. Default \code{FALSE}.
@@ -51,9 +59,10 @@
 HORIZON_build_salmon_index <- function(gtf,
                                         genome_fasta,
                                         index_dir,
-                                        kmer_length = 31L,
-                                        threads     = 4L,
-                                        force       = FALSE) {
+                                        kmer_length     = 31L,
+                                        keep_duplicates = FALSE,
+                                        threads         = 4L,
+                                        force           = FALSE) {
 
   if (!file.exists(gtf)) stop("GTF file not found: ", gtf, call. = FALSE)
   if (!file.exists(genome_fasta))
@@ -113,6 +122,7 @@ HORIZON_build_salmon_index <- function(gtf,
     "-k", as.integer(kmer_length),
     "-p", as.integer(threads)
   )
+  if (isTRUE(keep_duplicates)) args <- c(args, "--keepDuplicates")
   exit_code <- .horizon_run_cli("salmon", args)
   if (exit_code != 0)
     stop("salmon index failed (exit code ", exit_code, ").", call. = FALSE)
@@ -171,8 +181,11 @@ HORIZON_build_salmon_index <- function(gtf,
 #' @param threads Integer. Threads for \code{salmon quant}. Default 4.
 #' @param extra_flags Character vector of additional \code{salmon quant} flags
 #'   appended verbatim (e.g. \code{c("--seqBias", "--gcBias")}). Default
-#'   \code{c("--validateMappings")} (recommended by Salmon for improved
-#'   specificity).
+#'   \code{character(0)} -- \code{--validateMappings} used to be the default
+#'   here, but current Salmon versions warn that it has no effect (selective
+#'   alignment, what \code{--validateMappings} used to enable, is now always
+#'   the default mapping mode; \code{--sketch} is the flag to opt back into
+#'   pseudoalignment).
 #' @param force Logical. If \code{FALSE} (default), skip quantification when
 #'   \code{quant.sf} already exists. Set \code{TRUE} to rerun.
 #'
@@ -186,7 +199,7 @@ HORIZON_run_salmon <- function(sample_sheet = NULL,
                                 index,
                                 lib_type     = "A",
                                 threads      = 4L,
-                                extra_flags  = c("--validateMappings"),
+                                extra_flags  = character(0),
                                 force        = FALSE) {
 
   if (!dir.exists(index))

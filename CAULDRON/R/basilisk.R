@@ -16,10 +16,15 @@
 # leastsq_generalized bug present in 0.2.x. All three modes (deterministic,
 # stochastic, dynamical) work with this stack.
 # legacy-api-wrap is required by scVelo 0.3.x for backward-compatibility shims.
+# libexpat pinned to 2.6.1 -- same pyexpat/XML_SetAllocTrackerActivationThreshold
+# fix as .cauldron_celltypist_env and .cauldron_scvi_env below (see their comments
+# for the full mechanism). This env was created before that fix was identified and
+# had been running on luck (whether the R session had already loaded system
+# libexpat via xml2/XML/libxml2 before basilisk forked its Python child).
 .cauldron_scvelo_env <- basilisk::BasiliskEnvironment(
-    envname  = "cauldron_scvelo_3",
+    envname  = "cauldron_scvelo_4",
     pkgname  = "CAULDRON",
-    packages = "python==3.12",
+    packages = c("python==3.12", "libexpat==2.6.1"),
     pip      = c(
         "scvelo==0.3.3",
         "scanpy==1.11.1",
@@ -37,10 +42,22 @@
 # Versions from a validated working environment (Python 3.11, celltypist 1.6.3).
 # celltypist pulls leidenalg, scikit-learn, and other dependencies via pip;
 # pinning the three main packages is sufficient for reproducibility.
+# libexpat pinned to 2.6.1 to match the system libexpat1 package (Ubuntu
+# 2.6.1-2ubuntu0.4) -- same fix as .cauldron_scvi_env below. Without this pin,
+# conda resolves the newest libexpat (2.8.1, which added
+# XML_SetAllocTrackerActivationThreshold); basilisk runs Python code in a
+# forked child process, and if the parent R session already loaded the
+# system's older libexpat.so.1 (e.g. via xml2/XML/libxml2) before the fork,
+# the child inherits that already-mapped library under the same SONAME
+# instead of the env's own RPATH-preferred copy -- pyexpat.so then fails with
+# "undefined symbol: XML_SetAllocTrackerActivationThreshold" because the
+# resident 2.6.1 library lacks the symbol pyexpat.so was linked against.
+# Pinning this env's libexpat to the same 2.6.1 version means whichever copy
+# ends up resident in the process, both are ABI-compatible.
 .cauldron_celltypist_env <- basilisk::BasiliskEnvironment(
-    envname  = "cauldron_celltypist_1",
+    envname  = "cauldron_celltypist_2",
     pkgname  = "CAULDRON",
-    packages = "python==3.11",
+    packages = c("python==3.11", "libexpat==2.6.1"),
     pip      = c(
         "celltypist==1.6.3",
         "scanpy==1.11.1",

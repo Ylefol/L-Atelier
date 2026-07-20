@@ -15,6 +15,7 @@ ASPIS_plot_velocity_stream(
   stream_size = 0.4,
   stream_alpha = 0.8,
   bandwidth = NULL,
+  min_density = 0.05,
   blob_alpha = 0.25,
   blob_bins = 4,
   show_points = FALSE,
@@ -56,6 +57,18 @@ matching the blob palette. Default \code{"black"}.}
 
 \item{bandwidth}{Numeric or \code{NULL}. Gaussian kernel bandwidth for
 velocity field interpolation.  \code{NULL} auto-scales to grid spacing.}
+
+\item{min_density}{Numeric in \link{0, 1}. Grid points whose local cell density
+falls below this fraction of the grid's peak density are masked out of
+the velocity field entirely (no seeding, streamlines cannot cross them).
+Without this mask, the Gaussian kernel's infinite support means distant
+grid points (e.g. in empty corners of a non-convex embedding) still get
+a spuriously "valid" direction dominated by whichever cells are
+least-far-away, producing streamlines that wander through empty space
+with no relation to the actual data. Raise this value if streamlines
+still appear disconnected from the point cloud; lower it if streamlines
+are being cut off too early near the edges of dense clusters.
+Default \code{0.05}.}
 
 \item{blob_alpha}{Numeric. Maximum opacity of KDE polygon fills. Default
 \code{0.25}.}
