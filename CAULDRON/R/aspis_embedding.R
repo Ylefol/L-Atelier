@@ -549,9 +549,9 @@ ASPIS_plot_embedding_grid <- function(sweep,
 
   # ── Colour scale ─────────────────────────────────────────────────────────────
   if (is_discrete) {
-    n_lev <- nlevels(df_all$colour_val)
-    pal   <- if (!is.null(palette)) rep(palette, length.out = n_lev) else
-               rep(.aspis_discrete_palette(), length.out = n_lev)
+    # See ASPIS_plot_umap()/.aspis_plot_dimred() for why this must be a
+    # named-aware lookup rather than a positionally-recycled palette.
+    pal <- .aspis_resolve_palette(palette, NULL, levels(df_all$colour_val))
     p <- p + scale_color_manual(values = pal)
   } else {
     low  <- if (!is.null(palette) && length(palette) >= 1L) palette[1L] else "grey90"
@@ -832,10 +832,15 @@ ASPIS_plot_qc <- function(sce,
   }
 
   # ── Colour palette ───────────────────────────────────────────────────────────
+  # Named-aware lookup (via .aspis_resolve_palette(), shared with
+  # ASPIS_plot_composition()/ASPIS_plot_propeller()) -- as.factor() above sorts
+  # numeric-looking labels (e.g. cluster "10") alphabetically, not numerically,
+  # so a positionally-recycled palette (rep(..., length.out=)) silently drops
+  # a named palette's names and hands scale_color_manual() colours in the
+  # wrong order the moment double-digit labels appear. Resolving by name
+  # sidesteps the level-order mismatch entirely.
   if (is_discrete) {
-    n_lev <- nlevels(df$colour_val)
-    pal   <- rep(if (!is.null(palette)) palette else .aspis_discrete_palette(),
-                 length.out = n_lev)
+    pal <- .aspis_resolve_palette(palette, NULL, levels(df$colour_val))
   }
 
   # ── Axis / title labels ──────────────────────────────────────────────────────
@@ -990,8 +995,12 @@ ASPIS_plot_qc <- function(sce,
 
 # 20-colour categorical palette (Tableau-inspired).
 .aspis_discrete_palette <- function() {
-  c("#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
-    "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
-    "#79706E", "#D4A6C8", "#86BCB6", "#FFBE7D", "#8CD17D",
-    "#499894", "#E6D16A", "#D37295", "#FABFD2", "#B6992D")
+  # Delegates to KHALKOS's canonical categorical palette so this can never
+  # drift out of sync with KHALKOS_assign_metadata_colours()'s default
+  # again (see .khalkos_cat_palette_20 in khalkos_utils.R for the incident
+  # this fixes: the two lists used to be independently hand-copied and
+  # diverged from position 11 onward, so a category's colour disagreed
+  # between a plot using an explicit KHALKOS-built palette and one left at
+  # its un-styled default).
+  KHALKOS_default_palette(20, "categorical")
 }

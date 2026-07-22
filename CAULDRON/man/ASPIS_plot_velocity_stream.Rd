@@ -58,7 +58,7 @@ matching the blob palette. Default \code{"black"}.}
 \item{bandwidth}{Numeric or \code{NULL}. Gaussian kernel bandwidth for
 velocity field interpolation.  \code{NULL} auto-scales to grid spacing.}
 
-\item{min_density}{Numeric in \link{0, 1}. Grid points whose local cell density
+\item{min_density}{Numeric in [0, 1]. Grid points whose local cell density
 falls below this fraction of the grid's peak density are masked out of
 the velocity field entirely (no seeding, streamlines cannot cross them).
 Without this mask, the Gaussian kernel's infinite support means distant

@@ -1,7 +1,7 @@
 ================================================================================
 TALARIA STATUS - Import, Export & Format Conversion
 ================================================================================
-Last Updated: 2026-07-17
+Last Updated: 2026-07-22
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -158,6 +158,51 @@ TALARIA_export_first_steps(sce, output_dir, hvg_sweep=NULL, pc_sweep=NULL,
   - Returns invisible list: output_dir + files (manifest of all saved paths)
   - Individual plots/tables still accessible via their respective functions
 
+TALARIA_export_gene_expr_widget(sce, groupings=NULL, assay_name="logcounts",
+                                 widget_id="gene-expr", digits=4)
+  - Builds a self-contained HTML/JS widget for R Markdown: gene search box +
+    grouping dropdown (any colData column(s) named in groupings, e.g. cluster,
+    genotype, cell_label) driving an SVG bar chart of mean expression
+  - Precomputes gene x group-level MEANS per grouping (full transcriptome,
+    genes x a handful of levels) rather than exporting per-cell values --
+    keeps the embedded payload ~MB-scale instead of GB-scale, and avoids
+    implying per-cell resolution a group-mean chart doesn't have
+  - No external JS libraries (hand-rolled SVG bar chart); data embedded
+    inline as a <script type="application/json"> block so the knitted .Rmd
+    output stays a single self-contained, portable HTML file
+  - Returns knitr::asis_output() -- call directly inside a normal chunk
+    (no results='asis' needed) and the return value auto-renders
+  - widget_id must be unique per call if embedding more than one widget in
+    the same document (all DOM ids are prefixed with it)
+  - Requires jsonlite + knitr (Suggests); errors via requireNamespace() guard
+    if either is missing
+  - Bar chart internals: y-axis auto-scales to a "nice" rounded max (not each
+    gene's own max, which would read like a relative/percentage chart with no
+    comparable scale); x-axis labels rotated 45deg with text-anchor="start"
+    so long category names hang below the axis without intruding upward into
+    the bars; right margin auto-widens for the last bar's label overhang
+
+TALARIA_export_gene_table_widget(sce, columns=NULL, widget_id="gene-table",
+                                  max_rows=200)
+  - Builds a self-contained HTML/JS widget for R Markdown: a search box
+    filtering rowData(sce) (matched against rownames(sce)) rendered as a
+    live-updating table, one column per rowData(sce) field
+  - columns=NULL exposes every rowData(sce) column; pass a subset to curate
+    which fields show up in the table
+  - Only currently-matching rows are ever rendered into the DOM (capped at
+    max_rows, default 200) -- a full transcriptome's worth of <tr> elements
+    would bloat the page and make typing sluggish, so unmatched rows are
+    never built as DOM nodes in the first place
+  - Same embedded-JSON + vanilla-JS pattern as TALARIA_export_gene_expr_widget
+    (no DT/crosstalk) -- keeps the knitted .Rmd output a single
+    self-contained, portable HTML file with no external JS dependencies
+  - Returns knitr::asis_output() -- call directly inside a normal chunk
+    (no results='asis' needed) and the return value auto-renders
+  - widget_id must be unique per call if embedding more than one widget in
+    the same document (all DOM ids are prefixed with it)
+  - Requires jsonlite + knitr (Suggests); errors via requireNamespace() guard
+    if either is missing
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -181,12 +226,16 @@ DEPENDENCIES / NOTES
   All calls via requireNamespace() + BPCells:: prefix (no @importFrom)
 - ggrepel (Suggests): gene labels on volcano/MA plots in export_de
 - fgsea (Suggests): enrichment score plots in export_gsea (via plotEnrichment)
+- jsonlite (Suggests): payload serialisation in export_gene_expr_widget
+- knitr (Suggests): asis_output() in export_gene_expr_widget
 - Internal helpers in talaria_export.R:
     .talaria_plot_volcano(), .talaria_plot_ma() — native CAULDRON implementations
     (inspired by GAIA/AETHER but no cross-package dependency)
     .talaria_gsea_dotplot() — NES dotplot for fgsea results
     .talaria_ora_dotplot()  — fold enrichment dotplot for gprofiler2 results
     .talaria_gsea_enrichment_plot() — wraps fgsea::plotEnrichment()
+    .talaria_gene_expr_widget_html() — builds export_gene_expr_widget's HTML/JS
+    from a template, substituting the DOM id prefix and JSON payload
 - TALARIA owns all CAULDRON exports, paralleling GAIA's ELEUTHIA module
 - Entry point for CAULDRON — all other modules depend on a properly loaded SCE
 - .talaria_normalise_assay_names(): ensures raw counts assay is named "counts"

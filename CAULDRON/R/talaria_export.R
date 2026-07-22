@@ -1019,3 +1019,444 @@ TALARIA_export_ora <- function(result,
     message("Exported ", length(saved), " file(s) to: ", output_dir)
   invisible(saved)
 }
+
+
+#' Export an interactive gene-expression-by-group widget for R Markdown
+#'
+#' Builds a self-contained, dependency-free HTML/JS widget that lets a report
+#' viewer search any gene and see its mean expression across levels of one or
+#' more grouping variables (e.g. cluster, genotype, cell label), rendered as
+#' an SVG bar chart. Meant to be called directly inside an R Markdown chunk:
+#' the return value knits as raw HTML automatically (see
+#' \code{\link[knitr]{asis_output}}) — no \code{results='asis'} chunk option
+#' or manual \code{cat()} needed.
+#'
+#' Expression is precomputed as a gene x group-level \strong{mean} matrix, one
+#' per grouping variable, not exported per cell. For a full transcriptome
+#' this keeps the embedded payload on the order of a few MB rather than the
+#' multi-GB a per-cell export would require, at the cost of showing each
+#' group's mean rather than per-cell resolution — plotting a per-cell UMAP
+#' colored by a per-cluster average would imply resolution the data doesn't
+#' have, so a bar chart is used instead.
+#'
+#' @param sce A \code{SingleCellExperiment}.
+#' @param groupings Character vector of \code{colData(sce)} column names to
+#'   expose as grouping options (e.g. \code{c("cluster", "genotype",
+#'   "cell_label")}).
+#' @param assay_name Character. Assay averaged per group. Default
+#'   \code{"logcounts"}.
+#' @param widget_id Character. DOM id prefix — must be unique if more than
+#'   one widget is embedded in the same document. Default \code{"gene-expr"}.
+#' @param digits Integer. Rounding applied to exported mean values. Default
+#'   \code{4}.
+#'
+#' @return An object of class \code{knit_asis} (see
+#'   \code{\link[knitr]{asis_output}}). Printing or auto-printing it inside
+#'   an R Markdown chunk renders the widget; outside of knitr it just prints
+#'   as plain HTML text.
+#' @export
+TALARIA_export_gene_expr_widget <- function(sce,
+                                             groupings  = NULL,
+                                             assay_name = "logcounts",
+                                             widget_id  = "gene-expr",
+                                             digits     = 4) {
+
+  if (!inherits(sce, "SingleCellExperiment"))
+    stop("'sce' must be a SingleCellExperiment.", call. = FALSE)
+  if (is.null(groupings) || length(groupings) == 0L)
+    stop("'groupings' must name at least one colData(sce) column.",
+         call. = FALSE)
+  missing_cols <- setdiff(groupings, names(colData(sce)))
+  if (length(missing_cols) > 0L)
+    stop("colData(sce) is missing: ", paste(missing_cols, collapse = ", "),
+         call. = FALSE)
+  if (!assay_name %in% assayNames(sce))
+    stop("'assay_name' (\"", assay_name, "\") not found in assayNames(sce).",
+         call. = FALSE)
+  if (!requireNamespace("jsonlite", quietly = TRUE))
+    stop("Package 'jsonlite' is required for TALARIA_export_gene_expr_widget(). ",
+         "Install it with install.packages(\"jsonlite\").", call. = FALSE)
+  if (!requireNamespace("knitr", quietly = TRUE))
+    stop("Package 'knitr' is required for TALARIA_export_gene_expr_widget(). ",
+         "Install it with install.packages(\"knitr\").", call. = FALSE)
+
+  expr_mat <- assay(sce, assay_name)
+
+  grouping_export <- lapply(groupings, function(g) {
+    grp <- as.character(colData(sce)[[g]])
+    lv <- unique(grp)
+    lv_num <- suppressWarnings(as.numeric(lv))
+    lv <- if (!anyNA(lv_num)) as.character(sort(lv_num)) else sort(lv)
+    mat <- sapply(lv, function(l) Matrix::rowMeans(expr_mat[, grp == l, drop = FALSE]))
+    list(levels = lv, matrix = round(mat, digits))
+  })
+  names(grouping_export) <- groupings
+
+  export_obj <- list(genes = rownames(sce), groupings = grouping_export)
+  json_payload <- jsonlite::toJSON(export_obj, auto_unbox = TRUE)
+
+  knitr::asis_output(.talaria_gene_expr_widget_html(widget_id, json_payload))
+}
+
+
+# Builds the widget's HTML/CSS/JS from a template, substituting the DOM id
+# prefix (so multiple widgets can coexist on one page) and the precomputed
+# JSON payload. Not exported -- called only from TALARIA_export_gene_expr_widget().
+.talaria_gene_expr_widget_html <- function(widget_id, json_payload) {
+
+  template <- r"-(
+<div id="__ID__-widget">
+<div class="filter-row">
+<label for="__ID__-grouping-select">Group by</label>
+<select id="__ID__-grouping-select"></select>
+<label for="__ID__-gene-input">Gene</label>
+<input id="__ID__-gene-input" placeholder="e.g. TH" autocomplete="off">
+</div>
+<div id="__ID__-status"></div>
+<svg id="__ID__-chart" width="700" height="380"></svg>
+</div>
+
+<style>
+#__ID__-widget .filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+#__ID__-widget label { font-size: 13px; }
+#__ID__-status { font-size: 12px; color: #b00; min-height: 16px; }
+#__ID__-chart text { fill: #333; }
+</style>
+
+<script id="__ID__-data" type="application/json">
+__JSON__
+</script>
+
+<script>
+(function () {
+var payload = JSON.parse(document.getElementById('__ID__-data').textContent);
+var geneIndex = new Map();
+payload.genes.forEach(function (g, i) { geneIndex.set(g.toUpperCase(), i); });
+
+var groupingSelect = document.getElementById('__ID__-grouping-select');
+var geneInput = document.getElementById('__ID__-gene-input');
+var statusEl = document.getElementById('__ID__-status');
+var svg = document.getElementById('__ID__-chart');
+var BAR_COLOR = '#2a78d6';
+var GRID_COLOR = '#e1e0d9';
+var AXIS_COLOR = '#c3c2b7';
+var TEXT_COLOR = '#52514e';
+var ns = 'http://www.w3.org/2000/svg';
+
+function niceMax(value) {
+if (value <= 0) return 1;
+var exponent = Math.floor(Math.log10(value));
+var fraction = value / Math.pow(10, exponent);
+var niceFraction = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10;
+return niceFraction * Math.pow(10, exponent);
+}
+
+Object.keys(payload.groupings).forEach(function (g) {
+var opt = document.createElement('option');
+opt.value = g; opt.textContent = g;
+groupingSelect.appendChild(opt);
+});
+
+function draw() {
+while (svg.firstChild) svg.removeChild(svg.firstChild);
+var gene = geneInput.value.trim();
+if (!gene) { statusEl.textContent = ''; return; }
+var idx = geneIndex.get(gene.toUpperCase());
+if (idx === undefined) {
+statusEl.textContent = 'Gene "' + gene + '" not found.';
+return;
+}
+statusEl.textContent = '';
+
+var grp = payload.groupings[groupingSelect.value];
+var values = grp.matrix[idx];
+var levels = grp.levels;
+
+var ROT_DEG = 45;
+var longestLabel = levels.reduce(function (a, b) { return String(b).length > a ? String(b).length : a; }, 0);
+var estLabelPx = longestLabel * 6.2;
+// Full label length, since text-anchor="start" below makes the whole label
+// hang down-and-right from its pivot rather than splitting across it.
+var padB = Math.max(50, estLabelPx * Math.sin(ROT_DEG * Math.PI / 180) + 24);
+
+var plotH = 260;
+var padL = 60, padT = 24;
+var basePadR = 20;
+var plotW = 700 - padL - basePadR; // bar layout is fixed, independent of margin
+
+// The rightmost bar's label (text-anchor="start", rotated) hangs down-and-
+// right from its pivot and can run past a fixed-width canvas -- widen just
+// the right margin to fit it, without touching the bar layout above.
+var labelOverhangX = estLabelPx * Math.cos(ROT_DEG * Math.PI / 180);
+var padR = Math.max(basePadR, labelOverhangX + 15);
+
+var width = padL + plotW + padR;
+var height = padT + plotH + padB;
+svg.setAttribute('width', width);
+svg.setAttribute('height', height);
+
+var rawMax = Math.max.apply(null, values.concat([0.001]));
+var axisMax = niceMax(rawMax);
+var barW = plotW / values.length;
+
+var title = document.createElementNS(ns, 'text');
+title.setAttribute('x', padL);
+title.setAttribute('y', 14);
+title.setAttribute('font-size', '12');
+title.setAttribute('font-weight', '600');
+title.textContent = gene + ' — mean expression by ' + groupingSelect.value;
+svg.appendChild(title);
+
+var nTicks = 4;
+for (var t = 0; t <= nTicks; t++) {
+var tickVal = (axisMax / nTicks) * t;
+var ty = padT + plotH - (tickVal / axisMax) * plotH;
+
+var grid = document.createElementNS(ns, 'line');
+grid.setAttribute('x1', padL);
+grid.setAttribute('x2', width - padR);
+grid.setAttribute('y1', ty);
+grid.setAttribute('y2', ty);
+grid.setAttribute('stroke', GRID_COLOR);
+grid.setAttribute('stroke-width', '1');
+svg.appendChild(grid);
+
+var tickLabel = document.createElementNS(ns, 'text');
+tickLabel.setAttribute('x', padL - 8);
+tickLabel.setAttribute('y', ty + 3);
+tickLabel.setAttribute('text-anchor', 'end');
+tickLabel.setAttribute('font-size', '10');
+tickLabel.setAttribute('fill', TEXT_COLOR);
+tickLabel.textContent = Number(tickVal.toFixed(2)).toString();
+svg.appendChild(tickLabel);
+}
+
+var axisLine = document.createElementNS(ns, 'line');
+axisLine.setAttribute('x1', padL);
+axisLine.setAttribute('x2', padL);
+axisLine.setAttribute('y1', padT);
+axisLine.setAttribute('y2', padT + plotH);
+axisLine.setAttribute('stroke', AXIS_COLOR);
+axisLine.setAttribute('stroke-width', '1');
+svg.appendChild(axisLine);
+
+var axisTitle = document.createElementNS(ns, 'text');
+axisTitle.setAttribute('x', -(padT + plotH / 2));
+axisTitle.setAttribute('y', 14);
+axisTitle.setAttribute('text-anchor', 'middle');
+axisTitle.setAttribute('font-size', '10');
+axisTitle.setAttribute('fill', TEXT_COLOR);
+axisTitle.setAttribute('transform', 'rotate(-90)');
+axisTitle.textContent = 'Mean logcounts expression';
+svg.appendChild(axisTitle);
+
+values.forEach(function (v, i) {
+var barH = (v / axisMax) * plotH;
+var x = padL + i * barW + barW * 0.15;
+var y = padT + (plotH - barH);
+
+var rect = document.createElementNS(ns, 'rect');
+rect.setAttribute('x', x);
+rect.setAttribute('y', y);
+rect.setAttribute('width', barW * 0.7);
+rect.setAttribute('height', barH);
+rect.setAttribute('fill', BAR_COLOR);
+svg.appendChild(rect);
+
+var valLabel = document.createElementNS(ns, 'text');
+valLabel.setAttribute('x', x + barW * 0.35);
+valLabel.setAttribute('y', y - 4);
+valLabel.setAttribute('text-anchor', 'middle');
+valLabel.setAttribute('font-size', '10');
+valLabel.textContent = v.toFixed(2);
+svg.appendChild(valLabel);
+
+// text-anchor="start" pins the pivot at the label's own top-left corner, so
+// the whole string swings down-and-right from the axis when rotated -- with
+// "middle", half the string would swing the other way and intrude upward
+// into the bars instead of reading cleanly below them.
+var labelX = x + barW * 0.35;
+var labelY = height - padB + 8;
+var label = document.createElementNS(ns, 'text');
+label.setAttribute('x', labelX);
+label.setAttribute('y', labelY);
+label.setAttribute('text-anchor', 'start');
+label.setAttribute('font-size', '11');
+label.setAttribute('transform', 'rotate(' + ROT_DEG + ' ' + labelX + ' ' + labelY + ')');
+label.textContent = levels[i];
+svg.appendChild(label);
+});
+}
+
+groupingSelect.addEventListener('change', draw);
+geneInput.addEventListener('input', draw);
+})();
+</script>
+)-"
+
+  html <- gsub("__ID__", widget_id, template, fixed = TRUE)
+  sub("__JSON__", json_payload, html, fixed = TRUE)
+}
+
+
+#' Export a searchable rowData(sce) table widget for R Markdown
+#'
+#' Builds a self-contained, dependency-free HTML/JS widget that lets a report
+#' viewer search genes by name (matched against \code{rownames(sce)}) and see
+#' their associated \code{rowData(sce)} columns in a live-filtered table.
+#' Mirrors \code{\link{TALARIA_export_gene_expr_widget}}'s embedded-JSON +
+#' vanilla-JS approach so the report stays free of external JS dependencies
+#' (a package like DT or crosstalk would each pull in their own bundled
+#' JS/CSS) and stays portable as a single, self-contained HTML file. Meant to
+#' be called directly inside an R Markdown chunk: the return value knits as
+#' raw HTML automatically (see \code{\link[knitr]{asis_output}}) -- no
+#' \code{results='asis'} chunk option or manual \code{cat()} needed.
+#'
+#' Only the currently matching rows are ever rendered into the DOM (capped at
+#' \code{max_rows}), rather than every gene at once -- with a full
+#' transcriptome (tens of thousands of genes), building a table row for every
+#' gene up front would bloat the page and make typing sluggish.
+#'
+#' @param sce A \code{SingleCellExperiment}.
+#' @param columns Character vector of \code{rowData(sce)} column names to
+#'   expose. \code{NULL} (default) exposes every column.
+#' @param widget_id Character. DOM id prefix -- must be unique if more than
+#'   one widget is embedded in the same document. Default \code{"gene-table"}.
+#' @param max_rows Integer. Maximum number of matching rows rendered into the
+#'   table at once. Default \code{200}.
+#'
+#' @return An object of class \code{knit_asis} (see
+#'   \code{\link[knitr]{asis_output}}). Printing or auto-printing it inside
+#'   an R Markdown chunk renders the widget; outside of knitr it just prints
+#'   as plain HTML text.
+#' @export
+TALARIA_export_gene_table_widget <- function(sce,
+                                              columns   = NULL,
+                                              widget_id = "gene-table",
+                                              max_rows  = 200) {
+
+  if (!inherits(sce, "SingleCellExperiment"))
+    stop("'sce' must be a SingleCellExperiment.", call. = FALSE)
+  if (!requireNamespace("jsonlite", quietly = TRUE))
+    stop("Package 'jsonlite' is required for TALARIA_export_gene_table_widget(). ",
+         "Install it with install.packages(\"jsonlite\").", call. = FALSE)
+  if (!requireNamespace("knitr", quietly = TRUE))
+    stop("Package 'knitr' is required for TALARIA_export_gene_table_widget(). ",
+         "Install it with install.packages(\"knitr\").", call. = FALSE)
+
+  rd <- as.data.frame(rowData(sce))
+  if (!is.null(columns)) {
+    missing_cols <- setdiff(columns, colnames(rd))
+    if (length(missing_cols) > 0L)
+      stop("rowData(sce) is missing: ", paste(missing_cols, collapse = ", "),
+           call. = FALSE)
+    rd <- rd[, columns, drop = FALSE]
+  }
+  rd <- cbind(gene = rownames(sce), rd)
+
+  # Row-oriented array of objects (one JSON object per gene), not
+  # column-oriented, so the JS side can filter/slice by row directly without
+  # reshaping the payload.
+  rows_json <- jsonlite::toJSON(rd, dataframe = "rows", na = "null")
+  cols_json <- jsonlite::toJSON(colnames(rd))
+
+  knitr::asis_output(
+    .talaria_gene_table_widget_html(widget_id, rows_json, cols_json, max_rows)
+  )
+}
+
+
+# Builds the searchable rowData table widget's HTML/CSS/JS from a template,
+# substituting the DOM id prefix, the precomputed row/column JSON, and the
+# render cap. Not exported -- called only from
+# TALARIA_export_gene_table_widget().
+.talaria_gene_table_widget_html <- function(widget_id, rows_json, cols_json, max_rows) {
+
+  template <- r"-(
+<div id="__ID__-widget">
+<div class="filter-row">
+<label for="__ID__-search">Search gene</label>
+<input id="__ID__-search" type="text" placeholder="e.g. TH" autocomplete="off">
+</div>
+<div id="__ID__-status"></div>
+<div class="table-scroll">
+<table id="__ID__-table"><thead></thead><tbody></tbody></table>
+</div>
+</div>
+
+<style>
+#__ID__-widget .filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+#__ID__-widget label { font-size: 13px; }
+#__ID__-status { font-size: 12px; color: #52514e; min-height: 16px; margin-bottom: 6px; }
+#__ID__-widget .table-scroll { max-height: 480px; overflow: auto; border: 1px solid #e1e0d9; }
+#__ID__-widget table { border-collapse: collapse; width: 100%; font-size: 12px; }
+#__ID__-widget th, #__ID__-widget td { padding: 4px 8px; border-bottom: 1px solid #e1e0d9; text-align: left; white-space: nowrap; }
+#__ID__-widget th { position: sticky; top: 0; background: #f5f4ef; }
+</style>
+
+<script id="__ID__-rows" type="application/json">
+__ROWS_JSON__
+</script>
+<script id="__ID__-cols" type="application/json">
+__COLS_JSON__
+</script>
+
+<script>
+(function () {
+var rows = JSON.parse(document.getElementById('__ID__-rows').textContent);
+var cols = JSON.parse(document.getElementById('__ID__-cols').textContent);
+var MAX_ROWS = __MAX_ROWS__;
+
+var searchEl = document.getElementById('__ID__-search');
+var statusEl = document.getElementById('__ID__-status');
+var table = document.getElementById('__ID__-table');
+var thead = table.querySelector('thead');
+var tbody = table.querySelector('tbody');
+
+var headRow = document.createElement('tr');
+cols.forEach(function (c) {
+var th = document.createElement('th');
+th.textContent = c;
+headRow.appendChild(th);
+});
+thead.appendChild(headRow);
+
+function render(matches) {
+while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+matches.slice(0, MAX_ROWS).forEach(function (row) {
+var tr = document.createElement('tr');
+cols.forEach(function (c) {
+var td = document.createElement('td');
+var val = row[c];
+td.textContent = (val === null || val === undefined) ? '' : val;
+tr.appendChild(td);
+});
+tbody.appendChild(tr);
+});
+if (matches.length > MAX_ROWS) {
+statusEl.textContent = 'Showing ' + MAX_ROWS + ' of ' + matches.length + ' matches -- refine your search to see more.';
+} else {
+statusEl.textContent = matches.length + ' gene(s)';
+}
+}
+
+function filter() {
+var q = searchEl.value.trim().toUpperCase();
+if (!q) { render(rows.slice(0, MAX_ROWS)); return; }
+var matches = rows.filter(function (row) {
+return String(row.gene).toUpperCase().indexOf(q) !== -1;
+});
+render(matches);
+}
+
+searchEl.addEventListener('input', filter);
+filter();
+})();
+</script>
+)-"
+
+  html <- gsub("__ID__", widget_id, template, fixed = TRUE)
+  html <- sub("__ROWS_JSON__", rows_json, html, fixed = TRUE)
+  html <- sub("__COLS_JSON__", cols_json, html, fixed = TRUE)
+  sub("__MAX_ROWS__", max_rows, html, fixed = TRUE)
+}

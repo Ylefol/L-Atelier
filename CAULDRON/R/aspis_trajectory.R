@@ -370,7 +370,7 @@ ASPIS_plot_velocity <- function(sce,
 #' @param stream_alpha Numeric. Streamline opacity. Default \code{0.8}.
 #' @param bandwidth Numeric or \code{NULL}. Gaussian kernel bandwidth for
 #'   velocity field interpolation.  \code{NULL} auto-scales to grid spacing.
-#' @param min_density Numeric in [0, 1]. Grid points whose local cell density
+#' @param min_density Numeric in \[0, 1\]. Grid points whose local cell density
 #'   falls below this fraction of the grid's peak density are masked out of
 #'   the velocity field entirely (no seeding, streamlines cannot cross them).
 #'   Without this mask, the Gaussian kernel's infinite support means distant

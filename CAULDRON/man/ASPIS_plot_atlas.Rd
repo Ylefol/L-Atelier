@@ -68,6 +68,7 @@ ASPIS_plot_atlas(
   meta_scale_q = c(0, 1),
   show_satellites = TRUE,
   sat_col = NULL,
+  sat_custom = list(),
   sat_size = 0.22,
   sat_point_size = 0.3,
   sat_point_alpha = 0.5,
@@ -363,6 +364,19 @@ entries to display as satellite mini-embeddings in the four device corners
 \code{meta_col}; at most four entries are used.  \code{NULL} (default)
 uses the first four entries of \code{meta_col}.  If \code{meta_col} is
 \code{NULL} no satellites are drawn regardless of this parameter.}
+
+\item{sat_custom}{Named list or \code{NULL}.  Escape hatch for satellite
+panels that aren't a simple metadata/gene scatter -- e.g. the output of
+\code{\link{ASPIS_plot_velocity_stream}}.  Names must be one or more of
+\code{"TL"}, \code{"TR"}, \code{"BL"}, \code{"BR"}; each value must be a
+\code{ggplot} object.  A named corner is drawn exactly as supplied
+(structural chrome -- panel border, plot margin, background -- is
+stripped to match the other satellites, but the plot's own title and
+legend are left untouched, since there is no metadata track to derive a
+title from or an automatic legend for) instead of a \code{sat_col}-driven
+scatter for that corner.  Any corner not named here still falls back to
+the usual \code{sat_col}/\code{meta_col} behaviour.  Default
+\code{list()} (no custom corners).}
 
 \item{sat_size}{Numeric (0–1).  Fraction of the device canvas occupied by
 each satellite panel.  Default \code{0.22}.}

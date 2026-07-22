@@ -1,7 +1,7 @@
 ================================================================================
 KHALKOS STATUS - Shared Utilities
 ================================================================================
-Last Updated: 2026-03-10
+Last Updated: 2026-07-20
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -27,6 +27,37 @@ KHALKOS_default_palette(n, type=c("categorical","sequential","diverging"))
   - sequential: purple → teal → yellow (viridis-inspired)
   - diverging: blue → white → red
   - Returns character vector of n hex colour codes
+
+KHALKOS_assign_metadata_colours(sce, palette=NULL, max_levels=30,
+                                 overrides=list(), verbose=TRUE)
+  - Added 2026-07-20. Builds one stable category->colour map per qualifying
+    colData(sce) column (character/factor, <= max_levels unique values --
+    excludes continuous metadata by type and high-cardinality identifier
+    columns like cell barcodes by level count, no column names needed).
+    Meant to be computed ONCE and threaded through to every plotting call in
+    a report so the same category (e.g. cluster "4", genotype "KO") renders
+    identically everywhere, instead of each plot independently re-deriving a
+    palette positionally (which is what every ASPIS plotting function still
+    does on its own -- this does not change that, it's an explicit
+    pass-through mechanism, not an automatic one; nothing is stored back
+    onto sce)
+  - palette=NULL uses KHALKOS_default_palette(); recycled via rep_len() if a
+    column has more levels than colours supplied
+  - Level ordering within a column: numeric sort if all levels coerce
+    cleanly to numeric (e.g. cluster IDs), else alphabetical -- same
+    convention as TALARIA_export_gene_expr_widget()'s grouping levels
+  - overrides: named list keyed by colData column name (need not cover every
+    qualifying column); each entry a named vector overwriting ONLY the
+    categories named, rest of that column keeps its palette-assigned colour
+  - Returns named list, one entry per qualifying column -> named colour
+    vector. A column excluded by type/max_levels is simply absent, so
+    colours$excluded_col returns NULL -- every consumer (ASPIS_plot_umap
+    palette=, KERAUNOS_propeller_proportions cluster_colors=/group_colors=)
+    already treats NULL as "use my own default palette", so no special
+    casing is needed when a column doesn't qualify
+  - Used from projects/Nico_midbrain/umap_explorer.Rmd as the report's first
+    real chunk, threaded into ASPIS_plot_umap()'s per-tab palette and into
+    KERAUNOS_propeller_proportions()'s cluster_colors/group_colors
 
 KHALKOS_theme_cauldron(base_size=11, base_family="")
   - Clean publication-ready ggplot2 theme (white background, subtle grey grid)
@@ -63,6 +94,22 @@ DEPENDENCIES / NOTES
 - No external package dependencies (uses only Depends/Imports already in CAULDRON)
 - KHALKOS_theme_cauldron() uses ggplot2 (Depends — always attached)
 - KHALKOS_default_palette() uses grDevices::colorRampPalette (base R)
-- Internal constant: .khalkos_cat_palette_20 — 20 hand-curated hex colours
+- Internal constant: .khalkos_cat_palette_20 — 20 hand-curated hex colours.
+  ASPIS's .aspis_discrete_palette() (aspis_embedding.R) delegates to
+  KHALKOS_default_palette(20, "categorical") rather than keeping its own
+  copy, so this is the single canonical categorical palette for all of
+  CAULDRON. Bug fixed 2026-07-21: .khalkos_cat_palette_20 and
+  .aspis_discrete_palette() used to be independently hand-copied 20-colour
+  lists that agreed on positions 1-10 but diverged from position 11 onward
+  (different colours hand-picked for the "second half" of each list) --
+  any plot using KHALKOS_assign_metadata_colours()'s named map (e.g.
+  colours$cluster) disagreed with any plot left at its un-styled default
+  (palette=NULL) for every category from the 11th onward. Symptom: cluster
+  11 showed dark blue (#1F77B4) via the KHALKOS-built list but dark
+  grey/brown (#79706E) on a UMAP rendered without an explicit palette.
+  Fixed by making .khalkos_cat_palette_20 the source of truth (updated to
+  ASPIS's values, which matched the project's existing historical plots)
+  and having .aspis_discrete_palette() delegate to
+  KHALKOS_default_palette() instead of duplicating the list.
 - All other CAULDRON modules may depend on KHALKOS; KHALKOS must not depend on them
 - Direct parallel to GAIA's DEMETER module

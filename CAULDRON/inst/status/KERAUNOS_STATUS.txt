@@ -1,11 +1,80 @@
 ================================================================================
 KERAUNOS STATUS - Differential Expression & Gene Set Enrichment
 ================================================================================
-Last Updated: 2026-07-17
+Last Updated: 2026-07-20
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+keraunos_composition.R:
+------------------------
+KERAUNOS_propeller_proportions(sce, cluster_col="cluster", sample_col, group_col,
+                                cluster_colors=NULL, group_colors=NULL,
+                                transform=c("logit","asin"), trend=FALSE, robust=TRUE,
+                                fdr_threshold=0.05, verbose=TRUE)
+  - Added 2026-07-20. Tests for differences in cell-type (cluster) proportions
+    between experimental groups via speckle::propeller() -- variance-stabilising
+    transform of sample-level proportions + limma empirical-Bayes moderated
+    t-test (2 groups) or F-test/ANOVA (>2 groups), borrowing variance information
+    across clusters the way limma borrows it across genes
+  - Only reads colData(sce) (cluster_col/sample_col/group_col) -- no assay
+    matrix touched, so it's fast regardless of dataset size and has no
+    BPCells materialisation concern
+  - sample_col: colData column identifying the biological replicate -- proportions
+    are computed per sample, not per cell, to avoid pseudoreplication
+  - group_col: must be constant within each sample_col level; errors clearly if
+    a sample maps to more than one group
+  - transform default "logit" matches speckle::propeller()'s own default (not
+    "asin" -- verify against current speckle documentation/paper if a specific
+    transform choice matters for a given dataset, no strong recommendation
+    asserted here)
+  - verbose=TRUE prints per-group sample counts and a low-replicate note when
+    any group has < 3 samples (variance moderation less reliable, low power --
+    does not invalidate the test, just tempers confidence in marginal results)
+  - Fixed 2026-07-20: rownames(results) was explicitly set to NULL, discarding
+    the meaningful cluster-label rownames speckle::propeller()'s own raw output
+    carries and replacing them with plain "1","2",...,nrow -- visible as lost
+    names when inspecting $results directly (e.g. View()), even though the
+    "cluster" column itself was always correct. Now rownames(results) <-
+    results$cluster.
+  - Fixed 2026-07-20 (same day, deeper bug): speckle::propeller() names its
+    baseline-proportion column DIFFERENTLY depending on which branch ran
+    internally -- 2-group t-test: "BaselineProp.clusters" + "BaselineProp.Freq";
+    >2-group ANOVA: only a plain "BaselineProp" column, with cluster identity
+    living solely in rownames(raw). The original rename targeted
+    "BaselineProp.clusters" only, so with >2 groups results$cluster stayed
+    NULL and `results$cluster <- as.character(results$cluster)` crashed with
+    "replacement has 0 rows, data has N". Now derives results$cluster from
+    rownames(raw) unconditionally (present and correct in both branches) and
+    normalises the baseline column to a single name, baseline_prop, in both
+    cases.
+  - Returns keraunos_propeller: $results (tidy, one row per cluster: cluster,
+    BaselineProp.Freq, PropMean.<group>, PropRatio/Tstatistic or Fstatistic,
+    P.Value, FDR; ordered by P.Value), $significant (FDR < fdr_threshold subset),
+    $proportions (tidy sample x cluster: sample/cluster/proportion/group --
+    NOT produced by speckle::propeller() itself, computed here so
+    ASPIS_plot_propeller() never needs sce/colData directly), $summary
+    (n_clusters, n_sig), $params (incl. n_per_group, cluster_colors, group_colors)
+  - print.keraunos_propeller(): per-group sample counts + significant subset
+  - Added 2026-07-20: cluster_colors/group_colors -- optional named character
+    vectors (category label -> hex colour), one entry required for every
+    level of cluster_col/group_col actually present in sce. NOT read
+    automatically from anywhere on sce -- CAULDRON currently has no persisted
+    identity->colour mechanism anywhere (checked: no metadata(sce)$colours or
+    equivalent exists in the package), so this is an explicit pass-through,
+    not an auto-detected lookup. Purpose: carry a caller-supplied colour
+    scheme through $params so ASPIS_plot_propeller()/ASPIS_plot_composition()
+    use the SAME colours instead of each independently re-deriving a palette
+    positionally from category order/count (which is what every ASPIS plot
+    function currently does, and is why the same cluster/group could get a
+    different colour in two different plots). .keraunos_validate_colors()
+    (internal, keraunos_composition.R) errors clearly if any level present
+    in the data lacks a supplied colour -- a partial map is rejected outright
+    rather than silently falling back per-category, since that would quietly
+    reintroduce the same inconsistency this parameter exists to prevent.
+    NULL (default) for either argument: the ASPIS plot functions fall back
+    to their own default palette, unchanged from before this was added.
+
 keraunos_expression.R:
 ----------------------
 KERAUNOS_fetch_marker_genes(source=c("C8","PanglaoDB"), species="Homo sapiens",
@@ -249,15 +318,18 @@ DEPENDENCIES / NOTES
 - fgsea (Suggests): gsea; accessed via requireNamespace() + fgsea::
 - gprofiler2 (Suggests): ora; accessed via requireNamespace() + gprofiler2::
 - msigdbr (Suggests): optional gene set source for gsea; requireNamespace()
+- speckle (Suggests, Bioconductor): propeller_proportions; accessed via
+  requireNamespace() + speckle::; install via BiocManager::install("speckle")
 - Matrix (Imports): rowSums for pseudobulk aggregation
 - Pseudobulk is the correct approach for multi-sample condition comparisons.
   KERAUNOS_contrast_groups() is cell-level (quick/exploratory only).
 - ggrepel (Suggests): gene labels on volcano/MA plots in export_de
 - ORA uses gprofiler2 (consistent with GAIA's ARTEMIS module); GSEA uses fgsea.
-- Internal helpers: .keraunos_extract_top() (findMarkers), .keraunos_extract_top_score() (scoreMarkers), %||% operator
+- Internal helpers: .keraunos_extract_top() (findMarkers), .keraunos_extract_top_score() (scoreMarkers),
+  .keraunos_validate_colors() (cluster_colors/group_colors completeness check, keraunos_composition.R), %||% operator
 - S3 classes: keraunos_markers, keraunos_contrast, keraunos_pseudobulk,
-  keraunos_gsea, keraunos_gsea_multi, keraunos_ora, keraunos_ora_multi
-  — all have print() methods
+  keraunos_gsea, keraunos_gsea_multi, keraunos_ora, keraunos_ora_multi,
+  keraunos_propeller — all have print() methods
 - keraunos_gsea now stores $ranked_genes (sorted named vector) and $gene_sets
   (tested pathways only, subset of input gene_sets) to enable enrichment plots
   without re-fetching; each cluster's keraunos_gsea inside gsea_multi inherits

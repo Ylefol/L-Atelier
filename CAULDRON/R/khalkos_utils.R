@@ -22,11 +22,19 @@
 # ── Internal constants ────────────────────────────────────────────────────────
 
 # 20-colour hand-curated categorical palette (Tableau + extensions, distinct).
+# Must stay identical to ASPIS's .aspis_discrete_palette() (aspis_embedding.R)
+# -- that function delegates to KHALKOS_default_palette() specifically so
+# there is only ever one canonical categorical palette in CAULDRON. Do not
+# fork this list; every ASPIS plotting function's un-styled default (no
+# palette= supplied) and every KHALKOS_assign_metadata_colours() map must
+# keep producing the same colours for the same position, or a category's
+# colour silently disagrees between plots that pass an explicit named
+# palette and plots that don't.
 .khalkos_cat_palette_20 <- c(
   "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F",
   "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
-  "#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD",
-  "#8C564B", "#E377C2", "#7F7F7F", "#BCBD22", "#17BECF"
+  "#79706E", "#D4A6C8", "#86BCB6", "#FFBE7D", "#8CD17D",
+  "#499894", "#E6D16A", "#D37295", "#FABFD2", "#B6992D"
 )
 
 
@@ -194,6 +202,91 @@ KHALKOS_default_palette <- function(n, type = c("categorical", "sequential",
 
   # diverging: blue → white → red
   colorRampPalette(c("#313695", "#F7F7F7", "#D73027"))(n)
+}
+
+
+#' Assign a stable colour to every level of qualifying colData columns
+#'
+#' CAULDRON's plotting functions otherwise assign discrete colours
+#' positionally, fresh on every call (see \code{\link{KHALKOS_default_palette}}
+#' and how e.g. \code{ASPIS_plot_umap} uses it) -- so the same category (e.g.
+#' cluster \code{"4"}, genotype \code{"KO"}) can end up a different colour in
+#' two different plots if the set/order of levels present differs between
+#' calls. This builds one colour map per qualifying \code{colData(sce)}
+#' column instead, meant to be computed once and threaded through to every
+#' plotting call in a report (e.g. \code{ASPIS_plot_umap(palette = ...)},
+#' \code{KERAUNOS_propeller_proportions(cluster_colors = ..., group_colors =
+#' ...)}) so the same category renders identically everywhere.
+#'
+#' Only character/factor columns with at most \code{max_levels} unique
+#' values qualify -- this excludes continuous metadata (e.g. a UMI count
+#' column) by type, and high-cardinality identifier columns (e.g. cell
+#' barcodes) by level count, without needing either named explicitly.
+#'
+#' @param sce A \code{SingleCellExperiment}.
+#' @param palette Character vector of hex colours to draw from, recycled if
+#'   a column has more levels than colours supplied. Default \code{NULL}
+#'   uses \code{\link{KHALKOS_default_palette}}.
+#' @param max_levels Integer. Only \code{colData} columns with at most this
+#'   many unique values are assigned colours. Default \code{30}.
+#' @param overrides Named list, one entry per \code{colData} column to
+#'   override (need not cover every column). Each entry is itself a named
+#'   character vector (category label -> hex colour); only the categories
+#'   named are overwritten -- the rest of that column keeps its
+#'   palette-assigned colour. Default: empty list (no overrides).
+#' @param verbose Logical. Print which columns were included/skipped.
+#'   Default \code{TRUE}.
+#'
+#' @return Named list, one entry per qualifying \code{colData} column, each
+#'   a named character vector (category label -> hex colour). A column
+#'   absent from the result (excluded by type or \code{max_levels}) simply
+#'   isn't a name in this list -- indexing it (e.g. \code{colours$gene_count})
+#'   returns \code{NULL}, which every consumer here already treats as "use
+#'   the default palette instead".
+#' @export
+KHALKOS_assign_metadata_colours <- function(sce, palette = NULL, max_levels = 30,
+                                             overrides = list(), verbose = TRUE) {
+
+  if (!inherits(sce, "SingleCellExperiment"))
+    stop("'sce' must be a SingleCellExperiment.", call. = FALSE)
+
+  col_data <- as.data.frame(colData(sce))
+
+  is_categorical <- function(x) {
+    (is.character(x) || is.factor(x)) && length(unique(x)) <= max_levels
+  }
+  candidate_cols <- names(col_data)[vapply(col_data, is_categorical, logical(1))]
+  skipped_cols   <- setdiff(names(col_data), candidate_cols)
+
+  if (isTRUE(verbose)) {
+    cat("[KHALKOS] Assigning metadata colours\n")
+    cat("    Included (character/factor, <=", max_levels, "levels):",
+        paste(candidate_cols, collapse = ", "), "\n")
+    cat("    Skipped:", paste(skipped_cols, collapse = ", "), "\n\n")
+  }
+
+  colours <- lapply(candidate_cols, function(col) {
+    values <- as.character(col_data[[col]])
+    lv <- unique(values)
+    # Numeric-looking levels (e.g. cluster IDs "1".."11") sort numerically;
+    # everything else sorts alphabetically -- matches the level-ordering
+    # convention already used by TALARIA_export_gene_expr_widget(), so
+    # colour assignment is stable/reproducible across a report.
+    lv_num <- suppressWarnings(as.numeric(lv))
+    lv <- if (!anyNA(lv_num)) as.character(sort(lv_num)) else sort(lv)
+
+    base_pal <- if (!is.null(palette)) palette else KHALKOS_default_palette(length(lv))
+    base_pal <- rep_len(base_pal, length(lv))
+    map <- stats::setNames(base_pal, lv)
+
+    if (!is.null(overrides[[col]]))
+      map[names(overrides[[col]])] <- overrides[[col]]
+
+    map
+  })
+  names(colours) <- candidate_cols
+
+  colours
 }
 
 

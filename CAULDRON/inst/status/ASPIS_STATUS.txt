@@ -1,11 +1,67 @@
 ================================================================================
 ASPIS STATUS - Visualisation
 ================================================================================
-Last Updated: 2026-05-08
+Last Updated: 2026-07-22
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+aspis_composition.R:
+---------------------
+ASPIS_plot_propeller(propeller_result, palette=NULL, ncol=NULL,
+                      point_size=2.5, jitter_width=0.08, show_stats=TRUE,
+                      stat_label=c("fdr","pvalue"),
+                      order_by=c("significance","cluster"), title=NULL)
+  - Added 2026-07-20. Renders a KERAUNOS_propeller_proportions() result:
+    one facet per cluster, points = per-sample proportion (coloured by
+    group, jittered), grey crossbar = group mean, FDR/p-value annotated
+    top-left of each facet
+  - Deliberately NOT a boxplot -- with as few as 2 samples/group (e.g.
+    Nico_midbrain), boxplot quartiles are degenerate/misleading; points +
+    mean crossbar show exactly what was tested
+  - Reads only propeller_result$proportions/$results/$params -- no sce
+    needed (computation lives entirely in KERAUNOS, per architecture)
+  - order_by="significance" (default): facets ordered by ascending P.Value,
+    matching propeller_result$results row order
+  - palette: NULL resolves via .aspis_resolve_palette() -- uses
+    propeller_result$params$group_colors if it was supplied to
+    KERAUNOS_propeller_proportions(), else .aspis_discrete_palette()
+    (shared helper, same set as ASPIS_plot_umap)
+  - Returns ggplot object
+
+ASPIS_plot_composition(propeller_result, palette=NULL, facet_by_group=TRUE,
+                        title=NULL)
+  - Added 2026-07-20. Fulfils the previously-planned ASPIS_plot_composition
+    TODO. 100% stacked bar chart of a KERAUNOS_propeller_proportions()
+    result: one bar per sample, cluster proportions stacked to the full bar
+    height (geom_col(position="fill")) -- makes the compositional sum-to-1
+    constraint visible, which ASPIS_plot_propeller's per-cluster facets
+    deliberately do not
+  - Complements, does not replace, ASPIS_plot_propeller: this shows the
+    whole-composition picture, that one shows the per-cluster statistical
+    test result
+  - Reads only propeller_result$proportions/$results$baseline_prop/$params
+    -- no sce needed, same as ASPIS_plot_propeller
+  - Cluster stacking order: largest overall baseline_prop at the bottom
+    (stable reference ordering, independent of which group comparison ran --
+    unlike ASPIS_plot_propeller's significance-based facet order)
+  - facet_by_group=TRUE (default): facet_grid(~group, scales="free_x",
+    space="free_x") so samples are grouped visually by experimental group
+    rather than arbitrary order
+  - palette: NULL resolves via .aspis_resolve_palette() -- uses
+    propeller_result$params$cluster_colors if it was supplied to
+    KERAUNOS_propeller_proportions(), else .aspis_discrete_palette()
+    recycled via rep_len() if more clusters than palette colours (20)
+  - Full legend kept by default (one entry per cluster) -- may need
+    trimming/relabelling for datasets with many more than ~11 clusters;
+    revisit once assessed against real output
+  - Added 2026-07-20: legend entries are two lines, "<cluster>\nFDR = <FDR>",
+    from the same propeller test -- carries statistical context into the
+    composition plot without cross-referencing ASPIS_plot_propeller. Widened
+    legend.key.height/legend.spacing.y + guide_legend(byrow=TRUE) + per-entry
+    bottom margin on legend.text so two-line entries don't crowd each other
+  - Returns ggplot object
+
 aspis_embedding.R:
 ------------------
 ASPIS_plot_qc(sce, metrics=c("sum","detected","subsets_mt_percent"),
@@ -193,7 +249,7 @@ ASPIS_plot_atlas(sce, colour_by, dimred=c("UMAP","tSNE"),
                   meta_cex=0.3, meta_border_col="white",
                   meta_border_lwd=0.3, meta_scale_q=c(0,1),
                   # satellite panels
-                  show_satellites=TRUE, sat_col=NULL, sat_size=0.22,
+                  show_satellites=TRUE, sat_col=NULL, sat_custom=list(), sat_size=0.22,
                   sat_point_size=0.3, sat_point_alpha=0.5,
                   show_sat_title=TRUE, sat_title_cex=0.7, sat_title_col="black",
                   # output
@@ -244,6 +300,16 @@ ASPIS_plot_atlas(sce, colour_by, dimred=c("UMAP","tSNE"),
       TL/TR: legend below satellite, left/right-pinned (hangs down)
       BL/BR: legend on inner edge, toward centre (points inward)
     Helper: .aspis_sat_legend_grob() extracts guide-box via ggplotGrob()$layout
+    sat_custom: named list (names "TL"/"TR"/"BL"/"BR" only), values a ggplot
+      object to draw in that corner INSTEAD of a sat_col-driven scatter --
+      escape hatch for satellite content that isn't a simple metadata/gene
+      scatter (e.g. ASPIS_plot_velocity_stream() output). Named corners are
+      claimed first; remaining corners still fill from sat_col_use in
+      TL/TR/BL/BR order. Only structural chrome (panel border, background,
+      margin) is stripped from a sat_custom plot to match the other
+      satellites -- its own title/legend are left as supplied, since there is
+      no metadata track here to derive a title or auto-legend from (a
+      sat_legend entry has no effect on a sat_custom corner)
   - Requires circlize; grid viewport overlay for central scatter + satellites
 
 aspis_atlas_v4.R:
@@ -312,7 +378,6 @@ PLANNED / TODO
 - ASPIS_plot_violin()        Violin plot of gene expression per cluster (distinct from plot_qc — gene-centric)
 - ASPIS_plot_feature()       Feature / gene expression overlay on embedding
 - ASPIS_plot_ridge()         Ridge plot of expression distributions
-- ASPIS_plot_composition()   Cell type composition bar chart per sample
 - ASPIS_plot_trajectory()    Trajectory / pseudotime overlay (via TRIPODES)
 - ASPIS_plot_network()       Communication network plot (via DIKTYON)
 - ASPIS_save_plot()          Wrapper for saving plots (PNG / PDF / SVG)
@@ -321,9 +386,66 @@ PLANNED / TODO
 DEPENDENCIES / NOTES
 ================================================================================
 - File structure:
+    aspis_composition.R — ASPIS_plot_propeller (cell-type proportion test
+                          result), ASPIS_plot_composition (100% stacked bar);
+                          shared internal helper .aspis_resolve_palette()
+                          (explicit palette arg > propeller_result$params
+                          cluster_colors/group_colors > .aspis_discrete_palette()
+                          default -- see KERAUNOS_propeller_proportions())
+    Fixed 2026-07-20: .aspis_resolve_palette() unconditionally called
+    rep_len(pal, length(levels)) before checking/assigning names. rep_len()
+    silently DROPS names even when the length is already correct (confirmed:
+    rep_len(c(a=1,b=2),2) -> unnamed c(1,2)). So a correctly-named
+    cluster_colors/group_colors map lost its names, then got renamed
+    POSITIONALLY to `levels` (which is usually in a DIFFERENT order --
+    ASPIS_plot_composition's cluster_order is sorted by descending
+    baseline_prop, not the colour map's own order) -- silently scrambling
+    which colour landed on which category, while each colour still looked
+    individually "valid" (a real hex code, just paired with the wrong
+    label). Reported as: ASPIS_plot_propeller "worked" (it only colours by
+    group_col, 2-3 levels, one case that happened to still look right) but
+    ASPIS_plot_composition (colours by cluster_col fill, ~11 cell_label
+    levels) visibly did not -- e.g. the colour for "Astrocyte_1" also
+    appeared next to "Immature Neuron" and "Precursor Neuron" in the legend.
+    Diagnosed via ggplot2::get_guide_data(plot, "fill") comparing .value
+    (category) against fill (rendered colour) directly -- scale$palette()
+    alone did not surface it. Fixed: only rep_len()+rename when the incoming
+    palette has NO names to begin with (the genuine recycle case, e.g. the
+    default 20-colour set extended for >20 clusters); an already-named
+    palette skips straight to pal[levels], a real by-name lookup. Regression-
+    tested: default unnamed recycled palette (12 clusters) and
+    ASPIS_plot_propeller's group_colors both still correct after the fix.
     aspis_embedding.R — elbow, UMAP, tSNE, embedding_grid, QC plots;
                         shared helpers (.aspis_plot_dimred,
                         .aspis_dynamic_contours, .aspis_discrete_palette)
+    Changed 2026-07-21: .aspis_plot_dimred()'s and ASPIS_plot_embedding_grid()'s
+    discrete colour-scale branches now call the shared .aspis_resolve_palette()
+    (aspis_composition.R) instead of their own rep(palette, length.out=n_lev)
+    logic -- consistency cleanup (this rep() form does preserve names, unlike
+    rep_len(), so it was not itself broken; investigated as a suspect while
+    chasing the .aspis_discrete_palette() bug below and kept as the single
+    source of truth for palette resolution across ASPIS).
+    Fixed 2026-07-21: .aspis_discrete_palette() used to be its own
+    independently hand-copied 20-colour list, separate from KHALKOS's
+    .khalkos_cat_palette_20 (see KHALKOS_STATUS.txt) -- the two agreed on
+    positions 1-10 but diverged from 11 onward. Any plot using an explicit
+    KHALKOS_assign_metadata_colours() map disagreed with any plot left at
+    its un-styled default (palette=NULL) for every category past the 10th.
+    Root-caused from real report data: colours$cluster (KHALKOS-built) said
+    cluster 11 = #1F77B4 (blue); the historical UMAP png (rendered with no
+    palette=, i.e. .aspis_discrete_palette()'s old list) showed cluster 11
+    as #79706E (dark grey/brown). Confirmed by running the actual current
+    source end-to-end against a synthetic SCE matching the report's real
+    16-cluster sizes -- KHALKOS's list and a KHALKOS-driven ASPIS_plot_umap()
+    call matched perfectly, which correctly ruled out a level-ordering bug
+    and pointed at the two hardcoded palettes themselves differing. Fixed by
+    making .khalkos_cat_palette_20 canonical (updated to match the values
+    users' existing historical plots were already anchored on) and having
+    .aspis_discrete_palette() delegate to KHALKOS_default_palette(20,
+    "categorical") instead of duplicating the list, so the two can't drift
+    apart again. Affects every ASPIS function using .aspis_discrete_palette()
+    as its no-palette-supplied default: ASPIS_plot_umap/tSNE/embedding_grid,
+    ASPIS_plot_atlas, ASPIS_plot_propeller/composition, trajectory plots.
     aspis_atlas.R     — ASPIS_plot_atlas; current primary atlas function
                         (circlize ring + tracks + corner satellites)
     aspis_atlas_v2.R  — ASPIS_plot_atlas_v2; kept for reference

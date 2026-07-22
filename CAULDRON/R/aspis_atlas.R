@@ -472,6 +472,18 @@
 #'   \code{meta_col}; at most four entries are used.  \code{NULL} (default)
 #'   uses the first four entries of \code{meta_col}.  If \code{meta_col} is
 #'   \code{NULL} no satellites are drawn regardless of this parameter.
+#' @param sat_custom Named list or \code{NULL}.  Escape hatch for satellite
+#'   panels that aren't a simple metadata/gene scatter -- e.g. the output of
+#'   \code{\link{ASPIS_plot_velocity_stream}}.  Names must be one or more of
+#'   \code{"TL"}, \code{"TR"}, \code{"BL"}, \code{"BR"}; each value must be a
+#'   \code{ggplot} object.  A named corner is drawn exactly as supplied
+#'   (structural chrome -- panel border, plot margin, background -- is
+#'   stripped to match the other satellites, but the plot's own title and
+#'   legend are left untouched, since there is no metadata track to derive a
+#'   title from or an automatic legend for) instead of a \code{sat_col}-driven
+#'   scatter for that corner.  Any corner not named here still falls back to
+#'   the usual \code{sat_col}/\code{meta_col} behaviour.  Default
+#'   \code{list()} (no custom corners).
 #' @param sat_size Numeric (0–1).  Fraction of the device canvas occupied by
 #'   each satellite panel.  Default \code{0.22}.
 #' @param sat_legend Logical or character vector.  Controls which satellite
@@ -596,6 +608,7 @@ ASPIS_plot_atlas <- function(sce,
                                  # Satellite panels
                                  show_satellites   = TRUE,
                                  sat_col           = NULL,
+                                 sat_custom        = list(),
                                  sat_size          = 0.22,
                                  sat_point_size    = 0.3,
                                  sat_point_alpha   = 0.5,
@@ -718,6 +731,34 @@ ASPIS_plot_atlas <- function(sce,
     } else {
       sat_col_use <- meta_col[seq_len(min(4L, length(meta_col)))]
     }
+  }
+
+  # ── Custom satellite corner resolution ───────────────────────────────────────
+  # sat_custom claims specific corners outright; sat_col_use fills whatever
+  # corners are left over, in TL, TR, BL, BR order (setdiff() preserves the
+  # order of its first argument, so this stays deterministic).
+  corner_labels <- c("TL", "TR", "BL", "BR")
+  if (length(sat_custom) > 0L) {
+    if (is.null(names(sat_custom)) || any(names(sat_custom) == ""))
+      stop("sat_custom must be a named list keyed by \"TL\", \"TR\", \"BL\", or \"BR\".",
+           call. = FALSE)
+    bad_corners <- setdiff(names(sat_custom), corner_labels)
+    if (length(bad_corners) > 0L)
+      stop("sat_custom names must be one of \"TL\", \"TR\", \"BL\", \"BR\": bad entries: ",
+           paste(bad_corners, collapse = ", "), call. = FALSE)
+    if (anyDuplicated(names(sat_custom)) > 0L)
+      stop("sat_custom has duplicate corner names.", call. = FALSE)
+    not_gg <- names(sat_custom)[!vapply(sat_custom, inherits, logical(1L), "ggplot")]
+    if (length(not_gg) > 0L)
+      stop("sat_custom entries must be ggplot objects: ",
+           paste(not_gg, collapse = ", "), call. = FALSE)
+  }
+  open_corners    <- setdiff(corner_labels, names(sat_custom))
+  corner_meta_col <- setNames(vector("list", 4L), corner_labels)
+  if (!is.null(sat_col_use) && length(open_corners) > 0L) {
+    n_fill <- min(length(sat_col_use), length(open_corners))
+    if (n_fill > 0L)
+      for (k in seq_len(n_fill)) corner_meta_col[[open_corners[k]]] <- sat_col_use[k]
   }
 
   # ── Satellite legend column resolution ───────────────────────────────────────
@@ -955,9 +996,33 @@ ASPIS_plot_atlas <- function(sce,
 
   # ── Satellite mini-scatter plots ──────────────────────────────────────────────
   # Built here (before device opens) so ggplot construction errors surface early.
+  # Returns one entry per corner_labels position (TL, TR, BL, BR) -- NULL for a
+  # corner that has neither a sat_custom entry nor a sat_col_use column -- so
+  # the printing loop below can index it positionally against corner_x/corner_y.
   sat_plots <- NULL
-  if (show_satellites && !is.null(sat_col_use)) {
-    sat_plots <- lapply(sat_col_use, function(col) {
+  if (show_satellites && (!is.null(sat_col_use) || length(sat_custom) > 0L)) {
+    sat_plots <- lapply(corner_labels, function(corner) {
+
+      if (!is.null(sat_custom[[corner]])) {
+        # ── User-supplied plot (e.g. ASPIS_plot_velocity_stream()) ───────────
+        # Only structural chrome is stripped so it sits flush in its corner
+        # like the other satellites; the caller's own title/legend (if any)
+        # are left untouched -- there's no metadata track here to derive a
+        # display name or an automatic legend from.
+        return(
+          sat_custom[[corner]] +
+            theme(
+              plot.margin      = unit(c(0, 0, 0, 0), "pt"),
+              plot.background  = element_rect(fill = NA, colour = NA),
+              panel.background = element_rect(fill = NA, colour = NA),
+              panel.border     = element_blank()
+            )
+        )
+      }
+
+      col <- corner_meta_col[[corner]]
+      if (is.null(col)) return(NULL)
+
       tr_idx <- which(meta_col == col)[1L]
       tr     <- meta_tracks[[tr_idx]]
 
@@ -1006,18 +1071,23 @@ ASPIS_plot_atlas <- function(sce,
   }
 
   # ── Satellite legend grobs ────────────────────────────────────────────────────
-  # Built before device opens; one entry per sat_col_use slot (NULL if no legend).
-  sat_legend_grobs <- vector("list", length(sat_col_use))
-  if (length(sat_legend_use) > 0L && !is.null(sat_col_use)) {
-    for (.j in seq_along(sat_col_use)) {
-      .col  <- sat_col_use[.j]
-      if (!.col %in% sat_legend_use) next
+  # Built before device opens; one entry per corner_labels position (NULL if no
+  # legend for that corner). Indexed by corner rather than sat_col_use position,
+  # since sat_custom may have shifted metadata columns out of their "natural"
+  # TL/TR/BL/BR slot. Custom-plot corners never get an auto legend here -- there
+  # is no metadata track to build one from -- so any legend for those must be
+  # baked into the ggplot object passed via sat_custom.
+  sat_legend_grobs <- vector("list", 4L)
+  if (length(sat_legend_use) > 0L) {
+    for (.i in seq_along(corner_labels)) {
+      .col <- corner_meta_col[[corner_labels[.i]]]
+      if (is.null(.col) || !.col %in% sat_legend_use) next
       .tr   <- meta_tracks[[which(meta_col == .col)[1L]]]
       .dn   <- if (!is.null(meta_label_names) && !is.null(meta_label_names[[.col]]))
                  meta_label_names[[.col]] else .col
-      # Bottom satellites (slots 3 and 4) get horizontal colourbar/legend
-      .horiz <- .j >= 3L
-      sat_legend_grobs[[.j]] <- tryCatch(
+      # Bottom satellites (slots 3 and 4 = BL, BR) get horizontal colourbar/legend
+      .horiz <- .i >= 3L
+      sat_legend_grobs[[.i]] <- tryCatch(
         .aspis_sat_legend_grob(.tr, .dn, sat_legend_title_cex, sat_legend_text_cex,
                                horizontal = .horiz,
                                size       = as.numeric(sat_legend_size)),
@@ -1301,6 +1371,8 @@ ASPIS_plot_atlas <- function(sce,
     leg_jy   <- c("top",       "top",         "bottom",       "bottom")
 
     for (i in seq_along(sat_plots)) {
+      if (is.null(sat_plots[[i]])) next
+
       # Scatter panel
       grid::pushViewport(grid::viewport(
         x      = grid::unit(corner_x[i],    "npc"),
