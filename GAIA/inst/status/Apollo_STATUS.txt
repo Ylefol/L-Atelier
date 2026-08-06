@@ -296,12 +296,78 @@ APOLLO_run_deeptmhmm(switch_result, deeptmhmm_dir, output_dir, aa_fasta, verbose
     extracellular/intracellular_region_count/length types -- call
     IsoformSwitchAnalyzeR::analyzeSwitchConsequences() directly for those)
 
+APOLLO_run_deeploc2(switch_result, output_dir, aa_fasta, model=c("Fast","Accurate"), verbose)
+  - Runs DeepLoc 2.1 (subcellular localization + membrane association)
+    inside the .gaia_deeploc2_env basilisk env
+  - DeepLoc 2.1 is DTU Health Tech-distributed, not on public PyPI/conda --
+    licensed copy already obtained by user, downloaded to
+    data/isoform_switch_files/deeploc-2.1.All/deeploc2_package/ (setup.py,
+    proper `deeploc2` console-script entry point via entry_points.txt). Its
+    own dependencies (torch>=1.6, fair-esm, transformers, pytorch_lightning,
+    etc.) are pulled in automatically by its setup.py -- basilisk env only
+    provisions base Python 3.10, `pip install .` from that directory must
+    still be run once manually into the env, same pattern as SignalP 6.
+  - model: "Fast" (ESM1b, default) or "Accurate" (ProtT5, ~32GB memory,
+    downloaded on first use)
+  - IMPORTANT: DeepLoc 2.1's own CLI output has 18 columns (adds a
+    "Membrane types" column + 4 membrane-type probability columns on top of
+    DeepLoc 2.0's 13-column format) -- IsoformSwitchAnalyzeR::analyzeDeepLoc2()
+    (confirmed by reading its source) does an exact ncol==13/exact-column-name
+    check against the OLDER 13-column format only, predating DeepLoc 2.1's
+    2024 release. Currently installed IsoformSwitchAnalyzeR (2.2.0) has not
+    been updated for the newer format -- worth rechecking on future upgrades.
+    This function reformats the raw results_*.csv down to the 13 columns
+    analyzeDeepLoc2() expects (values unchanged) via .apollo_reformat_deeploc2()
+  - Returns path to the reformatted file, ready for
+    ARTEMIS_isoform_switch_consequences(deeploc2_file = ...), which adds the
+    "sub_cell_location" consequence type
+
+APOLLO_run_iupred2a(switch_result, iupred2a_dir, output_dir, aa_fasta, verbose)
+  - Runs IUPred2A (intrinsically disordered regions + ANCHOR2 binding-site
+    prediction) inside the .gaia_iupred2a_env basilisk env
+  - IUPred2A requires no external Python libraries (confirmed by reading its
+    README/source directly) -- basilisk env only provisions a bare Python
+    interpreter, no pip-install step needed at all (simplest of the five
+    isoform-annotation tools). iupred2a_dir points at the downloaded repo's
+    iupred2a/ subfolder (data/isoform_switch_files/iupred2a-master/iupred2a/)
+    -- NOT the repo root (iupred2a-master/main.nf etc. is just a Nextflow
+    wrapper around the same script, not needed)
+  - IMPORTANT: iupred2a.py is strictly single-sequence -- its read_seq()
+    doesn't parse FASTA records at all, it discards ">" lines and
+    concatenates every remaining line into one string. Feeding it a
+    multi-isoform FASTA directly would silently merge every isoform's
+    sequence into one meaningless combined sequence rather than erroring.
+    This function splits aa_fasta into one temp single-sequence file per
+    isoform (under output_dir/split_input/) and runs
+    `iupred2a.py -a <seqfile> long` once per isoform -- N subprocess calls,
+    not 1. "-a" (ANCHOR2) always enabled since analyzeIUPred2A()'s default
+    annotateBindingSites=TRUE requires the 4-column ANCHOR2 output or it
+    errors. "long" is the disorder mode IUPred2A's own webserver
+    instructions specify as standard.
+  - IMPORTANT: iupred2a.py's raw stdout has no sequence ID in it at all --
+    but analyzeIUPred2A()'s parser (confirmed by reading its source)
+    expects each isoform's block preceded by its own ">isoform_id" line,
+    matching the IUPred2A webserver's batch output format (what that
+    importer was actually built against). This function reconstructs that
+    shape itself, prepending the isoform_id before concatenating all blocks
+    into one combined result file.
+  - No setwd() needed (unlike APOLLO_run_deeptmhmm()): iupred2a.py resolves
+    its own data/ dir via os.path.dirname(os.path.realpath(__file__)), and
+    Python inserts a script's own directory at sys.path[0] on direct
+    invocation, so it works correctly when called by absolute path from any
+    cwd
+  - Returns path to the combined result file, ready for
+    ARTEMIS_isoform_switch_consequences(iupred2a_file = ...), which adds
+    both "IDR_identified" and "IDR_type" consequence types (IDR_type comes
+    free once ANCHOR2 data is present)
+
 ================================================================================
 IN PROGRESS
 ================================================================================
 - isoform_annotation.R functions implemented but untested against real tool
-  installs (CPAT/SignalP 6/pfam_scan.pl). User is installing these locally;
-  next step is an end-to-end test against real SEPSOMICS data.
+  installs (CPAT/SignalP 6/pfam_scan.pl/DeepLoc 2.1/IUPred2A). User is
+  installing these locally; next step is an end-to-end test against real
+  project data.
 - Bug fixed 2026-07-08 (found during user's first real Pfam test):
   basilisk::BasiliskEnvironment() requires an explicit version pin on every
   conda package, not just python -- .gaia_pfam_env's `pfam_scan` and
@@ -334,10 +400,11 @@ DEPENDENCIES
   - Biostrings (for sequence extraction and manipulation)
   - GenomicRanges/IRanges (for GRanges coordinate handling)
   - decoupleR (for prior knowledge networks: CollecTRI, DoRothEA, PROGENy)
-  - basilisk/reticulate (for isoform_annotation.R's CPAT/SignalP/Pfam envs and
-    motif_enrichment.R's HOMER env; pattern mirrors CAULDRON/CYAN, first
-    basilisk usage in GAIA. Not Python-specific -- also used for native-binary/
-    Perl tools (Pfam, HOMER) via bioconda packages, same execution pattern)
+  - basilisk/reticulate (for isoform_annotation.R's CPAT/SignalP/Pfam/
+    DeepTMHMM/DeepLoc2/IUPred2A envs and motif_enrichment.R's HOMER env;
+    pattern mirrors CAULDRON/CYAN, first basilisk usage in GAIA. Not
+    Python-specific -- also used for native-binary/Perl tools (Pfam, HOMER)
+    via bioconda packages, same execution pattern)
   - BSgenome (genome_object argument to APOLLO_extract_isoform_sequences)
 
 ================================================================================

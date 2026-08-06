@@ -1,7 +1,7 @@
 ================================================================================
 AETHER MODULE STATUS - Visualization
 ================================================================================
-Last Updated: 2026-07-13
+Last Updated: 2026-07-25
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -103,6 +103,7 @@ AETHER_plot_isoform_switch_volcano(switch_result, label_col, genes_of_interest,
   - q_col: "isoform_switch_q_value" (default) or "gene_switch_q_value"
   - Same labeling conventions as AETHER_plot_volcano (genes_of_interest,
     label_top_n via ggrepel)
+  - Default title is "<reference> vs <experiment>" (control first)
 
 AETHER_plot_isoform_switch_gene(switch_result, gene_id, isoform_id, IF_cutoff,
                                  dIF_cutoff, alphas, ...)
@@ -117,6 +118,56 @@ AETHER_plot_isoform_switch_gene(switch_result, gene_id, isoform_id, IF_cutoff,
     error on typos/pre-filtered genes (gene name/symbol not supported, only
     gene_id)
   - switchPlot() draws its composite plot directly to the current graphics
+    device (not a single combinable ggplot), returned invisibly
+
+AETHER_plot_consequence_summary(switch_result, count_by, consequences_to_analyze,
+                                 title, fill_color)
+  - Bar plot of switch counts per functional consequence type (domain
+    gain/loss, coding potential, signal peptide, sub-cell location, IDR,
+    etc.), faceted by featureCompared (one panel per feature)
+  - Calls IsoformSwitchAnalyzeR::extractConsequenceSummary() live on
+    switch_result$switch_list (cheap tabulation over
+    ARTEMIS_isoform_switch_consequences() output -- not pre-stored, unlike
+    splicing_summary/enrichment)
+  - count_by = "genes" (nrGenesWithConsequences, default) or "isoforms"
+    (nrIsoWithConsequences)
+  - Panels only appear for consequence types actually annotated (i.e. the
+    external tool files supplied to ARTEMIS_isoform_switch_consequences())
+  - Single fill color, no dodge -- consequence categories don't reduce to a
+    clean two-way direction split the way splicing events do
+  - Default title is "<reference> vs <experiment>" (control first); plot
+    subtitle states direction explicitly ("gain" = gained in the
+    experiment-dominant isoform, IsoformSwitchAnalyzeR's
+    isoformUpregulated convention -- verified empirically against
+    analyzeSwitchConsequences() output, not just documentation)
+
+AETHER_plot_splicing_summary(switch_result, count_by, title, colors)
+  - Bar plot of total alternative splicing event counts per type (IR, A5,
+    A3, ATSS, ATTS, ES, MES, MEE), from switch_result$splicing_summary
+    (ARTEMIS_isoform_switch_splicing() / extractSplicingSummary())
+  - Dodged bars: isoform used more vs. less (in the experiment group)
+  - count_by = "genes" (nrGenesWithConsequences, default) or "isoforms"
+    (nrIsoWithConsequences)
+  - Total counts only -- not significance-tested (see
+    AETHER_plot_splicing_enrichment() for that)
+  - Default title is "<reference> vs <experiment>" (control first); plot
+    subtitle states "more"/"less" is relative to experiment vs reference
+    (same isoformUpregulated convention as consequence_summary)
+
+AETHER_plot_splicing_enrichment(switch_result, min_events, title, colors)
+  - Point-range plot of propUp (proportion of gain-vs-loss events that are
+    a gain) per splicing type, with confidence interval, from
+    switch_result$splicing_enrichment (ARTEMIS_isoform_switch_splicing() /
+    extractSplicingEnrichment())
+  - Significance-tested per type (prop.test(), FDR-corrected); colored by
+    the Significant column
+  - Point size scaled by total events (nUp + nDown); min_events filters out
+    sparsely-supported types (default 10, matches
+    extractSplicingEnrichment()'s own minEventsForPlotting default)
+  - Dashed reference line at 0.5 (no directional preference)
+  - Default title is "<reference> vs <experiment>" (control first); plot
+    subtitle states propUp is of the isoform used more in experiment
+    (vs reference)
     device (grid viewports) as a side effect — not a single combinable
     ggplot object; this wrapper returns its result invisibly
   - IN PROGRESS: summary bar plot planned for this file, not yet implemented

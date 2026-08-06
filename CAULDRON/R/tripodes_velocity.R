@@ -460,6 +460,11 @@ TRIPODES_assess_splicing <- function(sce,
 #' Stored results:
 #' \describe{
 #'   \item{\code{assay(sce, "velocity")}}{Gene × cell velocity matrix.}
+#'   \item{\code{assay(sce, "Ms")}, \code{assay(sce, "Mu")}}{Moments-smoothed
+#'     spliced/unspliced counts (gene × cell), as fit against by
+#'     \code{scv.pp.moments()}. Only stored when \code{store_moments = TRUE}
+#'     (default \code{FALSE}) — these are full dense gene × cell matrices and
+#'     substantially increase the SCE's size.}
 #'   \item{\code{colData(sce)$velocity_confidence}}{Per-cell velocity
 #'     confidence score from scVelo.}
 #'   \item{\code{colData(sce)$velocity_length}}{Per-cell velocity vector
@@ -479,7 +484,8 @@ TRIPODES_assess_splicing <- function(sce,
 #'   fast first-order OLS fit), \code{"stochastic"} (accounts for
 #'   transcriptional noise via second-order moments; requires more memory), or
 #'   \code{"dynamical"} (most accurate, substantially slower — fits full
-#'   kinetic model per gene).
+#'   kinetic model per gene via \code{scv.tl.recover_dynamics()}, run
+#'   automatically first when this mode is selected).
 #' @param use_dimred Name of the PCA-like dimensionality reduction in the SCE
 #'   to pass to scVelo for neighbour graph construction (default \code{"PCA"}).
 #'   This should be the same reduction used to build your UMAP, ensuring that
@@ -491,6 +497,13 @@ TRIPODES_assess_splicing <- function(sce,
 #'   scVelo (default \code{30L}).
 #' @param n_neighbors Number of neighbours for the scVelo graph (default
 #'   \code{30L}).
+#' @param store_moments Logical; also store the moments-smoothed spliced/
+#'   unspliced matrices as \code{assay(sce, "Ms")}/\code{assay(sce, "Mu")}
+#'   (default \code{FALSE}). These are computed internally by scVelo
+#'   regardless (needed to fit velocity itself); this only controls whether
+#'   they're additionally returned and stored, since doing so roughly doubles
+#'   the SCE's assay footprint. Enable for phase-portrait-style diagnostics
+#'   (unspliced vs. spliced per gene).
 #' @param verbose Logical; print progress messages (default \code{TRUE}).
 #' @param ... Additional arguments passed to \code{velociraptor::scvelo}.
 #'
@@ -508,6 +521,7 @@ TRIPODES_run_velocity <- function(sce,
                                    use_dimred      = "PCA",
                                    n_pcs           = 30L,
                                    n_neighbors     = 30L,
+                                   store_moments   = FALSE,
                                    verbose         = TRUE,
                                    ...) {
 
@@ -634,6 +648,7 @@ TRIPODES_run_velocity <- function(sce,
     mode          = mode,
     n_pcs         = n_pcs,
     n_neighbors   = n_neighbors,
+    store_moments = store_moments,
     pca_mat       = pca_mat,
     umap_mat      = umap_mat,
     tsne_mat      = tsne_mat
@@ -660,6 +675,33 @@ TRIPODES_run_velocity <- function(sce,
     if (verbose) .tripodes_msg("  Stored: assay 'velocity'")
   } else {
     warning("[TRIPODES] Velocity matrix not returned — check scVelo logs.")
+  }
+
+  # Moments-smoothed spliced/unspliced (Ms/Mu) — opt-in via store_moments,
+  # since these are full dense gene × cell matrices. Same gene-space padding
+  # as the velocity matrix above, since both come from the same
+  # velocity_reliable gene subset.
+  if (isTRUE(store_moments)) {
+    .store_moment_assay <- function(mat_sub, assay_name) {
+      if (is.null(mat_sub)) {
+        warning("[TRIPODES] '", assay_name, "' matrix not returned — check scVelo logs.")
+        return(invisible(NULL))
+      }
+      if (nrow(sce_vel) < nrow(sce)) {
+        mat_full <- matrix(
+          NA_real_, nrow = nrow(sce), ncol = ncol(sce),
+          dimnames = list(rownames(sce), colnames(sce))
+        )
+        mat_full[rownames(sce_vel), ] <- mat_sub
+        assay(sce, assay_name) <<- mat_full
+      } else {
+        assay(sce, assay_name) <<- mat_sub
+      }
+      if (verbose) .tripodes_msg(paste0("  Stored: assay '", assay_name, "'"))
+    }
+
+    .store_moment_assay(velo_result$Ms, "Ms")
+    .store_moment_assay(velo_result$Mu, "Mu")
   }
 
   if (!is.null(velo_result$confidence)) {
@@ -707,6 +749,15 @@ TRIPODES_run_velocity <- function(sce,
     }
   }
 
+  # Everything needed from these has already been written into `sce` above.
+  # Both can be large (sce_vel holds a coerced-float copy of the assays;
+  # velo_result holds the dense matrices pulled back from Python, doubled up
+  # again with store_moments = TRUE) and R does not proactively garbage
+  # collect, so without this they linger as reported (but unreferenced)
+  # memory for the rest of the session.
+  rm(sce_vel, velo_result)
+  gc(full = TRUE)
+
   sce
 }
 
@@ -717,7 +768,7 @@ TRIPODES_run_velocity <- function(sce,
 
 .tripodes_scvelo_run <- function(script, spliced_mat, unspliced_mat,
                                   genes, cells, mode, n_pcs, n_neighbors,
-                                  pca_mat, umap_mat, tsne_mat) {
+                                  store_moments, pca_mat, umap_mat, tsne_mat) {
   main <- reticulate::import("__main__")
   reticulate::py_set_attr(main, "r_spliced",     spliced_mat)
   reticulate::py_set_attr(main, "r_unspliced",   unspliced_mat)
@@ -726,6 +777,7 @@ TRIPODES_run_velocity <- function(sce,
   reticulate::py_set_attr(main, "r_mode",         mode)
   reticulate::py_set_attr(main, "r_n_pcs",        as.integer(n_pcs))
   reticulate::py_set_attr(main, "r_n_neighbors",  as.integer(n_neighbors))
+  reticulate::py_set_attr(main, "r_store_moments", isTRUE(store_moments))
   reticulate::py_set_attr(main, "r_pca",          pca_mat)    # NULL → Python None
   reticulate::py_set_attr(main, "r_umap",         umap_mat)
   reticulate::py_set_attr(main, "r_tsne",         tsne_mat)
@@ -734,6 +786,8 @@ TRIPODES_run_velocity <- function(sce,
 
   list(
     velocity      = reticulate::py_to_r(reticulate::py_get_attr(main, "result_velocity")),
+    Ms            = reticulate::py_to_r(reticulate::py_get_attr(main, "result_Ms")),
+    Mu            = reticulate::py_to_r(reticulate::py_get_attr(main, "result_Mu")),
     confidence    = reticulate::py_to_r(reticulate::py_get_attr(main, "result_confidence")),
     length        = reticulate::py_to_r(reticulate::py_get_attr(main, "result_length")),
     velocity_pca  = reticulate::py_to_r(reticulate::py_get_attr(main, "result_velocity_pca")),

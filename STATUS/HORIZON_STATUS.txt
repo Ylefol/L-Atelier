@@ -1,7 +1,7 @@
 ================================================================================
 HORIZON STATUS - Upstream Bioinformatics Processing Package
 ================================================================================
-Last Updated: 2026-05-21
+Last Updated: 2026-07-28
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -249,6 +249,104 @@ HORIZON_aggregate_counts(sample_sheet, output_root=NULL, save_rds=TRUE,
   - Builds genes x samples count matrix from per-sample count files
   - Writes count_matrix.csv, count_matrix.rds, sample_metadata.csv
 
+star_align.R:
+-------------
+HORIZON_build_star_index(genome_fasta, gtf, index_dir,
+                          sjdb_overhang=100L, threads=8L,
+                          extra_flags=character(0), force=FALSE)
+  - Wraps STAR --runMode genomeGenerate (directory-based index, not a
+    basename-prefix index like Rsubread/Salmon)
+  - sjdb_overhang should be (actual FASTQ read length - 1) for the run this
+    index is used for; the 100L default is a general-purpose placeholder,
+    not verified against any specific run's read length
+  - Skips rebuild if <index_dir>/SAindex exists (force=TRUE to override)
+  - Uses .horizon_run_cli("STAR", args) (Mechanism A) -- STAR shares the
+    standard horizon_cli env, registered via HORIZON_set_conda_env()
+
+HORIZON_run_star_align(sample_sheet, sample_id, index,
+                        use_trimmed=TRUE, threads=8L,
+                        outfilter_multimap_nmax=100L,
+                        win_anchor_multimap_nmax=100L,
+                        tmp_dir=NULL,
+                        force=FALSE, verbose=TRUE, ...)
+  - Separate alignment path from HORIZON_run_align() (Rsubread); both can
+    coexist per sample (aligned/ vs aligned_star/ subfolders)
+  - Relaxed multi-mapping filter (STAR default outFilterMultimapNmax=10
+    would silently drop reads mapping to >10 loci) -- needed so
+    HORIZON_run_tecount() can redistribute multi-mapping reads across TE
+    loci instead of losing them; 100/100 is the value cited in the
+    TEtranscripts tutorial, not independently re-derived here
+  - Outputs coordinate-sorted BAM directly (--outSAMtype BAM
+    SortedByCoordinate); renamed to <sample_id>_sorted.bam and indexed via
+    Rsamtools::indexBam() (no separate HORIZON_sort_index_bam() call needed)
+  - --outTmpDir explicitly redirected to tempdir()/STARtmp_<sample_id> (or
+    tmp_dir if given), never left at STAR's own default of
+    <outFileNamePrefix>_STARtmp -- that default sits under output_dir, and
+    STAR uses a FIFO there for --readFilesCommand zcat, which fails with
+    "could not create FIFO file" when output_dir is on an exFAT/NTFS-mounted
+    drive (hit in practice: ADAM's output_dir is on an exFAT-mounted external
+    drive). tempdir() is always on the local filesystem regardless of where
+    output_dir points. Confirmed against `STAR --help`: STAR fully
+    clears/manages the tmp dir itself, so handing it a fresh subdirectory is
+    safe.
+  - Uses .horizon_run_cli("STAR", args) (Mechanism A, like salmon.R) --
+    confirmed no dependency conflict with the existing horizon_cli tools
+    (samtools/bedtools/macs3/deeptools/salmon), so no dedicated env needed
+    (unlike split-pipe, which genuinely does conflict -- see parse.R)
+  - Output: <output_dir>/<sample_id>/aligned_star/<sample_id>_sorted.bam
+
+tetranscripts.R:
+----------------
+HORIZON_run_tecount(sample_sheet=NULL, sample_id=NULL, bam_file=NULL,
+                     output_dir=NULL, strandedness=NULL, gene_gtf, te_gtf,
+                     mode="multi", force=FALSE, verbose=TRUE, ...)
+  - Uses .horizon_run_cli("TEcount", args) (Mechanism A) -- shares the
+    standard horizon_cli env with STAR, registered via
+    HORIZON_set_conda_env()
+  - Wraps TEcount (bundled with bioconda `tetranscripts`, NOT the 2-group
+    TEtranscripts DE binary -- TEcount quantifies one BAM at a time, no
+    treatment/control framing, which is what allows use with designs of
+    more than 2 conditions)
+  - Requires a STAR BAM with multi-mapping alignments reported (see
+    HORIZON_run_star_align()), never the Rsubread BAM
+  - mode="multi" (default): EM-based redistribution of multi-mapping reads
+    across TE loci -- the actual point of using this over featureCounts on
+    a RepeatMasker GTF directly. mode="uniq": unique-mapping reads only.
+  - Only the TE rows of its output are meant to be used downstream (see
+    HORIZON_aggregate_tecount()) -- gene rows come from a different
+    aligner/counter than the project's canonical gene-level counts and
+    would be inconsistent with them if mixed in
+  - Flag names (-b/--GTF/--TE/--mode/--stranded/--sortByPos/--project/
+    --outdir) confirmed against a real `TEcount --help` (2026-07-28).
+    --stranded takes no/forward/reverse (corrected from an initial
+    no/yes/reverse guess -- see .strand_to_tecount() below)
+  - Output: <output_dir>/<sample_id>/tecount/<sample_id>.cntTable
+
+HORIZON_aggregate_tecount(sample_sheet, te_gtf, output_root=NULL,
+                          save_rds=TRUE, save_metadata=TRUE)
+  - Builds TE-subfamily x samples count matrix from per-sample cntTable
+    files, keeping TE rows only (gene rows dropped)
+  - TE rows identified by cross-referencing against the ground-truth
+    composite ID set (gene_id:family_id:class_id) parsed directly from
+    te_gtf via rtracklayer, not a hardcoded ID-format assumption
+  - Writes te_count_matrix.csv, te_count_matrix.rds, sample_metadata.csv
+
+HORIZON_merge_gene_te_counts(gene_counts, te_counts, verbose=TRUE)
+  - rbind's a canonical gene-level count matrix (e.g. from
+    HORIZON_aggregate_counts()) onto a TE count matrix (from
+    HORIZON_aggregate_tecount()) into one feature x sample matrix, ready
+    for ARTEMIS_normalize_counts()
+  - Errors on any rowname collision between the two inputs; intersects
+    colnames (samples), warning on any sample present in only one input
+  - Fills a genuine gap: no prior HORIZON/GAIA convention combined two
+    distinct feature sets (only combining samples for one feature set
+    had precedent, e.g. HORIZON_aggregate_counts's per-sample cbind)
+
+.tecount_te_ids(te_gtf)  [internal]
+  - Parses a RepeatMasker-derived TE GTF via rtracklayer::import() and
+    returns the unique set of composite TE IDs used to split TE rows from
+    gene rows in a TEcount cntTable
+
 logging.R:
 ----------
 HORIZON_generate_log_filename(log_dir=NULL, prefix="log", extension=".log",
@@ -274,6 +372,10 @@ internals.R (not exported):
 ----------------------------
 .get_sample_row(sample_sheet, sample_id)
 .strand_to_int(strandedness)
+.strand_to_tecount(strandedness)
+  - Maps unstranded/forward/reverse to TEcount's --stranded vocabulary
+    (no/forward/reverse, confirmed against `TEcount --help`), alongside
+    .strand_to_int()'s featureCounts mapping
 .validate_chemistry_kit(ss)
   - Validates chemistry (v2/v3) and kit columns when present; stops on invalid values
   - Called by HORIZON_validate_sample_sheet() (opportunistic) and
@@ -362,13 +464,25 @@ DEPENDENCIES / NOTES
 - GenomicRanges + IRanges (Bioconductor, Imports): SEACR coverage + block detection
 - scales (CRAN, Imports): percent formatting in SEACR progress output
 - User conda env (not managed by HORIZON): samtools=1.23.1, bedtools=2.31.1,
-  macs3=3.0.2, deeptools=3.5.5
+  macs3=3.0.2, deeptools=3.5.5, star, tetranscripts
   Register with HORIZON_set_conda_env() at session start
   Create once: conda create -n horizon_cli -c bioconda -c conda-forge \
     samtools=1.23.1 bedtools=2.31.1 macs3=3.0.2 deeptools=3.5.5
+  Add STAR + TEcount later: conda install -n horizon_cli -c bioconda \
+    -c conda-forge star tetranscripts
+  (confirmed no dependency conflict with the existing tools in this env --
+  STAR and TEcount use .horizon_run_cli()/Mechanism A like samtools/bedtools/
+  macs3/deeptools/salmon, not a dedicated env like split-pipe needs)
 - No basilisk or reticulate dependency in HORIZON
 - rtracklayer + GenomeInfoDb (Bioconductor, Suggests): BigWig rename
+- rtracklayer + S4Vectors (Bioconductor, Suggests): TE GTF parsing
+  (.tecount_te_ids(), used by HORIZON_aggregate_tecount())
 - All Bioconductor packages: install via BiocManager::install()
+- STAR + TEcount (bioconda, shared horizon_cli env): used for
+  transposable-element (TE) RNA-seq quantification -- STAR aligns with
+  relaxed multi-mapping filters, TEcount (not the 2-group TEtranscripts DE
+  binary) quantifies genes+TEs per sample via EM redistribution of
+  multi-mapping reads. See star_align.R / tetranscripts.R.
 - Output directory structure: <output_dir>/<sample_id>/{qc,aligned,peaks}/
 - Spike-in workflow: build combined index once; separate per sample;
   compute factors after all samples processed; feed to BigWig + DESeq2

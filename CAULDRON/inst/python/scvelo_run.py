@@ -11,6 +11,10 @@
 #   r_mode        - str: "deterministic", "stochastic", or "dynamical"
 #   r_n_pcs       - int: PCs for neighbour graph construction
 #   r_n_neighbors - int: k for kNN graph
+#   r_store_moments - bool: whether to return the dense Ms/Mu matrices below
+#                     (they're computed either way — this only controls
+#                     whether the costly sparse->dense conversion and transfer
+#                     back to R happens)
 #   r_pca         - numpy array (cells × n_pcs) OR None
 #                   Pre-computed PCA from TALOS; ensures velocity neighbours
 #                   are built in the same space as the UMAP embedding.
@@ -19,6 +23,12 @@
 #
 # Sets in Python global namespace on completion:
 #   result_velocity      - numpy array (genes × cells), float64
+#   result_Ms            - numpy array (genes × cells), float64, OR None if
+#                          r_store_moments is False
+#                          (moments-smoothed spliced counts, from scv.pp.moments)
+#   result_Mu            - numpy array (genes × cells), float64, OR None if
+#                          r_store_moments is False
+#                          (moments-smoothed unspliced counts, from scv.pp.moments)
 #   result_confidence    - numpy array (cells,), float64
 #   result_length        - numpy array (cells,), float64
 #   result_velocity_pca  - numpy array (cells × n_pcs) OR None
@@ -90,6 +100,17 @@ else:
 scv.pp.moments(adata, n_pcs=None, n_neighbors=None)
 
 # ------------------------------------------------------------------------------
+# 4b. Recover full splicing kinetics per gene (dynamical mode prerequisite)
+# scv.tl.velocity(mode="dynamical") silently falls back to the stochastic
+# model if this hasn't been run first — it checks for "fit_alpha" in
+# adata.var and, if absent, substitutes the stochastic model with only a
+# logg.warn() (suppressed here by verbosity=0 above). Only run when actually
+# requested, since it's substantially slower than the other modes.
+# ------------------------------------------------------------------------------
+if str(r_mode) == "dynamical":
+    scv.tl.recover_dynamics(adata)
+
+# ------------------------------------------------------------------------------
 # 5. Velocity estimation
 # ------------------------------------------------------------------------------
 scv.tl.velocity(adata, mode=str(r_mode))
@@ -128,6 +149,29 @@ result_velocity = np.asarray(
     vel_layer.todense() if sp.issparse(vel_layer) else vel_layer,
     dtype=np.float64
 ).T   # shape: (genes, cells)
+
+# Moments-smoothed spliced/unspliced (Ms/Mu) — the denoised per-cell values
+# scv.pp.moments() fit the kinetic model against; needed for phase-portrait-style
+# plotting (unspliced vs. spliced per gene). Same genes × cells convention as
+# result_velocity. Always computed above (required for the velocity fit
+# itself) but only converted/returned when r_store_moments is set, since the
+# dense conversion + R transfer is costly and these roughly double the
+# object's size.
+if bool(r_store_moments):
+    ms_layer = adata.layers["Ms"]
+    result_Ms = np.asarray(
+        ms_layer.todense() if sp.issparse(ms_layer) else ms_layer,
+        dtype=np.float64
+    ).T   # shape: (genes, cells)
+
+    mu_layer = adata.layers["Mu"]
+    result_Mu = np.asarray(
+        mu_layer.todense() if sp.issparse(mu_layer) else mu_layer,
+        dtype=np.float64
+    ).T   # shape: (genes, cells)
+else:
+    result_Ms = None
+    result_Mu = None
 
 result_confidence = np.asarray(
     adata.obs["velocity_confidence"].values, dtype=np.float64

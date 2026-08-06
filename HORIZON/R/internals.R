@@ -60,3 +60,17 @@
   }
   val
 }
+
+# Map human-readable strandedness labels to TEcount's --stranded vocabulary.
+# Returns "no" (unstranded), "forward", or "reverse" -- confirmed against
+# `TEcount --help` (v2.2.x): "Is this a stranded library? (no, forward, or
+# reverse)."
+.strand_to_tecount <- function(strandedness) {
+  map <- c("unstranded" = "no", "forward" = "forward", "reverse" = "reverse")
+  val <- map[strandedness]
+  if (is.na(val)) {
+    stop("Unknown strandedness value: '", strandedness,
+         "'. Must be one of: unstranded, forward, reverse.")
+  }
+  unname(val)
+}

@@ -1,7 +1,7 @@
 ================================================================================
 ARTEMIS MODULE STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-07-14
+Last Updated: 2026-08-05
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -36,7 +36,9 @@ ARTEMIS_differential_counts(norm_data, reference, experiment, alpha, verbose)
   - Requires artemis_norm object from ARTEMIS_normalize_counts() — no raw counts path
   - Inherits size factors and batch correction from the norm object
   - Subsets to the two groups of interest, preserving full-dataset size factors
-  - Returns: per-feature stats (log2FC, pvalue, padj), DESeqDataSet, norm_counts, summary
+  - Returns "artemis_dea" object with: results, dds, summary, comparison, norm_counts
+  - print.artemis_dea() reprints the comparison/significance summary (and top
+    5 hits) on demand, without rerunning DESeq2 — mirrors print.artemis_norm
 
 ARTEMIS_select_de_genes(de_results, l2fc_thresh, p_col, p_thresh, gene_col, union, verbose)
   - Collect significant genes across DE comparisons (union or intersection)
@@ -374,7 +376,11 @@ ARTEMIS_isoform_switch(counts, targets, reference, experiment,
     (NMD, ORF similarity, intron retention) without external tools
   - Returns artemis_isoform_switch S3 object:
     $switch_list (full switchAnalyzeRlist), $isoform_results (per-isoform df
-    sorted by q-value), $summary (top-level counts), $n_switches, $params
+    sorted by q-value, now includes gene_name alongside gene_id -- sourced
+    from importRdata()'s GTF-derived gene_name column on isoformFeatures, the
+    same column ARTEMIS_isoform_switch_consequences()'s $consequence_summary
+    uses, so both tables share one gene-naming column with no join needed),
+    $summary (top-level counts), $n_switches, $params
   - Requires: IsoformSwitchAnalyzeR (Bioconductor, Suggests)
   - Known upstream issue (worked around internally): isoformSwitchTestSatuRn()
     calls the unqualified rowData() without importing it in
@@ -420,11 +426,12 @@ ARTEMIS_isoform_switch(counts, targets, reference, experiment,
 
 ARTEMIS_isoform_switch_consequences(switch_result, cpat_file=NULL,
                                      signalp_file=NULL, pfam_file=NULL,
-                                     deeptmhmm_file=NULL, cpat_cutoff=0.725,
+                                     deeptmhmm_file=NULL, deeploc2_file=NULL,
+                                     iupred2a_file=NULL, cpat_cutoff=0.725,
                                      verbose=TRUE)
   - Optional consequence annotation layer for artemis_isoform_switch objects
-  - At least one of cpat_file/signalp_file/pfam_file/deeptmhmm_file must be
-    provided
+  - At least one of cpat_file/signalp_file/pfam_file/deeptmhmm_file/
+    deeploc2_file/iupred2a_file must be provided
   - Structural consequences (intron_retention, ORF_seq_similarity, NMD_status)
     always included — no external tool needed beyond the GTF ORF annotation
   - External tool consequences added when files provided:
@@ -434,9 +441,35 @@ ARTEMIS_isoform_switch_consequences(switch_result, cpat_file=NULL,
     does not add the related extracellular/intracellular_region_count/length
     consequence types — call IsoformSwitchAnalyzeR::analyzeSwitchConsequences()
     directly for those)
+    deeploc2_file → sub_cell_location (reformatted results_*.csv from
+    APOLLO_run_deeploc2(); no "has data" tracking needed, unlike signalp_file
+    -- analyzeDeepLoc2() always populates sub_cell_location, just with NA
+    for uncalled isoforms)
+    iupred2a_file → IDR_identified + IDR_type (combined result file from
+    APOLLO_run_iupred2a(); IDR_type comes free once ANCHOR2 binding-site
+    data is present, which APOLLO_run_iupred2a() always includes)
   - cpat_cutoff: human default 0.725, mouse 0.44 — no universal standard
   - Returns updated artemis_isoform_switch with $consequence_summary
     (sar$switchConsequence data.frame) and updated $switch_list
+
+ARTEMIS_isoform_switch_splicing(switch_result, only_switching_genes=TRUE,
+                                 alpha=NULL, dIF_cutoff=NULL, verbose=TRUE)
+  - Classifies switching isoforms into concrete splice event types (IR, ES,
+    MES, MEE, A5, A3, ATSS, ATTS) vs the gene's hypothetical pre-mRNA —
+    splicing MECHANISM, distinct from ARTEMIS_isoform_switch_consequences()'s
+    functional-impact annotation. No external tool needed (GTF exon structure
+    only)
+  - Requires switch_result$consequence_summary to already exist (i.e. run
+    ARTEMIS_isoform_switch_consequences() first) — IsoformSwitchAnalyzeR's
+    extractSplicingSummary()/extractSplicingEnrichment() are documented as
+    expecting analyzeSwitchConsequences() to have already run
+  - alpha/dIF_cutoff default to switch_result$params$alpha/$dIF_cutoff when NULL
+  - Returns updated artemis_isoform_switch with $splicing_events
+    (sar$AlternativeSplicingAnalysis, per-isoform event counts + genomic
+    coordinates), $splicing_summary (extractSplicingSummary(), total event
+    counts across switches/genes), $splicing_enrichment
+    (extractSplicingEnrichment(), FDR-corrected gain-vs-loss enrichment per
+    event type), and updated $switch_list
 
 ================================================================================
 IN PROGRESS

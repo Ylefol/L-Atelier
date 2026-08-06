@@ -214,7 +214,7 @@ print.artemis_norm <- function(x, ...) {
 #' @param alpha Numeric. FDR threshold for summary statistics (default = 0.05).
 #' @param verbose Logical. Print progress and summary (default = TRUE).
 #'
-#' @return A list containing:
+#' @return An \code{artemis_dea} object (list) containing:
 #' \describe{
 #'   \item{results}{Data.frame with per-feature DESeq2 results: feature_id,
 #'     baseMean, log2FoldChange, lfcSE, stat, pvalue, padj}
@@ -224,6 +224,9 @@ print.artemis_norm <- function(x, ...) {
 #'   \item{comparison}{Character describing the comparison (experiment vs reference)}
 #'   \item{norm_counts}{Normalized count matrix (useful for downstream analysis)}
 #' }
+#' Calling \code{print()} on the returned object reprints the comparison and
+#' significance summary (and top 5 hits) without rerunning DESeq2 -- see
+#' \code{\link{print.artemis_dea}}.
 #'
 #' @details
 #' Always call \code{ARTEMIS_normalize_counts()} on the full dataset first, then
@@ -416,13 +419,53 @@ ARTEMIS_differential_counts <- function(norm_data,
     }
   }
 
-  return(list(
+  result <- list(
     results = results_df,
     dds = dds_subset,
     summary = summary_stats,
     comparison = paste0(experiment, " vs ", reference),
     norm_counts = counts(dds_subset, normalized = TRUE)
-  ))
+  )
+  class(result) <- c("artemis_dea", "list")
+  result
+}
+
+
+#' Print method for ARTEMIS differential analysis results
+#'
+#' Reprints the comparison and significance summary (and top 5 hits) from an
+#' \code{artemis_dea} object without rerunning DESeq2 -- the same summary
+#' \code{\link{ARTEMIS_differential_counts}} prints live when \code{verbose =
+#' TRUE}, but callable on the already-computed result.
+#'
+#' @param x An \code{artemis_dea} object from
+#'   \code{\link{ARTEMIS_differential_counts}}.
+#' @param ... Additional arguments (ignored)
+#'
+#' @method print artemis_dea
+#' @export
+print.artemis_dea <- function(x, ...) {
+  cat("Differential Analysis Results\n")
+  cat("------------------------------\n")
+  cat("Comparison: ", x$comparison, "\n", sep = "")
+  cat("Features tested: ", x$summary$n_tested, "\n", sep = "")
+  cat("Significant (FDR < ", x$summary$alpha, "): ", x$summary$n_significant,
+      " (", round(100 * x$summary$n_significant / x$summary$n_tested, 1), "%)\n", sep = "")
+  cat("    - Increased in ", sub(" vs .*", "", x$comparison), ": ", x$summary$n_sig_up, "\n", sep = "")
+  cat("    - Decreased in ", sub(" vs .*", "", x$comparison), ": ", x$summary$n_sig_down, "\n", sep = "")
+
+  if (x$summary$n_significant > 0) {
+    cat("\nTop significant features:\n")
+    top_n <- min(5, x$summary$n_significant)
+    top_hits <- head(x$results[!is.na(x$results$padj) & x$results$padj < x$summary$alpha, ], top_n)
+    for (i in seq_len(nrow(top_hits))) {
+      direction <- if (top_hits$log2FoldChange[i] > 0) "UP" else "DOWN"
+      cat("    ", top_hits$feature_id[i], ": log2FC = ",
+          round(top_hits$log2FoldChange[i], 2), " (", direction, "), ",
+          "padj = ", format.pval(top_hits$padj[i], digits = 2), "\n", sep = "")
+    }
+  }
+  invisible(x)
 }
 
 

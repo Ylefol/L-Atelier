@@ -10,6 +10,8 @@ ARTEMIS_isoform_switch_consequences(
   signalp_file = NULL,
   pfam_file = NULL,
   deeptmhmm_file = NULL,
+  deeploc2_file = NULL,
+  iupred2a_file = NULL,
   cpat_cutoff = 0.725,
   verbose = TRUE
 )
@@ -31,6 +33,16 @@ protein domain annotation. Default: NULL (skipped).}
 result file (e.g. from \code{APOLLO_run_deeptmhmm()}) for cell-membrane
 topology annotation. Default: NULL (skipped).}
 
+\item{deeploc2_file}{Character or NULL. Path to a DeepLoc 2.1 result file
+(e.g. from \code{APOLLO_run_deeploc2()}, already reformatted to
+IsoformSwitchAnalyzeR's expected 13-column layout) for subcellular
+localization annotation. Default: NULL (skipped).}
+
+\item{iupred2a_file}{Character or NULL. Path to a combined IUPred2A result
+file (e.g. from \code{APOLLO_run_iupred2a()}) for intrinsically
+disordered region (IDR) and ANCHOR2 binding-site annotation. Default:
+NULL (skipped).}
+
 \item{cpat_cutoff}{Numeric. Coding probability cutoff for CPAT. Human
 default is 0.725, mouse is 0.44. No universal standard — verify for your
 organism. Only used if \code{cpat_file} is provided. Default: \code{0.725}.}
@@ -50,14 +62,17 @@ annotations}
 }
 \description{
 Adds biological consequence annotations to isoform switch
-results. Integrates outputs from external tools (CPAT, SignalP, Pfam/HMMER)
-and identifies functional differences between switching isoform pairs:
-changes in coding potential, NMD sensitivity, protein domains, signal
-peptides, and intron retention.
+results. Integrates outputs from external tools (CPAT, SignalP, Pfam/HMMER,
+DeepTMHMM, DeepLoc 2.1, IUPred2A) and identifies functional differences
+between switching isoform pairs: changes in coding potential, NMD
+sensitivity, protein domains, signal peptides, membrane topology,
+subcellular localization, intrinsically disordered regions, and intron
+retention.
 }
 \details{
-At least one of \code{cpat_file}, \code{signalp_file}, \code{pfam_file}, or
-\code{deeptmhmm_file} must be provided. Structural consequences (intron
+At least one of \code{cpat_file}, \code{signalp_file}, \code{pfam_file},
+\code{deeptmhmm_file}, \code{deeploc2_file}, or \code{iupred2a_file} must
+be provided. Structural consequences (intron
 retention, ORF sequence similarity, NMD sensitivity) are always included
 and require no external tools, only ORF annotations from the initial
 \code{ARTEMIS_isoform_switch()} call; intron retention is classified
@@ -72,6 +87,20 @@ related \code{extracellular_region_count}/\code{intracellular_region_count}/
 \code{analyzeSwitchConsequences()} also supports; call
 \code{IsoformSwitchAnalyzeR::analyzeSwitchConsequences()} directly on
 \code{switch_result$switch_list} if those are needed.
+
+When \code{deeploc2_file} is supplied, this adds the
+\code{"sub_cell_location"} consequence type (differences in predicted
+subcellular localization between switching isoforms). Unlike
+\code{signalp_file}, there is no "has data" tracking needed here --
+\code{analyzeDeepLoc2()} always populates \code{sub_cell_location} (with
+\code{NA} for isoforms with no called localization), it never skips
+setting the slot the way \code{analyzeSignalP()} can.
+
+When \code{iupred2a_file} is supplied, this adds both
+\code{"IDR_identified"} and \code{"IDR_type"} consequence types --
+\code{IDR_type} (plain IDR vs. \code{IDR_w_binding_region}) comes for
+free once ANCHOR2 binding-site data is present, which
+\code{APOLLO_run_iupred2a()} always includes.
 
 External tools must be run independently before calling this function.
 See the IsoformSwitchAnalyzeR vignette for expected file formats and

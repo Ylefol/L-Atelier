@@ -90,6 +90,38 @@
   packages = "python==3.8"
 )
 
+# -- DeepLoc 2.1 (subcellular localization) -----------------------------------
+# DeepLoc 2.1 (DTU Health Tech) is distributed as a local package
+# (deeploc2_package/, pip-installable via `pip install .`) rather than
+# published to public PyPI/conda channels, so it can't be declared here the
+# way CPAT is. This environment only provisions the base Python interpreter;
+# DeepLoc 2.1 itself (and its own torch/fair-esm/transformers/
+# pytorch_lightning dependencies, pulled in automatically by its setup.py)
+# must be installed once, manually, into this environment's own pip -- see
+# basilisk::obtainEnvironmentPath(.gaia_deeploc2_env) to locate it.
+# APOLLO_run_deeploc2() checks for the installed executable and stops with
+# setup instructions if it's missing, same pattern as SignalP 6/DeepTMHMM
+# above.
+.gaia_deeploc2_env <- basilisk::BasiliskEnvironment(
+  envname  = "gaia_deeploc2_1",
+  pkgname  = "GAIA",
+  packages = "python==3.10"
+)
+
+# -- IUPred2A (intrinsically disordered regions) ------------------------------
+# IUPred2A (Meszaros/Erdos/Dosztanyi, ELTE) is supplied as source code with no
+# external Python library dependencies (confirmed by reading its own README
+# and iupred2a.py/iupred2a_lib.py directly -- pure stdlib). This environment
+# therefore only provisions a bare Python interpreter, with no pip/conda
+# packages needed at all and no manual post-install step either -- simpler
+# than every other tool here. iupred2a_dir (a plain GitHub checkout, not
+# pip-installed) is passed directly to APOLLO_run_iupred2a().
+.gaia_iupred2a_env <- basilisk::BasiliskEnvironment(
+  envname  = "gaia_iupred2a_1",
+  pkgname  = "GAIA",
+  packages = "python==3.10"
+)
+
 # -- HOMER (motif enrichment) --------------------------------------------------
 # findMotifsGenome.pl is packaged on bioconda as `homer`. Note: HOMER also
 # requires per-genome reference data installed separately via its own

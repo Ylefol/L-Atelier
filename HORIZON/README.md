@@ -65,11 +65,14 @@ All functions write into a consistent tree under `output_dir`:
 └── <sample_id>/
     ├── qc/          # Trimmed FASTQs + fastp HTML/JSON report
     ├── aligned/     # BAM files, BAI indexes, BigWig, fragment size plot
+    ├── aligned_star/ # STAR-aligned BAM (multi-mapping reported; TE quantification)
     ├── counts/      # featureCounts gene-level counts (RNA-seq)
     ├── salmon/      # Salmon quant.sf (isoform-level RNA-seq)
+    ├── tecount/     # TEcount .cntTable (transposable element quantification)
     └── peaks/       # MACS3 peak files (narrowPeak / broadPeak)
 <output_dir>/aggregated/counts/   # Combined gene count matrix + metadata (RNA-seq)
 <output_dir>/aggregated/salmon/   # Combined transcript TPM/count matrices + metadata (RNA-seq)
+<output_dir>/aggregated/tecount/  # Combined TE subfamily count matrix + metadata (RNA-seq)
 ```
 
 ---
@@ -119,6 +122,21 @@ All functions write into a consistent tree under `output_dir`:
 - `HORIZON_build_salmon_index()` — decoy-aware Salmon transcriptome index from a GTF + genome FASTA (`GenomicFeatures::extractTranscriptSeqs()`); one-time per reference
 - `HORIZON_run_salmon()` — per-sample `salmon quant` (selective-alignment mode, direct from FASTQ — does not use the genome-aligned BAM); resolves isoform-ambiguous reads via Salmon's EM algorithm, unlike `HORIZON_run_count()`
 - `HORIZON_aggregate_salmon()` — merge per-sample `quant.sf` files into transcript x sample TPM and count matrices
+
+### Transposable element quantification
+Reads from repetitive TE loci mostly multi-map, so `HORIZON_run_align()` + `HORIZON_run_count()` (tuned to keep one best hit per read, correct for gene-level counting) systematically undercounts TEs. This path uses STAR with a relaxed multi-mapping filter, then TEcount's EM algorithm to redistribute those reads across candidate TE loci, rather than discarding them.
+
+- `HORIZON_build_star_index()` — build a STAR genome index (separate from the Rsubread index used by `HORIZON_run_align()`); one-time per reference/read-length
+- `HORIZON_run_star_align()` — STAR alignment with multi-mapping alignments reported (`--outFilterMultimapNmax`/`--winAnchorMultimapNmax` relaxed from STAR's defaults); writes to `aligned_star/`, distinct from Rsubread's `aligned/`
+- `HORIZON_run_tecount()` — per-sample `TEcount` (bioconda `tetranscripts` package's single-BAM counting tool, *not* the 2-group `TEtranscripts` DE binary) quantifying genes + TE subfamilies from a STAR BAM
+- `HORIZON_aggregate_tecount()` — merge per-sample `.cntTable` files into a TE subfamily x sample count matrix (TE rows only; gene rows are dropped — canonical gene counts should keep coming from `HORIZON_aggregate_counts()`)
+- `HORIZON_merge_gene_te_counts()` — combine a gene-level count matrix and a TE count matrix into one feature x sample matrix for differential analysis (e.g. `ARTEMIS_normalize_counts()` in GAIA)
+
+STAR and TEcount share the standard `horizon_cli` conda environment — no dependency conflict with the tools already there (confirmed via `conda install --dry-run`), unlike PARSE split-pipe which genuinely needs its own isolated environment:
+```bash
+conda install -n horizon_cli -c bioconda -c conda-forge star tetranscripts
+```
+Both functions call `.horizon_run_cli()` internally, so `HORIZON_set_conda_env()` must be called first (same as any other `horizon_cli` tool) — no separate `conda_env` argument is needed.
 
 ---
 

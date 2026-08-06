@@ -89,8 +89,13 @@ An S3 object of class \code{"artemis_isoform_switch"} containing:
 \item{switch_list}{Full \code{switchAnalyzeRlist} (native ISAS format;
 pass directly to IsoformSwitchAnalyzeR functions for advanced use)}
 \item{isoform_results}{Data.frame of per-isoform results: gene_id,
-isoform_id, condition_1, condition_2, dIF, isoform_switch_q_value,
-gene_switch_q_value, iso_significant. Sorted by q-value.}
+gene_name, isoform_id, condition_1, condition_2, dIF,
+isoform_switch_q_value, gene_switch_q_value, iso_significant. Sorted
+by q-value. \code{gene_name} comes straight from the GTF via
+\code{importRdata()} (NA if the GTF had no \code{gene_name}
+attribute for that gene) -- the same source
+\code{consequence_summary$gene_name} uses, so the two tables share a
+common gene-naming column without needing a separate lookup/join.}
 \item{summary}{Top-level switch count summary from
 \code{extractSwitchSummary()}}
 \item{n_switches}{Number of genes with at least one significant isoform

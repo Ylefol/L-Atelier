@@ -28,7 +28,7 @@ This is the denominator in fold change calculations.}
 \item{verbose}{Logical. Print progress and summary (default = TRUE).}
 }
 \value{
-A list containing:
+An \code{artemis_dea} object (list) containing:
 \describe{
 \item{results}{Data.frame with per-feature DESeq2 results: feature_id,
 baseMean, log2FoldChange, lfcSE, stat, pvalue, padj}
@@ -38,6 +38,9 @@ n_sig_down, n_tested, alpha}
 \item{comparison}{Character describing the comparison (experiment vs reference)}
 \item{norm_counts}{Normalized count matrix (useful for downstream analysis)}
 }
+Calling \code{print()} on the returned object reprints the comparison and
+significance summary (and top 5 hits) without rerunning DESeq2 -- see
+\code{\link{print.artemis_dea}}.
 }
 \description{
 Performs differential analysis on count data using DESeq2.

@@ -12,6 +12,7 @@ TRIPODES_run_velocity(
   use_dimred = "PCA",
   n_pcs = 30L,
   n_neighbors = 30L,
+  store_moments = FALSE,
   verbose = TRUE,
   ...
 )
@@ -30,7 +31,8 @@ count assays.}
 fast first-order OLS fit), \code{"stochastic"} (accounts for
 transcriptional noise via second-order moments; requires more memory), or
 \code{"dynamical"} (most accurate, substantially slower — fits full
-kinetic model per gene).}
+kinetic model per gene via \code{scv.tl.recover_dynamics()}, run
+automatically first when this mode is selected).}
 
 \item{use_dimred}{Name of the PCA-like dimensionality reduction in the SCE
 to pass to scVelo for neighbour graph construction (default \code{"PCA"}).
@@ -45,6 +47,14 @@ scVelo (default \code{30L}).}
 
 \item{n_neighbors}{Number of neighbours for the scVelo graph (default
 \code{30L}).}
+
+\item{store_moments}{Logical; also store the moments-smoothed spliced/
+unspliced matrices as \code{assay(sce, "Ms")}/\code{assay(sce, "Mu")}
+(default \code{FALSE}). These are computed internally by scVelo
+regardless (needed to fit velocity itself); this only controls whether
+they're additionally returned and stored, since doing so roughly doubles
+the SCE's assay footprint. Enable for phase-portrait-style diagnostics
+(unspliced vs. spliced per gene).}
 
 \item{verbose}{Logical; print progress messages (default \code{TRUE}).}
 
@@ -70,6 +80,11 @@ directing the user to \code{TRIPODES_check_velocity_ready}.
 Stored results:
 \describe{
 \item{\code{assay(sce, "velocity")}}{Gene × cell velocity matrix.}
+\item{\code{assay(sce, "Ms")}, \code{assay(sce, "Mu")}}{Moments-smoothed
+spliced/unspliced counts (gene × cell), as fit against by
+\code{scv.pp.moments()}. Only stored when \code{store_moments = TRUE}
+(default \code{FALSE}) — these are full dense gene × cell matrices and
+substantially increase the SCE's size.}
 \item{\code{colData(sce)$velocity_confidence}}{Per-cell velocity
 confidence score from scVelo.}
 \item{\code{colData(sce)$velocity_length}}{Per-cell velocity vector

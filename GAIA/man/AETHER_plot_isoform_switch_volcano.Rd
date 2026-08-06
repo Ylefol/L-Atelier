@@ -47,7 +47,7 @@ uses \code{switch_result$params$dIF_cutoff}.}
 Default: NULL, which uses \code{switch_result$params$alpha}.}
 
 \item{title}{Character or NULL. Plot title. Default: NULL, which builds
-"\if{html}{\out{<experiment>}} vs \if{html}{\out{<reference>}}" from \code{switch_result$params}.}
+"\if{html}{\out{<reference>}} vs \if{html}{\out{<experiment>}}" from \code{switch_result$params}.}
 
 \item{colors}{Named character vector with colors for \code{"up"},
 \code{"down"}, \code{"low_dIF"}, \code{"non_sig"}. Default uses

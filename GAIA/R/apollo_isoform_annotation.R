@@ -669,3 +669,333 @@ APOLLO_run_deeptmhmm <- function(switch_result,
     verbose = verbose
   )
 }
+
+
+# ==============================================================================
+# DeepLoc 2.1 -- subcellular localization
+# ==============================================================================
+
+#' Run DeepLoc 2.1 Subcellular Localization Prediction
+#'
+#' @description Runs DeepLoc 2.1 (subcellular localization + membrane
+#' association prediction) against the amino acid FASTA from
+#' \code{APOLLO_extract_isoform_sequences()}, inside an isolated
+#' \pkg{basilisk} Python environment (\code{.gaia_deeploc2_env}).
+#'
+#' @param switch_result An \code{artemis_isoform_switch} object, normally one
+#'   that has already been through \code{APOLLO_extract_isoform_sequences()}.
+#' @param output_dir Character. Directory for DeepLoc 2.1's raw output and the
+#'   reformatted result file (created if absent).
+#' @param aa_fasta Character or \code{NULL}. Amino acid FASTA path. Default
+#'   \code{NULL} uses \code{switch_result$sequence_files$aa_fasta}.
+#' @param model Character. \code{"Fast"} (ESM1b, default -- higher throughput)
+#'   or \code{"Accurate"} (ProtT5, ~32GB memory, downloaded on first use).
+#'   Passed to DeepLoc 2.1's \code{-m} option.
+#' @param verbose Logical. Print progress and DeepLoc 2.1's own console
+#'   output. Default: \code{TRUE}.
+#'
+#' @return Invisibly, the path to a reformatted result file compatible with
+#'   \code{IsoformSwitchAnalyzeR::analyzeDeepLoc2(pathToDeepLoc2resultFile = ...)}.
+#'
+#' @details
+#' DeepLoc 2.1's own CLI output has 18 columns: \code{Protein_ID},
+#' \code{Localizations}, \code{Signals}, \code{"Membrane types"}, the 10
+#' localization probability columns, and 4 membrane-type probability columns
+#' (\code{Peripheral}/\code{Transmembrane}/\code{Lipid anchor}/\code{Soluble}
+#' -- a multi-label membrane-type feature DeepLoc 2.1 added on top of
+#' DeepLoc 2.0). \code{IsoformSwitchAnalyzeR::analyzeDeepLoc2()} (confirmed by
+#' inspecting its source directly) does an exact \code{ncol == 13} /
+#' exact-column-name check against the older DeepLoc 2.0-era 13-column
+#' format, with no "Membrane types" column and no membrane-type
+#' probabilities -- this predates DeepLoc 2.1's 2024 publication, and the
+#' currently installed \pkg{IsoformSwitchAnalyzeR} (2.2.0, current
+#' Bioconductor release as of 2026-07) has not been updated for the newer
+#' format. Worth checking for a newer \pkg{IsoformSwitchAnalyzeR} release
+#' before assuming this reformatting step will always be needed. This
+#' function reformats DeepLoc 2.1's raw \code{results_*.csv} by dropping
+#' \code{"Membrane types"} and the 4 membrane-type probability columns,
+#' keeping the 10 original localization columns unchanged (same names/
+#' values), before returning the path.
+#'
+#' DeepLoc 2.1 is DTU Health Tech-distributed (not on public PyPI/conda), so
+#' \code{.gaia_deeploc2_env} only provisions a base Python interpreter --
+#' DeepLoc 2.1 itself (and its own torch/fair-esm/transformers/
+#' pytorch_lightning dependencies, pulled in automatically via its own
+#' \code{setup.py}) must be installed once, manually, into that environment
+#' (\code{pip install .} from the downloaded package directory, using this
+#' environment's own pip; see
+#' \code{basilisk::obtainEnvironmentPath(.gaia_deeploc2_env)}). This function
+#' checks for the installed \code{deeploc2} executable and stops with setup
+#' guidance if it's missing, rather than attempting to install it
+#' automatically (same pattern as \code{APOLLO_run_signalp()}).
+#'
+#' @export
+APOLLO_run_deeploc2 <- function(switch_result,
+                                 output_dir,
+                                 aa_fasta = NULL,
+                                 model    = c("Fast", "Accurate"),
+                                 verbose  = TRUE) {
+
+  model <- match.arg(model)
+
+  if (!inherits(switch_result, "artemis_isoform_switch"))
+    stop("switch_result must be an artemis_isoform_switch object from ",
+         "ARTEMIS_isoform_switch()", call. = FALSE)
+
+  if (is.null(aa_fasta)) aa_fasta <- switch_result$sequence_files$aa_fasta
+  if (is.null(aa_fasta))
+    stop("No amino acid FASTA available. Run APOLLO_extract_isoform_sequences() ",
+         "first, or supply aa_fasta directly.", call. = FALSE)
+  if (!file.exists(aa_fasta))
+    stop("aa_fasta not found: ", aa_fasta, call. = FALSE)
+
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+  if (verbose) cat("[APOLLO] Running DeepLoc 2.1 (basilisk Python environment, model =", model, ")...\n")
+
+  start_time <- proc.time()
+  .apollo_deeploc2_run(aa_fasta, output_dir, model, verbose)
+  elapsed <- (proc.time() - start_time)["elapsed"]
+
+  raw_files <- list.files(output_dir, pattern = "^results_.*\\.csv$", full.names = TRUE)
+  if (length(raw_files) == 0)
+    stop("DeepLoc 2.1 completed but no results_*.csv file was found in: ",
+         output_dir, call. = FALSE)
+  raw_file <- raw_files[which.max(file.info(raw_files)$mtime)]
+
+  reformatted <- file.path(output_dir, "deeploc2_results_isas.csv")
+  .apollo_reformat_deeploc2(raw_file, reformatted)
+
+  if (verbose) {
+    cat(" DeepLoc 2.1 completed in", round(elapsed, 1), "seconds.\n")
+    cat("[APOLLO] ISAS-compatible result: ", reformatted, "\n\n", sep = "")
+  }
+
+  invisible(reformatted)
+}
+
+
+#' Execute DeepLoc 2.1 inside the basilisk environment
+#' @keywords internal
+.apollo_deeploc2_run <- function(fasta, output_dir, model, verbose) {
+  basilisk::basiliskRun(
+    env = .gaia_deeploc2_env,
+    fun = function(fasta, output_dir, model, verbose) {
+      python_bin   <- reticulate::py_exe()
+      deeploc2_bin <- file.path(dirname(python_bin), "deeploc2")
+      if (!file.exists(deeploc2_bin))
+        stop("deeploc2 executable not found in the basilisk environment (",
+             dirname(python_bin), "). DeepLoc 2.1 is distributed by DTU ",
+             "Health Tech and not on public PyPI -- download it from ",
+             "https://services.healthtech.dtu.dk/services/DeepLoc-2.1/, then ",
+             "pip-install it into this environment's own pip (see ",
+             "basilisk::obtainEnvironmentPath(.gaia_deeploc2_env)) with ",
+             "`pip install .` from the package directory, before calling ",
+             "this function.", call. = FALSE)
+
+      exit_code <- system2(
+        command = deeploc2_bin,
+        args    = c("-f", fasta, "-o", output_dir, "-m", model),
+        stdout  = if (verbose) "" else FALSE,
+        stderr  = if (verbose) "" else FALSE
+      )
+      if (exit_code != 0)
+        stop("DeepLoc 2.1 exited with code ", exit_code, ". Re-run with ",
+             "verbose = TRUE to see its own output.", call. = FALSE)
+      invisible(exit_code)
+    },
+    fasta = fasta, output_dir = output_dir, model = model, verbose = verbose
+  )
+}
+
+
+#' Reformat DeepLoc 2.1 output to IsoformSwitchAnalyzeR's expected column layout
+#' @keywords internal
+.apollo_reformat_deeploc2 <- function(raw_file, out_file) {
+  raw <- utils::read.csv(raw_file, stringsAsFactors = FALSE, check.names = FALSE)
+
+  needed <- c("Protein_ID", "Localizations", "Signals", "Cytoplasm", "Nucleus",
+              "Extracellular", "Cell membrane", "Mitochondrion", "Plastid",
+              "Endoplasmic reticulum", "Lysosome/Vacuole", "Golgi apparatus",
+              "Peroxisome")
+  missing_cols <- setdiff(needed, colnames(raw))
+  if (length(missing_cols) > 0)
+    stop("DeepLoc 2.1 output is missing expected column(s): ",
+         paste(missing_cols, collapse = ", "),
+         ". DeepLoc's output format may differ from the version this wrapper ",
+         "was built against (DeepLoc 2.1) -- check ", raw_file, " and adjust ",
+         ".apollo_reformat_deeploc2() if needed.", call. = FALSE)
+
+  # analyzeDeepLoc2() does an exact ncol==13 + exact-column-name check
+  # against the older DeepLoc 2.0-era 13-column format (confirmed by
+  # inspecting its source directly) -- subset back down to those 13 columns;
+  # values are unchanged, nothing is lost for the consequences that actually
+  # get parsed downstream.
+  out <- raw[, needed, drop = FALSE]
+
+  utils::write.csv(out, out_file, row.names = FALSE)
+  invisible(out_file)
+}
+
+
+# ==============================================================================
+# IUPred2A -- intrinsically disordered regions
+# ==============================================================================
+
+#' Run IUPred2A Intrinsically Disordered Region Prediction
+#'
+#' @description Runs IUPred2A (intrinsically disordered region + ANCHOR2
+#' binding-site prediction) against the amino acid FASTA from
+#' \code{APOLLO_extract_isoform_sequences()}, inside an isolated
+#' \pkg{basilisk} Python environment (\code{.gaia_iupred2a_env}).
+#'
+#' @param switch_result An \code{artemis_isoform_switch} object, normally one
+#'   that has already been through \code{APOLLO_extract_isoform_sequences()}.
+#' @param iupred2a_dir Character. Path to the downloaded IUPred2A repository's
+#'   \code{iupred2a/} subdirectory -- a flat checkout containing
+#'   \code{iupred2a.py}, \code{iupred2a_lib.py}, and the \code{data/} folder
+#'   of energy matrices/histograms.
+#' @param output_dir Character. Directory the combined result file (and
+#'   per-isoform split input FASTAs) are written to (created if absent).
+#' @param aa_fasta Character or \code{NULL}. Amino acid FASTA path. Default
+#'   \code{NULL} uses \code{switch_result$sequence_files$aa_fasta}.
+#' @param verbose Logical. Print progress, including a running isoform
+#'   counter -- this tool is invoked once per isoform, not once for the whole
+#'   FASTA. Default: \code{TRUE}.
+#'
+#' @return Invisibly, the path to a combined result file compatible with
+#'   \code{IsoformSwitchAnalyzeR::analyzeIUPred2A(pathToIUPred2AresultFile = ...)}.
+#'
+#' @details
+#' \code{iupred2a.py} is strictly single-sequence: its own \code{read_seq()}
+#' does not parse FASTA records at all -- it discards \code{>} header lines
+#' and concatenates every remaining line into one string, so handing it a
+#' multi-isoform FASTA directly would silently merge every isoform's sequence
+#' into one meaningless combined sequence rather than erroring (confirmed by
+#' reading \code{iupred2a_lib.py} directly). This function therefore splits
+#' \code{aa_fasta} into one temporary single-sequence file per isoform (under
+#' \code{output_dir/split_input/}) and invokes
+#' \code{iupred2a.py -a <seqfile> long} once per isoform (\code{-a} for
+#' ANCHOR2 binding-site prediction -- always enabled, since
+#' \code{analyzeIUPred2A()}'s default \code{annotateBindingSites=TRUE}
+#' requires the 4-column ANCHOR2 output or it errors; \code{long} is the
+#' disorder mode IUPred2A's own webserver instructions specify as standard).
+#'
+#' \code{iupred2a.py}'s raw stdout has no sequence identifier in it at all
+#' (just a citation banner, a column header, and per-residue rows) -- but
+#' \code{analyzeIUPred2A()}'s parser (confirmed by inspecting its source
+#' directly) expects a combined file where each isoform's block is preceded
+#' by its own \code{>isoform_id} line, matching the batch format the IUPred2A
+#' \strong{webserver} produces (which is what that importer was actually
+#' built against, not the local script's native single-run output). This
+#' function reconstructs that shape: after each per-isoform run, it prepends
+#' the isoform's own FASTA header before concatenating all blocks into one
+#' combined result file.
+#'
+#' \code{iupred2a.py} computes its own data directory as the location of the
+#' script itself (\code{os.path.dirname(os.path.realpath(__file__))}), and
+#' Python inserts a script's own directory at \code{sys.path[0]} on direct
+#' invocation -- so unlike \code{APOLLO_run_deeptmhmm()}, no \code{setwd()}
+#' into \code{iupred2a_dir} is needed; the script is called by its absolute
+#' path from any working directory.
+#'
+#' \code{iupred2a.py} requires no external Python libraries (confirmed by
+#' reading its README and source directly), so \code{.gaia_iupred2a_env}
+#' only provisions a bare Python interpreter -- no manual pip-install step is
+#' needed, unlike \code{APOLLO_run_signalp()}/\code{APOLLO_run_deeptmhmm()}/
+#' \code{APOLLO_run_deeploc2()}.
+#'
+#' @export
+APOLLO_run_iupred2a <- function(switch_result,
+                                 iupred2a_dir,
+                                 output_dir,
+                                 aa_fasta = NULL,
+                                 verbose  = TRUE) {
+
+  if (!inherits(switch_result, "artemis_isoform_switch"))
+    stop("switch_result must be an artemis_isoform_switch object from ",
+         "ARTEMIS_isoform_switch()", call. = FALSE)
+
+  if (is.null(aa_fasta)) aa_fasta <- switch_result$sequence_files$aa_fasta
+  if (is.null(aa_fasta))
+    stop("No amino acid FASTA available. Run APOLLO_extract_isoform_sequences() ",
+         "first, or supply aa_fasta directly.", call. = FALSE)
+  if (!file.exists(aa_fasta))
+    stop("aa_fasta not found: ", aa_fasta, call. = FALSE)
+
+  if (!dir.exists(iupred2a_dir))
+    stop("iupred2a_dir not found: ", iupred2a_dir, call. = FALSE)
+  script_path <- file.path(iupred2a_dir, "iupred2a.py")
+  if (!file.exists(script_path))
+    stop("iupred2a.py not found in iupred2a_dir: ", iupred2a_dir, call. = FALSE)
+
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+  sequences <- Biostrings::readAAStringSet(aa_fasta)
+  if (length(sequences) == 0)
+    stop("No sequences found in aa_fasta: ", aa_fasta, call. = FALSE)
+
+  if (verbose) {
+    cat("[APOLLO] Running IUPred2A (basilisk Python environment)...\n")
+    cat("    Isoforms to process: ", length(sequences), "\n", sep = "")
+  }
+
+  split_dir <- file.path(output_dir, "split_input")
+  dir.create(split_dir, showWarnings = FALSE, recursive = TRUE)
+
+  start_time <- proc.time()
+  result_lines <- .apollo_iupred2a_run(script_path, sequences, split_dir, verbose)
+  elapsed <- (proc.time() - start_time)["elapsed"]
+
+  out_file <- file.path(output_dir, "iupred2a_results_isas.tsv")
+  writeLines(result_lines, out_file)
+
+  if (verbose) {
+    cat(" IUPred2A completed in", round(elapsed, 1), "seconds.\n")
+    cat("[APOLLO] Combined result: ", out_file, "\n\n", sep = "")
+  }
+
+  invisible(out_file)
+}
+
+
+#' Execute IUPred2A once per isoform inside the basilisk environment
+#' @keywords internal
+.apollo_iupred2a_run <- function(script_path, sequences, split_dir, verbose) {
+  basilisk::basiliskRun(
+    env = .gaia_iupred2a_env,
+    fun = function(script_path, sequences, split_dir, verbose) {
+      python_bin <- reticulate::py_exe()
+      n          <- length(sequences)
+      all_lines  <- vector("list", n)
+
+      for (i in seq_len(n)) {
+        iso_id   <- names(sequences)[i]
+        seq_file <- file.path(split_dir,
+                               paste0(gsub("[^A-Za-z0-9]", "_", iso_id), ".fasta"))
+        Biostrings::writeXStringSet(sequences[i], filepath = seq_file)
+
+        result <- system2(
+          command = python_bin,
+          args    = c(script_path, "-a", seq_file, "long"),
+          stdout  = TRUE,
+          stderr  = if (verbose) "" else FALSE
+        )
+        exit_code <- attr(result, "status")
+        if (!is.null(exit_code) && exit_code != 0)
+          stop("iupred2a.py exited with code ", exit_code, " on isoform '",
+               iso_id, "'. Re-run with verbose = TRUE to see its own output.",
+               call. = FALSE)
+
+        all_lines[[i]] <- c(paste0(">", iso_id), result)
+
+        if (verbose && (i %% 50 == 0 || i == n))
+          cat("    Processed ", i, "/", n, " isoforms\n", sep = "")
+      }
+
+      unlist(all_lines)
+    },
+    script_path = script_path, sequences = sequences, split_dir = split_dir,
+    verbose = verbose
+  )
+}

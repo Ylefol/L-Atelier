@@ -126,8 +126,13 @@
 #'     \item{switch_list}{Full \code{switchAnalyzeRlist} (native ISAS format;
 #'       pass directly to IsoformSwitchAnalyzeR functions for advanced use)}
 #'     \item{isoform_results}{Data.frame of per-isoform results: gene_id,
-#'       isoform_id, condition_1, condition_2, dIF, isoform_switch_q_value,
-#'       gene_switch_q_value, iso_significant. Sorted by q-value.}
+#'       gene_name, isoform_id, condition_1, condition_2, dIF,
+#'       isoform_switch_q_value, gene_switch_q_value, iso_significant. Sorted
+#'       by q-value. \code{gene_name} comes straight from the GTF via
+#'       \code{importRdata()} (NA if the GTF had no \code{gene_name}
+#'       attribute for that gene) -- the same source
+#'       \code{consequence_summary$gene_name} uses, so the two tables share a
+#'       common gene-naming column without needing a separate lookup/join.}
 #'     \item{summary}{Top-level switch count summary from
 #'       \code{extractSwitchSummary()}}
 #'     \item{n_switches}{Number of genes with at least one significant isoform
@@ -291,7 +296,7 @@ ARTEMIS_isoform_switch <- function(counts,
   # --- Extract per-isoform results table --------------------------------------
   iso_feat    <- sar$isoformFeatures
   result_cols <- intersect(
-    c("gene_id", "isoform_id", "condition_1", "condition_2",
+    c("gene_id", "gene_name", "isoform_id", "condition_1", "condition_2",
       "dIF", "isoform_switch_q_value", "gene_switch_q_value",
       "iso_significant", "gene_significant"),
     colnames(iso_feat)
@@ -391,10 +396,12 @@ print.artemis_isoform_switch <- function(x, ...) {
 #' Analyze Functional Consequences of Isoform Switches
 #'
 #' @description Adds biological consequence annotations to isoform switch
-#' results. Integrates outputs from external tools (CPAT, SignalP, Pfam/HMMER)
-#' and identifies functional differences between switching isoform pairs:
-#' changes in coding potential, NMD sensitivity, protein domains, signal
-#' peptides, and intron retention.
+#' results. Integrates outputs from external tools (CPAT, SignalP, Pfam/HMMER,
+#' DeepTMHMM, DeepLoc 2.1, IUPred2A) and identifies functional differences
+#' between switching isoform pairs: changes in coding potential, NMD
+#' sensitivity, protein domains, signal peptides, membrane topology,
+#' subcellular localization, intrinsically disordered regions, and intron
+#' retention.
 #'
 #' @param switch_result An \code{artemis_isoform_switch} object from
 #'   \code{ARTEMIS_isoform_switch()}.
@@ -407,6 +414,14 @@ print.artemis_isoform_switch <- function(x, ...) {
 #' @param deeptmhmm_file Character or NULL. Path to a DeepTMHMM \code{TMRs.gff3}
 #'   result file (e.g. from \code{APOLLO_run_deeptmhmm()}) for cell-membrane
 #'   topology annotation. Default: NULL (skipped).
+#' @param deeploc2_file Character or NULL. Path to a DeepLoc 2.1 result file
+#'   (e.g. from \code{APOLLO_run_deeploc2()}, already reformatted to
+#'   IsoformSwitchAnalyzeR's expected 13-column layout) for subcellular
+#'   localization annotation. Default: NULL (skipped).
+#' @param iupred2a_file Character or NULL. Path to a combined IUPred2A result
+#'   file (e.g. from \code{APOLLO_run_iupred2a()}) for intrinsically
+#'   disordered region (IDR) and ANCHOR2 binding-site annotation. Default:
+#'   NULL (skipped).
 #' @param cpat_cutoff Numeric. Coding probability cutoff for CPAT. Human
 #'   default is 0.725, mouse is 0.44. No universal standard — verify for your
 #'   organism. Only used if \code{cpat_file} is provided. Default: \code{0.725}.
@@ -423,8 +438,9 @@ print.artemis_isoform_switch <- function(x, ...) {
 #'   }
 #'
 #' @details
-#' At least one of \code{cpat_file}, \code{signalp_file}, \code{pfam_file}, or
-#' \code{deeptmhmm_file} must be provided. Structural consequences (intron
+#' At least one of \code{cpat_file}, \code{signalp_file}, \code{pfam_file},
+#' \code{deeptmhmm_file}, \code{deeploc2_file}, or \code{iupred2a_file} must
+#' be provided. Structural consequences (intron
 #' retention, ORF sequence similarity, NMD sensitivity) are always included
 #' and require no external tools, only ORF annotations from the initial
 #' \code{ARTEMIS_isoform_switch()} call; intron retention is classified
@@ -440,6 +456,20 @@ print.artemis_isoform_switch <- function(x, ...) {
 #' \code{IsoformSwitchAnalyzeR::analyzeSwitchConsequences()} directly on
 #' \code{switch_result$switch_list} if those are needed.
 #'
+#' When \code{deeploc2_file} is supplied, this adds the
+#' \code{"sub_cell_location"} consequence type (differences in predicted
+#' subcellular localization between switching isoforms). Unlike
+#' \code{signalp_file}, there is no "has data" tracking needed here --
+#' \code{analyzeDeepLoc2()} always populates \code{sub_cell_location} (with
+#' \code{NA} for isoforms with no called localization), it never skips
+#' setting the slot the way \code{analyzeSignalP()} can.
+#'
+#' When \code{iupred2a_file} is supplied, this adds both
+#' \code{"IDR_identified"} and \code{"IDR_type"} consequence types --
+#' \code{IDR_type} (plain IDR vs. \code{IDR_w_binding_region}) comes for
+#' free once ANCHOR2 binding-site data is present, which
+#' \code{APOLLO_run_iupred2a()} always includes.
+#'
 #' External tools must be run independently before calling this function.
 #' See the IsoformSwitchAnalyzeR vignette for expected file formats and
 #' instructions for running each tool.
@@ -450,6 +480,8 @@ ARTEMIS_isoform_switch_consequences <- function(switch_result,
                                                   signalp_file   = NULL,
                                                   pfam_file      = NULL,
                                                   deeptmhmm_file = NULL,
+                                                  deeploc2_file  = NULL,
+                                                  iupred2a_file  = NULL,
                                                   cpat_cutoff    = 0.725,
                                                   verbose        = TRUE) {
 
@@ -457,8 +489,10 @@ ARTEMIS_isoform_switch_consequences <- function(switch_result,
     stop("switch_result must be an artemis_isoform_switch object from ",
          "ARTEMIS_isoform_switch()")
 
-  if (is.null(cpat_file) && is.null(signalp_file) && is.null(pfam_file) && is.null(deeptmhmm_file))
-    stop("At least one of cpat_file, signalp_file, pfam_file, or deeptmhmm_file must be provided.")
+  if (is.null(cpat_file) && is.null(signalp_file) && is.null(pfam_file) &&
+      is.null(deeptmhmm_file) && is.null(deeploc2_file) && is.null(iupred2a_file))
+    stop("At least one of cpat_file, signalp_file, pfam_file, deeptmhmm_file, ",
+         "deeploc2_file, or iupred2a_file must be provided.")
 
   sar <- switch_result$switch_list
 
@@ -518,6 +552,28 @@ ARTEMIS_isoform_switch_consequences <- function(switch_result,
     )
   }
 
+  if (!is.null(deeploc2_file)) {
+    if (!file.exists(deeploc2_file))
+      stop("deeploc2_file not found: ", deeploc2_file)
+    if (verbose) cat("[ARTEMIS] Adding DeepLoc2 subcellular localization...\n")
+    sar <- IsoformSwitchAnalyzeR::analyzeDeepLoc2(
+      switchAnalyzeRlist       = sar,
+      pathToDeepLoc2resultFile = deeploc2_file,
+      quiet                    = !verbose
+    )
+  }
+
+  if (!is.null(iupred2a_file)) {
+    if (!file.exists(iupred2a_file))
+      stop("iupred2a_file not found: ", iupred2a_file)
+    if (verbose) cat("[ARTEMIS] Adding IUPred2A intrinsically disordered regions...\n")
+    sar <- IsoformSwitchAnalyzeR::analyzeIUPred2A(
+      switchAnalyzeRlist       = sar,
+      pathToIUPred2AresultFile = iupred2a_file,
+      quiet                    = !verbose
+    )
+  }
+
   # intron_retention must be classified with analyzeIntronRetention() before
   # analyzeSwitchConsequences() can test for it -- it isn't derived from the
   # ORF annotations alone, unlike ORF_seq_similarity/NMD_status.
@@ -539,6 +595,8 @@ ARTEMIS_isoform_switch_consequences <- function(switch_result,
   if (!is.null(signalp_file) && isTRUE(signalp_has_data))
     consequences <- c(consequences, "signal_peptide_identified")
   if (!is.null(deeptmhmm_file)) consequences <- c(consequences, "isoform_topology")
+  if (!is.null(deeploc2_file))  consequences <- c(consequences, "sub_cell_location")
+  if (!is.null(iupred2a_file))  consequences <- c(consequences, "IDR_identified", "IDR_type")
 
   if (verbose) {
     cat("[ARTEMIS] Consequences to analyze:\n")
@@ -573,5 +631,121 @@ ARTEMIS_isoform_switch_consequences <- function(switch_result,
 
   switch_result$switch_list         <- sar
   switch_result$consequence_summary <- consequence_summary
+  return(switch_result)
+}
+
+
+# ==============================================================================
+# ALTERNATIVE SPLICING CLASSIFICATION
+# ==============================================================================
+
+#' Classify Alternative Splicing Events for Isoform Switches
+#'
+#' @description Classifies each switching isoform's splicing relative to the
+#' gene's hypothetical pre-mRNA (all exons of the gene concatenated), into
+#' concrete event categories: intron retention (IR), exon skipping (ES),
+#' multiple exon skipping (MES), mutually exclusive exons (MEE), alternative
+#' 5'/3' splice sites (A5/A3), and alternative transcription start/end sites
+#' (ATSS/ATTS). This is a distinct layer from
+#' \code{ARTEMIS_isoform_switch_consequences()}: consequences describe
+#' functional impact (domain loss, NMD, etc.), this describes splicing
+#' mechanism -- and needs no external tool, only the GTF-derived exon
+#' structure already present after \code{ARTEMIS_isoform_switch()}.
+#'
+#' @param switch_result An \code{artemis_isoform_switch} object that has
+#'   already been run through \code{ARTEMIS_isoform_switch_consequences()}.
+#'   Required because \code{IsoformSwitchAnalyzeR::extractSplicingSummary()}/
+#'   \code{extractSplicingEnrichment()} are documented as expecting
+#'   \code{analyzeSwitchConsequences()} to have already been run on the
+#'   \code{switchAnalyzeRlist}.
+#' @param only_switching_genes Logical. Restrict classification to genes with
+#'   a significant isoform switch (per \code{alpha}/\code{dIF_cutoff}) rather
+#'   than all genes in the \code{switchAnalyzeRlist}. Default: \code{TRUE}.
+#' @param alpha Numeric or NULL. Significance threshold. Default: NULL, which
+#'   uses \code{switch_result$params$alpha}.
+#' @param dIF_cutoff Numeric or NULL. Minimum absolute dIF to consider an
+#'   isoform switching. Default: NULL, which uses
+#'   \code{switch_result$params$dIF_cutoff}.
+#' @param verbose Logical. Print progress. Default: \code{TRUE}.
+#'
+#' @return The input \code{artemis_isoform_switch} object with three
+#'   additional fields:
+#'   \describe{
+#'     \item{splicing_events}{Data.frame from
+#'       \code{sar$AlternativeSplicingAnalysis} -- one row per isoform_id with
+#'       the count of each splice event type and the genomic coordinates of
+#'       the affected region(s)}
+#'     \item{splicing_summary}{Data.frame from
+#'       \code{extractSplicingSummary()} -- total number of each event type
+#'       across all switches/genes}
+#'     \item{splicing_enrichment}{Data.frame from
+#'       \code{extractSplicingEnrichment()} -- for each event type, whether
+#'       gain vs loss is enriched among the switches (FDR-corrected
+#'       \code{prop.test()})}
+#'   }
+#'   \code{switch_list} is also updated with the added
+#'   \code{AlternativeSplicingAnalysis} slot.
+#'
+#' @export
+ARTEMIS_isoform_switch_splicing <- function(switch_result,
+                                             only_switching_genes = TRUE,
+                                             alpha                = NULL,
+                                             dIF_cutoff            = NULL,
+                                             verbose               = TRUE) {
+
+  if (!inherits(switch_result, "artemis_isoform_switch"))
+    stop("switch_result must be an artemis_isoform_switch object from ",
+         "ARTEMIS_isoform_switch()", call. = FALSE)
+
+  if (is.null(switch_result$consequence_summary))
+    stop("switch_result has no consequence_summary -- run ",
+         "ARTEMIS_isoform_switch_consequences() first. IsoformSwitchAnalyzeR's ",
+         "extractSplicingSummary()/extractSplicingEnrichment() expect ",
+         "analyzeSwitchConsequences() to have already been run on the ",
+         "switchAnalyzeRlist.", call. = FALSE)
+
+  if (is.null(alpha))      alpha      <- switch_result$params$alpha
+  if (is.null(dIF_cutoff)) dIF_cutoff <- switch_result$params$dIF_cutoff
+
+  sar <- switch_result$switch_list
+
+  if (verbose) cat("[ARTEMIS] Classifying alternative splicing events...\n")
+
+  sar <- IsoformSwitchAnalyzeR::analyzeAlternativeSplicing(
+    switchAnalyzeRlist = sar,
+    onlySwitchingGenes = only_switching_genes,
+    alpha              = alpha,
+    dIFcutoff          = dIF_cutoff,
+    quiet              = !verbose
+  )
+
+  if (verbose) cat("[ARTEMIS] Summarizing splicing event totals and enrichment...\n")
+
+  splicing_summary <- IsoformSwitchAnalyzeR::extractSplicingSummary(
+    sar,
+    alpha        = alpha,
+    dIFcutoff    = dIF_cutoff,
+    plot         = FALSE,
+    returnResult = TRUE
+  )
+
+  splicing_enrichment <- IsoformSwitchAnalyzeR::extractSplicingEnrichment(
+    sar,
+    alpha        = alpha,
+    dIFcutoff    = dIF_cutoff,
+    plot         = FALSE,
+    returnResult = TRUE
+  )
+
+  if (verbose) {
+    n_iso <- if (!is.null(sar$AlternativeSplicingAnalysis))
+      length(unique(sar$AlternativeSplicingAnalysis$isoform_id)) else 0L
+    cat("[ARTEMIS] Alternative splicing events classified for", n_iso, "isoforms.\n\n")
+  }
+
+  switch_result$switch_list        <- sar
+  switch_result$splicing_events     <- sar$AlternativeSplicingAnalysis
+  switch_result$splicing_summary    <- splicing_summary
+  switch_result$splicing_enrichment <- splicing_enrichment
   return(switch_result)
 }

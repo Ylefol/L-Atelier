@@ -529,8 +529,7 @@ ASPIS_plot_embedding_grid <- function(sweep,
   df_all <- do.call(rbind, df_list)
 
   # ── ncol: for UMAP lay out as n_neighbors × min_dist grid ───────────────────
-  ncols <- if (is_umap) length(unique(res_df$min_dist)) else
-              min(3L, n_runs)
+  ncols <- min(3L, n_runs)
 
   # ── Plot ─────────────────────────────────────────────────────────────────────
   p <- ggplot(df_all, aes(x = dim1, y = dim2, colour = colour_val)) +
