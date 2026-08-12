@@ -78,14 +78,14 @@
 #' @examples
 #' \dontrun{
 #' # Basic stacked bar
-#' AETHER_plot_cell_proportions(cibersort_result)
+#' AETHER_plot_cibersort_proportions(cibersort_result)
 #'
 #' # Grouped by condition
-#' AETHER_plot_cell_proportions(cibersort_result, group_by = sample_groups)
+#' AETHER_plot_cibersort_proportions(cibersort_result, group_by = sample_groups)
 #'
 #' }
 #' @export
-AETHER_plot_cell_proportions <- function(result,
+AETHER_plot_cibersort_proportions <- function(result,
                                           group_by = NULL,
                                           colors = NULL,
                                           title = "Cell Type Proportions",
@@ -193,15 +193,15 @@ AETHER_plot_cell_proportions <- function(result,
 #'
 #' @examples
 #' \dontrun{
-#' AETHER_plot_cell_heatmap(cibersort_result)
+#' AETHER_plot_cibersort_heatmap(cibersort_result)
 #'
 #' # With sample annotations
 #' annot <- data.frame(condition = groups, row.names = sample_names)
-#' AETHER_plot_cell_heatmap(cibersort_result, annotation_col = annot)
+#' AETHER_plot_cibersort_heatmap(cibersort_result, annotation_col = annot)
 #'
 #' }
 #' @export
-AETHER_plot_cell_heatmap <- function(result,
+AETHER_plot_cibersort_heatmap <- function(result,
                                       annotation_col = NULL,
                                       cluster_rows = TRUE,
                                       cluster_cols = TRUE,
@@ -290,19 +290,19 @@ AETHER_plot_cell_heatmap <- function(result,
 #'
 #' @examples
 #' \dontrun{
-#' AETHER_plot_cell_boxplot(cibersort_result, group_by = sample_conditions)
+#' AETHER_plot_cibersort_boxplot(cibersort_result, group_by = sample_conditions)
 #'
 #' # Top 10 cell types only
-#' AETHER_plot_cell_boxplot(cibersort_result, group_by = groups, top_n = 10)
+#' AETHER_plot_cibersort_boxplot(cibersort_result, group_by = groups, top_n = 10)
 #'
 #' # Named vector: names = groups, values = colors
 #' group_colors <- c(CTRL = "#1f77b4", UVC = "#d62728")
 #' groups_named <- group_colors[sample_sheet$condition]
-#' AETHER_plot_cell_boxplot(cibersort_result, group_by = groups_named)
+#' AETHER_plot_cibersort_boxplot(cibersort_result, group_by = groups_named)
 #'
 #' }
 #' @export
-AETHER_plot_cell_boxplot <- function(result,
+AETHER_plot_cibersort_boxplot <- function(result,
                                       group_by,
                                       cell_types = NULL,
                                       top_n = NULL,

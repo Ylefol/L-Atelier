@@ -876,3 +876,373 @@ AETHER_plot_gene_length_distribution <- function(de_result,
       legend.position  = "bottom"
     )
 }
+
+
+###############################################################################
+########### Expression Visualizations for Arbitrary Feature Subsets ###########
+###############################################################################
+
+#' Heatmap of Normalized Expression for a Feature Subset
+#'
+#' @description Draws a pheatmap of normalized counts for an arbitrary set of
+#' features (genes, TEs, or any other row ID present in the count matrix),
+#' features as rows and samples as columns. Unlike \code{AETHER_plot_pca()}
+#' (which summarizes the whole matrix), this is meant for zooming into a
+#' small, caller-chosen subset -- e.g. all members of one TE family, or one
+#' gene module -- to see whether they move together across samples. Works the
+#' same way regardless of subset size: rows just compress for larger sets,
+#' unlike a per-feature facet grid which stops being readable past a few
+#' dozen features (see \code{AETHER_plot_expression_boxplot()} for that case).
+#'
+#' @param counts An \code{artemis_norm} object from
+#'   \code{ARTEMIS_normalize_counts()}, or a normalized count matrix (features
+#'   x samples). If an \code{artemis_norm} object, \code{sample_info} and
+#'   \code{group_col} default to its \code{$targets} and
+#'   \code{$parameters$group_col} (but can be overridden).
+#' @param features Character vector of feature IDs to include (must be a
+#'   subset of \code{rownames(counts)}). IDs not found are dropped (reported
+#'   when \code{verbose = TRUE}).
+#' @param sample_info Data.frame of sample metadata, rownames matching
+#'   \code{colnames(counts)}. Required when \code{counts} is a plain matrix
+#'   and \code{group_col} is not NULL.
+#' @param sample_col Character or NULL. Column in \code{sample_info} holding
+#'   sample IDs, used as rownames for matching if provided. Default: NULL.
+#' @param group_col Character or NULL. Column in \code{sample_info} to show as
+#'   a column annotation strip. Set to NULL to omit annotation. Default:
+#'   "group".
+#' @param log_transform Logical. Log2(x + 1)-transform counts before scaling.
+#'   Default: TRUE.
+#' @param scale Character. Passed to \code{pheatmap::pheatmap()}: "row",
+#'   "column", or "none". Default: "row" (z-score each feature across
+#'   samples, the usual choice for comparing features on different scales).
+#' @param cluster_rows,cluster_cols Logical. Cluster features / samples.
+#'   Default: TRUE / FALSE (samples usually kept in a meaningful order, e.g.
+#'   grouped by condition, rather than re-clustered).
+#' @param color_palette Character vector of colors for the heatmap gradient.
+#'   Default: NULL (diverging blue-white-red, appropriate for z-scored data).
+#' @param title Character. Plot title. Default: "Expression Heatmap".
+#' @param show_rownames,show_colnames Logical. Default: TRUE.
+#' @param verbose Logical. Print notes about dropped/missing features and
+#'   samples. Default: TRUE.
+#' @param ... Additional arguments passed to \code{pheatmap::pheatmap()}.
+#'
+#' @return A pheatmap object (invisibly).
+#'
+#' @examples
+#' \dontrun{
+#' # All members of one TE family, from an artemis_norm object
+#' AETHER_plot_expression_heatmap(norm_data, features = l2_family_ids)
+#'
+#' # From a plain matrix + sample sheet
+#' AETHER_plot_expression_heatmap(norm_counts, features = my_genes,
+#'                                 sample_info = targets, group_col = "group")
+#' }
+#' @export
+AETHER_plot_expression_heatmap <- function(counts,
+                                            features,
+                                            sample_info   = NULL,
+                                            sample_col    = NULL,
+                                            group_col     = "group",
+                                            log_transform = TRUE,
+                                            scale         = "row",
+                                            cluster_rows  = TRUE,
+                                            cluster_cols  = FALSE,
+                                            color_palette = NULL,
+                                            title         = "Expression Heatmap",
+                                            show_rownames = TRUE,
+                                            show_colnames = TRUE,
+                                            verbose       = TRUE,
+                                            ...) {
+
+  if (!requireNamespace("pheatmap", quietly = TRUE)) {
+    stop("Package 'pheatmap' is required. Install with: install.packages('pheatmap')")
+  }
+
+  if (inherits(counts, "artemis_norm")) {
+    if (is.null(sample_info)) sample_info <- counts$targets
+    if (missing(group_col) && !is.null(counts$parameters$group_col)) {
+      group_col <- counts$parameters$group_col
+    }
+    counts <- counts$norm_counts
+  }
+  if (!is.matrix(counts)) counts <- as.matrix(counts)
+
+  found     <- intersect(features, rownames(counts))
+  missing_n <- length(features) - length(found)
+  if (missing_n > 0 && verbose) {
+    cat("[AETHER] ", missing_n, " of ", length(features),
+        " feature(s) not found in counts, dropped\n", sep = "")
+  }
+  if (length(found) == 0) {
+    stop("None of 'features' found in rownames(counts).", call. = FALSE)
+  }
+  mat <- counts[found, , drop = FALSE]
+
+  if (log_transform) mat <- log2(mat + 1)
+
+  # pheatmap's scale="row" subtracts the row mean and divides by the row SD;
+  # a zero-variance row (e.g. a TE subfamily undetected/constant across every
+  # sample in this comparison) divides by zero, producing a row of NaN that
+  # crashes pheatmap's internal dist()/hclust() call with an opaque "NA/NaN/Inf
+  # in foreign function call" error. Dropped here (same pattern as
+  # AETHER_plot_pca()'s zero-variance-gene filter) rather than left to surface
+  # as that error downstream.
+  if (identical(scale, "row")) {
+    row_vars  <- apply(mat, 1, var)
+    zero_var  <- is.na(row_vars) | row_vars == 0
+    if (any(zero_var)) {
+      if (verbose) {
+        cat("[AETHER] ", sum(zero_var),
+            " feature(s) with zero variance across samples dropped (scale=\"row\" would divide by zero): ",
+            paste(rownames(mat)[zero_var], collapse = ", "), "\n", sep = "")
+      }
+      mat <- mat[!zero_var, , drop = FALSE]
+    }
+    if (nrow(mat) == 0) {
+      stop("All requested features have zero variance across samples; nothing left to plot with scale=\"row\".",
+           call. = FALSE)
+    }
+  }
+
+  annotation_col <- NULL
+  if (!is.null(group_col)) {
+    if (is.null(sample_info)) {
+      stop("'sample_info' is required when 'group_col' is set (or pass an artemis_norm object).",
+           call. = FALSE)
+    }
+    if (!is.null(sample_col)) {
+      if (!sample_col %in% colnames(sample_info)) {
+        stop("sample_col '", sample_col, "' not found in sample_info", call. = FALSE)
+      }
+      rownames(sample_info) <- as.character(sample_info[[sample_col]])
+    }
+    shared <- intersect(colnames(mat), rownames(sample_info))
+    if (length(shared) == 0) {
+      stop("No matching sample names between counts and sample_info", call. = FALSE)
+    }
+    if (length(shared) < ncol(mat) && verbose) {
+      cat("[AETHER] ", ncol(mat) - length(shared),
+          " sample(s) in counts not found in sample_info, dropped\n", sep = "")
+    }
+    mat <- mat[, shared, drop = FALSE]
+    if (!group_col %in% colnames(sample_info)) {
+      stop("group_col '", group_col, "' not found in sample_info", call. = FALSE)
+    }
+    annotation_col <- sample_info[shared, group_col, drop = FALSE]
+  }
+
+  if (is.null(color_palette)) {
+    color_palette <- colorRampPalette(c("#2166AC", "#F7F7F7", "#B2182B"))(100)
+  }
+
+  p <- pheatmap::pheatmap(
+    mat,
+    scale          = scale,
+    cluster_rows   = cluster_rows,
+    cluster_cols   = cluster_cols,
+    color          = color_palette,
+    annotation_col = annotation_col,
+    main           = title,
+    show_rownames  = show_rownames,
+    show_colnames  = show_colnames,
+    ...
+  )
+
+  invisible(p)
+}
+
+
+#' Faceted Boxplots of Normalized Expression by Condition
+#'
+#' @description Draws faceted boxplots of normalized expression for an
+#' arbitrary set of features, one facet per feature, grouped by condition on
+#' the x-axis. When the feature set is large, this is capped to the top N
+#' features by a chosen DEA statistic (\code{sort_by}) so the same call works
+#' whether \code{features} has 10 elements or 300: for small sets the cap has
+#' no effect, for large sets it narrows to the most notable members rather
+#' than producing an unreadable facet grid.
+#'
+#' @param counts An \code{artemis_norm} object from
+#'   \code{ARTEMIS_normalize_counts()}, or a normalized count matrix (features
+#'   x samples). If an \code{artemis_norm} object, \code{sample_info} and
+#'   \code{group_col} default to its \code{$targets} and
+#'   \code{$parameters$group_col} (but can be overridden).
+#' @param features Character vector of feature IDs to include (must be a
+#'   subset of \code{rownames(counts)}).
+#' @param sample_info Data.frame of sample metadata, rownames matching
+#'   \code{colnames(counts)}. Required when \code{counts} is a plain matrix.
+#' @param sample_col Character or NULL. Column in \code{sample_info} holding
+#'   sample IDs, used as rownames for matching if provided. Default: NULL.
+#' @param group_col Character. Column in \code{sample_info} to group by
+#'   (x-axis / fill). Default: "group".
+#' @param dea_result DEA result from \code{ARTEMIS_differential_counts()} (or
+#'   a data.frame with \code{feature_id} and \code{sort_by} columns). Required
+#'   when \code{length(features) > top_n}, used to rank features for capping.
+#'   Default: NULL.
+#' @param sort_by Character. Column in \code{dea_result} used to rank features
+#'   before capping to \code{top_n}. Default: "padj" (most statistically
+#'   confident first; NAs sort last). Use "log2FoldChange" to rank by effect
+#'   size instead (ranked by absolute value).
+#' @param top_n Integer or NULL. Maximum number of features to show. Default:
+#'   12. Set to NULL to disable capping and show every feature in
+#'   \code{features} (only advisable for small sets -- see
+#'   \code{AETHER_plot_expression_heatmap()} for a view that scales to large
+#'   sets without capping).
+#' @param log_transform Logical. Log2(x + 1)-transform counts. Default: TRUE.
+#' @param colors Named character vector of colors per group. Default: NULL
+#'   (default palette).
+#' @param title Character. Plot title. Default: "Expression by Group".
+#' @param text_size Numeric. Base font size. Default: 11.
+#' @param point_size Numeric. Size of jittered points. Default: 2.
+#' @param show_points Logical. Overlay jittered replicate points. Default:
+#'   TRUE.
+#' @param ncol Integer or NULL. Number of facet columns. Default: NULL (auto).
+#' @param verbose Logical. Print notes about dropped features, samples, and
+#'   capping. Default: TRUE.
+#'
+#' @return A ggplot object.
+#'
+#' @examples
+#' \dontrun{
+#' # Small family (n <= top_n): every member shown
+#' AETHER_plot_expression_boxplot(norm_data, features = l2_family_ids)
+#'
+#' # Large family: capped to the 12 most significant members
+#' AETHER_plot_expression_boxplot(norm_data, features = l1_family_ids,
+#'                                 dea_result = dea_result, top_n = 12)
+#' }
+#' @export
+AETHER_plot_expression_boxplot <- function(counts,
+                                            features,
+                                            sample_info   = NULL,
+                                            sample_col    = NULL,
+                                            group_col     = "group",
+                                            dea_result    = NULL,
+                                            sort_by       = "padj",
+                                            top_n         = 12,
+                                            log_transform = TRUE,
+                                            colors        = NULL,
+                                            title         = "Expression by Group",
+                                            text_size     = 11,
+                                            point_size    = 2,
+                                            show_points   = TRUE,
+                                            ncol          = NULL,
+                                            verbose       = TRUE) {
+
+  if (inherits(counts, "artemis_norm")) {
+    if (is.null(sample_info)) sample_info <- counts$targets
+    if (missing(group_col) && !is.null(counts$parameters$group_col)) {
+      group_col <- counts$parameters$group_col
+    }
+    counts <- counts$norm_counts
+  }
+  if (!is.matrix(counts)) counts <- as.matrix(counts)
+
+  if (is.null(sample_info)) {
+    stop("'sample_info' is required (or pass an artemis_norm object).", call. = FALSE)
+  }
+  if (!is.null(sample_col)) {
+    if (!sample_col %in% colnames(sample_info)) {
+      stop("sample_col '", sample_col, "' not found in sample_info", call. = FALSE)
+    }
+    rownames(sample_info) <- as.character(sample_info[[sample_col]])
+  }
+  if (!group_col %in% colnames(sample_info)) {
+    stop("group_col '", group_col, "' not found in sample_info", call. = FALSE)
+  }
+
+  found     <- intersect(features, rownames(counts))
+  missing_n <- length(features) - length(found)
+  if (missing_n > 0 && verbose) {
+    cat("[AETHER] ", missing_n, " of ", length(features),
+        " feature(s) not found in counts, dropped\n", sep = "")
+  }
+  if (length(found) == 0) {
+    stop("None of 'features' found in rownames(counts).", call. = FALSE)
+  }
+
+  # Cap to top_n by a DEA statistic, same rule regardless of feature-set size --
+  # a no-op when length(found) <= top_n (e.g. a small TE family), a genuine
+  # narrowing when it isn't (e.g. a 130-member family). No branching on family
+  # size anywhere else in this function.
+  if (!is.null(top_n) && length(found) > top_n) {
+    if (is.null(dea_result)) {
+      stop("length(features) (", length(found), ") exceeds top_n (", top_n,
+           "). Provide 'dea_result' to rank features for capping, or set top_n = NULL.",
+           call. = FALSE)
+    }
+    dea_df   <- .dea_extract_df(dea_result, required = c("feature_id", sort_by))
+    dea_df   <- dea_df[dea_df$feature_id %in% found, c("feature_id", sort_by)]
+    rank_val <- if (identical(sort_by, "log2FoldChange")) -abs(dea_df[[sort_by]]) else dea_df[[sort_by]]
+    dea_df   <- dea_df[order(rank_val, na.last = TRUE), ]
+    found    <- head(dea_df$feature_id, top_n)
+    if (verbose) {
+      cat("[AETHER] Capped to top", length(found), "feature(s) by", sort_by, "\n")
+    }
+  }
+
+  shared <- intersect(colnames(counts), rownames(sample_info))
+  if (length(shared) == 0) {
+    stop("No matching sample names between counts and sample_info", call. = FALSE)
+  }
+  if (length(shared) < ncol(counts) && verbose) {
+    cat("[AETHER] ", ncol(counts) - length(shared),
+        " sample(s) in counts not found in sample_info, dropped\n", sep = "")
+  }
+
+  mat <- counts[found, shared, drop = FALSE]
+  if (log_transform) mat <- log2(mat + 1)
+
+  group_vals <- sample_info[shared, group_col]
+
+  df <- data.frame(
+    sample  = rep(shared, times = length(found)),
+    feature = rep(found, each = length(shared)),
+    value   = as.vector(t(mat)),
+    group   = rep(group_vals, times = length(found)),
+    stringsAsFactors = FALSE
+  )
+  df$feature <- factor(df$feature, levels = found)
+
+  groups <- unique(group_vals)
+  if (is.null(colors)) {
+    default_pal <- c("#1f77b4", "#d62728", "#2ca02c", "#ff7f0e", "#9467bd",
+                      "#8c564b", "#e377c2", "#bcbd22", "#17becf", "#aec7e8")
+    pal <- if (length(groups) > length(default_pal)) {
+      colorRampPalette(default_pal)(length(groups))
+    } else {
+      default_pal[seq_along(groups)]
+    }
+    names(pal) <- groups
+  } else {
+    pal <- colors
+  }
+
+  p <- ggplot(df, aes(x = group, y = value, fill = group)) +
+    geom_boxplot(outlier.shape = if (show_points) NA else 19, alpha = 0.7) +
+    scale_fill_manual(values = pal) +
+    facet_wrap(~ feature, scales = "free_y", ncol = ncol) +
+    labs(
+      title = title,
+      x = NULL,
+      y = if (log_transform) "log2(normalized count + 1)" else "Normalized count",
+      fill = "Group"
+    ) +
+    theme_minimal(base_size = text_size) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor = element_blank(),
+      strip.text = element_text(face = "bold", size = text_size - 1),
+      legend.position = "bottom"
+    )
+
+  if (show_points) {
+    p <- p + geom_jitter(aes(color = group), width = 0.15,
+                          size = point_size, alpha = 0.7,
+                          show.legend = FALSE) +
+      scale_color_manual(values = pal)
+  }
+
+  return(p)
+}

@@ -8,6 +8,39 @@
 # NORMALIZATION (for multi-comparison workflows)
 # ==============================================================================
 
+# Resolve a user-supplied `size_factors` argument (NULL is handled by the
+# caller before this is invoked) into a full, sample-ordered numeric vector.
+# A single scalar recycles across every sample; a named vector must cover
+# every sample_id exactly.
+.artemis_resolve_size_factors <- function(size_factors, sample_ids) {
+  if (!is.numeric(size_factors)) {
+    stop("size_factors must be NULL, a named numeric vector, or a single ",
+         "numeric scalar.")
+  }
+  if (any(size_factors <= 0)) {
+    stop("size_factors must be strictly positive.")
+  }
+
+  if (length(size_factors) == 1L) {
+    return(setNames(rep(size_factors, length(sample_ids)), sample_ids))
+  }
+
+  if (is.null(names(size_factors))) {
+    stop("size_factors must be named (names matching sample IDs) when ",
+         "supplying more than one value. To apply the same factor to every ",
+         "sample, pass a single scalar instead.")
+  }
+
+  missing_samples <- setdiff(sample_ids, names(size_factors))
+  if (length(missing_samples) > 0) {
+    stop("size_factors is missing values for: ",
+         paste(missing_samples, collapse = ", "))
+  }
+
+  size_factors[sample_ids]
+}
+
+
 #' Normalize Count Data with DESeq2
 #'
 #' Creates a DESeq2 object with size factors estimated on the FULL dataset.
@@ -23,22 +56,44 @@
 #'   variable to include in the design formula as \code{~ batch_col + condition}.
 #'   Default: NULL. \strong{Limitation:} only one blocking variable is supported;
 #'   multi-variable designs are not yet implemented.
+#' @param size_factors NULL, a named numeric vector, or a single numeric scalar.
+#'   Controls how per-sample size factors are set. Default: NULL.
+#'   \describe{
+#'     \item{NULL}{DESeq2 estimates size factors itself via
+#'       \code{estimateSizeFactors()} (median-of-ratios). This is correct when
+#'       the input counts are raw and untouched by any prior normalization.}
+#'     \item{Named numeric vector}{Names must match \code{rownames(targets)}
+#'       (equivalently \code{colnames(counts)}); every sample must have a
+#'       value. Assigned directly via \code{sizeFactors(dds) <-}, skipping
+#'       DESeq2's own estimation entirely. Use this to hand DESeq2 an
+#'       externally computed scale, e.g. spike-in-derived factors from
+#'       \code{HORIZON_compute_spike_in_factors()}'s \code{size_factor_deseq2}
+#'       column.}
+#'     \item{Single scalar}{Recycled across every sample (e.g. \code{1}). Use
+#'       this to disable DESeq2-level normalization entirely -- appropriate
+#'       when the input counts have already been put on a comparable scale
+#'       upstream (e.g. by physical read downsampling) and no further
+#'       per-sample correction should be applied.}
+#'   }
+#'   All values must be strictly positive (DESeq2's own requirement).
 #' @param verbose Logical. Print progress. Default: TRUE.
 #'
 #' @return An S3 object of class \code{"artemis_norm"} containing:
 #'   \describe{
-#'     \item{dds}{DESeqDataSet with size factors estimated on full dataset}
+#'     \item{dds}{DESeqDataSet with size factors set on full dataset}
 #'     \item{norm_counts}{Normalized count matrix}
 #'     \item{targets}{The targets data.frame}
 #'     \item{size_factors}{Named vector of size factors per sample}
-#'     \item{parameters}{List of parameters used}
+#'     \item{parameters}{List of parameters used, including
+#'       \code{size_factors_source} ("deseq2_estimated" or "external")}
 #'   }
 #'
 #' @details
 #' This function:
 #' \enumerate{
 #'   \item Creates a DESeqDataSet from the full count matrix
-#'   \item Estimates size factors using all samples together
+#'   \item Sets size factors using all samples together -- either estimated by
+#'     DESeq2 or supplied via \code{size_factors}
 #'   \item Stores the normalized counts and size factors
 #' }
 #'
@@ -53,6 +108,20 @@
 #' ensures that the normalized expression values are comparable across all
 #' comparisons.
 #'
+#' @section Externally supplied size factors:
+#' DESeq2's default (median-of-ratios) normalization assumes most features are
+#' non-differential between samples and infers relative library scale from the
+#' count matrix itself. When an experiment includes a spike-in control (ATAC,
+#' CHIP/CUT&RUN, R-loop), that assumption can be exactly what you don't want --
+#' a real, global shift in signal violates it. \code{size_factors} lets you
+#' substitute a ground-truth scale (from the spike-in) in place of DESeq2's own
+#' estimate. Do not combine externally supplied size factors with counts that
+#' have \emph{already} been normalized upstream (e.g. via physical BAM
+#' downsampling to a spike-in ratio) -- that applies the same correction twice.
+#' Pick one: raw counts + \code{size_factors} (spike-in derived), or
+#' already-normalized counts + \code{size_factors = 1} (disables further
+#' correction).
+#'
 #' @examples
 #' \dontrun{
 #' # Step 1: Normalize the full dataset
@@ -65,12 +134,22 @@
 #' # Step 3: Combine results for downstream analysis
 #' all_genes <- ARTEMIS_select_de_genes(list(dea_A_vs_B, dea_C_vs_B))
 #'
+#' # Spike-in normalized ATAC/CHIP: supply factors instead of letting DESeq2
+#' # estimate its own (raw, non-downsampled counts required for this to be a
+#' # single, correct normalization rather than a double one).
+#' spikein_factors <- HORIZON_compute_spike_in_factors(spikein_bams)
+#' sf <- setNames(spikein_factors$size_factor_deseq2, spikein_factors$sample_id)
+#' norm_data <- ARTEMIS_normalize_counts(counts, sample_sheet, size_factors = sf)
+#'
+#' # Counts already normalized upstream -- disable DESeq2-level normalization
+#' norm_data <- ARTEMIS_normalize_counts(counts, sample_sheet, size_factors = 1)
 #' }
 #' @export
 ARTEMIS_normalize_counts <- function(counts,
                                       targets,
                                       group_col = "group",
                                       batch_col = NULL,
+                                      size_factors = NULL,
                                       verbose = TRUE) {
 
   # --- Validate inputs ---
@@ -141,16 +220,24 @@ ARTEMIS_normalize_counts <- function(counts,
     design = design_formula
   )
 
-  # --- Estimate size factors on FULL dataset ---
-  if (verbose) cat("    Estimating size factors on full dataset...\n")
-  dds <- estimateSizeFactors(dds)
+  # --- Set size factors on FULL dataset ---
+  if (is.null(size_factors)) {
+    if (verbose) cat("    Estimating size factors on full dataset (DESeq2 median-of-ratios)...\n")
+    dds <- estimateSizeFactors(dds)
+    size_factors_source <- "deseq2_estimated"
+  } else {
+    resolved_sf <- .artemis_resolve_size_factors(size_factors, colnames(counts))
+    if (verbose) cat("    Using externally supplied size factors (skipping DESeq2 estimation)...\n")
+    sizeFactors(dds) <- resolved_sf
+    size_factors_source <- "external"
+  }
 
-  size_factors <- sizeFactors(dds)
+  size_factors_final <- sizeFactors(dds)
   norm_counts <- counts(dds, normalized = TRUE)
 
   if (verbose) {
-    cat("    Size factor range:", round(min(size_factors), 3), "-",
-        round(max(size_factors), 3), "\n\n")
+    cat("    Size factor range:", round(min(size_factors_final), 3), "-",
+        round(max(size_factors_final), 3), "\n\n")
   }
 
   # --- Return artemis_norm object ---
@@ -158,10 +245,11 @@ ARTEMIS_normalize_counts <- function(counts,
     dds = dds,
     norm_counts = norm_counts,
     targets = targets,
-    size_factors = size_factors,
+    size_factors = size_factors_final,
     parameters = list(
       group_col = group_col,
-      batch_col = batch_col
+      batch_col = batch_col,
+      size_factors_source = size_factors_source
     )
   )
 
@@ -186,6 +274,14 @@ print.artemis_norm <- function(x, ...) {
   cat("Groups:", paste(unique(x$targets[[x$parameters$group_col]]), collapse = ", "), "\n")
   cat("Size factors: ", round(min(x$size_factors), 3), " - ",
       round(max(x$size_factors), 3), "\n", sep = "")
+  sf_source <- x$parameters$size_factors_source
+  cat("Size factor source: ",
+      if (is.null(sf_source)) "unknown (older artemis_norm object)"
+      else switch(sf_source,
+                  deseq2_estimated = "DESeq2 (median-of-ratios)",
+                  external          = "externally supplied",
+                  "unknown"),
+      "\n", sep = "")
   if (!is.null(x$parameters$batch_col)) {
     cat("Batch variable:", x$parameters$batch_col, "\n")
   }

@@ -544,14 +544,17 @@ TALARIA_export_first_steps <- function(sce,
       x = "NES", y = NULL
     ) +
     KHALKOS_theme_cauldron() +
-    ggplot2::theme(axis.text.y = ggplot2::element_text(size = 8))
+    ggplot2::theme(axis.text.y = ggplot2::element_text(size = 10))
 }
 
 
 # ORA dotplot.  df: gprofiler2 results (term_name, p_value, intersection_size,
 # term_size, query_size, effective_domain_size, source).
 # Top top_n terms distributed across sources, ordered by fold enrichment.
-.talaria_ora_dotplot <- function(df, top_n = 20, title = "ORA") {
+# low_colour/high_colour set the -log10(p-value) gradient -- used to give the
+# "up" and "down" panels distinct colour families when combined side by side.
+.talaria_ora_dotplot <- function(df, top_n = 20, title = "ORA",
+                                  low_colour = "#fee5d9", high_colour = "#a50f15") {
 
   if (nrow(df) == 0L) return(NULL)
 
@@ -582,14 +585,14 @@ TALARIA_export_first_steps <- function(sce,
                                colour = -log10(p_value))) +
     ggplot2::geom_point() +
     ggplot2::facet_grid(source ~ ., scales = "free_y", space = "free_y") +
-    ggplot2::scale_colour_gradient(low = "#fee5d9", high = "#a50f15",
+    ggplot2::scale_colour_gradient(low = low_colour, high = high_colour,
                                     name = "-log10(p-value)") +
     ggplot2::scale_size_continuous(name  = "Intersection\nsize",
                                     range = c(2, 8)) +
     ggplot2::labs(title = title, x = "Fold Enrichment", y = NULL) +
     KHALKOS_theme_cauldron() +
     ggplot2::theme(
-      axis.text.y  = ggplot2::element_text(size = 8),
+      axis.text.y  = ggplot2::element_text(size = 10),
       strip.text.y = ggplot2::element_text(angle = 0, hjust = 0)
     )
 }
@@ -931,7 +934,11 @@ TALARIA_export_gsea <- function(result,
 #' a \code{keraunos_ora} or \code{keraunos_ora_multi} object.
 #'
 #' For \code{keraunos_ora_multi} each cluster gets its own subdirectory.
-#' Up- and down-regulated directions are exported separately.
+#' Up- and down-regulated directions are combined into a single results CSV
+#' (distinguished by a \code{direction} column) and a single dotplot image
+#' with the "up" and "down" panels shown side by side, each keeping its own
+#' fold-enrichment axis and significance colour gradient (red for up, blue
+#' for down) rather than a shared scale.
 #'
 #' @param result A \code{keraunos_ora} or \code{keraunos_ora_multi} object.
 #' @param output_dir Character. Directory to write into (created if absent).
@@ -1003,14 +1010,54 @@ TALARIA_export_ora <- function(result,
     saved <- c(saved, file.path(output_dir, paste0(prefix, "_multi.rds")))
 
     for (cl in names(result$results)) {
-      cl_dir <- file.path(output_dir, paste0("cluster_", clean(cl)))
+      cl_dir   <- file.path(output_dir, paste0("cluster_", clean(cl)))
+      cl_label <- paste0("cluster_", clean(cl))
       dir.create(cl_dir, recursive = TRUE, showWarnings = FALSE)
-      for (direction in c("up", "down")) {
-        .write_direction_ora(
-          result$results[[cl]][[direction]],
-          cl_dir,
-          paste0("cluster_", clean(cl), "_", direction)
-        )
+
+      up_obj   <- result$results[[cl]][["up"]]
+      down_obj <- result$results[[cl]][["down"]]
+
+      # Combined results table, tagged by direction
+      combined_df <- do.call(rbind, c(
+        if (!is.null(up_obj))   list(cbind(direction = "up",   up_obj$results))   else NULL,
+        if (!is.null(down_obj)) list(cbind(direction = "down", down_obj$results)) else NULL
+      ))
+      if (!is.null(combined_df) && nrow(combined_df) > 0L) {
+        csv_path <- file.path(cl_dir, paste0(prefix, "_", cl_label, "_results.csv"))
+        utils::write.csv(combined_df, csv_path, row.names = FALSE)
+        saved <- c(saved, csv_path)
+      }
+
+      # Combined dotplot: "up" (red) and "down" (blue) panels side by side,
+      # each keeping its own fold-enrichment axis and colour scale.
+      if (isTRUE(plots)) {
+        p_up <- if (!is.null(up_obj) && nrow(up_obj$significant) > 0L)
+          .talaria_ora_dotplot(
+            up_obj$significant, top_n = as.integer(top_n),
+            title = paste0("ORA \u2014 ", gsub("_", " ", cl_label), " \u2014 up"),
+            low_colour = "#fee5d9", high_colour = "#a50f15"
+          )
+
+        p_down <- if (!is.null(down_obj) && nrow(down_obj$significant) > 0L)
+          .talaria_ora_dotplot(
+            down_obj$significant, top_n = as.integer(top_n),
+            title = paste0("ORA \u2014 ", gsub("_", " ", cl_label), " \u2014 down"),
+            low_colour = "#eff3ff", high_colour = "#08519c"
+          )
+
+        panels <- Filter(Negate(is.null), list(p_up, p_down))
+        if (length(panels) > 0L) {
+          if (!requireNamespace("gridExtra", quietly = TRUE))
+            stop("Package 'gridExtra' is required for combined ORA dotplots. ",
+                 "Install via: install.packages(\"gridExtra\")", call. = FALSE)
+
+          combined_plot <- gridExtra::arrangeGrob(grobs = panels, ncol = length(panels))
+          plot_path <- file.path(cl_dir, paste0(prefix, "_", cl_label, "_dotplot.png"))
+          ggplot2::ggsave(plot_path, plot = combined_plot,
+                          width = plot_width * length(panels), height = plot_height,
+                          dpi = 300, units = "in", limitsize = FALSE)
+          saved <- c(saved, plot_path)
+        }
       }
     }
   }

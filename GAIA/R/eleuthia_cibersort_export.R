@@ -199,7 +199,7 @@ ELEUTHIA_export_cibersort_results <- function(result,
 
     # Stacked bar plot (ggplot)
     tryCatch({
-      p <- AETHER_plot_cell_proportions(result, group_by = group_by)
+      p <- AETHER_plot_cibersort_proportions(result, group_by = group_by)
       plot_files <- .save_ggplot(p, plot_dir, "cell_proportions", plot_format,
                                   width = max(8, result$metadata$n_samples * 0.4 + 3),
                                   height = 7)
@@ -222,7 +222,7 @@ ELEUTHIA_export_cibersort_results <- function(result,
       }
 
       .save_pheatmap(
-        function() AETHER_plot_cell_heatmap(result, annotation_col = annot_col),
+        function() AETHER_plot_cibersort_heatmap(result, annotation_col = annot_col),
         plot_dir, "cell_heatmap", plot_format,
         width = max(8, result$metadata$n_samples * 0.3 + 4),
         height = max(6, result$metadata$n_cell_types * 0.25 + 3)
@@ -237,7 +237,7 @@ ELEUTHIA_export_cibersort_results <- function(result,
     # Boxplot by group (only if group_by provided, ggplot)
     if (!is.null(group_by)) {
       tryCatch({
-        p <- AETHER_plot_cell_boxplot(result, group_by = group_by, top_n = top_n)
+        p <- AETHER_plot_cibersort_boxplot(result, group_by = group_by, top_n = top_n)
         n_cell_types <- if (!is.null(top_n)) min(top_n, result$metadata$n_cell_types) else result$metadata$n_cell_types
         plot_files <- .save_ggplot(p, plot_dir, "cell_boxplot", plot_format,
                                     width = 16,

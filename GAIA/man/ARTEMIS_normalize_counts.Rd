@@ -2,13 +2,14 @@
 % Please edit documentation in R/artemis_differential_analysis.R
 \name{ARTEMIS_normalize_counts}
 \alias{ARTEMIS_normalize_counts}
-\title{Artemis - Differential Analysis Functions}
+\title{Normalize Count Data with DESeq2}
 \usage{
 ARTEMIS_normalize_counts(
   counts,
   targets,
   group_col = "group",
   batch_col = NULL,
+  size_factors = NULL,
   verbose = TRUE
 )
 }
@@ -25,23 +26,41 @@ variable to include in the design formula as \code{~ batch_col + condition}.
 Default: NULL. \strong{Limitation:} only one blocking variable is supported;
 multi-variable designs are not yet implemented.}
 
+\item{size_factors}{NULL, a named numeric vector, or a single numeric scalar.
+Controls how per-sample size factors are set. Default: NULL.
+\describe{
+\item{NULL}{DESeq2 estimates size factors itself via
+\code{estimateSizeFactors()} (median-of-ratios). This is correct when
+the input counts are raw and untouched by any prior normalization.}
+\item{Named numeric vector}{Names must match \code{rownames(targets)}
+(equivalently \code{colnames(counts)}); every sample must have a
+value. Assigned directly via \code{sizeFactors(dds) <-}, skipping
+DESeq2's own estimation entirely. Use this to hand DESeq2 an
+externally computed scale, e.g. spike-in-derived factors from
+\code{HORIZON_compute_spike_in_factors()}'s \code{size_factor_deseq2}
+column.}
+\item{Single scalar}{Recycled across every sample (e.g. \code{1}). Use
+this to disable DESeq2-level normalization entirely -- appropriate
+when the input counts have already been put on a comparable scale
+upstream (e.g. by physical read downsampling) and no further
+per-sample correction should be applied.}
+}
+All values must be strictly positive (DESeq2's own requirement).}
+
 \item{verbose}{Logical. Print progress. Default: TRUE.}
 }
 \value{
 An S3 object of class \code{"artemis_norm"} containing:
 \describe{
-\item{dds}{DESeqDataSet with size factors estimated on full dataset}
+\item{dds}{DESeqDataSet with size factors set on full dataset}
 \item{norm_counts}{Normalized count matrix}
 \item{targets}{The targets data.frame}
 \item{size_factors}{Named vector of size factors per sample}
-\item{parameters}{List of parameters used}
+\item{parameters}{List of parameters used, including
+\code{size_factors_source} ("deseq2_estimated" or "external")}
 }
 }
 \description{
-General-purpose differential analysis functions using
-established statistical methods (DESeq2, etc.) for count-based data.
-Normalize Count Data with DESeq2
-
 Creates a DESeq2 object with size factors estimated on the FULL dataset.
 Use this when performing multiple pairwise comparisons from the same
 experiment - normalizing once ensures consistent size factors across all
@@ -51,7 +70,8 @@ subsequent comparisons.
 This function:
 \enumerate{
 \item Creates a DESeqDataSet from the full count matrix
-\item Estimates size factors using all samples together
+\item Sets size factors using all samples together -- either estimated by
+DESeq2 or supplied via \code{size_factors}
 \item Stores the normalized counts and size factors
 }
 
@@ -68,6 +88,22 @@ ensures that the normalized expression values are comparable across all
 comparisons.
 }
 
+\section{Externally supplied size factors}{
+
+DESeq2's default (median-of-ratios) normalization assumes most features are
+non-differential between samples and infers relative library scale from the
+count matrix itself. When an experiment includes a spike-in control (ATAC,
+CHIP/CUT&RUN, R-loop), that assumption can be exactly what you don't want --
+a real, global shift in signal violates it. \code{size_factors} lets you
+substitute a ground-truth scale (from the spike-in) in place of DESeq2's own
+estimate. Do not combine externally supplied size factors with counts that
+have \emph{already} been normalized upstream (e.g. via physical BAM
+downsampling to a spike-in ratio) -- that applies the same correction twice.
+Pick one: raw counts + \code{size_factors} (spike-in derived), or
+already-normalized counts + \code{size_factors = 1} (disables further
+correction).
+}
+
 \examples{
 \dontrun{
 # Step 1: Normalize the full dataset
@@ -80,5 +116,14 @@ dea_C_vs_B <- ARTEMIS_differential_counts(norm_data, "B", "C")
 # Step 3: Combine results for downstream analysis
 all_genes <- ARTEMIS_select_de_genes(list(dea_A_vs_B, dea_C_vs_B))
 
+# Spike-in normalized ATAC/CHIP: supply factors instead of letting DESeq2
+# estimate its own (raw, non-downsampled counts required for this to be a
+# single, correct normalization rather than a double one).
+spikein_factors <- HORIZON_compute_spike_in_factors(spikein_bams)
+sf <- setNames(spikein_factors$size_factor_deseq2, spikein_factors$sample_id)
+norm_data <- ARTEMIS_normalize_counts(counts, sample_sheet, size_factors = sf)
+
+# Counts already normalized upstream -- disable DESeq2-level normalization
+norm_data <- ARTEMIS_normalize_counts(counts, sample_sheet, size_factors = 1)
 }
 }

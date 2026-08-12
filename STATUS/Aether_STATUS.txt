@@ -1,7 +1,7 @@
 ================================================================================
 AETHER STATUS - Visualization
 ================================================================================
-Last Updated: 2026-06-24
+Last Updated: 2026-08-10
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -128,11 +128,11 @@ AETHER_plot_cluster_pca(cc_result, k, point_size=1.5, alpha=0.7,
 
 aether_cibersort_plots.R:
 --------------------------
-AETHER_plot_cell_proportions(cibersort_result, ...)
+AETHER_plot_cibersort_proportions(cibersort_result, ...)
   - Stacked bar chart of cell type proportions
-AETHER_plot_cell_heatmap(cibersort_result, ...)
+AETHER_plot_cibersort_heatmap(cibersort_result, ...)
   - Heatmap of cell type proportions
-AETHER_plot_cell_boxplot(cibersort_result, ...)
+AETHER_plot_cibersort_boxplot(cibersort_result, ...)
   - Boxplots of cell type proportions by condition
 
 aether_circos.R:
@@ -190,6 +190,28 @@ AETHER_plot_enrichment_map(enrichment_result, source="REAC", top_n=20L, jaccard_
   - Force-directed layout (fr/kk) clusters related terms into visible super-groups
   - Multi-module terms shown with thicker node border; isolated nodes = module-specific biology
   - Returns ggplot object (ggsave-compatible)
+AETHER_plot_expression_heatmap(counts, features, sample_info, sample_col, group_col,
+                                log_transform, scale, cluster_rows, cluster_cols,
+                                color_palette, title, show_rownames, show_colnames, ...)
+  - pheatmap of normalized expression for an arbitrary feature subset (features x samples)
+  - Accepts an artemis_norm object (sample_info/group_col auto-extracted) or a plain matrix
+  - Works the same way regardless of subset size (rows just compress) -- unlike a per-feature
+    facet grid, which is unreadable past a few dozen features (see boxplot fn below)
+  - Not a ggplot -- pheatmap draws on creation, so save via grDevices::png()/pdf() + dev.off(),
+    not ggsave() (see GAIA's internal .save_pheatmap() helper for the pattern)
+  - When scale="row" (default), features with zero variance across samples are dropped before
+    scaling/clustering (reported via cat() when verbose=TRUE) -- otherwise pheatmap's row
+    z-scoring divides by a zero SD, producing a NaN row that crashes cluster_rows' internal
+    dist()/hclust() call with an opaque "NA/NaN/Inf in foreign function call" error
+AETHER_plot_expression_boxplot(counts, features, sample_info, sample_col, group_col,
+                                dea_result, sort_by="padj", top_n=12, log_transform,
+                                colors, title, text_size, point_size, show_points, ncol, ...)
+  - Faceted boxplots of normalized expression by condition, one facet per feature
+  - Accepts an artemis_norm object (sample_info/group_col auto-extracted) or a plain matrix
+  - Caps to top_n features ranked by a dea_result column (sort_by) so the same call works for
+    small and large feature sets: a no-op when length(features) <= top_n, a real narrowing
+    (to the most notable members) when it isn't -- no size-dependent branching required
+  - Errors if length(features) > top_n and no dea_result is supplied to rank by
 
 aether_enrichment_plots.R:
 ---------------------------

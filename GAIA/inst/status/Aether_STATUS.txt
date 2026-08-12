@@ -525,14 +525,14 @@ AETHER_plot_motif_comparison(homer_batch, top_n, motifs, cluster_sets,
 
 cibersort_plots.R:
 ------------------
-AETHER_plot_cell_proportions(result, group_by, colors, title, text_size,
+AETHER_plot_cibersort_proportions(result, group_by, colors, title, text_size,
                               legend_position, bar_width)
   - Stacked bar plot of cell type proportions per sample
   - Accepts artemis_cibersort object or proportions matrix
   - group_by: optional grouping vector to reorder/facet samples
   - Auto-filters zero-proportion cell types
 
-AETHER_plot_cell_heatmap(result, annotation_col, cluster_rows, cluster_cols,
+AETHER_plot_cibersort_heatmap(result, annotation_col, cluster_rows, cluster_cols,
                           scale, color_palette, title, show_rownames,
                           show_colnames, ...)
   - Heatmap of cell type proportions (pheatmap)
@@ -540,7 +540,7 @@ AETHER_plot_cell_heatmap(result, annotation_col, cluster_rows, cluster_cols,
   - White-to-red sequential palette by default
   - scale="none" by default (proportions already comparable)
 
-AETHER_plot_cell_boxplot(result, group_by, cell_types, top_n, colors, title,
+AETHER_plot_cibersort_boxplot(result, group_by, cell_types, top_n, colors, title,
                           text_size, point_size, show_points, ncol)
   - Faceted boxplots of cell type proportions by condition
   - group_by: required condition vector

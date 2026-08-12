@@ -1,7 +1,7 @@
 ================================================================================
 TALARIA STATUS - Import, Export & Format Conversion
 ================================================================================
-Last Updated: 2026-07-22
+Last Updated: 2026-08-12
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -130,7 +130,15 @@ TALARIA_export_ora(result, output_dir, prefix="ora", plots=TRUE,
       dotplot (top_n terms across sources; fold enrichment on x,
                dot size=intersection_size, colour=-log10(p_value),
                faceted by source)
-  - Multi: per-cluster subdirectory; up and down exported separately
+  - Multi: per-cluster subdirectory; up and down combined into one results
+    CSV (tagged by a "direction" column) and one dotplot image per cluster
+    -- up/down shown as side-by-side panels (gridExtra::arrangeGrob), each
+    keeping its own fold-enrichment axis and colour gradient (red for up,
+    blue for down) rather than a shared scale. 2026-08-12: replaced the
+    prior per-direction CSV/PNG pair to make large multi-comparison exports
+    easier to navigate.
+  - .talaria_ora_dotplot() takes low_colour/high_colour so callers can pick
+    the gradient per panel
 
 TALARIA_export_first_steps(sce, output_dir, hvg_sweep=NULL, pc_sweep=NULL,
                             k_sweep=NULL, resolution_sweep=NULL,

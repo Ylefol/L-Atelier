@@ -42,5 +42,9 @@ a \code{keraunos_ora} or \code{keraunos_ora_multi} object.
 }
 \details{
 For \code{keraunos_ora_multi} each cluster gets its own subdirectory.
-Up- and down-regulated directions are exported separately.
+Up- and down-regulated directions are combined into a single results CSV
+(distinguished by a \code{direction} column) and a single dotplot image
+with the "up" and "down" panels shown side by side, each keeping its own
+fold-enrichment axis and significance colour gradient (red for up, blue
+for down) rather than a shared scale.
 }
