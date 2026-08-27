@@ -1,7 +1,7 @@
 ================================================================================
 TALOS STATUS - Dimensionality Reduction & Clustering
 ================================================================================
-Last Updated: 2026-07-01
+Last Updated: 2026-08-26
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -53,8 +53,14 @@ TALOS_run_umap(sce, use_rep="PCA", n_pcs=30, n_neighbors=15, min_dist=0.1,
     (set by TALOS_build_graph()) directly as uwot input, bypassing internal KNN;
     n_neighbors is ignored; k is retrieved from metadata(sce)$snn_k; ensures
     clustering and UMAP operate on the same neighbourhood structure (true alignment)
-  - SNN weights are normalized to [0,1] before passing to uwot (required for
-    rank-based weights; Jaccard weights are already in range)
+  - SNN weights are normalized to [0,1], then inverted (dist = 1 - weight)
+    before passing to uwot: uwot::umap() treats a sparse X as a DISTANCE
+    matrix, not a similarity matrix, so raw SNN affinity must be inverted or
+    a cell's strongest neighbour is read as its farthest point. Fixed
+    2026-08-26; verified empirically on a real dataset (Nico_midbrain,
+    18,358 cells): fraction of cells whose top-weighted SNN neighbour ends
+    up closer than their bottom-weighted neighbour in the embedding went
+    from 42.8% (pre-fix, worse than chance) to 96.2% (post-fix).
   - Stored as reducedDims(sce)[["UMAP"]]
 
 TALOS_run_tsne(sce, n_pcs=30, perplexity=30, max_iter=1000, seed=42,
@@ -95,6 +101,9 @@ TALOS_tune_umap(sce, n_neighbors_range=c(10,15,20,30,50),
   - use_graph=TRUE (default): n_neighbors is fixed by the SNN graph (k from metadata(sce)$snn_k);
     only min_dist is swept; each run calls uwot::umap(X=adj, ...) directly;
     plot switches to a line plot over min_dist (tile heatmap has no n_neighbors axis)
+  - Had its own independent copy of the SNN-weight-to-uwot conversion (not shared
+    with TALOS_run_umap); carried the same affinity/distance inversion bug and was
+    fixed in the same pass 2026-08-26 — see TALOS_run_umap entry above
   - Metrics: KNN overlap (Jaccard, PCA vs embedding) + mean silhouette in 2D
   - Both normalised to [0,1] and averaged into a composite score
   - Silhouette skipped if cluster_col not found in colData

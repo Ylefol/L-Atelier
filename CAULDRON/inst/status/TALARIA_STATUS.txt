@@ -211,6 +211,59 @@ TALARIA_export_gene_table_widget(sce, columns=NULL, widget_id="gene-table",
   - Requires jsonlite + knitr (Suggests); errors via requireNamespace() guard
     if either is missing
 
+TALARIA_build_de_comparison_table(de_list, sig_col="padj", sig_thresh=0.05,
+                                   l2fc_thresh=0.5, digits=3)
+  - Returns a plain wide data.frame -- one row per gene significant in >=1
+    comparison, a "<comparison> log2FC" / "<comparison> padj" column pair
+    per comparison -- meant for DT::datatable() directly above
+    TALARIA_export_de_comparison_widget() so a viewer can browse/search the
+    full gene list before picking one to plot in that widget
+  - Shares its significance/union filtering logic with
+    TALARIA_export_de_comparison_widget() via the internal
+    .talaria_de_comparison_core() helper, so the two stay in sync when
+    called with matching sig_col/sig_thresh/l2fc_thresh
+  - de_list/sig_col/sig_thresh/l2fc_thresh: same meaning as in
+    TALARIA_export_de_comparison_widget() (see below)
+
+TALARIA_export_de_comparison_widget(de_list, sig_col="padj", sig_thresh=0.05,
+                                     l2fc_thresh=0.5, widget_id="de-comparison",
+                                     digits=4)
+  - Builds a self-contained HTML/JS widget for R Markdown: gene search box
+    (with datalist autocomplete) driving a diverging SVG bar chart of
+    log2FoldChange across several DE comparisons at once, one bar per
+    comparison, each labelled with its value and padj
+  - de_list: named list of data.frames (one per comparison, names become the
+    x-axis labels), each needing gene/log2FoldChange/padj columns -- same
+    shape as TALARIA_export_de()'s per-cluster pseudobulk DE CSVs
+  - Only genes significant in >=1 comparison (per sig_col/sig_thresh/
+    l2fc_thresh) are searchable, but a selected gene's value is shown for
+    ALL comparisons supplied, significant there or not
+  - sig_col defaults to "padj" but is configurable (e.g. "pvalue") so it can
+    match whichever column a given DE run actually gated significance on
+    (KERAUNOS_de_pseudobulk with fdr_threshold=NULL uses raw pvalue, not
+    padj) -- the bar label always shows padj regardless of sig_col
+  - A gene not tested in a given comparison (upstream min_cells/min_samples
+    filtering) renders as a grey "not tested" marker at the zero line rather
+    than a bar, so it isn't misread as log2FoldChange == 0
+  - Bars diverge from a zero line (positive up, negative down), coloured red
+    (up) / blue (down) to match this codebase's established up/down
+    convention (see .talaria_ora_dotplot's low_colour/high_colour split)
+  - Same embedded-JSON + vanilla-JS pattern as TALARIA_export_gene_expr_widget
+    (no plotly/crosstalk) -- keeps the knitted .Rmd output a single
+    self-contained, portable HTML file with no external JS dependencies
+  - Returns knitr::asis_output() -- call directly inside a normal chunk
+    (no results='asis' needed) and the return value auto-renders
+  - widget_id must be unique per call if embedding more than one widget in
+    the same document (all DOM ids are prefixed with it)
+  - Requires jsonlite + knitr (Suggests); errors via requireNamespace() guard
+    if either is missing
+  - NOTE: when calling DT::datatable() (for TALARIA_build_de_comparison_table's
+    output) inside a results='asis' chunk with conditional logic, do NOT wrap
+    it in an explicit print() -- print(DT::datatable(...)) inside if/else
+    under results='asis' silently fails to embed the widget (verified via a
+    disposable render test); leave DT::datatable(...) as the branch's
+    auto-printed tail expression instead, which works correctly
+
 ================================================================================
 IN PROGRESS
 ================================================================================

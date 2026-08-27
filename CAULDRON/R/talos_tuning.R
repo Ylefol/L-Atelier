@@ -293,6 +293,11 @@ TALOS_tune_umap <- function(sce,
     max_w <- max(adj@x)
     if (max_w > 1) adj@x <- adj@x / max_w
 
+    # uwot::umap() treats a sparse X as a DISTANCE matrix, not a similarity
+    # matrix — invert the normalized SNN affinity before passing it in.
+    # See TALOS_run_umap() for the same fix and the empirical verification.
+    adj@x <- 1 - adj@x
+
     k_graph  <- metadata(sce)$snn_k %||%
                  as.integer(round(mean(igraph::degree(g))))
     n_combos <- length(min_dist_range)

@@ -1507,3 +1507,447 @@ filter();
   html <- sub("__COLS_JSON__", cols_json, html, fixed = TRUE)
   sub("__MAX_ROWS__", max_rows, html, fixed = TRUE)
 }
+
+
+# Shared "union of significant genes + per-comparison log2FC/padj matrices"
+# logic, used by both TALARIA_export_de_comparison_widget() and
+# TALARIA_build_de_comparison_table() so the two stay in sync when called
+# with matching arguments. Not exported.
+.talaria_de_comparison_core <- function(de_list, sig_col, sig_thresh, l2fc_thresh) {
+
+  if (!is.list(de_list) || length(de_list) == 0L ||
+      is.null(names(de_list)) || any(names(de_list) == ""))
+    stop("'de_list' must be a non-empty named list of data.frames (one per comparison).",
+         call. = FALSE)
+  # 'padj' is always required (always reported regardless of which column
+  # gates significance); sig_col is required too, and may be 'padj' itself
+  # (the default) or a different column (e.g. 'pvalue', for pipelines that
+  # call significance on the raw p-value instead of FDR).
+  req_cols <- unique(c("gene", "log2FoldChange", "padj", sig_col))
+  for (nm in names(de_list)) {
+    missing_cols <- setdiff(req_cols, names(de_list[[nm]]))
+    if (length(missing_cols) > 0L)
+      stop("de_list[[\"", nm, "\"]] is missing column(s): ",
+           paste(missing_cols, collapse = ", "), call. = FALSE)
+  }
+
+  comparisons <- names(de_list)
+
+  # Union of genes significant in at least one comparison -- every value in
+  # a selected/listed gene's row is still shown for every comparison,
+  # significant there or not. Significance is judged on 'sig_col' (padj by
+  # default), but 'padj' itself is always reported regardless, since that's
+  # the more standard value to report.
+  sig_genes <- unique(unlist(lapply(de_list, function(df) {
+    mask <- !is.na(df[[sig_col]]) & !is.na(df$log2FoldChange) &
+      df[[sig_col]] < sig_thresh & abs(df$log2FoldChange) >= l2fc_thresh
+    df$gene[mask]
+  })))
+  sig_genes <- sort(sig_genes)
+
+  if (length(sig_genes) == 0L)
+    stop("No gene was significant (", sig_col, " < ", sig_thresh, ", |log2FC| >= ",
+         l2fc_thresh, ") in any comparison in 'de_list'.", call. = FALSE)
+
+  # gene x comparison matrices, NA where a gene wasn't tested in that
+  # comparison (e.g. filtered out by min_cells/min_samples upstream).
+  log2fc_mat <- matrix(NA_real_, nrow = length(sig_genes), ncol = length(comparisons),
+                        dimnames = list(sig_genes, comparisons))
+  padj_mat   <- log2fc_mat
+
+  for (nm in comparisons) {
+    df  <- de_list[[nm]]
+    idx <- match(sig_genes, df$gene)
+    hit <- !is.na(idx)
+    log2fc_mat[hit, nm] <- df$log2FoldChange[idx[hit]]
+    padj_mat[hit, nm]   <- df$padj[idx[hit]]
+  }
+
+  list(genes = sig_genes, comparisons = comparisons,
+       log2fc = log2fc_mat, padj = padj_mat)
+}
+
+
+#' Build a browsable table of DE results across several comparisons
+#'
+#' @description Returns a wide data.frame -- one row per gene significant in
+#' at least one comparison, with a log2FoldChange and padj column pair per
+#' comparison -- meant to be rendered with \code{DT::datatable()} directly
+#' above \code{\link{TALARIA_export_de_comparison_widget}} in the same
+#' report, so a viewer can browse (sort/search) the full list of searchable
+#' genes before picking one to plot in the widget. Uses the same
+#' significance/union logic as that function, so the two stay in sync when
+#' called with matching \code{sig_col}/\code{sig_thresh}/\code{l2fc_thresh}.
+#'
+#' @param de_list Named list of data.frames, one per comparison (names
+#'   become the comparison shown in each column pair's name, in the order
+#'   given). Each data.frame must have \code{gene}, \code{log2FoldChange},
+#'   and \code{padj} columns (plus \code{sig_col} itself, if different from
+#'   \code{"padj"}) -- the same shape written by \code{TALARIA_export_de()}'s
+#'   per-cluster pseudobulk DE CSVs.
+#' @param sig_col Character. Column used to decide which genes are included
+#'   (i.e. significant in at least one comparison). Default \code{"padj"}.
+#'   Set to \code{"pvalue"} for pipelines that call significance on the raw
+#'   p-value instead of FDR.
+#' @param sig_thresh Numeric. Cutoff applied to \code{sig_col}. Default
+#'   \code{0.05}.
+#' @param l2fc_thresh Numeric. Absolute log2 fold change cutoff used to
+#'   decide which genes are included. Default \code{0.5}.
+#' @param digits Integer. Rounding applied to log2FoldChange columns (padj
+#'   columns are kept to 3 significant figures regardless). Default \code{3}.
+#'
+#' @return A data.frame with one \code{Gene} column plus a
+#'   \code{"<comparison> log2FC"} / \code{"<comparison> padj"} column pair
+#'   per comparison in \code{de_list}, in the order given.
+#'
+#' @examples
+#' \dontrun{
+#' tbl <- TALARIA_build_de_comparison_table(de_list, sig_col = "pvalue")
+#' DT::datatable(tbl, rownames = FALSE)
+#' }
+#' @export
+TALARIA_build_de_comparison_table <- function(de_list,
+                                               sig_col     = "padj",
+                                               sig_thresh  = 0.05,
+                                               l2fc_thresh = 0.5,
+                                               digits      = 3) {
+
+  core <- .talaria_de_comparison_core(de_list, sig_col, sig_thresh, l2fc_thresh)
+
+  out <- data.frame(Gene = core$genes, stringsAsFactors = FALSE, check.names = FALSE)
+  for (nm in core$comparisons) {
+    out[[paste0(nm, " log2FC")]] <- round(core$log2fc[, nm], digits)
+    out[[paste0(nm, " padj")]]   <- signif(core$padj[, nm], 3)
+  }
+  rownames(out) <- NULL
+  out
+}
+
+
+#' Export an interactive DE cross-comparison bar-chart widget for R Markdown
+#'
+#' @description Builds a self-contained, dependency-free HTML/JS widget that
+#' lets a report viewer search any gene that was called significant in at
+#' least one of several differential expression comparisons, and see a bar
+#' chart of that gene's log2 fold change across \emph{every} comparison
+#' supplied -- including comparisons where the gene did not reach
+#' significance -- so all comparisons are visible side by side for one gene.
+#' Each bar is labelled with its log2 fold change and its adjusted p-value.
+#' Mirrors \code{\link{TALARIA_export_gene_expr_widget}}'s embedded-JSON +
+#' vanilla-JS approach so the report stays free of external JS dependencies
+#' (a package like plotly or crosstalk would each pull in their own bundled
+#' JS/CSS) and stays portable as a single, self-contained HTML file.
+#'
+#' @param de_list Named list of data.frames, one per comparison (names
+#'   become the comparison labels shown on the x-axis, in the order given).
+#'   Each data.frame must have \code{gene}, \code{log2FoldChange}, and
+#'   \code{padj} columns (plus \code{sig_col} itself, if different from
+#'   \code{"padj"}) -- the same shape written by \code{TALARIA_export_de()}'s
+#'   per-cluster pseudobulk DE CSVs.
+#' @param sig_col Character. Column used to decide which genes are
+#'   searchable (i.e. significant in at least one comparison). Default
+#'   \code{"padj"}. Set to \code{"pvalue"} for pipelines that call
+#'   significance on the raw p-value instead of FDR (e.g.
+#'   \code{KERAUNOS_de_pseudobulk(..., fdr_threshold = NULL)}) -- the bar
+#'   label always shows \code{padj} regardless of this setting.
+#' @param sig_thresh Numeric. Cutoff applied to \code{sig_col}. Default
+#'   \code{0.05}.
+#' @param l2fc_thresh Numeric. Absolute log2 fold change cutoff used only to
+#'   decide which genes are searchable. Default \code{0.5}.
+#' @param widget_id Character. DOM id prefix -- must be unique if more than
+#'   one widget is embedded in the same document. Default
+#'   \code{"de-comparison"}.
+#' @param digits Integer. Rounding applied to exported log2FoldChange values
+#'   (padj is kept to 3 significant figures regardless). Default \code{4}.
+#'
+#' @details
+#' A gene not tested in a given comparison (e.g. filtered out upstream by
+#' \code{min_cells}/\code{min_samples}) is shown as a "not tested" marker at
+#' the zero line for that comparison rather than a bar, so its absence isn't
+#' mistaken for a log2FoldChange of exactly zero.
+#'
+#' @return An object of class \code{knit_asis} (see
+#'   \code{\link[knitr]{asis_output}}). Printing or auto-printing it inside
+#'   an R Markdown chunk renders the widget; outside of knitr it just prints
+#'   as plain HTML text.
+#'
+#' @examples
+#' \dontrun{
+#' TALARIA_export_de_comparison_widget(
+#'   de_list = list(
+#'     "SNc DA Neuron: AST23 vs CL21" = de_results[["SNc_DA_Neuron_CL21_vs_AST23"]]$results[["SNc_DA_Neuron"]],
+#'     "SNc DA Neuron: AST23 vs CL18" = de_results[["SNc_DA_Neuron_CL18_vs_AST23"]]$results[["SNc_DA_Neuron"]],
+#'     "DA Neuron: AST23 vs CL21"     = de_results[["DA_Neuron_CL21_vs_AST23"]]$results[["DA_Neuron"]],
+#'     "DA Neuron: AST23 vs CL18"     = de_results[["DA_Neuron_CL18_vs_AST23"]]$results[["DA_Neuron"]]
+#'   ),
+#'   sig_col = "pvalue", sig_thresh = 0.05, l2fc_thresh = 0.5
+#' )
+#' }
+#' @export
+TALARIA_export_de_comparison_widget <- function(de_list,
+                                                 sig_col     = "padj",
+                                                 sig_thresh  = 0.05,
+                                                 l2fc_thresh = 0.5,
+                                                 widget_id   = "de-comparison",
+                                                 digits      = 4) {
+
+  if (!requireNamespace("jsonlite", quietly = TRUE))
+    stop("Package 'jsonlite' is required for TALARIA_export_de_comparison_widget(). ",
+         "Install it with install.packages(\"jsonlite\").", call. = FALSE)
+  if (!requireNamespace("knitr", quietly = TRUE))
+    stop("Package 'knitr' is required for TALARIA_export_de_comparison_widget(). ",
+         "Install it with install.packages(\"knitr\").", call. = FALSE)
+
+  core <- .talaria_de_comparison_core(de_list, sig_col, sig_thresh, l2fc_thresh)
+
+  export_obj <- list(
+    genes       = core$genes,
+    comparisons = core$comparisons,
+    log2fc      = round(unname(core$log2fc), digits),
+    padj        = signif(unname(core$padj), 3)
+  )
+  json_payload <- jsonlite::toJSON(export_obj, auto_unbox = TRUE, na = "null")
+
+  knitr::asis_output(.talaria_de_comparison_widget_html(widget_id, json_payload))
+}
+
+
+# Builds the DE cross-comparison widget's HTML/CSS/JS from a template,
+# substituting the DOM id prefix (so multiple widgets can coexist on one
+# page) and the precomputed JSON payload. Not exported -- called only from
+# TALARIA_export_de_comparison_widget().
+.talaria_de_comparison_widget_html <- function(widget_id, json_payload) {
+
+  template <- r"-(
+<div id="__ID__-widget">
+<div class="filter-row">
+<label for="__ID__-gene-input">Gene (significant in at least one comparison)</label>
+<input id="__ID__-gene-input" list="__ID__-gene-list" placeholder="e.g. TH" autocomplete="off">
+<datalist id="__ID__-gene-list"></datalist>
+</div>
+<div id="__ID__-status"></div>
+<svg id="__ID__-chart" width="700" height="380"></svg>
+</div>
+
+<style>
+#__ID__-widget .filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+#__ID__-widget label { font-size: 13px; }
+#__ID__-status { font-size: 12px; color: #b00; min-height: 16px; }
+#__ID__-chart text { fill: #333; }
+</style>
+
+<script id="__ID__-data" type="application/json">
+__JSON__
+</script>
+
+<script>
+(function () {
+var payload = JSON.parse(document.getElementById('__ID__-data').textContent);
+var geneIndex = new Map();
+payload.genes.forEach(function (g, i) { geneIndex.set(g.toUpperCase(), i); });
+
+var geneInput = document.getElementById('__ID__-gene-input');
+var geneList  = document.getElementById('__ID__-gene-list');
+var statusEl  = document.getElementById('__ID__-status');
+var svg       = document.getElementById('__ID__-chart');
+var UP_COLOR      = '#a50f15';
+var DOWN_COLOR    = '#08519c';
+var NOTTEST_COLOR = '#aaaaaa';
+var GRID_COLOR    = '#e1e0d9';
+var AXIS_COLOR    = '#c3c2b7';
+var TEXT_COLOR    = '#52514e';
+var ns = 'http://www.w3.org/2000/svg';
+
+payload.genes.forEach(function (g) {
+var opt = document.createElement('option');
+opt.value = g;
+geneList.appendChild(opt);
+});
+
+function niceMax(value) {
+if (value <= 0) return 1;
+var exponent = Math.floor(Math.log10(value));
+var fraction = value / Math.pow(10, exponent);
+var niceFraction = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10;
+return niceFraction * Math.pow(10, exponent);
+}
+
+function fmtPadj(p) {
+if (p === null || p === undefined || isNaN(p)) return 'n/a';
+if (p < 0.0001) return p.toExponential(1);
+return p.toFixed(4);
+}
+
+function draw() {
+while (svg.firstChild) svg.removeChild(svg.firstChild);
+var gene = geneInput.value.trim();
+if (!gene) { statusEl.textContent = ''; return; }
+var idx = geneIndex.get(gene.toUpperCase());
+if (idx === undefined) {
+statusEl.textContent = 'Gene "' + gene + '" not found among genes significant in at least one comparison.';
+return;
+}
+statusEl.textContent = '';
+
+var comparisons = payload.comparisons;
+var values = payload.log2fc[idx];
+var padjs  = payload.padj[idx];
+
+var ROT_DEG = 45;
+var longestLabel = comparisons.reduce(function (a, b) { return String(b).length > a ? String(b).length : a; }, 0);
+var estLabelPx = longestLabel * 6.2;
+var padB = Math.max(50, estLabelPx * Math.sin(ROT_DEG * Math.PI / 180) + 24);
+
+var plotH = 260;
+var padL = 60, padT = 30;
+var basePadR = 20;
+var plotW = 700 - padL - basePadR;
+
+var labelOverhangX = estLabelPx * Math.cos(ROT_DEG * Math.PI / 180);
+var padR = Math.max(basePadR, labelOverhangX + 15);
+
+var width = padL + plotW + padR;
+var height = padT + plotH + padB;
+svg.setAttribute('width', width);
+svg.setAttribute('height', height);
+
+var finiteVals = values.filter(function (v) { return v !== null && v !== undefined && !isNaN(v); });
+var rawMax = finiteVals.length ? Math.max.apply(null, finiteVals.map(Math.abs)) : 0;
+var axisMax = niceMax(Math.max(rawMax, 0.001));
+var barW = plotW / values.length;
+var zeroY = padT + plotH / 2;
+
+var title = document.createElementNS(ns, 'text');
+title.setAttribute('x', padL);
+title.setAttribute('y', 14);
+title.setAttribute('font-size', '12');
+title.setAttribute('font-weight', '600');
+title.textContent = gene + ' — log2 fold change by comparison';
+svg.appendChild(title);
+
+var nTicks = 4;
+for (var t = -nTicks / 2; t <= nTicks / 2; t++) {
+var tickVal = (axisMax / (nTicks / 2)) * t;
+var ty = zeroY - (tickVal / axisMax) * (plotH / 2);
+
+var grid = document.createElementNS(ns, 'line');
+grid.setAttribute('x1', padL);
+grid.setAttribute('x2', width - padR);
+grid.setAttribute('y1', ty);
+grid.setAttribute('y2', ty);
+grid.setAttribute('stroke', t === 0 ? AXIS_COLOR : GRID_COLOR);
+grid.setAttribute('stroke-width', t === 0 ? '1.2' : '1');
+svg.appendChild(grid);
+
+var tickLabel = document.createElementNS(ns, 'text');
+tickLabel.setAttribute('x', padL - 8);
+tickLabel.setAttribute('y', ty + 3);
+tickLabel.setAttribute('text-anchor', 'end');
+tickLabel.setAttribute('font-size', '10');
+tickLabel.setAttribute('fill', TEXT_COLOR);
+tickLabel.textContent = Number(tickVal.toFixed(2)).toString();
+svg.appendChild(tickLabel);
+}
+
+var axisLine = document.createElementNS(ns, 'line');
+axisLine.setAttribute('x1', padL);
+axisLine.setAttribute('x2', padL);
+axisLine.setAttribute('y1', padT);
+axisLine.setAttribute('y2', padT + plotH);
+axisLine.setAttribute('stroke', AXIS_COLOR);
+axisLine.setAttribute('stroke-width', '1');
+svg.appendChild(axisLine);
+
+var axisTitle = document.createElementNS(ns, 'text');
+axisTitle.setAttribute('x', -(padT + plotH / 2));
+axisTitle.setAttribute('y', 14);
+axisTitle.setAttribute('text-anchor', 'middle');
+axisTitle.setAttribute('font-size', '10');
+axisTitle.setAttribute('fill', TEXT_COLOR);
+axisTitle.setAttribute('transform', 'rotate(-90)');
+axisTitle.textContent = 'log2FoldChange';
+svg.appendChild(axisTitle);
+
+values.forEach(function (v, i) {
+var x = padL + i * barW + barW * 0.15;
+var barWidth = barW * 0.7;
+
+var labelX = x + barWidth / 2;
+var labelY = height - padB + 8;
+var label = document.createElementNS(ns, 'text');
+label.setAttribute('x', labelX);
+label.setAttribute('y', labelY);
+label.setAttribute('text-anchor', 'start');
+label.setAttribute('font-size', '11');
+label.setAttribute('transform', 'rotate(' + ROT_DEG + ' ' + labelX + ' ' + labelY + ')');
+label.textContent = comparisons[i];
+svg.appendChild(label);
+
+if (v === null || v === undefined || isNaN(v)) {
+var tick = document.createElementNS(ns, 'line');
+tick.setAttribute('x1', x);
+tick.setAttribute('x2', x + barWidth);
+tick.setAttribute('y1', zeroY);
+tick.setAttribute('y2', zeroY);
+tick.setAttribute('stroke', NOTTEST_COLOR);
+tick.setAttribute('stroke-width', '3');
+svg.appendChild(tick);
+
+var ntLabel = document.createElementNS(ns, 'text');
+ntLabel.setAttribute('x', labelX);
+ntLabel.setAttribute('y', zeroY - 6);
+ntLabel.setAttribute('text-anchor', 'middle');
+ntLabel.setAttribute('font-size', '9');
+ntLabel.setAttribute('fill', NOTTEST_COLOR);
+ntLabel.textContent = 'not tested';
+svg.appendChild(ntLabel);
+return;
+}
+
+var barH = Math.abs(v) / axisMax * (plotH / 2);
+var y = v >= 0 ? zeroY - barH : zeroY;
+var color = v >= 0 ? UP_COLOR : DOWN_COLOR;
+
+var rect = document.createElementNS(ns, 'rect');
+rect.setAttribute('x', x);
+rect.setAttribute('y', y);
+rect.setAttribute('width', barWidth);
+rect.setAttribute('height', Math.max(barH, 0.5));
+rect.setAttribute('fill', color);
+svg.appendChild(rect);
+
+var valLine = document.createElementNS(ns, 'text');
+valLine.setAttribute('x', labelX);
+valLine.setAttribute('text-anchor', 'middle');
+valLine.setAttribute('font-size', '10');
+valLine.setAttribute('font-weight', '600');
+valLine.setAttribute('fill', color);
+valLine.textContent = v.toFixed(2);
+
+var padjLine = document.createElementNS(ns, 'text');
+padjLine.setAttribute('x', labelX);
+padjLine.setAttribute('text-anchor', 'middle');
+padjLine.setAttribute('font-size', '9');
+padjLine.setAttribute('fill', TEXT_COLOR);
+padjLine.textContent = 'padj=' + fmtPadj(padjs[i]);
+
+if (v >= 0) {
+valLine.setAttribute('y', y - 16);
+padjLine.setAttribute('y', y - 4);
+} else {
+valLine.setAttribute('y', y + barH + 12);
+padjLine.setAttribute('y', y + barH + 24);
+}
+svg.appendChild(valLine);
+svg.appendChild(padjLine);
+});
+}
+
+geneInput.addEventListener('input', draw);
+})();
+</script>
+)-"
+
+  html <- gsub("__ID__", widget_id, template, fixed = TRUE)
+  sub("__JSON__", json_payload, html, fixed = TRUE)
+}
