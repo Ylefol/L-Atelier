@@ -1,7 +1,7 @@
 ================================================================================
 PANDORA STATUS - Cell Type Annotation
 ================================================================================
-Last Updated: 2026-05-08
+Last Updated: 2026-08-28
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -91,6 +91,25 @@ PANDORA_annotate_celltypist(sce, model, majority_voting=TRUE,
   - Python env managed by basilisk (Python 3.11 + celltypist 1.6.3)
   - Stores labels in colData(sce)[[label_col]]
   - Stores confidence in colData(sce)[[conf_col]] when majority_voting=FALSE
+
+PANDORA_celltypist_markers(cell_types, model, top_n=10, only_positive=TRUE,
+                            force_update=FALSE, verbose=TRUE)
+  - Extracts a CellTypist model's own classifier-driving genes for one or
+    more of its cell types, via celltypist's Model.extract_top_markers()
+  - Different question from KERAUNOS_find_markers(): this reports what the
+    model's linear classifier was trained on (a property of the reference
+    atlas), not a DE test on the current dataset -- complementary, not a
+    substitute for either direction
+  - cell_types: must match the model's own $cell_types labels exactly;
+    mismatches error out listing the offending label(s)
+  - only_positive=TRUE: genes whose HIGHER expression pushes toward the
+    class; FALSE also includes negative (low-expression-is-diagnostic) genes
+  - Verified against Mouse_Whole_Brain.pkl: "061 STR D1 Gaba" -> Drd1, Pdyn;
+    "062 STR D2 Gaba" -> Drd2, Adora2a, Penk -- matches established striatal
+    D1/D2 medium spiny neuron marker literature
+  - Runs via basilisk (same cauldron_celltypist_2 env as the other two
+    PANDORA_*_celltypist* functions)
+  - Returns named list, cell type -> character vector of driving genes
 
 PANDORA_assign_labels(sce, labels, cluster_col="cluster", label_col, verbose=TRUE)
   - Manual mapping from cluster IDs to cell type labels

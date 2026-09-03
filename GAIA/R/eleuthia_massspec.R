@@ -52,23 +52,24 @@
 #' names that do not match the \code{_Plate N} suffix pattern yield
 #' \code{PlateID = NA} and \code{SampleID = original column name}.
 #'
-#' \strong{Sample type classification:}
+#' \strong{Sample type classification:} identity is not guessed from ID shape
+#' -- a column's SampleID can be any format. Instead:
 #' \itemize{
-#'   \item \code{"SAMPLE"} — any biological sample with a recognised SampleID
-#'     pattern: pure numeric IDs (e.g. \code{1027}), \code{SEP###-#}
-#'     longitudinal samples (e.g. \code{SEP001-3}), and \code{SEP_CTR_*}
-#'     control samples. All three map to \code{"SAMPLE"} because their
-#'     biological distinction (group, timepoint, cohort) is captured in the
-#'     metadata via the \code{Group} column — SampleType does not need to
-#'     re-encode it.
 #'   \item \code{"POOL"} — pooled QC injections (\code{pool*}). Present on
-#'     every plate for batch drift monitoring. No metadata entry.
-#'   \item \code{"OTHER"} — any column whose parsed SampleID does not match
-#'     any of the above patterns. Most commonly caused by samples that were
-#'     not renamed via \code{prep_MS_data.R}, ad-hoc sub-cohort naming, or
-#'     samples intentionally absent from the metadata file. These columns
-#'     cannot be joined to metadata and are dropped by
-#'     \code{HADES_filter_massspec()} by default.
+#'     every plate for batch drift monitoring. No metadata entry expected.
+#'   \item \code{"SAMPLE"} — any non-pool column whose parsed SampleID is
+#'     found in \code{metadata_file} (by \code{sample_col}). Its biological
+#'     distinction (group, timepoint, cohort) lives in the joined metadata
+#'     columns, not in SampleType.
+#'   \item \code{"OTHER"} — any non-pool column that does \emph{not} match a
+#'     row in \code{metadata_file}. Typically wells belonging to a different
+#'     sub-study run on the same plates/DIA-NN batch (e.g. a sample-stability
+#'     QC arm with its own SubjectID/Group scheme tracked only in the plate
+#'     layout, not in the main clinical metadata) rather than malformed IDs.
+#'     These columns cannot be joined to metadata and are dropped by
+#'     \code{HADES_filter_massspec()} by default. If \code{metadata_file} is
+#'     \code{NULL}, there is nothing to check a match against, so every
+#'     non-pool column is classified \code{"SAMPLE"}.
 #' }
 #'
 #' \strong{Log2 transformation:} Raw DIA intensities are on a linear scale.
@@ -193,20 +194,16 @@ ELEUTHIA_load_massspec <- function(ms_file,
   # Classify sample types
   # ---------------------------------------------------------------------------
 
-  is_pool   <- grepl("^pool", parsed_ids, ignore.case = TRUE)
-  is_sample <- grepl("^[0-9]+$", parsed_ids) |
-               grepl("^SEP[0-9]+-", parsed_ids) |
-               grepl("^SEP_CTR", parsed_ids)
+  is_pool <- grepl("^pool", parsed_ids, ignore.case = TRUE)
 
-  sample_type <- ifelse(is_pool,   "POOL",
-                 ifelse(is_sample, "SAMPLE",
-                                   "OTHER"))
-
-  type_tbl <- table(sample_type)
-  if (verbose) {
-    cat("[ELEUTHIA]   Sample types: ",
-        paste(names(type_tbl), type_tbl, sep = "=", collapse = ", "), "\n")
-  }
+  # Every non-pool column is tentatively SAMPLE. If metadata_file is supplied
+  # below, any non-pool column that fails to join to it is downgraded to
+  # OTHER -- this replaces guessing sample identity from ID shape (which
+  # assumed every real sample was either a plain numeric ID or a
+  # "SEP..."-prefixed ID) with an empirical check: a column is a real sample
+  # if the metadata says so. Without metadata_file there's nothing to check
+  # a match against, so everything non-pool stays SAMPLE.
+  sample_type <- ifelse(is_pool, "POOL", "SAMPLE")
 
   # ---------------------------------------------------------------------------
   # Drop rows with no primary protein identifier
@@ -311,11 +308,23 @@ ELEUTHIA_load_massspec <- function(ms_file,
     sample_meta <- merge(sample_meta, meta_join, by = sample_col,
                          all.x = TRUE, sort = FALSE)
 
-    n_matched <- sum(sample_meta[[sample_col]] %in% meta[[sample_col]])
+    matched   <- sample_meta[[sample_col]] %in% meta[[sample_col]]
+    n_matched <- sum(matched)
     if (verbose)
       cat("[ELEUTHIA]   Joined", length(new_cols), "metadata columns;",
           n_matched, "of", nrow(sample_meta), "samples matched\n")
+
+    # Non-pool columns with no metadata match are not confirmed real samples
+    # (e.g. a different sub-study's wells sharing this DIA-NN run/plate) --
+    # downgrade them to OTHER rather than carrying them forward as SAMPLE
+    # rows with all-NA clinical annotation.
+    sample_meta$SampleType[sample_meta$SampleType != "POOL" & !matched] <- "OTHER"
   }
+
+  type_tbl <- table(sample_meta$SampleType)
+  if (verbose)
+    cat("[ELEUTHIA]   Sample types: ",
+        paste(names(type_tbl), type_tbl, sep = "=", collapse = ", "), "\n")
 
   rownames(sample_meta) <- sample_meta[[sample_col]]
 

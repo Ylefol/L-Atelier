@@ -75,23 +75,24 @@ are not supported; data must be prepared through \code{prep_MS_data.R} first.
 names that do not match the \code{_Plate N} suffix pattern yield
 \code{PlateID = NA} and \code{SampleID = original column name}.
 
-\strong{Sample type classification:}
+\strong{Sample type classification:} identity is not guessed from ID shape
+-- a column's SampleID can be any format. Instead:
 \itemize{
-\item \code{"SAMPLE"} — any biological sample with a recognised SampleID
-pattern: pure numeric IDs (e.g. \code{1027}), \code{SEP###-#}
-longitudinal samples (e.g. \code{SEP001-3}), and \code{SEP_CTR_*}
-control samples. All three map to \code{"SAMPLE"} because their
-biological distinction (group, timepoint, cohort) is captured in the
-metadata via the \code{Group} column — SampleType does not need to
-re-encode it.
 \item \code{"POOL"} — pooled QC injections (\code{pool*}). Present on
-every plate for batch drift monitoring. No metadata entry.
-\item \code{"OTHER"} — any column whose parsed SampleID does not match
-any of the above patterns. Most commonly caused by samples that were
-not renamed via \code{prep_MS_data.R}, ad-hoc sub-cohort naming, or
-samples intentionally absent from the metadata file. These columns
-cannot be joined to metadata and are dropped by
-\code{HADES_filter_massspec()} by default.
+every plate for batch drift monitoring. No metadata entry expected.
+\item \code{"SAMPLE"} — any non-pool column whose parsed SampleID is
+found in \code{metadata_file} (by \code{sample_col}). Its biological
+distinction (group, timepoint, cohort) lives in the joined metadata
+columns, not in SampleType.
+\item \code{"OTHER"} — any non-pool column that does \emph{not} match a
+row in \code{metadata_file}. Typically wells belonging to a different
+sub-study run on the same plates/DIA-NN batch (e.g. a sample-stability
+QC arm with its own SubjectID/Group scheme tracked only in the plate
+layout, not in the main clinical metadata) rather than malformed IDs.
+These columns cannot be joined to metadata and are dropped by
+\code{HADES_filter_massspec()} by default. If \code{metadata_file} is
+\code{NULL}, there is nothing to check a match against, so every
+non-pool column is classified \code{"SAMPLE"}.
 }
 
 \strong{Log2 transformation:} Raw DIA intensities are on a linear scale.

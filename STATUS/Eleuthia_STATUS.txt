@@ -1,7 +1,7 @@
 ================================================================================
 ELEUTHIA STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-06-19
+Last Updated: 2026-08-27
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -17,7 +17,11 @@ ELEUTHIA_load_massspec(ms_file, sheet=1, metadata_file=NULL, metadata_sheet=1,
   - Parses PlateID from the immediate parent directory of each sample's path
     (e.g. ".../plate_1/sample.d" -> "plate_1"); NA if no directory component.
     Works for every sample type (incl. pools/controls), unlike a metadata join.
-  - Classifies sample types: SAMPLE (numeric IDs), SEP_SAMPLE, CONTROL, POOL, OTHER
+  - Classifies sample types empirically, not by ID shape: pool*  -> POOL;
+    every other column is tentatively SAMPLE, then downgraded to OTHER if its
+    parsed SampleID has no match in metadata_file (no metadata_file -> stays
+    SAMPLE). Replaces an earlier numeric/"SEP..."-prefix whitelist that
+    assumed a fixed ID format.
   - Log2-transforms intensities; zeros/negatives become NA
   - Optionally joins metadata file onto sample_meta by sample_col
   - Returns massspec_data S3 object: $wide (log2 matrix), $sample_meta, $protein_meta, $params

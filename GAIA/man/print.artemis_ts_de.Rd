@@ -12,5 +12,11 @@
 \item{...}{Additional arguments (ignored)}
 }
 \description{
-Print method for artemis_ts_de
+Mirrors the per-comparison format of \code{\link{print.artemis_dea}}
+(features tested, significance breakdown, top hits), looped once per
+comparison bundled in this object -- since \code{ARTEMIS_differential_counts}
+and the time series DEA functions in this file (DESeq2- and limma-backed
+alike) all answer the same question (differential expression between two
+conditions), their console summaries read the same way, one comparison at
+a time, regardless of which engine produced them.
 }

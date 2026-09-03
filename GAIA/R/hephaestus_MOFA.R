@@ -122,13 +122,17 @@
         )
     }))
 
+    # calculate_variance_explained()'s r2_per_factor matrices are factors x
+    # views (rownames = factors, colnames = views) -- the opposite orientation
+    # from get_weights()/get_factors() (features/samples x factors) used
+    # above, so view/factor are NOT extracted the same way here.
     ve_list <- MOFA2::calculate_variance_explained(trained)$r2_per_factor
     variance_df <- do.call(rbind, lapply(names(ve_list), function(grp) {
         mat <- ve_list[[grp]]
         data.frame(
             group               = grp,
-            view                = rep(rownames(mat), times = ncol(mat)),
-            factor              = rep(colnames(mat), each = nrow(mat)),
+            factor              = rep(rownames(mat), times = ncol(mat)),
+            view                = rep(colnames(mat), each = nrow(mat)),
             variance_explained  = as.vector(mat),
             stringsAsFactors = FALSE
         )
@@ -409,4 +413,156 @@ HEPHAESTUS_load_mofa_model <- function(file) {
 
     trained <- MOFA2::load_model(file)
     .hephaestus_mofa_build_result(trained, params = NULL)
+}
+
+
+# ==============================================================================
+# PROJECT NEW SAMPLES ONTO A TRAINED MOFA2 MODEL (OUT-OF-SAMPLE)
+# ==============================================================================
+
+#' Project New Samples onto a Trained MOFA2 Model
+#'
+#' @description MOFA2 has no out-of-sample projection of its own:
+#' \code{predict()}/\code{impute()} only reconstruct the model's own training
+#' data via its already-fitted factor scores, and
+#' \code{interpolate_factors()} is MEFISTO-only (interpolates along a trained
+#' covariate for existing training samples, not new ones). This fills that
+#' gap: holding the trained per-view feature weights fixed, it solves for
+#' each new sample's factor vector by ordinary least squares against
+#' \code{Y_view = Z \%*\% t(W_view)}, after centering the new sample's data
+#' the same way MOFA centered the training data internally (per-feature
+#' training mean; confirmed empirically -- reconstructing training data as
+#' \code{Z \%*\% t(W)} without adding the feature mean back leaves residuals
+#' on the order of the feature means themselves, and centered residuals are
+#' small). A view a sample has no data for simply drops out of that
+#' sample's fit -- no imputation is attempted.
+#'
+#' @param mofa_result A \code{hephaestus_mofa} object from
+#'   \code{HEPHAESTUS_run_mofa()} or \code{HEPHAESTUS_load_mofa_model()}.
+#' @param train_data The named list of view matrices (samples x features)
+#'   originally passed as \code{X} to \code{HEPHAESTUS_run_mofa()} to train
+#'   this model. Used only to recover each view's per-feature training mean
+#'   for centering -- MOFA2 does not expose this on the fitted model object.
+#' @param new_data Named list of view matrices (samples x features) for the
+#'   new samples to project. Must use the SAME normalization/transform as
+#'   \code{train_data} (e.g. the same VST dispersion fit, the same batch
+#'   correction) -- this function does not check for that, only for shared
+#'   feature names. Feature sets are intersected against \code{train_data}
+#'   and the model's weights per view; extra features are silently dropped.
+#'   Views may cover different, partially-overlapping sets of samples, same
+#'   as MOFA2 tolerates for training.
+#' @param verbose Logical. Print progress. Default \code{TRUE}.
+#'
+#' @return A matrix (new samples x factors) of projected factor scores, in
+#'   the same units as \code{mofa_result$factors}.
+#'
+#' @details
+#' Ordinary least squares, solved independently per sample via
+#' \code{qr.solve()} on that sample's stacked available-view design. No
+#' regularization is applied -- if a sample's total usable feature count
+#' (summed across its available views) is small relative to the number of
+#' factors, the fit is underdetermined/unstable; this is a known limitation,
+#' not handled automatically. Samples with zero usable features in every
+#' view are returned as all-NA rows, with a warning.
+#'
+#' @export
+HEPHAESTUS_project_mofa_samples <- function(mofa_result, train_data, new_data,
+                                             verbose = TRUE) {
+
+    if (!inherits(mofa_result, "hephaestus_mofa")) {
+        stop("mofa_result must be a hephaestus_mofa object from HEPHAESTUS_run_mofa() ",
+             "or HEPHAESTUS_load_mofa_model().", call. = FALSE)
+    }
+    if (is.null(mofa_result$model)) {
+        stop("mofa_result$model is NULL -- the raw MOFA2 model object is required.",
+             call. = FALSE)
+    }
+    if (!requireNamespace("MOFA2", quietly = TRUE)) {
+        stop("Package 'MOFA2' is required.", call. = FALSE)
+    }
+
+    common_views <- intersect(names(train_data), names(new_data))
+    if (length(common_views) == 0) {
+        stop("No view names in common between train_data and new_data.", call. = FALSE)
+    }
+
+    weights_list <- MOFA2::get_weights(mofa_result$model)
+    factor_names <- colnames(weights_list[[1]])
+    n_factors    <- length(factor_names)
+
+    if (verbose) {
+        cat("[HEPHAESTUS] MOFA2 out-of-sample projection\n")
+        cat("    Views used: ", paste(common_views, collapse = ", "), "\n", sep = "")
+        cat("    Factors: ", n_factors, "\n", sep = "")
+    }
+
+    # Per-view: restrict weights + new/train data to the shared feature set,
+    # and compute training per-feature means for centering.
+    view_prep <- lapply(common_views, function(view) {
+        w <- weights_list[[view]]
+        shared_feat <- Reduce(intersect, list(rownames(w),
+                                               colnames(train_data[[view]]),
+                                               colnames(new_data[[view]])))
+        if (length(shared_feat) == 0) {
+            if (verbose) cat("    ", view, ": no shared features, dropped\n", sep = "")
+            return(NULL)
+        }
+        list(
+            W       = w[shared_feat, , drop = FALSE],
+            means   = colMeans(train_data[[view]][, shared_feat, drop = FALSE]),
+            new_mat = new_data[[view]][, shared_feat, drop = FALSE]
+        )
+    })
+    names(view_prep) <- common_views
+    view_prep <- view_prep[!vapply(view_prep, is.null, logical(1))]
+
+    if (length(view_prep) == 0) {
+        stop("No usable (shared-feature) views remain after intersecting train_data, ",
+             "new_data, and the model's weights.", call. = FALSE)
+    }
+
+    all_samples <- unique(unlist(lapply(view_prep, function(v) rownames(v$new_mat))))
+
+    if (verbose) {
+        for (view in names(view_prep)) {
+            cat("    ", view, ": ", nrow(view_prep[[view]]$W), " shared features, ",
+                nrow(view_prep[[view]]$new_mat), " samples\n", sep = "")
+        }
+        cat("    New samples (any view): ", length(all_samples), "\n\n", sep = "")
+    }
+
+    Z <- matrix(NA_real_, nrow = length(all_samples), ncol = n_factors,
+                dimnames = list(all_samples, factor_names))
+
+    n_skipped <- 0
+    for (s in all_samples) {
+        y_blocks <- list()
+        W_blocks <- list()
+        for (view in names(view_prep)) {
+            vp <- view_prep[[view]]
+            if (!s %in% rownames(vp$new_mat)) next
+            y_blocks[[view]] <- as.numeric(vp$new_mat[s, ]) - vp$means
+            W_blocks[[view]] <- vp$W
+        }
+        if (length(y_blocks) == 0) {
+            n_skipped <- n_skipped + 1
+            next
+        }
+        y <- unlist(y_blocks, use.names = FALSE)
+        W <- do.call(rbind, W_blocks)
+        Z[s, ] <- qr.solve(W, y)
+    }
+
+    if (n_skipped > 0) {
+        warning(n_skipped, " sample(s) had no usable data in any shared-feature view ",
+                "and were left as NA.", call. = FALSE)
+    }
+
+    if (verbose) {
+        cat("[HEPHAESTUS] Projection complete. ",
+            length(all_samples) - n_skipped, "/", length(all_samples),
+            " samples projected.\n", sep = "")
+    }
+
+    Z
 }

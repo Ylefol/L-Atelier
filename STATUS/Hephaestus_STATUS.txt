@@ -1,7 +1,7 @@
 ================================================================================
 HEPHAESTUS STATUS - Integration
 ================================================================================
-Last Updated: 2026-02-18
+Last Updated: 2026-09-03
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -41,6 +41,35 @@ Exported:
   HEPHAESTUS_multi_relPMDCCA(X, lambda, tau, ...)
     - Relative PMD sparse CCA for multiple datasets
 
+hephaestus_MOFA.R:
+------------------
+Internal helpers (not exported):
+  .hephaestus_mofa_to_long(X, groups)
+    - Reshapes a named list of view matrices into MOFA2's long-format input
+  .hephaestus_mofa_validate(X)
+    - Validates the view list before training
+  .hephaestus_mofa_build_result(trained, params)
+    - Builds the tidy hephaestus_mofa result (factors/weights/variance_explained)
+      from a trained/loaded MOFA object
+
+Exported:
+  HEPHAESTUS_run_mofa(X, groups, num_factors, ...)
+    - Trains a MOFA2 multi-omics factor model; tolerates partial sample
+      overlap across views natively via long-format input
+  HEPHAESTUS_load_mofa_model(file)
+    - Reloads a trained MOFA2 model (.hdf5) into a hephaestus_mofa object
+      without retraining
+  HEPHAESTUS_project_mofa_samples(mofa_result, train_data, new_data)
+    - Out-of-sample projection: solves each new sample's factor vector by
+      OLS against the trained model's fixed per-view weights (MOFA2 itself
+      has no such capability -- predict()/impute() only reconstruct
+      training data, interpolate_factors() is MEFISTO-only). Centers new
+      data per-feature using train_data's own means before solving; a view
+      missing for a sample drops out of that sample's fit. No
+      regularization (plain OLS).
+  print.hephaestus_mofa(x)
+    - Prints view/sample/factor counts and total variance explained per view
+
 ================================================================================
 IN PROGRESS
 ================================================================================
@@ -49,7 +78,7 @@ IN PROGRESS
 ================================================================================
 PLANNED / TODO
 ================================================================================
-- Additional integration methods (e.g. MOFA-inspired, kernel-based)
+- Additional integration methods (e.g. kernel-based)
 
 ================================================================================
 DEPENDENCIES / NOTES

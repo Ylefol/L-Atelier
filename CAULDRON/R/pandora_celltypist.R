@@ -197,6 +197,80 @@ PANDORA_annotate_celltypist <- function(sce,
 }
 
 
+#' CellTypist's own classifier-driving genes for a cell type
+#'
+#' @description CellTypist classifies cells with a linear model trained on a
+#' reference atlas. This extracts the genes with the largest coefficients for
+#' one or more of that model's cell types — i.e. the genes the model itself
+#' relied on to define the population in its training atlas.
+#'
+#' This answers a different question from \code{\link{KERAUNOS_find_markers}}:
+#' that function tests for genes differentially expressed between clusters in
+#' the CURRENT dataset (a statistical marker test), whereas this reports what
+#' CellTypist's classifier was actually trained on (a property of the
+#' reference atlas). The two are complementary and worth cross-checking
+#' against each other, but neither substitutes for the other — a gene the
+#' classifier relies on heavily need not be significantly differential in
+#' every dataset it's applied to, and vice versa.
+#'
+#' @param cell_types Character vector. Cell type label(s), must match an
+#'   entry in the model's own \code{cell_types} exactly — an error lists the
+#'   offending label(s) if not.
+#' @param model Character. Model filename, e.g. \code{"Mouse_Whole_Brain.pkl"}
+#'   — same models listed by \code{\link{PANDORA_list_celltypist_models}}.
+#' @param top_n Integer. Number of driving genes per cell type. Default
+#'   \code{10}.
+#' @param only_positive Logical. Only genes with a positive coefficient
+#'   (higher expression pushes toward this class). Set \code{FALSE} to also
+#'   include negative markers (genes whose LOW expression is diagnostic).
+#'   Default \code{TRUE}.
+#' @param force_update Logical. Re-download the model even if already cached.
+#'   Default \code{FALSE}.
+#' @param verbose Logical. Print the result. Default \code{TRUE}.
+#'
+#' @return Named list, cell type -> character vector of driving genes,
+#'   ordered by decreasing coefficient magnitude.
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' PANDORA_celltypist_markers(
+#'   cell_types = c("061 STR D1 Gaba", "062 STR D2 Gaba"),
+#'   model = "Mouse_Whole_Brain.pkl", top_n = 20
+#' )
+#' }
+PANDORA_celltypist_markers <- function(cell_types,
+                                        model,
+                                        top_n         = 10L,
+                                        only_positive = TRUE,
+                                        force_update  = FALSE,
+                                        verbose       = TRUE) {
+
+  script <- system.file("python", "celltypist_markers.py", package = "CAULDRON")
+
+  result <- basilisk::basiliskRun(
+    env           = .cauldron_celltypist_env,
+    fun           = .pandora_celltypist_markers_run,
+    script        = script,
+    model_name    = model,
+    cell_types    = cell_types,
+    top_n         = as.integer(top_n),
+    only_positive = only_positive,
+    force_update  = force_update
+  )
+
+  if (isTRUE(verbose)) {
+    cat("── PANDORA: CellTypist model-driving genes (", model, ") ",
+        strrep("─", 20), "\n\n", sep = "")
+    for (ct in names(result)) {
+      cat("  ", ct, ":\n    ", paste(result[[ct]], collapse = ", "), "\n\n", sep = "")
+    }
+  }
+
+  result
+}
+
+
 # ── Internal helpers ───────────────────────────────────────────────────────────
 # Named package-level functions so that the CAULDRON namespace is in scope
 # (ensures reticulate:: resolves correctly inside basiliskRun).
@@ -222,4 +296,16 @@ PANDORA_annotate_celltypist <- function(sce,
   main <- reticulate::import("__main__")
   reticulate::py_run_file(script)
   reticulate::py_to_r(reticulate::py_get_attr(main, "result_df"))
+}
+
+.pandora_celltypist_markers_run <- function(script, model_name, cell_types,
+                                             top_n, only_positive, force_update) {
+  main <- reticulate::import("__main__")
+  reticulate::py_set_attr(main, "r_model_name",    model_name)
+  reticulate::py_set_attr(main, "r_cell_types",    cell_types)
+  reticulate::py_set_attr(main, "r_top_n",         top_n)
+  reticulate::py_set_attr(main, "r_only_positive", only_positive)
+  reticulate::py_set_attr(main, "r_force_update",  force_update)
+  reticulate::py_run_file(script)
+  reticulate::py_to_r(reticulate::py_get_attr(main, "result"))
 }

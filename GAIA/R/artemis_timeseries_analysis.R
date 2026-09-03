@@ -625,16 +625,53 @@ ARTEMIS_timeseries_temporal <- function(ts_norm,
 # ==============================================================================
 
 #' Print method for artemis_ts_de
+#'
+#' Mirrors the per-comparison format of \code{\link{print.artemis_dea}}
+#' (features tested, significance breakdown, top hits), looped once per
+#' comparison bundled in this object -- since \code{ARTEMIS_differential_counts}
+#' and the time series DEA functions in this file (DESeq2- and limma-backed
+#' alike) all answer the same question (differential expression between two
+#' conditions), their console summaries read the same way, one comparison at
+#' a time, regardless of which engine produced them.
+#'
 #' @param x An artemis_ts_de object
 #' @param ... Additional arguments (ignored)
 #' @method print artemis_ts_de
 #' @export
 print.artemis_ts_de <- function(x, ...) {
-  cat("Time series DE (", x$type, "):", length(x$results), "comparisons\n")
-  cat("------------------------------\n")
-  total_up <- sum(x$summary$n_sig_up)
-  total_down <- sum(x$summary$n_sig_down)
-  cat("Total significant: ", total_up, " up, ", total_down, " down\n", sep = "")
+  cat("Time Series Differential Analysis Results (", x$type, ")\n", sep = "")
+  cat(x$comparison, " -- ", length(x$results), " comparison(s)\n", sep = "")
+
+  alpha <- x$parameters$alpha
+
+  for (nm in names(x$results)) {
+    de <- x$results[[nm]]
+    s  <- de$summary
+
+    cat("\n------------------------------\n")
+    cat("Comparison: ", gsub("_", " ", nm), "\n", sep = "")
+    cat("Features tested: ", s$n_tested, "\n", sep = "")
+
+    n_sig <- s$n_sig_up + s$n_sig_down
+    pct   <- if (s$n_tested > 0) round(100 * n_sig / s$n_tested, 1) else 0
+    cat("Significant (FDR < ", alpha, "): ", n_sig, " (", pct, "%)\n", sep = "")
+    cat("    - Up: ", s$n_sig_up, "\n", sep = "")
+    cat("    - Down: ", s$n_sig_down, "\n", sep = "")
+
+    if (n_sig > 0) {
+      df       <- de$results
+      sig_mask <- !is.na(df$padj) & df$padj < alpha
+      top_hits <- head(df[sig_mask, ], min(5, sum(sig_mask)))
+
+      cat("\n  Top significant features:\n")
+      for (i in seq_len(nrow(top_hits))) {
+        direction <- if (top_hits$log2FoldChange[i] > 0) "UP" else "DOWN"
+        cat("    ", top_hits$feature_id[i], ": log2FC = ",
+            round(top_hits$log2FoldChange[i], 2), " (", direction, "), ",
+            "padj = ", format.pval(top_hits$padj[i], digits = 2), "\n", sep = "")
+      }
+    }
+  }
   invisible(x)
 }
 
