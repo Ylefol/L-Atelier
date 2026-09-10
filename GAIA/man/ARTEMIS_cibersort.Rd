@@ -19,7 +19,10 @@ ARTEMIS_cibersort(
 \item{mixture}{Expression matrix (genes as rows, samples as columns) or a
 file path to a tab-delimited mixture file. Gene names should be in rownames
 (or first column for files). Can also be an artemis_norm object, in which
-case norm_counts is extracted automatically.}
+case norm_counts is extracted automatically. Regardless of input type, the
+mixture is always reordered to match \code{sig_matrix}'s gene order (see
+Details) and rewritten to \code{<output_dir>/cibersort/<mixture_name>.txt}
+-- a file-path input is read and rewritten too, not used in place.}
 
 \item{cibersort_path}{Path to the original CIBERSORT.R source file.}
 
@@ -69,6 +72,19 @@ microarray data and can distort RNA-seq distributions.
 The mixture file is saved to \verb{<output_dir>/cibersort/<mixture_name>.txt}
 for reproducibility and re-use. CIBERSORT's side-effect output
 (CIBERSORT-Results.txt) is also written to the same directory.
+
+\strong{Gene order:} CIBERSORT.R's own gene-intersection step filters the
+signature matrix and mixture down to their shared genes but does not sort
+one to match the other, and the downstream SVR regression pairs them up
+positionally (no gene-name join). If the two input files use different
+row orders -- true unless someone deliberately pre-sorts both identically,
+e.g. LM22.txt is alphabetical but many other signature matrices are not --
+this silently misaligns genes between the reference and the sample and can
+wreck the fit (near-zero correlation, RMSE at or above the standardized
+target's own SD) while looking like a data-quality problem rather than a
+misalignment bug. \code{ARTEMIS_cibersort()} reorders the mixture to match
+\code{sig_matrix}'s gene order before writing it out, so this can't happen
+regardless of the input files' original ordering.
 }
 \examples{
 \dontrun{

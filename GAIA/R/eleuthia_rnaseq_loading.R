@@ -10,7 +10,12 @@
 #' @param file_path Character string. Path to the count file.
 #' @param gene_col Integer. Column index for gene IDs (default = 1).
 #' @param count_col Integer. Column index for counts (default = 2).
-#' @param header Logical. Does the file have a header? (default = FALSE).
+#' @param header Logical or NA. Does the file have a header row? NA (default)
+#'   auto-detects by checking whether the first line's \code{count_col} field
+#'   parses as a number -- if it doesn't, the first line is treated as a
+#'   header (e.g. HORIZON's \code{<sample_id>_counts.txt} files, which are
+#'   always written with a \code{gene_id}/\code{count} header). Set explicitly
+#'   to TRUE/FALSE to skip detection.
 #'
 #' @return A named numeric vector of counts, with gene IDs as names.
 #'
@@ -19,10 +24,16 @@
 ELEUTHIA_load_count_file <- function(file_path,
                                       gene_col = 1,
                                       count_col = 2,
-                                      header = FALSE) {
+                                      header = NA) {
 
   if (!file.exists(file_path)) {
     stop("File not found: ", file_path)
+  }
+
+  if (is.na(header)) {
+    first_line   <- readLines(file_path, n = 1)
+    first_fields <- strsplit(first_line, "\t")[[1]]
+    header       <- is.na(suppressWarnings(as.numeric(first_fields[count_col])))
   }
 
   counts <- read.table(
@@ -48,6 +59,9 @@ ELEUTHIA_load_count_file <- function(file_path,
 #'
 #' @param sample_sheet A validated sample sheet data.frame.
 #' @param omics Character string. Omics type to load (default = "RNAseq").
+#' @param header Logical or NA. Passed through to
+#'   \code{\link{ELEUTHIA_load_count_file}} for each sample. NA (default)
+#'   auto-detects per file.
 #' @param verbose Logical. Print progress messages (default = TRUE).
 #'
 #' @return A list containing:
@@ -71,6 +85,7 @@ ELEUTHIA_load_count_file <- function(file_path,
 #' }
 ELEUTHIA_load_rnaseq_from_sheet <- function(sample_sheet,
                                              omics = "RNAseq",
+                                             header = NA,
                                              verbose = TRUE) {
 
   # Get subset for this omics type
@@ -98,7 +113,7 @@ ELEUTHIA_load_rnaseq_from_sheet <- function(sample_sheet,
       cat("    Loading:", sample_id, "\n")
     }
 
-    count_list[[sample_id]] <- ELEUTHIA_load_count_file(file_path)
+    count_list[[sample_id]] <- ELEUTHIA_load_count_file(file_path, header = header)
   }
 
   # Check gene consistency

@@ -404,17 +404,29 @@ ARTEMIS_differential_counts <- function(norm_data,
   subset_targets <- targets[subset_samples, , drop = FALSE]
   subset_groups <- subset_targets[[group_col]]
 
-  # Check replicates
-  n_reference <- sum(subset_groups == reference)
+  # Check the design has enough residual degrees of freedom -- DESeq2's
+  # actual requirement, not "each group needs >= 2 replicates". Verified
+  # empirically: DESeq2 fits fine at e.g. n=3 vs n=1, and only fails when
+  # BOTH groups are singletons (total samples == number of design
+  # coefficients, leaving 0 residual df). For a simple ~condition design
+  # this means at least one of the two groups must have >= 2 replicates;
+  # the other may be a singleton.
+  n_reference  <- sum(subset_groups == reference)
   n_experiment <- sum(subset_groups == experiment)
 
-  if (n_reference < 2) {
-    stop("Reference group '", reference, "' has only ", n_reference, " sample(s). ",
-         "DESeq2 requires at least 2 replicates per group.")
-  }
-  if (n_experiment < 2) {
-    stop("Experiment group '", experiment, "' has only ", n_experiment, " sample(s). ",
-         "DESeq2 requires at least 2 replicates per group.")
+  design_formula_check <- if (!is.null(batch_col)) ~ batch + condition else ~ condition
+  check_data <- as.data.frame(colData(dds_full)[subset_samples, , drop = FALSE])
+  check_data$condition <- factor(subset_groups, levels = c(reference, experiment))
+  n_coef      <- ncol(stats::model.matrix(design_formula_check, check_data))
+  residual_df <- length(subset_samples) - n_coef
+
+  if (residual_df <= 0) {
+    stop("Not enough samples for this design: ", length(subset_samples),
+         " sample(s) (", reference, " n=", n_reference, ", ", experiment, " n=", n_experiment,
+         ") but the design (", deparse(design_formula_check), ") requires estimating ",
+         n_coef, " coefficient(s), leaving ", residual_df, " residual degree(s) of freedom. ",
+         "DESeq2 needs residual df > 0 -- at least one of the two groups must have ",
+         ">= 2 replicates.")
   }
 
   if (verbose) {

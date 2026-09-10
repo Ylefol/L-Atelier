@@ -1,7 +1,7 @@
 ================================================================================
 ELEUTHIA STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-08-27
+Last Updated: 2026-09-07
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -168,10 +168,15 @@ ELEUTHIA_summarize_quantification(quant_result, ...)
 
 eleuthia_rnaseq_loading.R:
 ---------------------------
-ELEUTHIA_load_count_file(path, ...)
+ELEUTHIA_load_count_file(path, ..., header = NA)
   - Load a single count file (HTSeq, featureCounts, etc.)
-ELEUTHIA_load_rnaseq_from_sheet(sample_sheet, ...)
+  - header=NA (default) auto-detects a header row by checking whether the
+    count_col field on line 1 parses as numeric; explicit TRUE/FALSE skips
+    detection. Needed because HORIZON's <sample_id>_counts.txt files always
+    carry a gene_id/count header.
+ELEUTHIA_load_rnaseq_from_sheet(sample_sheet, ..., header = NA)
   - Load RNA-seq counts from all samples in sample sheet
+  - header passed through to ELEUTHIA_load_count_file() per sample
 ELEUTHIA_filter_low_expression(counts, ...)
   - Filter low-expression genes from count matrix
 

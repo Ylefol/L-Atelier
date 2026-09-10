@@ -239,9 +239,19 @@ ELEUTHIA_export_cibersort_results <- function(result,
       tryCatch({
         p <- AETHER_plot_cibersort_boxplot(result, group_by = group_by, top_n = top_n)
         n_cell_types <- if (!is.null(top_n)) min(top_n, result$metadata$n_cell_types) else result$metadata$n_cell_types
+
+        # Per-row height scales with the number of groups on the x-axis, not
+        # a flat constant -- more groups means more rotated-label clearance
+        # and less room per box before jittered points look squished. A
+        # NAMED group_by is names=labels/values=colors (see
+        # AETHER_plot_cibersort_boxplot()'s own handling) -- normalize the
+        # same way before counting.
+        group_labels <- if (!is.null(names(group_by))) names(group_by) else group_by
+        n_groups     <- length(unique(group_labels))
+        row_height   <- 3 + n_groups * 0.5   # base clearance + per-group increment
         plot_files <- .save_ggplot(p, plot_dir, "cell_boxplot", plot_format,
                                     width = 16,
-                                    height = max(6, ceiling(n_cell_types / 4) * 3))
+                                    height = max(row_height, ceiling(n_cell_types / 4) * row_height))
         files_created <- c(files_created, plot_files)
         if (verbose) cat("[ELEUTHIA]   Cell boxplot (by group)\n")
       }, error = function(e) {

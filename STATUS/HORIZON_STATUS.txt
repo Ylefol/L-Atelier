@@ -1,11 +1,29 @@
 ================================================================================
 HORIZON STATUS - Upstream Bioinformatics Processing Package
 ================================================================================
-Last Updated: 2026-07-28
+Last Updated: 2026-09-04
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
 ================================================================================
+
+concat_lanes.R:
+----------------
+HORIZON_concat_lanes(fastq_r1, fastq_r2=NULL, output_dir, sample_id, force=FALSE)
+  - Merges multi-lane/multi-flowcell FASTQs into one R1 (+ R2) file per sample
+  - Byte-level concatenation of raw .fastq.gz files (no decompress/recompress)
+    -- valid because gzip files are independent concatenable "members" (RFC
+    1952); every downstream reader here (Rfastp, Rsubread, zcat) handles
+    multi-member gzip transparently
+  - Needed for HORIZON_run_qc_trim()/HORIZON_run_align(), which each expect
+    exactly one FASTQ per sample per read direction (unlike
+    HORIZON_run_salmon(), which accepts lane vectors natively)
+  - fastq_r1[i]/fastq_r2[i] must be positionally matched (same lane)
+  - Output: <output_dir>/<sample_id>_R1.fastq.gz (+ _R2.fastq.gz)
+
+.horizon_concat_bytes(input_files, output_file)  [internal]
+  - Raw readBin/writeBin byte-stream concatenation used by
+    HORIZON_concat_lanes()
 
 sample_sheet.R:
 ---------------

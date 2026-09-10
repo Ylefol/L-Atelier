@@ -21,6 +21,7 @@ CYAN_run_reditools(
   omopolymeric_file = NULL,
   splicing_file = NULL,
   bed_file = NULL,
+  require_dup_marked = TRUE,
   keep_tmp = FALSE,
   save_rds = TRUE,
   verbose = TRUE,
@@ -80,6 +81,15 @@ file. Recommended to reduce mismatch artefacts near junctions.}
 
 \item{bed_file}{Character or \code{NULL}. Path to a BED file of target
 regions. Analysis is restricted to these regions when supplied.}
+
+\item{require_dup_marked}{Logical. If \code{TRUE} (default), hard-stops
+before running REDItools2 unless the BAM has at least one read flagged
+as a duplicate (SAM FLAG 0x400). REDItools2's own duplicate filter
+relies entirely on this flag already being set upstream (e.g. via
+\code{samtools markdup} or Picard \code{MarkDuplicates}) -- on a BAM
+that was never duplicate-marked, that filter is a silent no-op. Set to
+\code{FALSE} only if you are confident this BAM genuinely has no
+duplicates to flag.}
 
 \item{keep_tmp}{Logical. If \code{FALSE} (default), intermediate files
 in \code{work_dir} are removed after completion.}

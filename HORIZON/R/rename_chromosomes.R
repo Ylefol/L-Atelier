@@ -6,9 +6,10 @@
 #' uses accession-style names (e.g. \code{NC_060925.1}) rather than conventional
 #' UCSC-style names (e.g. \code{chr1}).
 #'
-#' \strong{BAM}: Requires \code{samtools} on \code{PATH} (only the header
-#' \code{@SQ SN:} fields are rewritten; the binary read data is unchanged).
-#' The output BAM is automatically re-indexed.
+#' \strong{BAM}: Requires \code{samtools} in the conda environment registered
+#' via \code{\link{HORIZON_set_conda_env}} (only the header \code{@SQ SN:}
+#' fields are rewritten; the binary read data is unchanged). The output BAM
+#' is automatically re-indexed.
 #'
 #' \strong{BigWig}: Requires the Bioconductor package \code{rtracklayer}.
 #' Install via \code{BiocManager::install("rtracklayer")}.
@@ -78,9 +79,21 @@ HORIZON_rename_chromosomes <- function(sample_sheet,
                            call. = FALSE))
 
   # ── External dependency checks ───────────────────────────────────────────────
-  if (file_type == "bam" && !nzchar(Sys.which("samtools")))
-    stop("'samtools' not found on PATH (required for BAM chromosome renaming). ",
-         "Install via: conda install -c bioconda samtools", call. = FALSE)
+  # BAM renaming shells out to samtools via .horizon_run_cli(), which resolves
+  # the binary from the conda env registered with HORIZON_set_conda_env() --
+  # checking Sys.which("samtools") here would look at the system PATH instead,
+  # which is not where HORIZON's samtools lives.
+  if (file_type == "bam") {
+    env_path <- getOption("horizon.conda_env", default = NULL)
+    if (is.null(env_path))
+      stop("HORIZON conda environment is not set.\n",
+           "  Call HORIZON_set_conda_env('/path/to/conda/envs/horizon_cli') ",
+           "before running pipeline functions.", call. = FALSE)
+    if (!file.exists(file.path(env_path, "bin", "samtools")))
+      stop("samtools not found in conda env at: ", file.path(env_path, "bin"),
+           "\n  Install via: conda install -n horizon_cli -c bioconda samtools",
+           call. = FALSE)
+  }
 
   if (file_type == "bw" && !requireNamespace("rtracklayer", quietly = TRUE))
     stop("Package 'rtracklayer' is required for BigWig renaming. ",
@@ -136,8 +149,9 @@ HORIZON_rename_chromosomes <- function(sample_sheet,
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 .rename_chr_bam <- function(in_path, out_path, chr_map) {
-  # Extract current header
-  hdr <- system2("samtools", args = c("view", "-H", in_path), stdout = TRUE)
+  # Extract current header (via the registered conda env -- see
+  # .horizon_run_cli() in basilisk.R -- not the bare "samtools" on system PATH)
+  hdr <- .horizon_run_cli("samtools", c("view", "-H", in_path), stdout = TRUE)
 
   # Rewrite SN: fields in @SQ lines only
   for (old in names(chr_map)) {
@@ -157,9 +171,9 @@ HORIZON_rename_chromosomes <- function(sample_sheet,
   # samtools reheader writes to stdout; use temp if overwriting in place
   write_to <- if (identical(in_path, out_path)) tempfile(fileext = ".bam") else out_path
 
-  exit_code <- system2("samtools",
-                       args   = c("reheader", tmp_hdr, in_path),
-                       stdout = write_to)
+  exit_code <- .horizon_run_cli("samtools",
+                                c("reheader", tmp_hdr, in_path),
+                                stdout = write_to)
 
   if (exit_code != 0)
     stop("samtools reheader failed (exit ", exit_code, "): ",

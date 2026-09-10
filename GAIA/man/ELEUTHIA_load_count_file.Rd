@@ -4,12 +4,7 @@
 \alias{ELEUTHIA_load_count_file}
 \title{Eleuthia - RNA-seq Loading Functions}
 \usage{
-ELEUTHIA_load_count_file(
-  file_path,
-  gene_col = 1,
-  count_col = 2,
-  header = FALSE
-)
+ELEUTHIA_load_count_file(file_path, gene_col = 1, count_col = 2, header = NA)
 }
 \arguments{
 \item{file_path}{Character string. Path to the count file.}
@@ -18,7 +13,12 @@ ELEUTHIA_load_count_file(
 
 \item{count_col}{Integer. Column index for counts (default = 2).}
 
-\item{header}{Logical. Does the file have a header? (default = FALSE).}
+\item{header}{Logical or NA. Does the file have a header row? NA (default)
+auto-detects by checking whether the first line's \code{count_col} field
+parses as a number -- if it doesn't, the first line is treated as a
+header (e.g. HORIZON's \code{<sample_id>_counts.txt} files, which are
+always written with a \code{gene_id}/\code{count} header). Set explicitly
+to TRUE/FALSE to skip detection.}
 }
 \value{
 A named numeric vector of counts, with gene IDs as names.

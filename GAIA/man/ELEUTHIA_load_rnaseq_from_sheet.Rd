@@ -4,12 +4,21 @@
 \alias{ELEUTHIA_load_rnaseq_from_sheet}
 \title{Load RNA-seq Counts from Sample Sheet}
 \usage{
-ELEUTHIA_load_rnaseq_from_sheet(sample_sheet, omics = "RNAseq", verbose = TRUE)
+ELEUTHIA_load_rnaseq_from_sheet(
+  sample_sheet,
+  omics = "RNAseq",
+  header = NA,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{sample_sheet}{A validated sample sheet data.frame.}
 
 \item{omics}{Character string. Omics type to load (default = "RNAseq").}
+
+\item{header}{Logical or NA. Passed through to
+\code{\link{ELEUTHIA_load_count_file}} for each sample. NA (default)
+auto-detects per file.}
 
 \item{verbose}{Logical. Print progress messages (default = TRUE).}
 }

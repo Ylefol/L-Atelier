@@ -30,4 +30,9 @@ unit rather than a large orchestrating system.
 \author{
 \strong{Maintainer}: Yohan L \email{placeholder@placeholder.com}
 
+Authors:
+\itemize{
+  \item Yohan L \email{placeholder@placeholder.com}
+}
+
 }

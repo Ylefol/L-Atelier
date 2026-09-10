@@ -19,5 +19,5 @@ Suggests:
 SystemRequirements: Python (>= 3.8); GATK >= 4.0 (for MuTect2 functions)
 License: GPL-3
 Encoding: UTF-8
-RoxygenNote: 7.3.3
 biocViews: Sequencing, RNASeq, VariantAnnotation, SNP
+Config/roxygen2/version: 8.0.0

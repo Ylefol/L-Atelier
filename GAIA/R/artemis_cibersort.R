@@ -20,7 +20,10 @@
 #' @param mixture Expression matrix (genes as rows, samples as columns) or a
 #'   file path to a tab-delimited mixture file. Gene names should be in rownames
 #'   (or first column for files). Can also be an artemis_norm object, in which
-#'   case norm_counts is extracted automatically.
+#'   case norm_counts is extracted automatically. Regardless of input type, the
+#'   mixture is always reordered to match \code{sig_matrix}'s gene order (see
+#'   Details) and rewritten to \code{<output_dir>/cibersort/<mixture_name>.txt}
+#'   -- a file-path input is read and rewritten too, not used in place.
 #' @param cibersort_path Path to the original CIBERSORT.R source file.
 #' @param sig_matrix Path to the signature matrix file (e.g., LM22.txt for
 #'   22 immune cell types).
@@ -57,6 +60,19 @@
 #' The mixture file is saved to `<output_dir>/cibersort/<mixture_name>.txt`
 #' for reproducibility and re-use. CIBERSORT's side-effect output
 #' (CIBERSORT-Results.txt) is also written to the same directory.
+#'
+#' **Gene order:** CIBERSORT.R's own gene-intersection step filters the
+#' signature matrix and mixture down to their shared genes but does not sort
+#' one to match the other, and the downstream SVR regression pairs them up
+#' positionally (no gene-name join). If the two input files use different
+#' row orders -- true unless someone deliberately pre-sorts both identically,
+#' e.g. LM22.txt is alphabetical but many other signature matrices are not --
+#' this silently misaligns genes between the reference and the sample and can
+#' wreck the fit (near-zero correlation, RMSE at or above the standardized
+#' target's own SD) while looking like a data-quality problem rather than a
+#' misalignment bug. `ARTEMIS_cibersort()` reorders the mixture to match
+#' `sig_matrix`'s gene order before writing it out, so this can't happen
+#' regardless of the input files' original ordering.
 #'
 #' @examples
 #' \dontrun{
@@ -104,6 +120,12 @@ ARTEMIS_cibersort <- function(mixture,
     stop("Signature matrix file not found: ", sig_matrix, call. = FALSE)
   }
 
+  # Resolve to an absolute path now -- CIBERSORT() is invoked below after
+  # setwd(cibersort_dir), so a relative sig_matrix would otherwise be looked
+  # up against the wrong directory (mixture_file already gets this treatment
+  # further down; sig_matrix was missing it).
+  sig_matrix <- normalizePath(sig_matrix, mustWork = TRUE)
+
   # Create cibersort output subdirectory
   cibersort_dir <- file.path(output_dir, "cibersort")
   if (!dir.exists(cibersort_dir)) {
@@ -123,12 +145,15 @@ ARTEMIS_cibersort <- function(mixture,
   }
 
   # ---------------------------------------------------------------------------
-  # Handle mixture input
+  # Handle mixture input -- always resolved to an in-memory matrix (even when
+  # a file path is supplied) so the gene-order fix below can be applied
+  # uniformly; the (possibly reordered) mixture is then always written out
+  # to cibersort_dir for reproducibility/re-use.
   # ---------------------------------------------------------------------------
   if (is.character(mixture) && length(mixture) == 1 && file.exists(mixture)) {
-    # File path provided directly
-    mixture_file <- normalizePath(mixture, mustWork = TRUE)
-    if (verbose) cat("    Using mixture file:", mixture_file, "\n")
+    if (verbose) cat("    Reading mixture file:", mixture, "\n")
+    mix_mat <- as.matrix(utils::read.table(mixture, header = TRUE, sep = "\t",
+                                            row.names = 1, check.names = FALSE))
 
   } else {
     # R object — extract matrix if needed
@@ -144,28 +169,66 @@ ARTEMIS_cibersort <- function(mixture,
       stop("mixture must be a matrix, data.frame, artemis_norm object, or file path.",
            call. = FALSE)
     }
-
-    if (is.null(rownames(mix_mat))) {
-      stop("mixture matrix must have gene names as rownames.", call. = FALSE)
-    }
-
-    if (verbose) {
-      cat("    Mixture:", nrow(mix_mat), "genes x", ncol(mix_mat), "samples\n")
-    }
-
-    # Write mixture to cibersort output directory
-    mixture_file <- file.path(cibersort_dir, paste0(mixture_name, ".txt"))
-    utils::write.table(
-      data.frame(GeneSymbol = rownames(mix_mat), mix_mat, check.names = FALSE),
-      file = mixture_file,
-      sep = "\t",
-      row.names = FALSE,
-      quote = FALSE
-    )
-    mixture_file <- normalizePath(mixture_file, mustWork = TRUE)
-
-    if (verbose) cat("    Mixture file saved:", mixture_file, "\n")
   }
+
+  if (is.null(rownames(mix_mat))) {
+    stop("mixture matrix must have gene names as rownames.", call. = FALSE)
+  }
+
+  if (verbose) {
+    cat("    Mixture:", nrow(mix_mat), "genes x", ncol(mix_mat), "samples\n")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Reorder the mixture to match the signature matrix's gene order.
+  #
+  # CIBERSORT.R's own "intersect genes" step filters both matrices down to
+  # their shared genes, but does NOT sort one to match the other -- it just
+  # keeps each matrix's pre-existing row order among the survivors. CoreAlg()
+  # then regresses them together POSITIONALLY (svm(X, y, ...), no gene-name
+  # join), so if the signature matrix and mixture file use different row
+  # orders -- true unless someone deliberately pre-sorts both identically --
+  # the regression silently pairs each signature gene with a DIFFERENT,
+  # unrelated gene's value in the mixture. This isn't a subtle effect: it can
+  # produce near-zero correlation and RMSE at or above the standardized
+  # target's own SD (i.e. no better than predicting the sample mean for every
+  # gene), which looks like "the data doesn't fit" but is actually pure
+  # gene misalignment. Verified directly against ImmuCC_spleen.txt + a
+  # gene-symbol mixture: 128 shared genes, completely different order in
+  # each file, identical(rownames(Xf), rownames(Yf)) == FALSE.
+  #
+  # Fix: reorder the mixture so shared genes appear in the signature
+  # matrix's own order before CIBERSORT.R ever sees it. Its filter preserves
+  # relative order among survivors, so if both inputs already agree on order
+  # for the shared genes, they still agree after its filtering step.
+  # ---------------------------------------------------------------------------
+  sig_gene_order <- utils::read.table(sig_matrix, header = TRUE, sep = "\t",
+                                       check.names = FALSE)[[1]]
+  match_idx <- match(sig_gene_order, rownames(mix_mat))
+  matched   <- !is.na(match_idx)
+
+  if (verbose) {
+    cat("    Gene-order fix: ", sum(matched), "/", length(sig_gene_order),
+        " signature genes found in mixture -- reordering to match\n", sep = "")
+  }
+
+  mix_mat <- rbind(
+    mix_mat[match_idx[matched], , drop = FALSE],                                   # shared genes, signature-matrix order
+    mix_mat[!(rownames(mix_mat) %in% sig_gene_order[matched]), , drop = FALSE]      # remaining genes (order irrelevant -- dropped by CIBERSORT.R's own intersect)
+  )
+
+  # Write (possibly reordered) mixture to the cibersort output directory
+  mixture_file <- file.path(cibersort_dir, paste0(mixture_name, ".txt"))
+  utils::write.table(
+    data.frame(GeneSymbol = rownames(mix_mat), mix_mat, check.names = FALSE),
+    file = mixture_file,
+    sep = "\t",
+    row.names = FALSE,
+    quote = FALSE
+  )
+  mixture_file <- normalizePath(mixture_file, mustWork = TRUE)
+
+  if (verbose) cat("    Mixture file saved:", mixture_file, "\n")
 
   # ---------------------------------------------------------------------------
   # Run CIBERSORT

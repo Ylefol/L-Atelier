@@ -1,7 +1,7 @@
 ================================================================================
 CYAN STATUS — Niche Genomic Analyses (RNA Editing & Variant Calling)
 ================================================================================
-Last Updated: 2026-03-17
+Last Updated: 2026-09-07
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -28,17 +28,32 @@ CYAN_run_reditools(bam, reference, output_dir, work_dir, sample_name,
                    strand_mode, min_coverage, min_base_quality,
                    min_read_quality, min_read_length, min_edits, strict,
                    region, omopolymeric_file, splicing_file, bed_file,
-                   keep_tmp, save_rds, verbose)
+                   require_dup_marked, keep_tmp, save_rds, verbose)
   - Detects RNA editing events via REDItools2 (Python, basilisk env)
   - Defaults match REDItools2 native defaults (min_coverage=1, min_edits=0,
     strict=FALSE) — full unfiltered output returned for post-hoc filtering
   - Validates inputs, creates dirs, builds CLI args, runs via system2
+  - require_dup_marked=TRUE (default): hard-stops before running REDItools2
+    unless the BAM has >=1 read flagged as a duplicate (SAM FLAG 0x400) --
+    reditools.py's own duplicate filter (read.is_duplicate) only excludes
+    reads that already carry this flag, so a BAM that was never run through
+    samtools markdup / Picard MarkDuplicates makes that filter a silent
+    no-op. Set FALSE to skip (e.g. a BAM confidently known to be dup-free).
+    Skipped entirely on a checkpoint cache-hit (no filtering happens then).
   - Checkpoint behaviour: skips REDItools2 if raw output already exists
   - Parses REDItools2 tab-delimited output → cyan_editing_result data.frame
   - Saves three files to output_dir: full .txt checkpoint, subs-only .txt,
     optional .rds
   - Cleans work_dir intermediates if keep_tmp = FALSE
   - Returns: cyan_editing_result (data.frame + params attribute)
+
+.cyan_check_duplicates_marked(bam, max_reads = 5e6, verbose)  [internal]
+  - Scans a BAM for the SAM duplicate flag via inst/python/check_duplicates.py
+    (basilisk env, same cyan_reditools_env as REDItools2 itself -- pysam
+    already pinned there, no new dependency)
+  - Exits on the first duplicate-flagged read found; capped at max_reads for
+    a genuinely duplicate-free BAM
+  - Used by CYAN_run_reditools()'s require_dup_marked check
 
 print.cyan_editing_result(x, ...)
   - S3 print method: shows n positions, n with substitutions, freq range

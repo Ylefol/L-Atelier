@@ -1,7 +1,7 @@
 ================================================================================
 ARTEMIS STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-06-16
+Last Updated: 2026-09-07
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -139,6 +139,11 @@ artemis_differential_analysis.R:
 ----------------------------------
 ARTEMIS_normalize_counts(counts, sample_sheet, ...)
   - Normalize count data via DESeq2 size factors
+ARTEMIS_differential_counts(norm_data, reference, experiment, ...)
+  - Pairwise DESeq2 comparison from a pre-normalized artemis_norm object
+  - Requires residual df > 0 for the design (not "each group >= 2 replicates"):
+    only one of the two groups needs >= 2 replicates, the other may be a
+    singleton -- only fails when both groups have exactly 1 sample each
 ARTEMIS_select_de_genes(dea_result, ...)
   - Select differentially expressed genes by threshold
 ARTEMIS_prepare_part_matrix(counts, genes, ...)

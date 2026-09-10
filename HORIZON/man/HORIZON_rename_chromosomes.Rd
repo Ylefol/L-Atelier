@@ -50,9 +50,10 @@ uses accession-style names (e.g. \code{NC_060925.1}) rather than conventional
 UCSC-style names (e.g. \code{chr1}).
 }
 \details{
-\strong{BAM}: Requires \code{samtools} on \code{PATH} (only the header
-\code{@SQ SN:} fields are rewritten; the binary read data is unchanged).
-The output BAM is automatically re-indexed.
+\strong{BAM}: Requires \code{samtools} in the conda environment registered
+via \code{\link{HORIZON_set_conda_env}} (only the header \code{@SQ SN:}
+fields are rewritten; the binary read data is unchanged). The output BAM
+is automatically re-indexed.
 
 \strong{BigWig}: Requires the Bioconductor package \code{rtracklayer}.
 Install via \code{BiocManager::install("rtracklayer")}.

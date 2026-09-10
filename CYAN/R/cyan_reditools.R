@@ -76,6 +76,14 @@
 #'   file. Recommended to reduce mismatch artefacts near junctions.
 #' @param bed_file        Character or \code{NULL}. Path to a BED file of target
 #'   regions. Analysis is restricted to these regions when supplied.
+#' @param require_dup_marked Logical. If \code{TRUE} (default), hard-stops
+#'   before running REDItools2 unless the BAM has at least one read flagged
+#'   as a duplicate (SAM FLAG 0x400). REDItools2's own duplicate filter
+#'   relies entirely on this flag already being set upstream (e.g. via
+#'   \code{samtools markdup} or Picard \code{MarkDuplicates}) -- on a BAM
+#'   that was never duplicate-marked, that filter is a silent no-op. Set to
+#'   \code{FALSE} only if you are confident this BAM genuinely has no
+#'   duplicates to flag.
 #' @param keep_tmp        Logical. If \code{FALSE} (default), intermediate files
 #'   in \code{work_dir} are removed after completion.
 #' @param save_rds        Logical. If \code{TRUE} (default), the parsed result
@@ -125,6 +133,7 @@ CYAN_run_reditools <- function(
   omopolymeric_file = NULL,
   splicing_file     = NULL,
   bed_file          = NULL,
+  require_dup_marked = TRUE,
   keep_tmp          = FALSE,
   save_rds          = TRUE,
   verbose           = TRUE,
@@ -161,6 +170,22 @@ CYAN_run_reditools <- function(
       if (verbose) message("[CYAN] RDS saved: ", rds_out)
     }
     return(invisible(result))
+  }
+
+  # ------------------------------------------------------------------
+  # 2b. Duplicate-marking check (only when actually about to run --
+  #     skipped above on a cache hit, since no filtering happens then)
+  # ------------------------------------------------------------------
+  if (require_dup_marked && !.cyan_check_duplicates_marked(bam, verbose = verbose)) {
+    stop("[CYAN] No duplicate-flagged reads found in this BAM (SAM FLAG 0x400, ",
+         "scanned up to 5,000,000 reads).\n",
+         "  REDItools2's own duplicate filter relies entirely on this flag already ",
+         "being set upstream -- on a BAM that was never duplicate-marked, that filter ",
+         "is a silent no-op and PCR duplicates will inflate editing-frequency estimates.\n",
+         "  Run 'samtools markdup' or Picard MarkDuplicates on this BAM first (flagging ",
+         "is enough -- REDItools2 excludes flagged reads itself, no need to remove them).\n",
+         "  If you are confident this BAM genuinely has no duplicates to flag, pass ",
+         "require_dup_marked = FALSE to skip this check.", call. = FALSE)
   }
 
   # ------------------------------------------------------------------
@@ -270,6 +295,53 @@ CYAN_run_reditools <- function(
   if (isTRUE(debug))               args <- c(args, "-V")  # REDItools2 verbose → debug only
 
   as.character(args)
+}
+
+#' Check a BAM for duplicate-flagged reads (SAM FLAG 0x400)
+#'
+#' REDItools2's own duplicate filter (\code{read.is_duplicate}, hardcoded in
+#' \code{reditools.py}) only excludes reads that already carry this flag --
+#' it does not mark duplicates itself. On a BAM that was never run through a
+#' duplicate-marking tool (e.g. \code{samtools markdup}, Picard
+#' \code{MarkDuplicates}), the flag is never set and that filter is a silent
+#' no-op, letting PCR-duplicate reads inflate editing-frequency estimates
+#' uncaught. This scans for at least one flagged read as a cheap upstream
+#' sanity check, exiting immediately once one is found.
+#'
+#' @param bam Character. Path to a sorted, indexed BAM file.
+#' @param max_reads Integer. Maximum number of reads to scan before
+#'   concluding none are flagged (default 5,000,000). Only reached for a
+#'   genuinely duplicate-free BAM -- any real duplicate-marked BAM exits on
+#'   the first flagged read.
+#' @param verbose Logical. Print \code{[CYAN]} progress messages.
+#'
+#' @return Logical. TRUE if at least one duplicate-flagged read was found.
+#' @keywords internal
+.cyan_check_duplicates_marked <- function(bam, max_reads = 5e6, verbose = TRUE) {
+  script_path <- system.file("python", "check_duplicates.py", package = "CYAN")
+  if (!nzchar(script_path))
+    stop("[CYAN] Cannot locate inst/python/check_duplicates.py inside the CYAN package.",
+         call. = FALSE)
+
+  if (verbose) message("[CYAN] Checking BAM for duplicate-marking (SAM FLAG 0x400)...")
+
+  out <- basilisk::basiliskRun(
+    env = .cyan_reditools_env,
+    fun = function(script, bam_path, cap) {
+      python_bin <- reticulate::py_exe()
+      system2(
+        command = python_bin,
+        args    = c(shQuote(script), shQuote(bam_path), as.character(cap)),
+        stdout  = TRUE,
+        stderr  = TRUE
+      )
+    },
+    script   = script_path,
+    bam_path = bam,
+    cap      = as.integer(max_reads)
+  )
+
+  identical(trimws(out[length(out)]), "TRUE")
 }
 
 #' Execute REDItools2 via basilisk + system2
