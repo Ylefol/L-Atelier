@@ -2,7 +2,7 @@ Package: HORIZON
 Title: Upstream Bioinformatics Processing for Multi-Omics Data
 Version: 0.1.0
 Authors@R:
-    person("First", "Last", email = "email@example.com", role = c("aut", "cre"))
+    person("Yohan", "Lefol", email = "yohanlefol@proton.me", role = c("aut", "cre"))
 Description: A flat collection of wrappers around Bioconductor processing tools
     (Rfastp, Rsubread, Rsamtools) for upstream bulk RNA-seq preprocessing.
     Covers the full pipeline from raw FASTQ to analysis-ready count matrices:

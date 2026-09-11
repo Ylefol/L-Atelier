@@ -445,10 +445,12 @@ TRIPODES_assess_splicing <- function(sce,
 
 
 # ------------------------------------------------------------------------------
-#' Estimate RNA velocity via velociraptor / scVelo
+#' Estimate RNA velocity via scVelo
 #'
-#' Runs RNA velocity estimation using \pkg{velociraptor}, an R/Bioconductor
-#' wrapper around the Python \pkg{scVelo} library (managed via \pkg{basilisk}).
+#' Runs RNA velocity estimation using the Python \pkg{scVelo} library,
+#' called directly through a \pkg{basilisk}-managed environment and a bundled
+#' script (\code{inst/python/scvelo_run.py}) — not via the \pkg{velociraptor}
+#' Bioconductor wrapper (CAULDRON has no dependency on \pkg{velociraptor}).
 #' Spliced and unspliced count assays must be present in the SCE. Results are
 #' stored back into the input SCE and returned.
 #'
@@ -505,7 +507,9 @@ TRIPODES_assess_splicing <- function(sce,
 #'   the SCE's assay footprint. Enable for phase-portrait-style diagnostics
 #'   (unspliced vs. spliced per gene).
 #' @param verbose Logical; print progress messages (default \code{TRUE}).
-#' @param ... Additional arguments passed to \code{velociraptor::scvelo}.
+#' @param ... Currently unused — kept for backward-compatible signature
+#'   stability; nothing in the current implementation forwards these
+#'   arguments anywhere.
 #'
 #' @return The input SCE with velocity results added (see Details).
 #'   \code{metadata(sce)$velocity_run} is set to \code{TRUE} and

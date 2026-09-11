@@ -1,5 +1,16 @@
 #!/usr/bin/env python
 
+# ------------------------------------------------------------------------
+# Vendored, unmodified, from REDItools2 (BioinfoUNIBA/REDItools2):
+#   https://github.com/BioinfoUNIBA/REDItools2
+# Copyright (c) University of Bari Aldo Moro / BioinfoUNIBA.
+# Licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+# This attribution notice, added when vendoring the file into CYAN, is the
+# only change made to it. CC BY 4.0 governs this file specifically; it does
+# not extend to the rest of the CYAN package, which is MIT-licensed
+# (see ../../LICENSE.md).
+# ------------------------------------------------------------------------
+
 '''
 Created on 09 gen 2017
 

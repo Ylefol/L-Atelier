@@ -7,3 +7,6 @@ data/
 projects/
 
 to_process/
+
+.Rhistory
+omnipathr-log/

@@ -1,6 +1,6 @@
 # HORIZON
 
-Upstream bioinformatics processing package for bulk sequencing data. Handles QC, adapter trimming, alignment, BAM processing, read counting, BigWig generation, and chromatin accessibility / ChIP-seq / CUT&TAG peak calling — the computational work that sits upstream of GAIA.
+Upstream bioinformatics processing package for bulk sequencing data. Handles QC, adapter trimming, alignment, BAM processing, read counting, BigWig generation, and chromatin accessibility / ChIP-seq / CUT&TAG peak calling. This upstream processing is also used in regards to single cell data - Making the output of HORIZON compatable with both GAIA and CAULDRON. 
 
 Part of the [L-Atelier](../) repository. Unlike GAIA and CAULDRON, HORIZON has no named sub-modules; the wrapped tools serve that role implicitly. HORIZON has no hard dependency on GAIA or CAULDRON, and vice versa — the interface is file format compatibility.
 
@@ -20,8 +20,6 @@ Output files are in formats GAIA's import module already understands:
 ## Installation
 
 ### 1. Install the R package
-
-R >= 4.1.0 is required.
 
 ```r
 install.packages("devtools")
@@ -54,6 +52,30 @@ HORIZON_set_conda_env("~/miniconda3/envs/horizon_cli")
 
 This stores the path for the session. Call it once at the top of any project script that uses the chromatin pipeline. RNA-seq functions (QC, align, count) do not require the conda environment.
 
+### 4. (Optional) Create the PARSE Biosciences conda environment
+
+Only needed for single-cell/single-nucleus library prep via `split-pipe` (`HORIZON_run_splitpipe()`, `HORIZON_combine_splitpipe()`, `HORIZON_run_parse_velocity()`, `HORIZON_parse_DGE_filter()` — see [Single-cell / single-nucleus library prep](#single-cell--single-nucleus-library-prep-parse-biosciences) below). This **must be a separate environment from `horizon_cli`** — `split-pipe`'s own Python dependencies conflict with the `samtools`/`bedtools`/`macs3`/`bowtie2` environment above.
+Note that the parse biosciences spipe installation guide can be found on their website.
+
+```bash
+conda create -n parse_env python=3.10
+conda activate parse_env
+pip install spipe (see their website for details)
+```
+
+`HORIZON_run_parse_velocity()` and `HORIZON_parse_DGE_filter()` call their own Python scripts (`inst/python/parse_velocity.py`, `inst/python/parse_dge_filter.py`) inside this same environment, so it also needs the packages those scripts import — `split-pipe` alone isn't enough if you plan to use the velocity step:
+
+```bash
+pip install scanpy scvelo anndata "dask[dataframe]"
+```
+
+Unlike `horizon_cli`, this environment is **not** registered globally via `HORIZON_set_conda_env()` — pass its path directly via the `conda_env` argument on each PARSE function call, e.g.:
+
+```r
+HORIZON_run_splitpipe(sample_sheet, run_id = "run1", sample_layout = c(all_cells = "A1-D12"),
+                       conda_env = "~/miniconda3/envs/parse_env")
+```
+
 ---
 
 ## Output Directory Structure
@@ -77,105 +99,26 @@ All functions write into a consistent tree under `output_dir`:
 
 ---
 
-## Functions
+## References
 
-### Sample sheet
-- `HORIZON_create_sample_sheet()` — generate a CSV template with all required columns
-- `HORIZON_validate_sample_sheet()` — validate paths and column values
+Methods/tools wrapped or reimplemented within HORIZON:
 
-### Index building
-- `HORIZON_build_index()` — build a Subread genome index (RNA-seq)
-- `HORIZON_build_bowtie2_index()` — build a Bowtie2 index (chromatin assays)
-- `HORIZON_build_combined_index()` — concatenate host + spike-in FASTAs and build a combined Bowtie2 index
-
-### QC and trimming
-- `HORIZON_run_qc_trim()` — QC + adapter trimming (wraps fastp via Rfastp)
-
-### Alignment
-- `HORIZON_run_align()` — splice-aware alignment for RNA-seq (wraps Rsubread)
-- `HORIZON_run_bowtie2()` — paired-end alignment for chromatin assays (bowtie2 piped to samtools view; no SAM intermediate); MAPQ filtering included
-
-### BAM processing
-- `HORIZON_sort_index_bam()` — sort and index BAM (RNA-seq; wraps Rsamtools)
-- `HORIZON_process_bam()` — collate → fixmate → sort → markdup (duplicate removal) → optional chrM removal; writes flagstat
-- `HORIZON_filter_blacklist()` — remove blacklist-overlapping reads with bedtools
-- `HORIZON_downsample_bam()` — subsample BAM by a spike-in scale factor (samtools)
-- `HORIZON_rename_chromosomes()` — rename chromosome identifiers in BAM / BED / BigWig files; built-in T2T CHM13 map
-
-### Spike-in normalisation
-- `HORIZON_separate_spike_in()` — split a combined-genome BAM into host and spike-in BAMs by chromosome prefix
-- `HORIZON_compute_spike_in_factors()` — count spike-in read pairs and compute scale factors for BigWig (`scale_factor_bw`) and DESeq2 (`size_factor_deseq2`)
-
-### Format conversion and BigWig
-- `HORIZON_bam_to_bed()` — BAM → fragment BED via bedtools; optional Tn5 shift for ATAC-seq
-- `HORIZON_bam_to_bigwig()` — RPKM or spike-in normalised BigWig via deeptools `bamCoverage`; built-in effective genome sizes for GRCh38, GRCm38, T2TCHM13, WBcel235
-- `HORIZON_run_fragment_size()` — insert size histogram via deeptools `bamPEFragmentSize`; nucleosomal periodicity diagnostic for ATAC-seq
-
-### Peak calling
-- `HORIZON_call_peaks()` — wraps `macs3 callpeak`; supports ATAC-seq, ChIP-seq (TF and histone), CUT&TAG, CUT&RUN via explicit parameter control
-
-### Counting and aggregation (RNA-seq)
-- `HORIZON_run_count()` — gene-level feature counting (wraps featureCounts via Rsubread); exon-union counting, not suitable for isoform-level resolution (overlapping-isoform reads are ambiguous/discarded)
-- `HORIZON_aggregate_counts()` — merge per-sample count files into a single matrix
-
-### Transcript quantification (isoform-level RNA-seq)
-- `HORIZON_build_salmon_index()` — decoy-aware Salmon transcriptome index from a GTF + genome FASTA (`GenomicFeatures::extractTranscriptSeqs()`); one-time per reference
-- `HORIZON_run_salmon()` — per-sample `salmon quant` (selective-alignment mode, direct from FASTQ — does not use the genome-aligned BAM); resolves isoform-ambiguous reads via Salmon's EM algorithm, unlike `HORIZON_run_count()`
-- `HORIZON_aggregate_salmon()` — merge per-sample `quant.sf` files into transcript x sample TPM and count matrices
-
-### Transposable element quantification
-Reads from repetitive TE loci mostly multi-map, so `HORIZON_run_align()` + `HORIZON_run_count()` (tuned to keep one best hit per read, correct for gene-level counting) systematically undercounts TEs. This path uses STAR with a relaxed multi-mapping filter, then TEcount's EM algorithm to redistribute those reads across candidate TE loci, rather than discarding them.
-
-- `HORIZON_build_star_index()` — build a STAR genome index (separate from the Rsubread index used by `HORIZON_run_align()`); one-time per reference/read-length
-- `HORIZON_run_star_align()` — STAR alignment with multi-mapping alignments reported (`--outFilterMultimapNmax`/`--winAnchorMultimapNmax` relaxed from STAR's defaults); writes to `aligned_star/`, distinct from Rsubread's `aligned/`
-- `HORIZON_run_tecount()` — per-sample `TEcount` (bioconda `tetranscripts` package's single-BAM counting tool, *not* the 2-group `TEtranscripts` DE binary) quantifying genes + TE subfamilies from a STAR BAM
-- `HORIZON_aggregate_tecount()` — merge per-sample `.cntTable` files into a TE subfamily x sample count matrix (TE rows only; gene rows are dropped — canonical gene counts should keep coming from `HORIZON_aggregate_counts()`)
-- `HORIZON_merge_gene_te_counts()` — combine a gene-level count matrix and a TE count matrix into one feature x sample matrix for differential analysis (e.g. `ARTEMIS_normalize_counts()` in GAIA)
-
-STAR and TEcount share the standard `horizon_cli` conda environment — no dependency conflict with the tools already there (confirmed via `conda install --dry-run`), unlike PARSE split-pipe which genuinely needs its own isolated environment:
-```bash
-conda install -n horizon_cli -c bioconda -c conda-forge star tetranscripts
-```
-Both functions call `.horizon_run_cli()` internally, so `HORIZON_set_conda_env()` must be called first (same as any other `horizon_cli` tool) — no separate `conda_env` argument is needed.
-
----
-
-## Typical Chromatin Workflow
-
-```
-HORIZON_build_combined_index()          # once per reference pair
-  ↓ per sample
-HORIZON_run_qc_trim()
-HORIZON_run_bowtie2()
-HORIZON_separate_spike_in()             # spike-in workflows only
-HORIZON_process_bam()
-HORIZON_filter_blacklist()
-HORIZON_run_fragment_size()             # QC diagnostic
-  ↓ spike-in only: compute factors, then downsample
-HORIZON_compute_spike_in_factors()
-HORIZON_downsample_bam()
-  ↓ all samples
-HORIZON_bam_to_bed()
-HORIZON_bam_to_bigwig()
-HORIZON_call_peaks()
-```
-
-### Recommended MACS3 parameters by assay type
-
-| Assay | Key parameters |
-|---|---|
-| ATAC-seq | `nomodel=TRUE, shift=-100, extsize=200` |
-| ChIP-seq (TF) | defaults; provide `control_bed` |
-| ChIP-seq (histone) | `broad=TRUE`; provide `control_bed` |
-| CUT&TAG / CUT&RUN | `nomodel=TRUE`; optionally `extra_flags=c("--keep-dup","all")` |
+- **fastp** (via Rfastp) — fastp: an ultra-fast all-in-one FASTQ preprocessor. doi: [10.1093/bioinformatics/bty560](https://doi.org/10.1093/bioinformatics/bty560)
+- **Rsubread / featureCounts** — The R package Rsubread is easier, faster, cheaper and better for alignment and quantification of RNA sequencing reads. doi: [10.1093/nar/gkz114](https://doi.org/10.1093/nar/gkz114)
+- **Bowtie2** — Fast gapped-read alignment with Bowtie 2. doi: [10.1038/nmeth.1923](https://doi.org/10.1038/nmeth.1923)
+- **samtools** — Twelve years of SAMtools and BCFtools. doi: [10.1093/gigascience/giab008](https://doi.org/10.1093/gigascience/giab008)
+- **bedtools** — BEDTools: a flexible suite of utilities for comparing genomic features. doi: [10.1093/bioinformatics/btq033](https://doi.org/10.1093/bioinformatics/btq033)
+- **MACS3/MACS2** — Model-based Analysis of ChIP-Seq (MACS). doi: [10.1186/gb-2008-9-9-r137](https://doi.org/10.1186/gb-2008-9-9-r137)
+- **deeptools** — deepTools2: a next generation web server for deep-sequencing data analysis. doi: [10.1093/nar/gkw257](https://doi.org/10.1093/nar/gkw257)
+- **Salmon** — Salmon provides fast and bias-aware quantification of transcript expression. doi: [10.1038/nmeth.4197](https://doi.org/10.1038/nmeth.4197)
+- **STAR** — STAR: ultrafast universal RNA-seq aligner. doi: [10.1093/bioinformatics/bts635](https://doi.org/10.1093/bioinformatics/bts635)
+- **TEtranscripts/TEcount** — TEtranscripts: a package for including transposable elements in differential expression analysis of RNA-seq datasets. doi: [10.1093/bioinformatics/btv422](https://doi.org/10.1093/bioinformatics/btv422)
+- **SEACR** *(method reimplemented in R by `HORIZON_call_peaks_seacr()`, not called as an external tool)* — Peak calling by Sparse Enrichment Analysis for CUT&RUN chromatin profiling. doi: [10.1186/s13072-019-0287-4](https://doi.org/10.1186/s13072-019-0287-4). Original tool: [github.com/FredHutch/SEACR](https://github.com/FredHutch/SEACR).
+- **scVelo** *(target format for `HORIZON_run_parse_velocity()`'s spliced/unspliced AnnData output; the counting step itself is a custom script, not a scVelo wrapper)* — Generalizing RNA velocity to transient cell states through dynamical modeling. doi: [10.1038/s41587-020-0591-5](https://doi.org/10.1038/s41587-020-0591-5)
+- **PARSE Biosciences `split-pipe`** — proprietary vendor software; see parsebiosciences website for code/software.
 
 ---
 
 ## Development
-
-```r
-devtools::document("HORIZON")
-devtools::install("HORIZON")
-```
 
 Implementation status is tracked in `STATUS/HORIZON_STATUS.txt` at the repository root.
