@@ -1,7 +1,7 @@
 ================================================================================
 ARTEMIS STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-09-07
+Last Updated: 2026-09-11
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -130,6 +130,11 @@ ARTEMIS_run_decoupler(mat, network, method, norm_method="log2cpm", ...)
 ARTEMIS_decoupler_compare_methods(mat, network, methods, norm_method="log2cpm", ...)
   - Compare multiple activity inference methods
   - Normalizes matrix once before the method loop to prevent double normalization
+  - Returns both $summary (raw per-method activity scale) and $summary_zscored
+    (each method's activity matrix z-scored before mean/sd/min/max/
+    agreement_score are computed) -- use $summary_zscored when methods differ
+    in native output scale (e.g. wsum vs ulm/mlm/viper), see
+    AETHER_plot_method_agreement(scale=)
 ARTEMIS_infer_tf_activity(counts, network, ...)
   - Infer transcription factor activity
 ARTEMIS_infer_pathway_activity(counts, network, ...)

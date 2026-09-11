@@ -9,6 +9,7 @@ ELEUTHIA_quantify_bed(
   regions,
   omics,
   min_overlap = 1,
+  stranded = FALSE,
   verbose = TRUE
 )
 }
@@ -22,6 +23,14 @@ ELEUTHIA_quantify_bed(
 
 \item{min_overlap}{Integer. Minimum bp overlap required to count a fragment
 (default = 1, any overlap counts).}
+
+\item{stranded}{Logical. If TRUE, only count a fragment toward a region
+when the fragment's strand (BED column 6) matches the region's strand
+(requires a \code{strand} column in \code{regions}, values \code{"+"}/
+\code{"-"}). Use this for strand-specific peak sets (e.g. DRIPc-seq
+R-loop peaks, which are called separately per strand) where a region at
+the same coordinates on the opposite strand is a distinct feature.
+Default \code{FALSE} (strand-blind, matches prior behavior).}
 
 \item{verbose}{Logical. Print progress messages (default = TRUE).}
 }

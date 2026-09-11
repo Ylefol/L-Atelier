@@ -1,7 +1,7 @@
 ================================================================================
 AETHER STATUS - Visualization
 ================================================================================
-Last Updated: 2026-08-10
+Last Updated: 2026-09-11
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -89,8 +89,15 @@ AETHER_plot_top_activities(tf_result, ...)
   - Bar chart of top N activities
 AETHER_plot_method_correlation(tf_result, ...)
   - Correlation heatmap comparing activity inference methods
-AETHER_plot_method_agreement(tf_result, ...)
-  - Method agreement / variability across inference methods
+AETHER_plot_method_agreement(comparison, scale=c("raw","zscore"), ...)
+  - Method agreement / variability across inference methods (point = mean,
+    bars = min-max range across methods)
+  - scale="raw" (default, back-compat): comparison$summary, each method's
+    native output scale -- a method with a much larger raw scale (e.g. wsum)
+    will dominate both the top_n ranking and the range regardless of actual
+    agreement
+  - scale="zscore": comparison$summary_zscored, methods z-scored first so
+    ranking/range reflect real cross-method agreement
 AETHER_plot_activity_by_method(tf_result, ...)
   - Side-by-side activity comparison across methods
 AETHER_plot_activity_trait(tf_result, ...)
@@ -265,6 +272,9 @@ AETHER_plot_gsea_dotplot(gsea_result, top_n=20, title="GSEA", ...)
   - Accepts apollo_gsea object or data.frame ($results/$significant)
   - Dot size = leading-edge gene count; color = -log10(padj); dashed line at NES=0
   - Ported from CAULDRON's internal .talaria_gsea_dotplot()
+  - Long pathway names (> max_label_length) are word-wrapped, not truncated
+    with "..." -- underscores (MSigDB-style names have no spaces) are treated
+    as break points via .wrap_gsea_label()
 AETHER_plot_gsea_enrichment(gsea_result, pathway, title=NULL)
   - Running-score ("mountain plot") for one gene set; wraps fgsea::plotEnrichment()
   - Requires gsea_result$gene_sets and $ranked_genes (both kept by APOLLO_gsea())

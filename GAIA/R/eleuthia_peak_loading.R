@@ -1470,6 +1470,13 @@ ELEUTHIA_expand_regions <- function(regions,
 #' @param omics Character string. Omics type to quantify ("ATACseq", "CHIPseq", etc.).
 #' @param min_overlap Integer. Minimum bp overlap required to count a fragment
 #'   (default = 1, any overlap counts).
+#' @param stranded Logical. If TRUE, only count a fragment toward a region
+#'   when the fragment's strand (BED column 6) matches the region's strand
+#'   (requires a \code{strand} column in \code{regions}, values \code{"+"}/
+#'   \code{"-"}). Use this for strand-specific peak sets (e.g. DRIPc-seq
+#'   R-loop peaks, which are called separately per strand) where a region at
+#'   the same coordinates on the opposite strand is a distinct feature.
+#'   Default \code{FALSE} (strand-blind, matches prior behavior).
 #' @param verbose Logical. Print progress messages (default = TRUE).
 #'
 #' @return A list containing:
@@ -1510,6 +1517,7 @@ ELEUTHIA_quantify_bed <- function(sample_sheet,
                                    regions,
                                    omics,
                                    min_overlap = 1,
+                                   stranded = FALSE,
                                    verbose = TRUE) {
 
   # Check for data.table
@@ -1532,6 +1540,10 @@ ELEUTHIA_quantify_bed <- function(sample_sheet,
   missing_cols <- setdiff(required_cols, colnames(regions))
   if (length(missing_cols) > 0) {
     stop("regions missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+
+  if (isTRUE(stranded) && !"strand" %in% colnames(regions)) {
+    stop("regions must have a 'strand' column when stranded = TRUE")
   }
 
   # Get subset for this omics type
@@ -1573,6 +1585,9 @@ ELEUTHIA_quantify_bed <- function(sample_sheet,
     end = as.integer(regions$end),
     region_idx = seq_len(n_regions)
   )
+  if (isTRUE(stranded)) {
+    data.table::set(regions_dt, j = "region_strand", value = regions$strand)
+  }
   data.table::setkey(regions_dt, chr, start, end)
 
   # Process each sample one at a time
@@ -1594,8 +1609,9 @@ ELEUTHIA_quantify_bed <- function(sample_sheet,
       bed_path,
       header = FALSE,
       sep = "\t",
-      select = 1:3,  # Only read first 3 columns
-      col.names = c("chr", "start", "end"),
+      select = if (isTRUE(stranded)) c(1, 2, 3, 6) else 1:3,  # +strand (col 6) when stranded
+      col.names = if (isTRUE(stranded)) c("chr", "start", "end", "frag_strand")
+                  else c("chr", "start", "end"),
       showProgress = FALSE
     )
 
@@ -1621,8 +1637,15 @@ ELEUTHIA_quantify_bed <- function(sample_sheet,
     )
 
     if (nrow(overlaps) > 0) {
+      # Strand match required first when stranded=TRUE -- a fragment on the
+      # opposite strand from the region doesn't count as an overlap at all
+      # (e.g. DRIPc-seq peaks called separately per strand)
+      if (isTRUE(stranded)) {
+        overlaps <- overlaps[overlaps$frag_strand == overlaps$region_strand, ]
+      }
+
       # Apply minimum overlap filter if needed
-      if (min_overlap > 1) {
+      if (nrow(overlaps) > 0 && min_overlap > 1) {
         # Calculate actual overlap bp
         data.table::set(overlaps, j = "overlap_bp",
                         value = pmin(overlaps$end, overlaps$i.end) -

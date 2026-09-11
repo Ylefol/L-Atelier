@@ -8,6 +8,7 @@ AETHER_plot_method_agreement(
   comparison,
   top_n = 30,
   order_by = "activity",
+  scale = c("raw", "zscore"),
   title = "Activity Across Methods",
   point_size = 2,
   colors = c("#B2182B", "#2166AC")
@@ -20,6 +21,17 @@ AETHER_plot_method_agreement(
 
 \item{order_by}{Character. How to order sources: "activity" (absolute mean),
 "variance" (SD across methods), or "name". Default: "activity".}
+
+\item{scale}{Character. Which per-source summary to plot: \code{"raw"}
+(each method's native activity scale) or \code{"zscore"} (each method's
+activity matrix z-scored before the mean/range are computed, i.e.
+\code{comparison$summary_zscored}). Default: \code{"raw"}, for backward
+compatibility. Use \code{"zscore"} whenever the compared methods differ
+in native output scale (e.g. wsum's unbounded weighted-sum scores vs.
+ulm/mlm's t-like statistics vs. viper's NES-like scores) -- on
+\code{"raw"}, the method with the largest scale will dominate both the
+top_n ranking and the error-bar range regardless of actual cross-method
+agreement, which \code{"zscore"} corrects for.}
 
 \item{title}{Character. Plot title. Default: "Activity Across Methods".}
 
@@ -52,6 +64,9 @@ crossing zero.
 \dontrun{
 AETHER_plot_method_agreement(comparison)
 AETHER_plot_method_agreement(comparison, order_by = "variance")
+
+# Methods on very different native scales (e.g. wsum alongside ulm/mlm/viper)
+AETHER_plot_method_agreement(comparison, scale = "zscore")
 
 }
 }

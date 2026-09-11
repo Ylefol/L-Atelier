@@ -24,8 +24,8 @@ enriched (NES > 0) and top depleted (NES < 0) by padj. Default: 20.}
 
 \item{font_size}{Numeric. Base font size for pathway labels. Default: 8.}
 
-\item{max_label_length}{Integer. Maximum characters for pathway names
-before truncation. Default: 55.}
+\item{max_label_length}{Integer. Pathway names longer than this are
+word-wrapped onto multiple lines (never truncated/"..."-ed). Default: 55.}
 }
 \value{
 A ggplot object, or \code{NULL} (with a warning) if there are no
@@ -39,6 +39,12 @@ enrichment score (NES).
 \details{
 Dot size = number of genes in the leading edge (\code{size} column); dot
 color = -log10(padj). A dashed vertical line marks NES = 0.
+
+Long pathway names are wrapped (via \code{strwrap()}), not truncated --
+MSigDB-style names (e.g. \code{"GOBP_CHROMOSOME_SEGREGATION"}) have no
+spaces to wrap on, so underscores are treated as break points the same way
+spaces would be, with the underscore at the chosen break consumed by the
+line break (matching how a normal word-wrap drops the space it breaks on).
 }
 \examples{
 \dontrun{

@@ -2156,6 +2156,24 @@ AETHER_plot_enrichment_map <- function(enrichment_result,
 ########### GSEA Result Visualizations (fgsea) ###########
 ###############################################################################
 
+#' Word-wrap a pathway label at a given width, treating "_" as a break point
+#'
+#' MSigDB-style pathway names (e.g. "GOBP_CHROMOSOME_SEGREGATION") have no
+#' spaces, so \code{strwrap()} on its own has nothing to wrap at. Underscores
+#' are substituted for spaces, wrapped with \code{strwrap()}, then any
+#' surviving space (i.e. one \code{strwrap()} didn't consume as a line break)
+#' is restored to "_" -- so the only underscore actually lost is the one at
+#' each chosen break point, same as how a normal word-wrap drops the space it
+#' breaks on.
+#' @noRd
+.wrap_gsea_label <- function(label, width) {
+  if (nchar(label) <= width) return(label)
+  spaced  <- gsub("_", " ", label, fixed = TRUE)
+  wrapped <- paste(strwrap(spaced, width = width), collapse = "\n")
+  gsub(" ", "_", wrapped, fixed = TRUE)
+}
+
+
 #' NES Dotplot for GSEA Results
 #'
 #' @description Creates a dotplot showing the top enriched and depleted gene
@@ -2169,8 +2187,8 @@ AETHER_plot_enrichment_map <- function(enrichment_result,
 #'   enriched (NES > 0) and top depleted (NES < 0) by padj. Default: 20.
 #' @param title Character. Plot title. Default: "GSEA".
 #' @param font_size Numeric. Base font size for pathway labels. Default: 8.
-#' @param max_label_length Integer. Maximum characters for pathway names
-#'   before truncation. Default: 55.
+#' @param max_label_length Integer. Pathway names longer than this are
+#'   word-wrapped onto multiple lines (never truncated/"..."-ed). Default: 55.
 #'
 #' @return A ggplot object, or \code{NULL} (with a warning) if there are no
 #'   results to plot.
@@ -2178,6 +2196,12 @@ AETHER_plot_enrichment_map <- function(enrichment_result,
 #' @details
 #' Dot size = number of genes in the leading edge (\code{size} column); dot
 #' color = -log10(padj). A dashed vertical line marks NES = 0.
+#'
+#' Long pathway names are wrapped (via \code{strwrap()}), not truncated --
+#' MSigDB-style names (e.g. \code{"GOBP_CHROMOSOME_SEGREGATION"}) have no
+#' spaces to wrap on, so underscores are treated as break points the same way
+#' spaces would be, with the underscore at the chosen break consumed by the
+#' line break (matching how a normal word-wrap drops the space it breaks on).
 #'
 #' @examples
 #' \dontrun{
@@ -2223,11 +2247,7 @@ AETHER_plot_gsea_dotplot <- function(gsea_result,
     return(NULL)
   }
 
-  plot_df$label <- ifelse(
-    nchar(plot_df$pathway) > max_label_length,
-    paste0(substr(plot_df$pathway, 1, max_label_length - 3), "..."),
-    plot_df$pathway
-  )
+  plot_df$label <- vapply(plot_df$pathway, .wrap_gsea_label, character(1), width = max_label_length)
   plot_df       <- plot_df[order(plot_df$NES), , drop = FALSE]
   plot_df$label <- factor(plot_df$label, levels = unique(plot_df$label))
 

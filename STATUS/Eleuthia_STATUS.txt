@@ -1,7 +1,7 @@
 ================================================================================
 ELEUTHIA STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-09-07
+Last Updated: 2026-09-10
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -158,8 +158,14 @@ ELEUTHIA_select_regions(candidate_regions, min_fragments, quantile_threshold, ma
   - by_density=TRUE: filters on n_fragments/width (fragments per bp) instead of raw count
   - Always outputs fragment_density and n_samples columns for inspection
   - Default (by_density=FALSE, no min_samples, no max_width) is fully backward-compatible
-ELEUTHIA_quantify_bed(sample_sheet, regions, omics, ...)
+ELEUTHIA_quantify_bed(sample_sheet, regions, omics, ..., stranded = FALSE)
   - Quantify fragment overlaps from BED files against a set of regions
+  - stranded=TRUE: only counts a fragment when its BED-column-6 strand
+    matches the region's `strand` column (required on `regions` in that
+    case) -- for strand-specific peak sets (e.g. DRIPc-seq R-loop peaks
+    called separately per strand), where the opposite-strand region at the
+    same coordinates is a distinct feature. Default FALSE keeps prior
+    strand-blind behavior for every existing caller.
 
 eleuthia_quantification.R:
 ---------------------------

@@ -292,6 +292,16 @@ AETHER_plot_method_correlation <- function(comparison,
 #' @param top_n Integer. Number of sources to show. Default: 30.
 #' @param order_by Character. How to order sources: "activity" (absolute mean),
 #'   "variance" (SD across methods), or "name". Default: "activity".
+#' @param scale Character. Which per-source summary to plot: \code{"raw"}
+#'   (each method's native activity scale) or \code{"zscore"} (each method's
+#'   activity matrix z-scored before the mean/range are computed, i.e.
+#'   \code{comparison$summary_zscored}). Default: \code{"raw"}, for backward
+#'   compatibility. Use \code{"zscore"} whenever the compared methods differ
+#'   in native output scale (e.g. wsum's unbounded weighted-sum scores vs.
+#'   ulm/mlm's t-like statistics vs. viper's NES-like scores) -- on
+#'   \code{"raw"}, the method with the largest scale will dominate both the
+#'   top_n ranking and the error-bar range regardless of actual cross-method
+#'   agreement, which \code{"zscore"} corrects for.
 #' @param title Character. Plot title. Default: "Activity Across Methods".
 #' @param point_size Numeric. Size of mean activity points. Default: 2.
 #' @param colors Character vector of length 2. Colors for positive and negative
@@ -314,11 +324,15 @@ AETHER_plot_method_correlation <- function(comparison,
 #' AETHER_plot_method_agreement(comparison)
 #' AETHER_plot_method_agreement(comparison, order_by = "variance")
 #'
+#' # Methods on very different native scales (e.g. wsum alongside ulm/mlm/viper)
+#' AETHER_plot_method_agreement(comparison, scale = "zscore")
+#'
 #' }
 #' @export
 AETHER_plot_method_agreement <- function(comparison,
                                           top_n = 30,
                                           order_by = "activity",
+                                          scale = c("raw", "zscore"),
                                           title = "Activity Across Methods",
                                           point_size = 2,
                                           colors = c("#B2182B", "#2166AC")) {
@@ -327,9 +341,15 @@ AETHER_plot_method_agreement <- function(comparison,
     stop("'comparison' must be a decoupler_comparison object")
   }
 
-  # Get summary
+  scale <- match.arg(scale)
 
-  df <- comparison$summary
+  # Get summary
+  df <- if (scale == "zscore") comparison$summary_zscored else comparison$summary
+  if (is.null(df)) {
+    stop("comparison$summary_zscored is missing -- this 'decoupler_comparison' object ",
+         "was likely created with an older GAIA version. Re-run ",
+         "ARTEMIS_decoupler_compare_methods() to regenerate it, or use scale = 'raw'.")
+  }
 
   # Order sources
   if (order_by == "activity") {
@@ -364,8 +384,9 @@ AETHER_plot_method_agreement <- function(comparison,
     ) +
     labs(
       title = title,
-      subtitle = paste("Top", top_n, "sources | Point = mean, bars = range across methods"),
-      x = "Activity Score",
+      subtitle = paste0("Top ", top_n, " sources | Point = mean, bars = range across methods",
+                         if (scale == "zscore") " (z-scored)" else ""),
+      x = if (scale == "zscore") "Activity Score (z-scored)" else "Activity Score",
       y = NULL
     ) +
     theme_minimal() +

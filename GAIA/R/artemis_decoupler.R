@@ -352,7 +352,23 @@ ARTEMIS_run_decoupler <- function(mat,
 #'
 #' @return A list with class "decoupler_comparison" containing:
 #'   \item{results}{Named list of decoupler_result objects (one per method)}
-#'   \item{summary}{Data.frame summarizing results across methods}
+#'   \item{summary}{Data.frame summarizing results across methods, built from
+#'     each method's raw activity scores. Comparable "mean activity" across
+#'     sources, but NOT comparable across methods when methods differ in
+#'     output scale (e.g. wsum's unbounded weighted-sum scores vs. ulm/mlm's
+#'     t-like statistics vs. viper's NES-like scores) -- a method with a much
+#'     larger raw scale will dominate \code{mean_activity}/\code{min_activity}/
+#'     \code{max_activity} here regardless of actual cross-method agreement.
+#'     Use \code{summary_zscored} instead when comparing/ranking across
+#'     methods with different native scales.}
+#'   \item{summary_zscored}{Same columns as \code{summary}, but each method's
+#'     activity matrix is z-scored (matrix-wide mean/sd, same normalization
+#'     \code{consensus} uses) before the per-source mean/sd/min/max/
+#'     agreement_score are computed -- puts all methods on a comparable
+#'     scale first, so \code{mean_activity} ranking and the min-max range
+#'     reflect actual cross-method agreement rather than one method's raw
+#'     output magnitude. Used by \code{AETHER_plot_method_agreement(scale =
+#'     "zscore")}.}
 #'   \item{correlations}{Method-method correlation matrix}
 #'   \item{method_stats}{Per-method statistics}
 #'   \item{consensus}{Consensus activity scores (if consensus = TRUE)}
@@ -475,19 +491,30 @@ ARTEMIS_decoupler_compare_methods <- function(mat,
   # Per-method stats
   method_stats <- .compute_method_stats(results, activity_matrices)
 
-  # Build summary table
+  # Build summary table (raw scale -- see summary_zscored below for a
+  # cross-method-comparable version)
   summary_df <- .build_comparison_summary(results, activity_matrices, common_sources, common_samples)
+
+  # Z-score each method's whole activity matrix (matrix-wide mean/sd) so
+  # methods with different native output scales (e.g. wsum's unbounded
+  # weighted-sum vs. ulm/mlm's t-like statistics vs. viper's NES-like
+  # scores) are put on comparable footing before being combined -- shared by
+  # both the consensus scores and the z-scored summary below, computed once.
+  z_matrices <- .zscore_activity_matrices(activity_matrices)
+
+  summary_df_zscored <- .build_comparison_summary(results, z_matrices, common_sources, common_samples)
 
   # Consensus scores (mean of z-scored activities)
   consensus_scores <- NULL
   if (consensus) {
-    consensus_scores <- .compute_consensus(activity_matrices)
+    consensus_scores <- .compute_consensus(z_matrices)
   }
 
   # Build result object
   comparison <- list(
     results = results,
     summary = summary_df,
+    summary_zscored = summary_df_zscored,
     correlations = correlations,
     method_stats = method_stats,
     consensus = consensus_scores,
@@ -802,14 +829,26 @@ ARTEMIS_infer_pathway_activity <- function(mat,
 }
 
 
-#' Compute consensus scores
+#' Z-score each method's activity matrix (matrix-wide mean/sd)
+#'
+#' Puts methods with different native output scales (e.g. wsum's unbounded
+#' weighted-sum vs. ulm/mlm's t-like statistics vs. viper's NES-like scores)
+#' on comparable footing before they're combined/compared -- shared by
+#' \code{.compute_consensus()} and \code{ARTEMIS_decoupler_compare_methods()}'s
+#' \code{summary_zscored}.
 #' @noRd
-.compute_consensus <- function(activity_matrices) {
-
-  # Z-score each method's activities
-  z_matrices <- lapply(activity_matrices, function(mat) {
+.zscore_activity_matrices <- function(activity_matrices) {
+  lapply(activity_matrices, function(mat) {
     (mat - mean(mat, na.rm = TRUE)) / sd(mat, na.rm = TRUE)
   })
+}
+
+
+#' Compute consensus scores
+#' @param z_matrices Named list of activity matrices, already z-scored via
+#'   \code{.zscore_activity_matrices()}.
+#' @noRd
+.compute_consensus <- function(z_matrices) {
 
   # Stack into 3D array and take mean
   sources <- rownames(z_matrices[[1]])
