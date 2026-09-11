@@ -61,7 +61,8 @@ I've decided to split this into four packages to ease the burden of development 
 ## Known Issues
 
 - **IDE compatibility with `system2` calls**: some IDEs don't play well with R scripts that use `system2` (Positron's R console has been confirmed to have issues, for example). If a script fails in a way that looks environment-related rather than a real code bug, try running it from the console/terminal directly instead before digging further.
-- **IDE compatibility with some downloads**: I've observed a similar issue with certain downloads not working when called via an idea (such as an annotation database). I've yet to pin down exactly why some downloads fail this way and others do not. If you find yourself experience download related issues within the IDE there is a chance you can fix it by calling the script via teh console (Rscript).
+- **IDE compatibility with some downloads**: I've observed a similar issue with certain downloads not working when called via an idea (such as an annotation database). I've yet to pin down exactly why some downloads fail this way and others do not. If you find yourself experience download related issues within the IDE there is a chance you can fix it by calling the script via the console (Rscript).
+
 ---
 
 ## Platform
