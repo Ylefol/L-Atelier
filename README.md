@@ -1,6 +1,8 @@
 # L-Atelier
 
-L-Atelier (French for `the workshop`) is a multi-omics toolkit that I've been designing to simplify my own workflows. It is composed of four separate packages, each designed to fulfill some aspects of bioinformatic analyses ranging from early data processing and QC to data analysis and figures. Much of the naming convention is derived from the Horizon video game series, and the project has doubled as my way of learning to work with Claude Code.
+L-Atelier (French for *the workshop*) is a multi-omics toolkit that I've been designing to simplify my own workflows. It is composed of four separate packages, each designed to fulfill some aspects of bioinformatic analyses ranging from early data processing and QC to data analysis and figures. Much of the naming convention is derived from the Horizon video game series, and the project has doubled as my way of learning to work with Claude Code.
+
+> **Status:** This entire repository is under-active development.
 
 ---
 
@@ -14,7 +16,7 @@ Covers the full downstream analytical workflow for bulk multi-omics data: qualit
 
 ### [CAULDRON](CAULDRON/) — Single-Cell Analysis *(early development)*
 
-The single-cell and single-nuclei counterpart to GAIA, currently focused on scRNA-seq and snRNA-seq analysis. Built on `SingleCellExperiment` (Bioconductor). Follows the same modular architecture as GAIA, with subordinate modules named after Hephaestus's creations from Greek mythology..
+The single-cell and single-nuclei counterpart to GAIA, currently focused on scRNA-seq and snRNA-seq analysis. Built on `SingleCellExperiment` (Bioconductor). Follows the same modular architecture as GAIA, with subordinate modules named after Hephaestus's creations from Greek mythology.
 
 → See [`CAULDRON/README.md`](CAULDRON/README.md) for installation, modules, and references.
 

@@ -4,6 +4,8 @@ Focused package for niche genomic analyses that sit outside the scope of the mai
 
 Part of the [L-Atelier](../) repository. Like HORIZON, CYAN is a flat collection of functions with no sub-modules; all public functions are prefixed `CYAN_`. Design principles: one sample per call (cohort looping left to the user), large intermediates written to `work_dir`, final outputs to `output_dir`.
 
+> **Status:** This package, like the others, is under active development. Some elements are unlikely to change while others are very prone to change.
+
 ---
 
 ## Installation

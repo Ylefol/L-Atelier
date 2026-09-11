@@ -4,6 +4,8 @@ Multi-omics integration toolkit for bulk level omics. Covers quality control, pr
 
 Part of the [L-Atelier](../) repository. Its nine subordinate modules are each named after a figure from Greek mythology.
 
+> **Status:** This package, like the others, is under active development. Some elements are unlikely to change while others are very prone to change.
+
 ---
 
 ## Installation

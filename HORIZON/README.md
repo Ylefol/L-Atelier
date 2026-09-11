@@ -4,6 +4,9 @@ Upstream bioinformatics processing package for bulk sequencing data. Handles QC,
 
 Part of the [L-Atelier](../) repository. Unlike GAIA and CAULDRON, HORIZON has no named sub-modules; the wrapped tools serve that role implicitly. HORIZON has no hard dependency on GAIA or CAULDRON, and vice versa — the interface is file format compatibility.
 
+> **Status:** This package, like the others, is under active development. Some elements are unlikely to change while others are very prone to change.
+
+
 ---
 
 Output files are in formats GAIA's import module already understands:
