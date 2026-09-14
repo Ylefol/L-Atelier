@@ -1,0 +1,63 @@
+# Create Fine Parameter Grid Around Specific Ranges
+
+Generates a fine grid of parameter combinations within specified ranges.
+Used for refined search after coarse grid identifies promising parameter
+regions.
+
+## Usage
+
+``` r
+DEMETER_create_fine_grid(ranges, n_points = 5)
+```
+
+## Arguments
+
+- ranges:
+
+  List of numeric vectors. Each element is a 2-element vector c(min,
+  max) specifying the range for one parameter. Length of list determines
+  number of parameters.
+
+- n_points:
+
+  Integer. Number of points to generate within each range (default = 5).
+  Points are evenly spaced using seq().
+
+## Value
+
+Data frame with length(ranges) columns (param1, param2, ..., paramN)
+containing all combinations of evenly-spaced points within the specified
+ranges. Total rows = n_points^length(ranges).
+
+## Details
+
+This function enables focused exploration of promising parameter regions
+identified by coarse grid search. Each parameter can have a different
+range, allowing asymmetric refinement.
+
+Points within each range are generated using seq(min, max, length.out =
+n_points), ensuring even spacing including the endpoints.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# Fine grid around promising coarse values
+fine_grid <- DEMETER_create_fine_grid(
+  ranges = list(
+    c(0.4, 0.6),  # param1: refine around 0.5
+    c(0.6, 0.8),  # param2: refine around 0.7
+    c(0.4, 0.6)   # param3: refine around 0.5
+  ),
+  n_points = 5
+)
+# Returns 125 (5^3) combinations
+
+# Different ranges per parameter
+fine_grid <- DEMETER_create_fine_grid(
+  ranges = list(c(0.1, 0.3), c(0.7, 0.9)),
+  n_points = 10
+)
+
+} # }
+```

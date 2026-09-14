@@ -18,6 +18,8 @@ Suggests:
     BiocManager
 SystemRequirements: Python (>= 3.8); GATK >= 4.0 (for MuTect2 functions)
 License: MIT + file LICENSE
+URL: https://ylefol.github.io/L-Atelier/CYAN/, https://github.com/Ylefol/L-Atelier/tree/master/CYAN
+BugReports: https://github.com/Ylefol/L-Atelier/issues
 Encoding: UTF-8
 biocViews: Sequencing, RNASeq, VariantAnnotation, SNP
 Config/roxygen2/version: 8.0.0

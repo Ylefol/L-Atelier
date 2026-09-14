@@ -1,0 +1,63 @@
+# Match Samples Across Datasets
+
+Identifies and filters datasets to include only samples that are present
+in all datasets, based on a matching column (e.g., bio_rep).
+
+## Usage
+
+``` r
+POSEIDON_match_samples(data_list, match_col = "bio_rep", verbose = TRUE)
+```
+
+## Arguments
+
+- data_list:
+
+  Named list of quant_result objects (each with counts and targets).
+
+- match_col:
+
+  Character string. Column in targets to match on (default = "bio_rep").
+
+- verbose:
+
+  Logical. Print matching summary (default = TRUE).
+
+## Value
+
+A list containing:
+
+- datasets:
+
+  Named list of filtered quant_results with matched samples
+
+- matched_values:
+
+  Vector of matched values (e.g., bio_rep IDs)
+
+- sample_map:
+
+  Data.frame showing sample correspondence across datasets
+
+## Details
+
+This function finds the intersection of values in match_col across all
+datasets and filters each dataset to include only samples with those
+values.
+
+Note: This does NOT reorder samples. Use POSEIDON_align_samples() after
+matching to ensure consistent sample ordering across datasets.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+data_list <- list(
+  ATAC = atac_counts,
+  ChIP = chip_counts,
+  RNA = rna_data
+)
+matched <- POSEIDON_match_samples(data_list, match_col = "bio_rep")
+
+} # }
+```

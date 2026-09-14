@@ -1,0 +1,114 @@
+url: https://ylefol.github.io/L-Atelier/GAIA/
+destination: ../docs/GAIA
+
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#3b7ea1"
+
+home:
+  title: "GAIA — Multi-omics Analysis"
+  description: >
+    Multi-omics integration toolkit for bulk-level omics. Covers quality
+    control, preprocessing, annotation, enrichment, integration, machine
+    learning, statistical analysis, visualization, and reporting.
+
+navbar:
+  structure:
+    left:  [reference]
+    right: [search, atelier, github]
+  components:
+    atelier:
+      icon: fa-cubes
+      href: ../index.html
+      aria-label: "L-Atelier home"
+    github:
+      icon: fab fa-github
+      aria-label: "Source code on GitHub"
+      href: https://github.com/Ylefol/L-Atelier/tree/master/GAIA
+
+# GAIA's nine subordinate modules, matching GAIA/README.md's Modules table.
+# Grouped by module (name prefix) rather than alphabetically -- ~300 exported
+# functions is not browsable as one flat list.
+reference:
+- title: Hades
+  desc: >
+    Deity of the underworld, removes the "dead" — quality control: ATAC-seq
+    QC, mass spec QC, Olink QC, mixed-data QC/filtering.
+  contents:
+  - starts_with("HADES_")
+
+- title: Poseidon
+  desc: >
+    God of the seas, controls and purifies waters — preprocessing &
+    normalization: batch correction (ComBat/limma), feature filtering,
+    imputation, normalization, regression prep, sample management.
+  contents:
+  - starts_with("POSEIDON_")
+
+- title: Apollo
+  desc: >
+    God of knowledge and prophecy, brings wisdom through annotation —
+    annotation & enrichment: peak annotation, gene enrichment
+    (GO/KEGG/GSEA/ORA), motif enrichment, isoform annotation, peak-to-gene
+    linking, activity networks (decoupleR/OmnipathR).
+  contents:
+  - starts_with("APOLLO_")
+
+- title: Hephaestus
+  desc: >
+    Master craftsman, forges disparate materials into unified artifacts —
+    integration: sparse CCA (ConvCCA, RelPMDCCA), MOFA2 multi-omics factor
+    analysis.
+  contents:
+  - starts_with("HEPHAESTUS_")
+
+- title: Minerva
+  desc: >
+    Roman goddess of wisdom and strategic warfare — machine learning &
+    validation: sCCA cross-validation, penalty functions (lasso/group
+    lasso).
+  contents:
+  - starts_with("MINERVA_")
+
+- title: Artemis
+  desc: >
+    Goddess of the hunt, precisely targets statistical insights — analysis &
+    statistics: differential expression (DESeq2/limma), clustering
+    (PAM/consensus/PART/WGCNA), discriminative analysis, FAMD, time series,
+    CIBERSORT deconvolution, isoform switching, ATAC annotation.
+  contents:
+  - starts_with("ARTEMIS_")
+  - ".artemis_resolve_size_factors"
+
+- title: Aether
+  desc: >
+    Pure upper air breathed by gods, clarifies and illuminates results —
+    visualization: coverage tracks, circos, PCA/clustering, enrichment,
+    differential, time series, WGCNA, MOFA, motif and network plots.
+  contents:
+  - starts_with("AETHER_")
+
+- title: Eleuthia
+  desc: >
+    Cradle facility that brought new life into the world — import, export &
+    reporting: sample sheets, data import/quantification, DEA/ATAC/time
+    series/composition report export, BigWig, HOMER export, logging.
+  contents:
+  - starts_with("ELEUTHIA_")
+  - ".eleuthia_load_seacr_peaks"
+  - ".log_env"
+
+- title: Demeter
+  desc: >
+    Goddess of agriculture and harvest, cultivates the foundation —
+    utilities: annotation/correlation/matrix/grid helpers, result loaders,
+    simulated data generation.
+  contents:
+  - starts_with("DEMETER_")
+  - "%^%"
+
+- title: Print methods
+  desc: S3 print methods for the result objects GAIA's functions return.
+  contents:
+  - starts_with("print.")

@@ -1,0 +1,161 @@
+# PART Clustering
+
+Performs clustering using the PART algorithm (Partitioning Algorithm
+based on Recursive Thresholding). The method recursively evaluates
+whether to split clusters using the Gap statistic and a dendrogram
+height threshold. It detects multi-scale cluster structure while
+guarding against spurious splits.
+
+## Usage
+
+``` r
+ARTEMIS_part(
+  mat,
+  q = 0.25,
+  min_size = 8,
+  B = 100,
+  Kmax = 10,
+  dist_method = "euclidean",
+  linkage = "average",
+  scale = FALSE,
+  seed = NULL,
+  verbose = TRUE
+)
+```
+
+## Arguments
+
+- mat:
+
+  Numeric matrix with features (genes) as rows and samples as columns.
+  Rownames are used as feature identifiers. Must not contain NA – the
+  Gap statistic's reference generation (`ref_gen = "PC"`) requires a
+  complete matrix for [`svd()`](https://rdrr.io/r/base/svd.html). Impute
+  deliberately beforehand if your data has real missingness (e.g.
+  proteomics/mass-spec); PART itself has no NA-aware mode.
+
+- q:
+
+  Numeric (0-1). Tuning parameter controlling splitting aggressiveness.
+  Threshold = (1-q) quantile of dendrogram heights. Lower q = less
+  splitting. Default: 0.25.
+
+- min_size:
+
+  Integer. Minimum features per cluster. Clusters smaller than this are
+  marked as outliers (cluster C0). Default: 8.
+
+- B:
+
+  Integer. Number of bootstrap reference datasets for the Gap statistic.
+  Higher = more stable but slower. Default: 100.
+
+- Kmax:
+
+  Integer. Maximum clusters to consider per recursive step. Default: 10.
+
+- dist_method:
+
+  Character. Distance metric: "euclidean", "sq.euclidean" (squared
+  Euclidean), "correlation" (1 - Pearson), "manhattan". Default:
+  "euclidean".
+
+- linkage:
+
+  Character. Hierarchical clustering linkage method: "average",
+  "complete", "ward.D2", "single", etc. Default: "average".
+
+- scale:
+
+  Logical. Z-score scale each row (feature) before clustering. Default:
+  FALSE.
+
+- seed:
+
+  Integer or NULL. Random seed for reproducibility. Default: NULL.
+
+- verbose:
+
+  Logical. Print progress messages. Default: TRUE.
+
+## Value
+
+An S3 object of class `"artemis_part"` containing:
+
+- clusters:
+
+  Named character vector of cluster assignments (C1, C2, ...; C0 for
+  outliers)
+
+- cluster_map:
+
+  Data.frame with gene, cluster, cluster_color columns
+
+- n_clusters:
+
+  Number of clusters (excluding outliers)
+
+- n_outliers:
+
+  Number of outlier features
+
+- cluster_sizes:
+
+  Named integer vector of cluster sizes
+
+- cluster_colors:
+
+  Named character vector of cluster hex colors
+
+- dendrogram:
+
+  hclust object for the full dataset
+
+- data:
+
+  The (possibly scaled) input matrix, rows ordered by cluster
+
+- parameters:
+
+  List of all parameters used
+
+- computation_time:
+
+  Elapsed time in seconds
+
+## Details
+
+The PART algorithm works as follows:
+
+1.  Compute a stopping threshold from the (1-q) quantile of dendrogram
+    heights
+
+2.  Apply the Gap statistic to determine optimal k
+
+3.  If k \> 1: accept the split, recursively apply PART to each cluster
+
+4.  If k = 1 but dendrogram height exceeds threshold: try splitting into
+    2, recurse
+
+5.  If k = 1 and height \< threshold: stop (terminal cluster)
+
+6.  Clusters smaller than min_size are marked as outliers (C0)
+
+After clustering, clusters are reordered hierarchically so that similar
+clusters are adjacent, and labeled C1, C2, ... in order.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# Cluster gene expression matrix
+part_result <- ARTEMIS_part(expr_matrix, scale = TRUE, seed = 42)
+
+# More aggressive splitting with larger minimum cluster size
+part_result <- ARTEMIS_part(expr_matrix, q = 0.5, min_size = 50)
+
+# Use correlation distance
+part_result <- ARTEMIS_part(expr_matrix, dist_method = "correlation")
+
+} # }
+```

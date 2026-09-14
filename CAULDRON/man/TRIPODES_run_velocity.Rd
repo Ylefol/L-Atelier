@@ -2,7 +2,7 @@
 % Please edit documentation in R/tripodes_velocity.R
 \name{TRIPODES_run_velocity}
 \alias{TRIPODES_run_velocity}
-\title{Estimate RNA velocity via velociraptor / scVelo}
+\title{Estimate RNA velocity via scVelo}
 \usage{
 TRIPODES_run_velocity(
   sce,
@@ -58,7 +58,9 @@ the SCE's assay footprint. Enable for phase-portrait-style diagnostics
 
 \item{verbose}{Logical; print progress messages (default \code{TRUE}).}
 
-\item{...}{Additional arguments passed to \code{velociraptor::scvelo}.}
+\item{...}{Currently unused — kept for backward-compatible signature
+stability; nothing in the current implementation forwards these
+arguments anywhere.}
 }
 \value{
 The input SCE with velocity results added (see Details).
@@ -66,8 +68,10 @@ The input SCE with velocity results added (see Details).
 \code{metadata(sce)$velocity_mode} records the mode used.
 }
 \description{
-Runs RNA velocity estimation using \pkg{velociraptor}, an R/Bioconductor
-wrapper around the Python \pkg{scVelo} library (managed via \pkg{basilisk}).
+Runs RNA velocity estimation using the Python \pkg{scVelo} library,
+called directly through a \pkg{basilisk}-managed environment and a bundled
+script (\code{inst/python/scvelo_run.py}) — not via the \pkg{velociraptor}
+Bioconductor wrapper (CAULDRON has no dependency on \pkg{velociraptor}).
 Spliced and unspliced count assays must be present in the SCE. Results are
 stored back into the input SCE and returned.
 }

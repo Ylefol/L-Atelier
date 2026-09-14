@@ -22,12 +22,21 @@ Typical workflow:
 \item \code{\link{HORIZON_aggregate_counts}} — combine into one count matrix
 }
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://ylefol.github.io/L-Atelier/HORIZON/}
+  \item \url{https://github.com/Ylefol/L-Atelier/tree/master/HORIZON}
+  \item Report bugs at \url{https://github.com/Ylefol/L-Atelier/issues}
+}
+
+}
 \author{
-\strong{Maintainer}: First Last \email{email@example.com}
+\strong{Maintainer}: Yohan Lefol \email{yohanlefol@proton.me}
 
 Authors:
 \itemize{
-  \item First Last \email{email@example.com}
+  \item Yohan Lefol \email{yohanlefol@proton.me}
 }
 
 }

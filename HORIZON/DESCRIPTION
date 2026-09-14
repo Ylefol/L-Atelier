@@ -10,6 +10,8 @@ Description: A flat collection of wrappers around Bioconductor processing tools
     Designed to produce outputs compatible with the GAIA and CAULDRON analysis
     packages. Prioritises low RAM usage for single-machine operation.
 License: MIT + file LICENSE
+URL: https://ylefol.github.io/L-Atelier/HORIZON/, https://github.com/Ylefol/L-Atelier/tree/master/HORIZON
+BugReports: https://github.com/Ylefol/L-Atelier/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends:

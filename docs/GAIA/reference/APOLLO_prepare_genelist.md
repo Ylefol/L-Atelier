@@ -1,0 +1,77 @@
+# Prepare gene list for enrichment analysis
+
+Converts gene symbols to ENTREZID format required by most enrichment
+tools. Can work with a single gene list or a named list of gene lists
+(e.g., modules).
+
+## Usage
+
+``` r
+APOLLO_prepare_genelist(
+  genes,
+  org_db = NULL,
+  from_type = "SYMBOL",
+  to_type = "ENTREZID",
+  strip_version = FALSE,
+  drop_na = TRUE,
+  verbose = TRUE
+)
+```
+
+## Arguments
+
+- genes:
+
+  Character vector of gene symbols, or a named list of character vectors
+  (e.g., from WGCNA modules).
+
+- org_db:
+
+  OrgDb object for ID conversion (e.g., org.Hs.eg.db). If NULL, skips
+  conversion and just cleans IDs (useful with strip_version).
+
+- from_type:
+
+  Type of input gene IDs. Default: "SYMBOL".
+
+- to_type:
+
+  Type of output gene IDs. Default: "ENTREZID".
+
+- strip_version:
+
+  Logical. Remove version numbers from Ensembl-style IDs (e.g.,
+  ENSG00000141510.16 -\> ENSG00000141510). Default: FALSE.
+
+- drop_na:
+
+  Logical. Remove genes that couldn't be converted. Default: TRUE.
+
+- verbose:
+
+  Logical. Print conversion statistics. Default: TRUE.
+
+## Value
+
+If genes is a vector, returns converted vector. If genes is a list,
+returns named list with same structure. Attribute "conversion_stats"
+contains success/failure counts.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+library(org.Hs.eg.db)
+genes <- c("TP53", "BRCA1", "EGFR")
+entrez <- APOLLO_prepare_genelist(genes, org.Hs.eg.db)
+
+# From WGCNA modules
+module_genes <- list(blue = c("TP53", "BRCA1"), red = c("EGFR", "MYC"))
+module_entrez <- APOLLO_prepare_genelist(module_genes, org.Hs.eg.db)
+
+# With Ensembl IDs that have version numbers
+ensembl_genes <- c("ENSG00000141510.16", "ENSG00000012048.23")
+clean_genes <- APOLLO_prepare_genelist(ensembl_genes, org_db = NULL, strip_version = TRUE)
+
+} # }
+```

@@ -7,6 +7,8 @@ Description: Modular pipeline for multi-omics analysis including quality control
     statistical analysis, visualization, and reporting. Named after the
     subordinate functions from Horizon Zero Dawn.
 License: MIT + file LICENSE
+URL: https://ylefol.github.io/L-Atelier/GAIA/, https://github.com/Ylefol/L-Atelier/tree/master/GAIA
+BugReports: https://github.com/Ylefol/L-Atelier/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends:

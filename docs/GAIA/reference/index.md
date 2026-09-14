@@ -1,0 +1,721 @@
+# Package index
+
+## Hades
+
+Deity of the underworld, removes the “dead” — quality control: ATAC-seq
+QC, mass spec QC, Olink QC, mixed-data QC/filtering.
+
+- [`HADES_convert_to_factor()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HADES_convert_to_factor.md)
+  : Convert Columns to Factors Based on QC Report
+- [`HADES_detect_outliers_massspec()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HADES_detect_outliers_massspec.md)
+  : Detect Sample Outliers in Mass Spectrometry Data
+- [`HADES_detect_outliers_olink()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HADES_detect_outliers_olink.md)
+  : Detect Sample Outliers in Olink Data
+- [`HADES_drop_high_na_variables()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HADES_drop_high_na_variables.md)
+  : Remove Variables with High Missing Data
+- [`HADES_filter_massspec()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HADES_filter_massspec.md)
+  : Filter Mass Spectrometry Samples
+- [`HADES_filter_massspec_proteins()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HADES_filter_massspec_proteins.md)
+  : Filter Mass Spectrometry Proteins by Missingness
+- [`HADES_filter_olink()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HADES_filter_olink.md)
+  : Filter Olink Samples
+- [`HADES_filter_olink_assay_warn()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HADES_filter_olink_assay_warn.md)
+  : Filter Olink Proteins by AssayQC Warn Fraction
+- [`HADES_filter_olink_proteins()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HADES_filter_olink_proteins.md)
+  : Filter Olink Proteins by Missingness
+- [`HADES_qc_mixed_data()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HADES_qc_mixed_data.md)
+  : Quality Control Assessment for Mixed Data
+- [`HADES_tss_enrichment()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HADES_tss_enrichment.md)
+  : Compute TSS Enrichment Score from BigWig files
+
+## Poseidon
+
+God of the seas, controls and purifies waters — preprocessing &
+normalization: batch correction (ComBat/limma), feature filtering,
+imputation, normalization, regression prep, sample management.
+
+- [`POSEIDON_aggregate_transcript_to_gene()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_aggregate_transcript_to_gene.md)
+  : Aggregate Transcript-Level Counts to Gene-Level Counts
+- [`POSEIDON_average_tech_reps()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_average_tech_reps.md)
+  : Average Technical Replicates
+- [`POSEIDON_correct_batch_counts()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_correct_batch_counts.md)
+  : Batch Correction for Count Data
+- [`POSEIDON_correct_batch_massspec()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_correct_batch_massspec.md)
+  : Batch Correction for Mass Spectrometry Data
+- [`POSEIDON_correct_ruvg()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_correct_ruvg.md)
+  : RUVg Correction Using Control Genes
+- [`POSEIDON_encode_for_regression()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_encode_for_regression.md)
+  : Encode Mixed Data for Regression Analysis
+- [`POSEIDON_filter_by_group()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_filter_by_group.md)
+  : Filter Samples by Group
+- [`POSEIDON_filter_by_metadata()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_filter_by_metadata.md)
+  : Filter Samples by Metadata Value
+- [`POSEIDON_filter_low_counts()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_filter_low_counts.md)
+  : Filter Low-Count Features (Peaks/Genes)
+- [`POSEIDON_filter_low_variance()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_filter_low_variance.md)
+  : Remove Low Variance Features
+- [`POSEIDON_filter_pairwise_identical()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_filter_pairwise_identical.md)
+  : Filter Features with Pairwise Identical Values (Debug Filter)
+- [`POSEIDON_filter_shared_variance()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_filter_shared_variance.md)
+  : Filter Features by Shared Variance Across Datasets
+- [`POSEIDON_filter_top_variable()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_filter_top_variable.md)
+  : Filter Top Variable Features
+- [`POSEIDON_filter_zero_variance()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_filter_zero_variance.md)
+  : Filter Features by Variance
+- [`POSEIDON_impute_massspec()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_impute_massspec.md)
+  : QRILC Imputation for Mass Spectrometry Data
+- [`POSEIDON_match_samples()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_match_samples.md)
+  : Match Samples Across Datasets
+- [`POSEIDON_mice_impute()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_mice_impute.md)
+  : Multiple Imputation by Chained Equations (MICE)
+- [`POSEIDON_normalize_massspec()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_normalize_massspec.md)
+  : Normalize a Log2 Mass Spectrometry Intensity Matrix
+- [`POSEIDON_plot_batch_pca()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_plot_batch_pca.md)
+  : Visualize Batch Effects (Before/After Correction)
+- [`POSEIDON_scale_data()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_scale_data.md)
+  : Scale and Center Data Matrix
+- [`POSEIDON_scale_predictors()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_scale_predictors.md)
+  : Scale Predictors for Penalized Regression
+- [`POSEIDON_validate_multi_dataset()`](https://ylefol.github.io/L-Atelier/GAIA/reference/POSEIDON_validate_multi_dataset.md)
+  : Validate Multi-Dataset Structure
+
+## Apollo
+
+God of knowledge and prophecy, brings wisdom through annotation —
+annotation & enrichment: peak annotation, gene enrichment
+(GO/KEGG/GSEA/ORA), motif enrichment, isoform annotation, peak-to-gene
+linking, activity networks (decoupleR/OmnipathR).
+
+- [`APOLLO_annotate_peaks()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_annotate_peaks.md)
+  : Annotate Peaks with Genomic Features and Nearest Genes
+- [`APOLLO_chr_sizes_to_seqinfo()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_chr_sizes_to_seqinfo.md)
+  : Convert Chromosome Sizes to Seqinfo Object
+- [`APOLLO_convert_genes()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_convert_genes.md)
+  : Convert gene IDs with fallback
+- [`APOLLO_enrich_go()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_enrich_go.md)
+  : GO Enrichment Analysis for Annotated Peaks
+- [`APOLLO_enrich_gost()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_enrich_gost.md)
+  : Run enrichment analysis using gprofiler2
+- [`APOLLO_enrich_kegg()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_enrich_kegg.md)
+  : KEGG Pathway Enrichment Analysis
+- [`APOLLO_extract_cluster_genes()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_extract_cluster_genes.md)
+  : Extract gene lists from clustering results
+- [`APOLLO_extract_isoform_sequences()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_extract_isoform_sequences.md)
+  : Apollo - Isoform Switch Consequence Tool Wrappers
+- [`APOLLO_extract_summits()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_extract_summits.md)
+  : Extract summit-centered BED files from narrowPeak files
+- [`APOLLO_filter_enrichment()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_filter_enrichment.md)
+  : Filter enrichment results by source or module
+- [`APOLLO_filter_motifs()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_filter_motifs.md)
+  : Filter motif enrichment results
+- [`APOLLO_get_chr_mapping()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_get_chr_mapping.md)
+  : Built-in Chromosome Name Mappings
+- [`APOLLO_get_chromosome_sizes()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_get_chromosome_sizes.md)
+  : Get Chromosome Sizes from GTF/GFF Annotation File
+- [`APOLLO_get_collectri()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_get_collectri.md)
+  : Get CollecTRI TF-target network
+- [`APOLLO_get_dorothea()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_get_dorothea.md)
+  : Get DoRothEA TF regulons
+- [`APOLLO_get_ppi()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_get_ppi.md)
+  : Get protein-protein interaction network from OmniPath
+- [`APOLLO_get_progeny()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_get_progeny.md)
+  : Get PROGENy pathway signatures
+- [`APOLLO_get_string_ppi()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_get_string_ppi.md)
+  : Get protein-protein interaction network directly from STRING
+- [`APOLLO_gsea()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_gsea.md)
+  : Gene Set Enrichment Analysis (fgsea)
+- [`APOLLO_homer_motif_enrichment()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_homer_motif_enrichment.md)
+  : Run HOMER motif enrichment on a single BED file
+- [`APOLLO_homer_motif_enrichment_batch()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_homer_motif_enrichment_batch.md)
+  : Run HOMER motif enrichment on multiple BED files
+- [`APOLLO_link_degs_to_peaks()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_link_degs_to_peaks.md)
+  : Link Differentially Expressed Genes to Nearby ATAC Peaks
+- [`APOLLO_list_activity_databases()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_list_activity_databases.md)
+  : List available decoupleR databases
+- [`APOLLO_load_homer_batch()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_load_homer_batch.md)
+  : Load multiple HOMER result directories into a batch object
+- [`APOLLO_load_homer_results()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_load_homer_results.md)
+  : Load HOMER results from an existing output directory
+- [`APOLLO_make_txdb()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_make_txdb.md)
+  : Apollo - Peak Annotation & Enrichment Functions
+- [`APOLLO_prepare_genelist()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_prepare_genelist.md)
+  : Prepare gene list for enrichment analysis
+- [`APOLLO_rank_from_de()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_rank_from_de.md)
+  : Build a ranked gene vector for GSEA from a differential expression
+  result
+- [`APOLLO_run_cpat()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_run_cpat.md)
+  : Run CPAT Coding Potential Prediction
+- [`APOLLO_run_deeploc2()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_run_deeploc2.md)
+  : Run DeepLoc 2.1 Subcellular Localization Prediction
+- [`APOLLO_run_deeptmhmm()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_run_deeptmhmm.md)
+  : Run DeepTMHMM Topology Prediction
+- [`APOLLO_run_iupred2a()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_run_iupred2a.md)
+  : Run IUPred2A Intrinsically Disordered Region Prediction
+- [`APOLLO_run_pfam()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_run_pfam.md)
+  : Run Pfam Protein Domain Annotation
+- [`APOLLO_run_signalp()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_run_signalp.md)
+  : Run SignalP 6 Signal Peptide Prediction
+- [`APOLLO_sequence_composition()`](https://ylefol.github.io/L-Atelier/GAIA/reference/APOLLO_sequence_composition.md)
+  : Calculate Sequence Composition for Genomic Regions
+
+## Hephaestus
+
+Master craftsman, forges disparate materials into unified artifacts —
+integration: sparse CCA (ConvCCA, RelPMDCCA), MOFA2 multi-omics factor
+analysis.
+
+- [`HEPHAESTUS_convCCA()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HEPHAESTUS_convCCA.md)
+  : Convex Sparse Canonical Correlation Analysis for Two Datasets
+- [`HEPHAESTUS_load_mofa_model()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HEPHAESTUS_load_mofa_model.md)
+  : Load a Previously Trained MOFA2 Model
+- [`HEPHAESTUS_multi_convCCA()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HEPHAESTUS_multi_convCCA.md)
+  : Multi-Dataset Convex Sparse Canonical Correlation Analysis
+- [`HEPHAESTUS_multi_relPMDCCA()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HEPHAESTUS_multi_relPMDCCA.md)
+  : Multi-Dataset Relaxed Penalized Matrix Decomposition CCA
+- [`HEPHAESTUS_project_mofa_samples()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HEPHAESTUS_project_mofa_samples.md)
+  : Project New Samples onto a Trained MOFA2 Model
+- [`HEPHAESTUS_relPMDCCA()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HEPHAESTUS_relPMDCCA.md)
+  : Relaxed Penalized Matrix Decomposition CCA for Two Datasets
+- [`HEPHAESTUS_run_mofa()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HEPHAESTUS_run_mofa.md)
+  : Multi-Omics Factor Analysis via MOFA2
+- [`HEPHAESTUS_updateW_convCCA()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HEPHAESTUS_updateW_convCCA.md)
+  : Update Canonical Vector for Two-Dataset ConvCCA
+- [`HEPHAESTUS_updateWmulti_convCCA()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HEPHAESTUS_updateWmulti_convCCA.md)
+  : Update Canonical Vector for Multi-Dataset ConvCCA
+- [`HEPHAESTUS_updateZ()`](https://ylefol.github.io/L-Atelier/GAIA/reference/HEPHAESTUS_updateZ.md)
+  : Update Consensus Variable (z-update)
+
+## Minerva
+
+Roman goddess of wisdom and strategic warfare — machine learning &
+validation: sCCA cross-validation, penalty functions (lasso/group
+lasso).
+
+- [`MINERVA_create_folds()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_create_folds.md)
+  : Create K-Fold Cross-Validation Indices
+- [`MINERVA_cv_convCCA()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_cv_convCCA.md)
+  : Convenience wrapper for ConvCCA cross-validation
+- [`MINERVA_cv_relPMDCCA()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_cv_relPMDCCA.md)
+  : Convenience wrapper for RelPMDCCA cross-validation
+- [`MINERVA_cv_scca()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_cv_scca.md)
+  : K-Fold Cross-Validation for Sparse CCA
+- [`MINERVA_evaluate_scca()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_evaluate_scca.md)
+  : Evaluate Sparse CCA Model
+- [`MINERVA_pilot_compare_methods()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_pilot_compare_methods.md)
+  : Pilot Comparison of sCCA Methods
+- [`MINERVA_proximal_elastic_net()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_proximal_elastic_net.md)
+  : Apply Proximal Operator for Elastic-Net (ADMM Framework)
+- [`MINERVA_proximal_lasso()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_proximal_lasso.md)
+  : Apply Proximal Operator for LASSO (ADMM Framework)
+- [`MINERVA_proximal_scad()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_proximal_scad.md)
+  : Apply Proximal Operator for SCAD (ADMM Framework)
+- [`MINERVA_scca_fit()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_scca_fit.md)
+  : Fit Sparse CCA Model (Unified Interface)
+- [`MINERVA_soft_threshold_lasso()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_soft_threshold_lasso.md)
+  : Apply Soft-Thresholding with LASSO Penalty
+- [`MINERVA_soft_threshold_scad()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_soft_threshold_scad.md)
+  : Apply SCAD Penalty Thresholding
+- [`MINERVA_sparsity_quality()`](https://ylefol.github.io/L-Atelier/GAIA/reference/MINERVA_sparsity_quality.md)
+  : Compute Sparsity Quality Score
+
+## Artemis
+
+Goddess of the hunt, precisely targets statistical insights — analysis &
+statistics: differential expression (DESeq2/limma), clustering
+(PAM/consensus/PART/WGCNA), discriminative analysis, FAMD, time series,
+CIBERSORT deconvolution, isoform switching, ATAC annotation.
+
+- [`ARTEMIS_characterize_clusters()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_characterize_clusters.md)
+  : Characterize Clusters by Variable Discriminative Power
+- [`ARTEMIS_cibersort()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_cibersort.md)
+  : Run CIBERSORT immune cell deconvolution
+- [`ARTEMIS_cluster_mixed()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_cluster_mixed.md)
+  : Cluster Mixed Data Using Gower Distance
+- [`ARTEMIS_cluster_stability()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_cluster_stability.md)
+  : Assess Cluster Stability via Bootstrap
+- [`ARTEMIS_compare_annotation_distribution()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_compare_annotation_distribution.md)
+  : Artemis - Peak Annotation Distribution Comparison
+- [`ARTEMIS_compare_variable_importance()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_compare_variable_importance.md)
+  : Compare Variable Importance from Clustering and FAMD
+- [`ARTEMIS_consensus_cluster()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_consensus_cluster.md)
+  : Consensus Clustering Across Multiple Imputed Datasets
+- [`ARTEMIS_consensus_stability()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_consensus_stability.md)
+  : Cluster Stability Analysis for Consensus Clustering
+- [`ARTEMIS_decoupler_compare_methods()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_decoupler_compare_methods.md)
+  : Compare multiple decoupleR methods
+- [`ARTEMIS_decoupler_list_methods()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_decoupler_list_methods.md)
+  : List available decoupleR methods
+- [`ARTEMIS_differential_counts()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_differential_counts.md)
+  : Differential Analysis for Count Data
+- [`ARTEMIS_distance_to_nearest()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_distance_to_nearest.md)
+  : Artemis - Utility Functions
+- [`ARTEMIS_evaluate_k_range()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_evaluate_k_range.md)
+  : Evaluate Clustering Across a Range of k Values
+- [`ARTEMIS_extract_coefficients()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_extract_coefficients.md)
+  : Extract Coefficients with Confidence Intervals
+- [`ARTEMIS_extract_selected_variables()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_extract_selected_variables.md)
+  : Extract Selected Variables from Group LASSO
+- [`ARTEMIS_famd()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_famd.md)
+  : Factor Analysis of Mixed Data (FAMD)
+- [`ARTEMIS_fit_final_model()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_fit_final_model.md)
+  : Fit Final Interpretable Model on Selected Variables
+- [`ARTEMIS_fit_group_lasso()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_fit_group_lasso.md)
+  : Fit Group LASSO for Variable Selection
+- [`ARTEMIS_global_shift_test()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_global_shift_test.md)
+  : Artemis - Anchor-Based Analysis Functions
+- [`ARTEMIS_infer_pathway_activity()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_infer_pathway_activity.md)
+  : Infer pathway activity
+- [`ARTEMIS_infer_tf_activity()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_infer_tf_activity.md)
+  : Infer transcription factor activity
+- [`ARTEMIS_isoform_switch()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_isoform_switch.md)
+  : Artemis - Isoform Switch Analysis Functions
+- [`ARTEMIS_isoform_switch_consequences()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_isoform_switch_consequences.md)
+  : Analyze Functional Consequences of Isoform Switches
+- [`ARTEMIS_isoform_switch_splicing()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_isoform_switch_splicing.md)
+  : Classify Alternative Splicing Events for Isoform Switches
+- [`ARTEMIS_limma_de()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_limma_de.md)
+  : Differential Analysis for Log2-Scale Data (limma)
+- [`ARTEMIS_load_bw_coverage()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_load_bw_coverage.md)
+  : Pre-load BigWig Coverage for Fast Multi-Region Extraction
+- [`ARTEMIS_normalize_counts()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_normalize_counts.md)
+  : Normalize Count Data with DESeq2
+- [`ARTEMIS_normalize_timeseries()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_normalize_timeseries.md)
+  : Normalize Time Series Data with DESeq2
+- [`ARTEMIS_normalize_timeseries_limma()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_normalize_timeseries_limma.md)
+  : Normalize Time Series Data for limma
+- [`ARTEMIS_part()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_part.md)
+  : PART Clustering
+- [`ARTEMIS_part_summary()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_part_summary.md)
+  : Print PART result summary
+- [`ARTEMIS_pc_metadata_association()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_pc_metadata_association.md)
+  : PC-Metadata Association Test
+- [`ARTEMIS_plot_global_shift()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_plot_global_shift.md)
+  : Plot Global Shift Results
+- [`ARTEMIS_prepare_bw_comparison()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_prepare_bw_comparison.md)
+  : Prepare BigWig Signal Data for 2D Density Scatter Comparison
+- [`ARTEMIS_prepare_part_matrix()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_prepare_part_matrix.md)
+  : Prepare Expression Matrix for PART Clustering
+- [`ARTEMIS_run_decoupler()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_run_decoupler.md)
+  : Run decoupleR activity inference
+- [`ARTEMIS_select_de_genes()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_select_de_genes.md)
+  : Select DE Genes Across Differential Expression Results
+- [`ARTEMIS_select_lambda()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_select_lambda.md)
+  : Select Optimal Lambda via Cross-Validation
+- [`ARTEMIS_timeseries_conditional()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_timeseries_conditional.md)
+  : Time Series Conditional Differential Expression
+- [`ARTEMIS_timeseries_conditional_limma()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_timeseries_conditional_limma.md)
+  : Time Series Conditional Differential Expression (limma)
+- [`ARTEMIS_timeseries_temporal()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_timeseries_temporal.md)
+  : Time Series Temporal Differential Expression
+- [`ARTEMIS_timeseries_temporal_limma()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_timeseries_temporal_limma.md)
+  : Time Series Temporal Differential Expression (limma)
+- [`ARTEMIS_wgcna_cluster_samples()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_wgcna_cluster_samples.md)
+  : Cluster samples and detect outliers
+- [`ARTEMIS_wgcna_detect_modules()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_wgcna_detect_modules.md)
+  : Detect co-expression modules
+- [`ARTEMIS_wgcna_gene_significance()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_wgcna_gene_significance.md)
+  : Calculate gene significance for traits
+- [`ARTEMIS_wgcna_hub_genes()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_wgcna_hub_genes.md)
+  : Identify hub genes in modules
+- [`ARTEMIS_wgcna_module_traits()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_wgcna_module_traits.md)
+  : Correlate modules with traits
+- [`ARTEMIS_wgcna_pick_power()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_wgcna_pick_power.md)
+  : Select soft threshold power for WGCNA
+- [`ARTEMIS_wgcna_prepare()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_wgcna_prepare.md)
+  : Prepare data for WGCNA analysis
+- [`ARTEMIS_wgcna_qc()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ARTEMIS_wgcna_qc.md)
+  : Quality control for WGCNA data
+- [`.artemis_resolve_size_factors()`](https://ylefol.github.io/L-Atelier/GAIA/reference/dot-artemis_resolve_size_factors.md)
+  : Artemis - Differential Analysis Functions
+
+## Aether
+
+Pure upper air breathed by gods, clarifies and illuminates results —
+visualization: coverage tracks, circos, PCA/clustering, enrichment,
+differential, time series, WGCNA, MOFA, motif and network plots.
+
+- [`AETHER_create_circos()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_create_circos.md)
+  : Create Circos Plot
+- [`AETHER_default_palette()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_default_palette.md)
+  : Default Color Palettes
+- [`AETHER_generate_gradient()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_generate_gradient.md)
+  : Generate Color Gradient
+- [`AETHER_plot_activity_by_method()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_activity_by_method.md)
+  : Plot activity comparison across methods
+- [`AETHER_plot_activity_heatmap()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_activity_heatmap.md)
+  : Plot activity heatmap
+- [`AETHER_plot_activity_trait()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_activity_trait.md)
+  : Plot activity vs trait correlation
+- [`AETHER_plot_annotation_bar()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_annotation_bar.md)
+  : Genomic Annotation Distribution Bar Plot
+- [`AETHER_plot_annotation_comparison()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_annotation_comparison.md)
+  : Aether - Statistical Comparison Plots
+- [`AETHER_plot_best_cv_scores()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_best_cv_scores.md)
+  : Plot Best CV Score Comparison Between Coarse and Fine Grid
+- [`AETHER_plot_cibersort_boxplot()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_cibersort_boxplot.md)
+  : Plot cell type proportions as boxplots by condition
+- [`AETHER_plot_cibersort_heatmap()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_cibersort_heatmap.md)
+  : Plot cell type proportions as heatmap
+- [`AETHER_plot_cibersort_proportions()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_cibersort_proportions.md)
+  : Plot cell type proportions as stacked bar chart
+- [`AETHER_plot_cluster_group_means()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_cluster_group_means.md)
+  : Plot Cluster Mean Expression by Group
+- [`AETHER_plot_cluster_means()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_cluster_means.md)
+  : Plot Cluster Mean Trajectories (Overlay)
+- [`AETHER_plot_cluster_pca()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_cluster_pca.md)
+  : PCA Plot Coloured by Consensus Cluster Assignment
+- [`AETHER_plot_cluster_radar()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_cluster_radar.md)
+  : Plot Radar/Spider Chart for Cluster Profiles
+- [`AETHER_plot_cluster_sankey()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_cluster_sankey.md)
+  : Plot Sankey Diagram for Cluster Transitions Across k Values
+- [`AETHER_plot_cluster_trajectories()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_cluster_trajectories.md)
+  : Plot Cluster Expression Trajectories
+- [`AETHER_plot_coefficients()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_coefficients.md)
+  : Forest Plot of Regression Coefficients
+- [`AETHER_plot_consensus_cdf()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_consensus_cdf.md)
+  : Plot Consensus CDF Curves
+- [`AETHER_plot_consensus_matrix()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_consensus_matrix.md)
+  : Plot Consensus Matrix Heatmap
+- [`AETHER_plot_consensus_summary()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_consensus_summary.md)
+  : Multi-Panel Diagnostic Summary for Consensus Clustering
+- [`AETHER_plot_consequence_summary()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_consequence_summary.md)
+  : Functional Consequence Summary Bar Plot
+- [`AETHER_plot_coverage_tracks()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_coverage_tracks.md)
+  : Plot Genome Coverage Tracks
+- [`AETHER_plot_cv_comparison()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_cv_comparison.md)
+  : Plot CV Performance Comparison Between Coarse and Fine Grid Search
+- [`AETHER_plot_deg_peak_scatter()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_deg_peak_scatter.md)
+  : Scatter Plot of DEG LFC vs Distance to Nearest ATAC Peak
+- [`AETHER_plot_delta_area()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_delta_area.md)
+  : Plot Delta Area (Relative CDF Area Change)
+- [`AETHER_plot_density_scatter()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_density_scatter.md)
+  : 2D Density Scatter Plot
+- [`AETHER_plot_enrichment_bar()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_enrichment_bar.md)
+  : Bar Plot for Enrichment Results
+- [`AETHER_plot_enrichment_dotplot()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_enrichment_dotplot.md)
+  : Dotplot for Enrichment Results
+- [`AETHER_plot_enrichment_map()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_enrichment_map.md)
+  : Enrichment Map (Term-Term Network)
+- [`AETHER_plot_expression_boxplot()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_expression_boxplot.md)
+  : Faceted Boxplots of Normalized Expression by Condition
+- [`AETHER_plot_expression_heatmap()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_expression_heatmap.md)
+  : Heatmap of Normalized Expression for a Feature Subset
+- [`AETHER_plot_famd_contrib()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_famd_contrib.md)
+  : Plot FAMD Contribution Heatmap
+- [`AETHER_plot_famd_individuals()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_famd_individuals.md)
+  : Plot FAMD Individuals (Samples)
+- [`AETHER_plot_famd_scree()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_famd_scree.md)
+  : Plot FAMD Scree Plot
+- [`AETHER_plot_famd_variables()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_famd_variables.md)
+  : Plot FAMD Variables
+- [`AETHER_plot_famd_variables_interactive()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_famd_variables_interactive.md)
+  : Interactive FAMD Variables Plot
+- [`AETHER_plot_fc_vs_signal()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_fc_vs_signal.md)
+  : Volcano-Style Plot for Anchor Analysis
+- [`AETHER_plot_feature_weights()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_feature_weights.md)
+  : Plot Feature Weights from Sparse CCA
+- [`AETHER_plot_gene_length_distribution()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_gene_length_distribution.md)
+  : Plot Gene Length Distribution by Differential Expression Status
+- [`AETHER_plot_go_dag()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_go_dag.md)
+  : GO DAG Plot coloured by module
+- [`AETHER_plot_go_treemap()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_go_treemap.md)
+  : GO Term Treemap via Semantic Similarity Reduction
+- [`AETHER_plot_gost_dotplot()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_gost_dotplot.md)
+  : Multi-Module Dotplot for gprofiler2 Enrichment Results
+- [`AETHER_plot_gost_full()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_gost_full.md)
+  : Plot Full (Unfiltered) g:GOSt Manhattan Plot
+- [`AETHER_plot_gs_vs_mm()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_gs_vs_mm.md)
+  : Plot gene significance vs module membership
+- [`AETHER_plot_gsea_dotplot()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_gsea_dotplot.md)
+  : NES Dotplot for GSEA Results
+- [`AETHER_plot_gsea_enrichment()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_gsea_enrichment.md)
+  : Running-Score (Mountain) Plot for a Single GSEA Pathway
+- [`AETHER_plot_hub_summary()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_hub_summary.md)
+  : Plot hub genes across modules
+- [`AETHER_plot_isoform_switch_gene()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_isoform_switch_gene.md)
+  : Per-Gene Isoform Switch Plot
+- [`AETHER_plot_isoform_switch_volcano()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_isoform_switch_volcano.md)
+  : Volcano Plot for Isoform Switch Results
+- [`AETHER_plot_k_selection()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_k_selection.md)
+  : Plot k Selection Metrics
+- [`AETHER_plot_lambda_path()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_lambda_path.md)
+  : Plot Lambda Selection Path
+- [`AETHER_plot_ma()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_ma.md)
+  : MA Plot for Differential Expression/Accessibility Results
+- [`AETHER_plot_method_agreement()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_method_agreement.md)
+  : Plot method agreement / variability
+- [`AETHER_plot_method_correlation()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_method_correlation.md)
+  : Plot method comparison correlation heatmap
+- [`AETHER_plot_module_trait_heatmap()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_module_trait_heatmap.md)
+  : Plot module-trait correlation heatmap
+- [`AETHER_plot_module_trait_heatmap_gg()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_module_trait_heatmap_gg.md)
+  : Plot module-trait heatmap using ggplot2
+- [`AETHER_plot_mofa_factors()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_mofa_factors.md)
+  : Plot MOFA factor scores for two factors
+- [`AETHER_plot_mofa_variance_explained()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_mofa_variance_explained.md)
+  : Plot variance explained per view and factor
+- [`AETHER_plot_mofa_weights()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_mofa_weights.md)
+  : Plot top-loading features for one view/factor
+- [`AETHER_plot_motif_comparison()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_motif_comparison.md)
+  : Heatmap of Motif Enrichment Across Peak Sets
+- [`AETHER_plot_motif_enrichment()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_motif_enrichment.md)
+  : Dotplot of HOMER Motif Enrichment Results
+- [`AETHER_plot_multi_feature_weights()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_multi_feature_weights.md)
+  : Plot Feature Weights from Multi-Dataset Sparse CCA
+- [`AETHER_plot_olink_qc()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_olink_qc.md)
+  : Olink QC Plots
+- [`AETHER_plot_part_heatmap()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_part_heatmap.md)
+  : Plot PART Clustering Heatmap
+- [`AETHER_plot_part_wgcna_circos()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_part_wgcna_circos.md)
+  : Plot PART-WGCNA comparison circos
+- [`AETHER_plot_pc_association()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_pc_association.md)
+  : PC-Metadata Association Heatmap
+- [`AETHER_plot_pca()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_pca.md)
+  : PCA plot of normalized counts
+- [`AETHER_plot_ppi_network()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_ppi_network.md)
+  : Static PPI Network Plot
+- [`AETHER_plot_ppi_network_interactive()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_ppi_network_interactive.md)
+  : Interactive PPI Network Plot
+- [`AETHER_plot_profile_heatmap()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_profile_heatmap.md)
+  : Plot Signal Profile Heatmap (scale-regions layout)
+- [`AETHER_plot_sample_dendrogram()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_sample_dendrogram.md)
+  : Plot sample dendrogram with trait colors
+- [`AETHER_plot_silhouette()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_silhouette.md)
+  : Plot Silhouette for Cluster Quality Assessment
+- [`AETHER_plot_splicing_enrichment()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_splicing_enrichment.md)
+  : Splicing Event Enrichment Plot
+- [`AETHER_plot_splicing_summary()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_splicing_summary.md)
+  : Splicing Event Summary Bar Plot
+- [`AETHER_plot_stability_alluvial()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_stability_alluvial.md)
+  : Alluvial Plot of Cluster Stability Across Runs
+- [`AETHER_plot_stability_histogram()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_stability_histogram.md)
+  : Stability Histogram for Consensus Clustering
+- [`AETHER_plot_timeseries_summary()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_timeseries_summary.md)
+  : Plot Time Series DEA Summary
+- [`AETHER_plot_top_activities()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_top_activities.md)
+  : Plot top activities as bar chart
+- [`AETHER_plot_tss_enrichment()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_tss_enrichment.md)
+  : Plot TSS Enrichment Profile and Per-sample Scores
+- [`AETHER_plot_volcano()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_volcano.md)
+  : Volcano Plot for Differential Expression/Accessibility Results
+- [`AETHER_plot_waterfall()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_waterfall.md)
+  : Waterfall Plot of Fold Changes
+- [`AETHER_plot_wcss()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_wcss.md)
+  : Plot Within-Cluster Sum-of-Squares (WCSS) Elbow
+- [`AETHER_plot_wgcna_dendrogram()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_wgcna_dendrogram.md)
+  : Plot module dendrogram with colors
+- [`AETHER_plot_wgcna_power()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_plot_wgcna_power.md)
+  : Plot soft threshold power selection diagnostics
+- [`AETHER_prepare_circos_data()`](https://ylefol.github.io/L-Atelier/GAIA/reference/AETHER_prepare_circos_data.md)
+  : Prepare Data for Circos Plots
+
+## Eleuthia
+
+Cradle facility that brought new life into the world — import, export &
+reporting: sample sheets, data import/quantification, DEA/ATAC/time
+series/composition report export, BigWig, HOMER export, logging.
+
+- [`ELEUTHIA_bed_region_coverage()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_bed_region_coverage.md)
+  : Compute Coverage for a Genomic Region Directly from a BED File
+- [`ELEUTHIA_bed_to_bigwig()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_bed_to_bigwig.md)
+  : Convert Fragment-Level BED to BigWig
+- [`ELEUTHIA_call_regions_from_fragments()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_call_regions_from_fragments.md)
+  : Call Regions from Fragment BED Files (Sparse Data)
+- [`ELEUTHIA_create_consensus_peaks()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_create_consensus_peaks.md)
+  : Create Consensus Peak Set
+- [`ELEUTHIA_discriminative_quick_summary()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_discriminative_quick_summary.md)
+  : Quick Summary of Discriminative Analysis
+- [`ELEUTHIA_discriminative_report()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_discriminative_report.md)
+  : Generate Discriminative Analysis Report
+- [`ELEUTHIA_expand_regions()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_expand_regions.md)
+  : Expand Genomic Regions by a Window Size
+- [`ELEUTHIA_export_activity_results()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_export_activity_results.md)
+  : Export decoupleR activity results
+- [`ELEUTHIA_export_atac_results()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_export_atac_results.md)
+  : Export ATAC-seq Analysis Results
+- [`ELEUTHIA_export_cibersort_results()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_export_cibersort_results.md)
+  : Export CIBERSORT deconvolution results
+- [`ELEUTHIA_export_dea_results()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_export_dea_results.md)
+  : Export DEA + PART + Enrichment Results
+- [`ELEUTHIA_export_enrichment()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_export_enrichment.md)
+  : Export enrichment results to files
+- [`ELEUTHIA_export_gsea()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_export_gsea.md)
+  : Export GSEA results to files
+- [`ELEUTHIA_export_homer_results()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_export_homer_results.md)
+  : Export HOMER Motif Enrichment Results
+- [`ELEUTHIA_export_olink_qc()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_export_olink_qc.md)
+  : Export Olink QC Results
+- [`ELEUTHIA_export_scca_result()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_export_scca_result.md)
+  : Export sCCA Direct Run Results
+- [`ELEUTHIA_export_sequence_composition()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_export_sequence_composition.md)
+  : Export Sequence Composition Results
+- [`ELEUTHIA_export_timeseries_results()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_export_timeseries_results.md)
+  : Export Time Series Analysis Results
+- [`ELEUTHIA_export_wgcna_results()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_export_wgcna_results.md)
+  : Export WGCNA results to files
+- [`ELEUTHIA_filter_low_expression()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_filter_low_expression.md)
+  : Filter Low-Expressed Genes
+- [`ELEUTHIA_generate_log_filename()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_generate_log_filename.md)
+  : Generate Timestamp-Based Log Filename
+- [`ELEUTHIA_get_log_file()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_get_log_file.md)
+  : Get Current Log File Path
+- [`ELEUTHIA_get_omics_subset()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_get_omics_subset.md)
+  : Get Subset of Sample Sheet by Omics Type
+- [`ELEUTHIA_is_logging()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_is_logging.md)
+  : Check if Logging is Active
+- [`ELEUTHIA_load_bed()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_load_bed.md)
+  : Load a BED File
+- [`ELEUTHIA_load_bed_from_sheet()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_load_bed_from_sheet.md)
+  : Load ChIP/CUT&TAG BED Files from Sample Sheet
+- [`ELEUTHIA_load_count_file()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_load_count_file.md)
+  : Eleuthia - RNA-seq Loading Functions
+- [`ELEUTHIA_load_counts_from_dir()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_load_counts_from_dir.md)
+  : Load Count Data from Directory
+- [`ELEUTHIA_load_massspec()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_load_massspec.md)
+  : Load DIA Mass Spectrometry Data (DIA-NN report.pg_matrix)
+- [`ELEUTHIA_load_multi_counts()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_load_multi_counts.md)
+  : Load Multiple Count Datasets from Directories
+- [`ELEUTHIA_load_narrowpeak()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_load_narrowpeak.md)
+  : Eleuthia - Peak Loading Functions
+- [`ELEUTHIA_load_olink()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_load_olink.md)
+  : Load Olink NPX Data
+- [`ELEUTHIA_load_peaks_from_sheet()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_load_peaks_from_sheet.md)
+  : Load Multiple Peak Files from Sample Sheet
+- [`ELEUTHIA_load_quant_beds()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_load_quant_beds.md)
+  : Load Quantification BED Files from Sample Sheet
+- [`ELEUTHIA_load_rnaseq_from_sheet()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_load_rnaseq_from_sheet.md)
+  : Load RNA-seq Counts from Sample Sheet
+- [`ELEUTHIA_merge_fragments()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_merge_fragments.md)
+  : Merge Fragments into Candidate Regions
+- [`ELEUTHIA_peaks_to_saf()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_peaks_to_saf.md)
+  : Convert Consensus Peaks to SAF Format
+- [`ELEUTHIA_plot_region_distribution()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_plot_region_distribution.md)
+  : Plot Distribution of Fragment Counts in Candidate Regions
+- [`ELEUTHIA_quantify_bed()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_quantify_bed.md)
+  : Quantify BED Fragments Against Regions
+- [`ELEUTHIA_quantify_peaks()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_quantify_peaks.md)
+  : Eleuthia - Quantification Functions
+- [`ELEUTHIA_quick_summary()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_quick_summary.md)
+  : Quick Summary of Stratification Results
+- [`ELEUTHIA_save_scca_results()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_save_scca_results.md)
+  : Eleuthia - Save Results Functions
+- [`ELEUTHIA_select_regions()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_select_regions.md)
+  : Select Regions Based on Fragment Count or Density Threshold
+- [`ELEUTHIA_start_log()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_start_log.md)
+  : Start Console Logging
+- [`ELEUTHIA_stop_log()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_stop_log.md)
+  : Stop Console Logging
+- [`ELEUTHIA_stratification_report()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_stratification_report.md)
+  : Generate Stratification Pipeline Report
+- [`ELEUTHIA_summarize_quantification()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_summarize_quantification.md)
+  : Summarize Quantification Statistics
+- [`ELEUTHIA_summarize_sample_sheet()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_summarize_sample_sheet.md)
+  : Summarize Sample Sheet Structure
+- [`ELEUTHIA_validate_sample_sheet()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_validate_sample_sheet.md)
+  : Eleuthia - Sample Sheet Functions
+- [`ELEUTHIA_wgcna_report()`](https://ylefol.github.io/L-Atelier/GAIA/reference/ELEUTHIA_wgcna_report.md)
+  : Generate WGCNA analysis report
+- [`.eleuthia_load_seacr_peaks()`](https://ylefol.github.io/L-Atelier/GAIA/reference/dot-eleuthia_load_seacr_peaks.md)
+  : Load a BED File
+- [`.log_env`](https://ylefol.github.io/L-Atelier/GAIA/reference/dot-log_env.md)
+  : Eleuthia - Logging Functions
+
+## Demeter
+
+Goddess of agriculture and harvest, cultivates the foundation —
+utilities: annotation/correlation/matrix/grid helpers, result loaders,
+simulated data generation.
+
+- [`DEMETER_correlation_matrix()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_correlation_matrix.md)
+  : Calculate correlation matrix with p-values
+- [`DEMETER_create_coarse_grid()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_create_coarse_grid.md)
+  : Create Coarse Parameter Grid
+- [`DEMETER_create_fine_grid()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_create_fine_grid.md)
+  : Create Fine Parameter Grid Around Specific Ranges
+- [`DEMETER_create_ranges_around_values()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_create_ranges_around_values.md)
+  : Create Ranges Around Best Parameter Values
+- [`DEMETER_filter_circos_clusters()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_filter_circos_clusters.md)
+  : Filter circos data to specific PART clusters
+- [`DEMETER_filter_circos_modules()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_filter_circos_modules.md)
+  : Filter circos data to specific WGCNA modules
+- [`DEMETER_format_pvalue_triangle()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_format_pvalue_triangle.md)
+  : Create lower/upper triangular p-value matrix for plotting
+- [`DEMETER_format_pvalues()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_format_pvalues.md)
+  : Format p-values for display
+- [`DEMETER_generate_colors()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_generate_colors.md)
+  : Generate distinct visible colors
+- [`DEMETER_generate_multi_datasets()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_generate_multi_datasets.md)
+  : Generate Multi-Dataset Simulations with Shared Latent Structure
+- [`DEMETER_gettingInverse()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_gettingInverse.md)
+  : Compute Pseudoinverse of a Matrix
+- [`DEMETER_load_activity()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_load_activity.md)
+  : Load decoupleR activity results
+- [`DEMETER_load_dea()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_load_dea.md)
+  : Load DEA results from export directories
+- [`DEMETER_load_dea_genes()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_load_dea_genes.md)
+  : Load and combine DEA gene lists from multiple experiments
+- [`DEMETER_load_enrichment()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_load_enrichment.md)
+  : Load saved enrichment results
+- [`DEMETER_load_part_result()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_load_part_result.md)
+  : Load a PART clustering result
+- [`DEMETER_load_wgcna()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_load_wgcna.md)
+  : Load WGCNA results from export directory
+- [`DEMETER_matrix_power()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_matrix_power.md)
+  : Matrix Power Function (Function Form)
+- [`DEMETER_prepare_part_wgcna_circos()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_prepare_part_wgcna_circos.md)
+  : Prepare data for PART-WGCNA circos plot
+- [`DEMETER_rename_circos_modules()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_rename_circos_modules.md)
+  : Rename and recolor WGCNA modules in circos data
+- [`DEMETER_select_circos_modules()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_select_circos_modules.md)
+  : Select WGCNA modules for circos display
+- [`DEMETER_top_activities()`](https://ylefol.github.io/L-Atelier/GAIA/reference/DEMETER_top_activities.md)
+  : Select top N sources from activity results
+- [`` `%^%` ``](https://ylefol.github.io/L-Atelier/GAIA/reference/grapes-pow-grapes.md)
+  : Matrix Power Operator
+
+## Print methods
+
+S3 print methods for the result objects GAIA’s functions return.
+
+- [`print(`*`<apollo_deg_peaks>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.apollo_deg_peaks.md)
+  : Print method for apollo_deg_peaks
+- [`print(`*`<artemis_characterization>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.artemis_characterization.md)
+  : Print method for cluster characterization
+- [`print(`*`<artemis_cluster>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.artemis_cluster.md)
+  : Print method for ARTEMIS clustering results
+- [`print(`*`<artemis_dea>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.artemis_dea.md)
+  : Print method for ARTEMIS differential analysis results
+- [`print(`*`<artemis_famd>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.artemis_famd.md)
+  : Print method for ARTEMIS FAMD results
+- [`print(`*`<artemis_final_model>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.artemis_final_model.md)
+  : Print method for artemis_final_model
+- [`print(`*`<artemis_group_lasso>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.artemis_group_lasso.md)
+  : Print Method for artemis_group_lasso
+- [`print(`*`<artemis_k_evaluation>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.artemis_k_evaluation.md)
+  : Print method for k evaluation
+- [`print(`*`<artemis_part>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.artemis_part.md)
+  : Print method for artemis_part
+- [`print(`*`<artemis_ts_de>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.artemis_ts_de.md)
+  : Print method for artemis_ts_de
+- [`print(`*`<artemis_ts_norm>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.artemis_ts_norm.md)
+  : Print method for artemis_ts_norm
+- [`print(`*`<artemis_ts_norm_limma>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.artemis_ts_norm_limma.md)
+  : Print method for artemis_ts_norm_limma
+- [`print(`*`<artemis_variable_comparison>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.artemis_variable_comparison.md)
+  : Print method for variable comparison
+- [`print(`*`<hades_qc>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.hades_qc.md)
+  : Print method for HADES QC results
+- [`print(`*`<hephaestus_mofa>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.hephaestus_mofa.md)
+  : Print method for hephaestus_mofa objects
+- [`print(`*`<wgcna_data>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.wgcna_data.md)
+  : Print method for wgcna_data objects
+- [`print(`*`<wgcna_gene_sig>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.wgcna_gene_sig.md)
+  : Print method for wgcna_gene_sig objects
+- [`print(`*`<wgcna_hubs>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.wgcna_hubs.md)
+  : Print method for wgcna_hubs objects
+- [`print(`*`<wgcna_modules>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.wgcna_modules.md)
+  : Print method for wgcna_modules objects
+- [`print(`*`<wgcna_power>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.wgcna_power.md)
+  : Print method for wgcna_power objects
+- [`print(`*`<wgcna_trait_cor>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.wgcna_trait_cor.md)
+  : Print method for wgcna_trait_cor objects

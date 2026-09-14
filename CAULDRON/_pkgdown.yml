@@ -1,0 +1,99 @@
+url: https://ylefol.github.io/L-Atelier/CAULDRON/
+destination: ../docs/CAULDRON
+
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#d9782d"
+
+home:
+  title: "CAULDRON — Single-Cell Analysis"
+  description: >
+    Single-cell and single-nuclei RNA-seq analysis toolkit. The single-cell
+    counterpart to GAIA. Built on SingleCellExperiment (Bioconductor).
+
+navbar:
+  structure:
+    left:  [reference]
+    right: [search, atelier, github]
+  components:
+    atelier:
+      icon: fa-cubes
+      href: ../index.html
+      aria-label: "L-Atelier home"
+    github:
+      icon: fab fa-github
+      aria-label: "Source code on GitHub"
+      href: https://github.com/Ylefol/L-Atelier/tree/master/CAULDRON
+
+# CAULDRON's subordinate modules, matching CAULDRON/README.md's Modules
+# table. DIKTYON (cell-cell signalling) is planned but not yet implemented --
+# no exported functions exist for it yet, so it's omitted here rather than
+# listed as an empty section; add it back once it has functions.
+reference:
+- title: Talaria
+  desc: >
+    Winged sandals of Hermes, pure transport — I/O: load 10x
+    MEX/H5/H5AD/Loom, Seurat interop, BPCells backing, export (matrices,
+    DE/GSEA/ORA results, interactive R Markdown widgets).
+  contents:
+  - starts_with("TALARIA_")
+
+- title: Aegis
+  desc: >
+    Divine shield of Athena/Zeus, protects — QC: per-cell metrics, doublet
+    detection (scDblFinder), cell filtering.
+  contents:
+  - starts_with("AEGIS_")
+
+- title: Pyri
+  desc: >
+    Sacred forge fire, purifies raw ore — preprocessing: normalization, HVG
+    selection and tuning.
+  contents:
+  - starts_with("PYRI_")
+
+- title: Talos
+  desc: >
+    Bronze automaton that traversed Crete — embedding & clustering: PCA,
+    Harmony, UMAP, tSNE, scVI, SNN graph construction/clustering, parameter
+    sweeps.
+  contents:
+  - starts_with("TALOS_")
+
+- title: Pandora
+  desc: >
+    Fashioned by Hephaestus, gifted by all gods — annotation: SingleR,
+    scType, CellTypist, manual label assignment, ortholog conversion.
+  contents:
+  - starts_with("PANDORA_")
+
+- title: Keraunos
+  desc: >
+    Thunderbolts forged by Hephaestus, decisive — expression: cluster
+    markers, cell-level and pseudobulk (DESeq2) DE, GSEA/ORA (single and
+    pairwise), propeller proportion testing.
+  contents:
+  - starts_with("KERAUNOS_")
+
+- title: Tripodes
+  desc: >
+    Self-moving golden tripods, self-directed motion — trajectory: Monocle3
+    pseudotime, RNA velocity (scVelo), CytoTRACE stemness scoring.
+  contents:
+  - starts_with("TRIPODES_")
+
+- title: Aspis
+  desc: >
+    Shield of Achilles, depicts everything — visualization: atlas plots,
+    embeddings, QC, markers, composition, velocity, pseudotime, trajectory.
+  contents:
+  - starts_with("ASPIS_")
+
+- title: Khalkos
+  desc: >
+    Bronze, the foundational material of the forge — utilities: SCE
+    validation/merging, assay accessors, colour palettes, ggplot2 theme,
+    logging.
+  contents:
+  - starts_with("KHALKOS_")

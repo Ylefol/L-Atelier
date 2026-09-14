@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L-Atelier</title>
+<meta name="description" content="Documentation for L-Atelier: GAIA, CAULDRON, HORIZON, and CYAN — a multi-omics analysis toolkit.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>L-Atelier</h1>
+    <p class="tagline">
+      A multi-omics toolkit spanning upstream processing through downstream
+      analysis for bulk and single-cell data — four packages, each covering
+      a stage of the workflow.
+    </p>
+    <span class="badge">Under active development</span>
+  </header>
+
+  <h2>Packages</h2>
+  <div class="cards">
+
+    <a class="card" href="GAIA/">
+      <div class="status">Bulk multi-omics</div>
+      <h3>GAIA</h3>
+      <p>
+        Quality control, preprocessing, annotation, enrichment, integration,
+        machine learning, statistics, visualization, and reporting for
+        bulk-level omics. Nine subordinate modules, named after figures
+        from Greek mythology.
+      </p>
+      <span class="go">Browse reference &rarr;</span>
+    </a>
+
+    <a class="card alt" href="CAULDRON/">
+      <div class="status">Single-cell &middot; early development</div>
+      <h3>CAULDRON</h3>
+      <p>
+        The single-cell/single-nuclei counterpart to GAIA, built on
+        <code>SingleCellExperiment</code>. Currently covers scRNA-seq;
+        modules named after Hephaestus's creations.
+      </p>
+      <span class="go">Browse reference &rarr;</span>
+    </a>
+
+    <a class="card" href="HORIZON/">
+      <div class="status">Upstream processing</div>
+      <h3>HORIZON</h3>
+      <p>
+        QC, adapter trimming, alignment, BAM processing, read counting, and
+        BigWig generation — produces outputs GAIA and CAULDRON already know
+        how to import. A flat collection of wrappers, no sub-modules.
+      </p>
+      <span class="go">Browse reference &rarr;</span>
+    </a>
+
+    <a class="card alt" href="CYAN/">
+      <div class="status">Niche analyses</div>
+      <h3>CYAN</h3>
+      <p>
+        Specialised genomic analyses outside the scope of the other three
+        packages. Currently RNA editing detection via REDItools2; somatic
+        variant calling (GATK MuTect2) is planned.
+      </p>
+      <span class="go">Browse reference &rarr;</span>
+    </a>
+
+  </div>
+
+  <h2>About this toolkit</h2>
+  <p>
+    L-Atelier (French for <em>the workshop</em>) is a personal toolkit
+    tailored to its author's own workflows — parameters are exposed or
+    hidden based on that use, not a general-audience API design. It's split
+    into four packages to keep development and installation independent:
+    pull in only the package a given analysis needs. Much of the naming
+    convention is derived from the <em>Horizon</em> video game series.
+  </p>
+  <p class="muted">
+    Developed and tested on Ubuntu 24.04 LTS. Cross-platform behaviour on
+    macOS/Windows/other Linux distributions hasn't been verified.
+  </p>
+
+  <h2>License</h2>
+  <p>
+    All four packages are MIT-licensed — see each package's own
+    <code>LICENSE.md</code> in the repository. CYAN vendors one third-party
+    file (REDItools2, unmodified) under its own CC BY 4.0 license; this
+    site's MIT license doesn't extend to external tools any package merely
+    calls or depends on (CIBERSORT, HOMER, GATK, MACS3, PARSE Biosciences'
+    <code>spipe</code>, etc.) — those remain governed by their own licenses.
+  </p>
+
+  <footer>
+    <p>
+      <a href="https://github.com/Ylefol/L-Atelier">Source on GitHub</a>
+      &middot; Reference documentation built with
+      <a href="https://pkgdown.r-lib.org/">pkgdown</a>
+    </p>
+  </footer>
+
+</div>
+</body>
+</html>

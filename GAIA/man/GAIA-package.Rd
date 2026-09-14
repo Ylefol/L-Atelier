@@ -8,6 +8,15 @@
 \description{
 Modular pipeline for multi-omics analysis including quality control, preprocessing, annotation, enrichment, integration, machine learning, statistical analysis, visualization, and reporting. Named after the subordinate functions from Horizon Zero Dawn.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://ylefol.github.io/L-Atelier/GAIA/}
+  \item \url{https://github.com/Ylefol/L-Atelier/tree/master/GAIA}
+  \item Report bugs at \url{https://github.com/Ylefol/L-Atelier/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Yohan Lefol \email{yohanlefol@proton.me}
 

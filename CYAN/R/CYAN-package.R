@@ -24,4 +24,5 @@
 #'
 #' @docType package
 #' @name CYAN-package
+#' @keywords internal
 "_PACKAGE"

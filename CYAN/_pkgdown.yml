@@ -1,0 +1,49 @@
+url: https://ylefol.github.io/L-Atelier/CYAN/
+destination: ../docs/CYAN
+
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#5f7d8c"
+
+home:
+  title: "CYAN — Niche Genomic Analyses"
+  description: >
+    Focused package for niche genomic analyses that sit outside the scope of
+    GAIA/HORIZON/CAULDRON. Currently RNA editing detection via REDItools2;
+    somatic variant calling via GATK MuTect2 is planned.
+
+navbar:
+  structure:
+    left:  [reference]
+    right: [search, atelier, github]
+  components:
+    atelier:
+      icon: fa-cubes
+      href: ../index.html
+      aria-label: "L-Atelier home"
+    github:
+      icon: fab fa-github
+      aria-label: "Source code on GitHub"
+      href: https://github.com/Ylefol/L-Atelier/tree/master/CYAN
+
+# CYAN is a flat collection (no sub-modules), grouped here by function,
+# matching CYAN/README.md's two subsections.
+reference:
+- title: Validation utilities
+  desc: Pre-flight checks for BAMs, reference files, and the GATK executable.
+  contents:
+  - CYAN_check_bam
+  - CYAN_check_references
+  - CYAN_resolve_gatk
+
+- title: RNA editing detection
+  desc: RNA editing (e.g. A-to-I) detection via REDItools2.
+  contents:
+  - CYAN_run_reditools
+  - CYAN_run_reditools_batch
+
+- title: Print methods
+  desc: S3 print methods for the result objects CYAN's functions return.
+  contents:
+  - starts_with("print.")

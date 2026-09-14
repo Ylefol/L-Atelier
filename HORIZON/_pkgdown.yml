@@ -1,0 +1,120 @@
+url: https://ylefol.github.io/L-Atelier/HORIZON/
+destination: ../docs/HORIZON
+
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#2c6e49"
+
+home:
+  title: "HORIZON — Upstream Processing"
+  description: >
+    Upstream bioinformatics processing for multi-omics data: QC, adapter
+    trimming, alignment, BAM processing, read counting, BigWig generation.
+    A flat collection of wrappers with no sub-modules.
+
+navbar:
+  structure:
+    left:  [reference]
+    right: [search, atelier, github]
+  components:
+    atelier:
+      icon: fa-cubes
+      href: ../index.html
+      aria-label: "L-Atelier home"
+    github:
+      icon: fab fa-github
+      aria-label: "Source code on GitHub"
+      href: https://github.com/Ylefol/L-Atelier/tree/master/HORIZON
+
+# HORIZON has no module sub-namespacing (every function is HORIZON_*), so
+# functions are grouped here by pipeline stage instead of by name prefix.
+reference:
+- title: Sample sheets & setup
+  desc: Building/validating sample sheets and registering the conda environment.
+  contents:
+  - HORIZON_create_sample_sheet
+  - HORIZON_validate_sample_sheet
+  - HORIZON_set_conda_env
+  - HORIZON_create_parse_sheet
+  - HORIZON_validate_parse_sheet
+
+- title: QC & trimming
+  desc: Read QC and adapter trimming.
+  contents:
+  - HORIZON_run_qc_trim
+
+- title: Reference indices & chromosome handling
+  desc: Building aligner indices and chromosome-name/size utilities.
+  contents:
+  - HORIZON_build_bowtie2_index
+  - HORIZON_build_combined_index
+  - HORIZON_build_index
+  - HORIZON_build_salmon_index
+  - HORIZON_build_star_index
+  - HORIZON_get_chrom_sizes
+  - HORIZON_rename_chromosomes
+
+- title: Alignment
+  desc: Genome/transcriptome alignment and BAM sorting/indexing.
+  contents:
+  - HORIZON_run_align
+  - HORIZON_run_bowtie2
+  - HORIZON_run_star_align
+  - HORIZON_run_salmon
+  - HORIZON_sort_index_bam
+
+- title: Spike-in normalization
+  desc: Host/spike-in read separation and scale-factor computation.
+  contents:
+  - HORIZON_separate_spike_in
+  - HORIZON_compute_spike_in_factors
+
+- title: BAM processing & filtering
+  desc: Duplicate marking, blacklist filtering, downsampling, BED conversion.
+  contents:
+  - HORIZON_process_bam
+  - HORIZON_filter_blacklist
+  - HORIZON_downsample_bam
+  - HORIZON_bam_to_bed
+  - HORIZON_concat_lanes
+
+- title: Peak calling
+  desc: MACS3 and SEACR peak calling.
+  contents:
+  - HORIZON_call_peaks
+  - HORIZON_call_peaks_seacr
+
+- title: Quantification
+  desc: Gene, transposable element (TE), and transcript-level quantification/aggregation.
+  contents:
+  - HORIZON_run_count
+  - HORIZON_aggregate_counts
+  - HORIZON_run_tecount
+  - HORIZON_aggregate_tecount
+  - HORIZON_merge_gene_te_counts
+  - HORIZON_aggregate_salmon
+
+- title: Tracks & fragment size
+  desc: BigWig generation and fragment-size distribution.
+  contents:
+  - HORIZON_bam_to_bigwig
+  - HORIZON_run_fragment_size
+
+- title: Single-cell library prep (PARSE Biosciences)
+  desc: split-pipe sheet creation/validation, running split-pipe, RNA velocity, DGE filtering.
+  contents:
+  - HORIZON_run_splitpipe
+  - HORIZON_combine_splitpipe
+  - HORIZON_run_parse_velocity
+  - HORIZON_parse_DGE_filter
+
+- title: Logging
+  desc: Run logging utilities shared across pipeline steps.
+  contents:
+  - HORIZON_generate_log_filename
+  - HORIZON_get_log_file
+  - HORIZON_is_logging
+  - HORIZON_start_log
+  - HORIZON_stop_log
+  - ".log_env"

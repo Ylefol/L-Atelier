@@ -6,14 +6,23 @@
 \alias{CAULDRON-package}
 \title{CAULDRON: Single-Cell and Single-Nuclei RNA-seq Analysis Toolkit}
 \description{
-Modular pipeline for single-cell and single-nuclei RNA-seq analysis including quality control, preprocessing, dimensionality reduction, clustering, annotation, differential expression, trajectory analysis, cell-cell communication, and visualization. Built on SingleCellExperiment (Bioconductor). Named after figures from Norse mythology.
+Modular pipeline for single-cell and single-nuclei RNA-seq analysis including quality control, preprocessing, dimensionality reduction, clustering, annotation, differential expression, trajectory analysis, cell-cell communication, and visualization. Built on SingleCellExperiment (Bioconductor). Named after figures from Greek mythology (Hephaestus's creations).
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://ylefol.github.io/L-Atelier/CAULDRON/}
+  \item \url{https://github.com/Ylefol/L-Atelier/tree/master/CAULDRON}
+  \item Report bugs at \url{https://github.com/Ylefol/L-Atelier/issues}
+}
+
 }
 \author{
-\strong{Maintainer}: Yohan Lefol \email{email@example.com}
+\strong{Maintainer}: Yohan Lefol \email{yohanlefol@proton.me}
 
 Authors:
 \itemize{
-  \item Yohan Lefol \email{email@example.com}
+  \item Yohan Lefol \email{yohanlefol@proton.me}
 }
 
 }

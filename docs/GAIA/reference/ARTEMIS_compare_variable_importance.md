@@ -1,0 +1,104 @@
+# Compare Variable Importance from Clustering and FAMD
+
+Combines variable importance metrics from cluster characterization
+(effect sizes) and FAMD (contributions) to identify variables that may
+be candidates for removal during variable refinement.
+
+Variables that score low on BOTH metrics are likely not contributing
+meaningfully to either cluster discrimination or overall data structure.
+
+## Usage
+
+``` r
+ARTEMIS_compare_variable_importance(
+  cluster_char,
+  famd_result,
+  n_dims = 3,
+  low_threshold = 0.25,
+  verbose = TRUE
+)
+```
+
+## Arguments
+
+- cluster_char:
+
+  An artemis_characterization object from
+  ARTEMIS_characterize_clusters().
+
+- famd_result:
+
+  An artemis_famd object from ARTEMIS_famd().
+
+- n_dims:
+
+  Integer. Number of top FAMD dimensions to consider for contribution
+  averaging. Default = 3.
+
+- low_threshold:
+
+  Numeric (0-1). Percentile below which a variable is considered "low"
+  on a metric. Default = 0.25 (bottom 25%).
+
+- verbose:
+
+  Logical. Print summary. Default = TRUE.
+
+## Value
+
+A list with class "artemis_variable_comparison" containing:
+
+- comparison:
+
+  Data frame with all variables, their metrics, ranks, and flags
+
+- low_signal:
+
+  Character vector of variables low on BOTH metrics (removal candidates)
+
+- high_signal:
+
+  Character vector of variables high on at least one metric (keep)
+
+- summary:
+
+  Summary statistics
+
+## Details
+
+The function computes percentile ranks for each variable on both
+metrics:
+
+- Effect size from clustering (eta² for quantitative, Cramér's V for
+  qualitative)
+
+- Average contribution to top FAMD dimensions
+
+For qualitative variables, FAMD contributions are aggregated from
+category-level to variable-level by summing contributions across all
+categories of each variable.
+
+Variables in the bottom percentile (controlled by low_threshold) on BOTH
+metrics are flagged as candidates for removal. This is conservative - a
+variable only needs to be important on ONE metric to be retained.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# Run clustering and characterization
+clust <- ARTEMIS_cluster_mixed(data)
+char <- ARTEMIS_characterize_clusters(clust)
+famd <- ARTEMIS_famd(data)
+
+# Compare importance metrics
+comparison <- ARTEMIS_compare_variable_importance(char, famd)
+
+# See which variables to consider removing
+comparison$low_signal
+
+# Iteratively refine
+data_refined <- data[, !names(data) %in% comparison$low_signal]
+
+} # }
+```

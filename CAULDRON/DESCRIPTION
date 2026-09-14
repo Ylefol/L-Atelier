@@ -8,6 +8,8 @@ Description: Modular pipeline for single-cell and single-nuclei RNA-seq analysis
     communication, and visualization. Built on SingleCellExperiment (Bioconductor).
     Named after figures from Greek mythology (Hephaestus's creations).
 License: MIT + file LICENSE
+URL: https://ylefol.github.io/L-Atelier/CAULDRON/, https://github.com/Ylefol/L-Atelier/tree/master/CAULDRON
+BugReports: https://github.com/Ylefol/L-Atelier/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends:

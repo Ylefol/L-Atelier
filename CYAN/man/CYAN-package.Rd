@@ -27,12 +27,22 @@ unit rather than a large orchestrating system.
 }
 }
 
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://ylefol.github.io/L-Atelier/CYAN/}
+  \item \url{https://github.com/Ylefol/L-Atelier/tree/master/CYAN}
+  \item Report bugs at \url{https://github.com/Ylefol/L-Atelier/issues}
+}
+
+}
 \author{
-\strong{Maintainer}: Yohan L \email{placeholder@placeholder.com}
+\strong{Maintainer}: Yohan Lefol \email{yohanlefol@proton.me}
 
 Authors:
 \itemize{
-  \item Yohan L \email{placeholder@placeholder.com}
+  \item Yohan Lefol \email{yohanlefol@proton.me}
 }
 
 }
+\keyword{internal}
