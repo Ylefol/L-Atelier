@@ -9,18 +9,11 @@
   --code-bg: #f0f2f4;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14171a;
-    --bg-card: #1c2024;
-    --text: #e6edf3;
-    --text-muted: #9aa4ae;
-    --border: #30363d;
-    --accent: #6fb3d2;
-    --accent-2: #eda05f;
-    --code-bg: #22262b;
-  }
-}
+/* Deliberately light-only: pkgdown's package sites (GAIA/CAULDRON/HORIZON/
+   CYAN) don't have the light-switch template option enabled, so they're
+   always light. Following the system dark-mode preference here would make
+   this landing page go dark while every page you click into stays light --
+   worse than just staying consistently light throughout. */
 
 * { box-sizing: border-box; }
 

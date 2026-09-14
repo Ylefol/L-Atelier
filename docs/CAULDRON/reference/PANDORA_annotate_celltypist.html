@@ -21,7 +21,9 @@ no manual Python setup is required."></head><body>
     </button>
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
-      <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+      <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="../articles/installation.html">Installation</a></li>
+<li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+<li class="nav-item"><a class="nav-link" href="../articles/tutorials.html">Tutorials</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
 <li class="nav-item"><a class="nav-link" href="../../index.html" aria-label="L-Atelier home"><span class="fa fa-cubes"></span></a></li>
@@ -129,7 +131,7 @@ in the SCE (e.g. after batch correction). Supplying <code>cluster_col</code>
 passes an existing per-cell clustering straight to CellTypist's
 <code>over_clustering</code> argument as an array aligned to cell order, which
 skips its internal neighbour-graph construction entirely (verified against
-the installed celltypist's <code><a href="https://ggplot2.tidyverse.org/reference/annotate.html" class="external-link">annotate()</a></code>/<code>Classifier.majority_vote()</code>
+the installed celltypist's <code>annotate()</code>/<code>Classifier.majority_vote()</code>
 source: an array-like <code>over_clustering</code> bypasses <code>over_cluster()</code>
 and goes directly to majority voting) — so the consensus vote reflects your
 own established clusters/embedding rather than a second, independently

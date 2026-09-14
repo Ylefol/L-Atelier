@@ -1,0 +1,13 @@
+# Installation
+
+``` r
+install.packages("devtools")
+devtools::install("path/to/L-Atelier/CAULDRON")
+library(CAULDRON)
+```
+
+The required package list for this installation hasn’t been fully set up
+yet — if you choose to use CAULDRON, you’ll need to install packages as
+they’re called by the functions you use. See the
+[Reference](https://ylefol.github.io/L-Atelier/CAULDRON/reference/index.md)
+page for what each function depends on.

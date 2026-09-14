@@ -15,9 +15,15 @@ home:
 
 navbar:
   structure:
-    left:  [reference]
+    left:  [install, reference, tutorials]
     right: [search, atelier, github]
   components:
+    install:
+      text: Installation
+      href: articles/installation.html
+    tutorials:
+      text: Tutorials
+      href: articles/tutorials.html
     atelier:
       icon: fa-cubes
       href: ../index.html

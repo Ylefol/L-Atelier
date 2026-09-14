@@ -15,6 +15,14 @@ creations from Greek mythology.
 
 ------------------------------------------------------------------------
 
+## Installation
+
+See the
+[Installation](https://ylefol.github.io/L-Atelier/CAULDRON/articles/installation.md)
+guide for setup instructions.
+
+------------------------------------------------------------------------
+
 ## Modules
 
 | Module   | Named after                                       | Responsibility                                                                                                                          |
@@ -47,20 +55,6 @@ without a full Seurat dependency.
 
 ------------------------------------------------------------------------
 
-## Installation
-
-``` r
-install.packages("devtools")
-devtools::install("path/to/L-Atelier/CAULDRON")
-library(CAULDRON)
-```
-
-I haven’t set-up the required package list for this installation yet -
-if you choose to use it you will have to install packages as they are
-called by CAULDRON.
-
-------------------------------------------------------------------------
-
 ## Typical Workflow (sc/sn RNAseq)
 
     TALARIA_load_10x() / TALARIA_load_h5ad() / TALARIA_load_h5() / TALARIA_load_loom()
@@ -86,6 +80,20 @@ Trajectory work
 and propeller-based composition testing
 ([`KERAUNOS_propeller_proportions()`](https://ylefol.github.io/L-Atelier/CAULDRON/reference/KERAUNOS_propeller_proportions.md))
 branch off after annotation, depending on the biological question.
+
+------------------------------------------------------------------------
+
+## Development
+
+All function names follow the same convention as GAIA:
+`MODULE_function_name` (e.g.,
+[`AEGIS_filter_cells()`](https://ylefol.github.io/L-Atelier/CAULDRON/reference/AEGIS_filter_cells.md),
+[`TALOS_run_umap()`](https://ylefol.github.io/L-Atelier/CAULDRON/reference/TALOS_run_umap.md)).
+Per-module implementation status — the full, current function inventory,
+in-progress work, and TODOs — is tracked in
+`inst/status/<MODULE>_STATUS.txt` (e.g.,
+`inst/status/KERAUNOS_STATUS.txt`), following the same format as GAIA’s
+`STATUS/` files at the repository root.
 
 ------------------------------------------------------------------------
 
@@ -182,17 +190,3 @@ single-cell RNA sequencing data. doi:
 **BPCells** (on-disk matrix backend) — GitHub-only tool
 ([bnprks/BPCells](https://github.com/bnprks/BPCells)). Treat as an
 engineering dependency, not a citable method.
-
-------------------------------------------------------------------------
-
-## Development
-
-All function names follow the same convention as GAIA:
-`MODULE_function_name` (e.g.,
-[`AEGIS_filter_cells()`](https://ylefol.github.io/L-Atelier/CAULDRON/reference/AEGIS_filter_cells.md),
-[`TALOS_run_umap()`](https://ylefol.github.io/L-Atelier/CAULDRON/reference/TALOS_run_umap.md)).
-Per-module implementation status — the full, current function inventory,
-in-progress work, and TODOs — is tracked in
-`inst/status/<MODULE>_STATUS.txt` (e.g.,
-`inst/status/KERAUNOS_STATUS.txt`), following the same format as GAIA’s
-`STATUS/` files at the repository root.

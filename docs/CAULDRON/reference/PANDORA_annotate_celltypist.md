@@ -90,8 +90,8 @@ upstream in the SCE (e.g. after batch correction). Supplying
 CellTypist's `over_clustering` argument as an array aligned to cell
 order, which skips its internal neighbour-graph construction entirely
 (verified against the installed celltypist's
-[`annotate()`](https://ggplot2.tidyverse.org/reference/annotate.html)/`Classifier.majority_vote()`
-source: an array-like `over_clustering` bypasses `over_cluster()` and
-goes directly to majority voting) — so the consensus vote reflects your
-own established clusters/embedding rather than a second, independently
-constructed graph.
+`annotate()`/`Classifier.majority_vote()` source: an array-like
+`over_clustering` bypasses `over_cluster()` and goes directly to
+majority voting) — so the consensus vote reflects your own established
+clusters/embedding rather than a second, independently constructed
+graph.

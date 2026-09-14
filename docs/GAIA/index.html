@@ -33,7 +33,9 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
+<li class="nav-item"><a class="nav-link" href="articles/installation.html">Installation</a></li>
 <li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
+<li class="nav-item"><a class="nav-link" href="articles/tutorials.html">Tutorials</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -60,30 +62,8 @@
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>GAIA is an R package installed directly from the repository. R &gt;= 4.1.0 is required.</p>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"devtools"</span><span class="op">)</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install.html" class="external-link">install</a></span><span class="op">(</span><span class="st">"path/to/L-Atelier/GAIA"</span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ylefol.github.io/L-Atelier/GAIA/">GAIA</a></span><span class="op">)</span></span></code></pre></div>
-<div class="section level3">
-<h3 id="optional-dependencies">Optional dependencies<a class="anchor" aria-label="anchor" href="#optional-dependencies"></a>
-</h3>
-<p>Several modules have optional dependencies loaded on demand (listed in <code>Suggests</code>). Key ones:</p>
-<ul>
-<li>
-<strong>Bioconductor</strong> — <code>GenomicRanges</code>, <code>IRanges</code>, <code>ChIPseeker</code>, <code>clusterProfiler</code>, <code>Rsubread</code>, <code>rtracklayer</code>, etc. Install via <code><a href="https://bioconductor.github.io/BiocManager/reference/install.html" class="external-link">BiocManager::install()</a></code>.</li>
-<li>
-<strong>Batch correction</strong> — <code>sva</code> (ComBat), <code>limma</code> (removeBatchEffect).</li>
-<li>
-<strong>Annotation</strong> — <code>org.Hs.eg.db</code>, <code>AnnotationDbi</code>.</li>
-<li>
-<strong>CIBERSORT</strong> — Source code must be obtained separately from the authors. See <a href="#references">References</a>.</li>
-<li>
-<strong>Quantile normalization</strong> — <code>preprocessCore</code>.</li>
-</ul>
-<p>If Bioconductor packages are unexpectedly unavailable after installation, run <code><a href="https://bioconductor.github.io/BiocManager/reference/valid.html" class="external-link">BiocManager::valid()</a></code> to identify and fix any version mismatches.</p>
+<p>See the <a href="articles/installation.html">Installation</a> guide for setup instructions and optional dependencies.</p>
 <hr>
-</div>
 </div>
 <div class="section level2">
 <h2 id="modules">Modules<a class="anchor" aria-label="anchor" href="#modules"></a>

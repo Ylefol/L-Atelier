@@ -16,33 +16,9 @@ mythology.
 
 ## Installation
 
-GAIA is an R package installed directly from the repository. R \>= 4.1.0
-is required.
-
-``` r
-install.packages("devtools")
-devtools::install("path/to/L-Atelier/GAIA")
-library(GAIA)
-```
-
-### Optional dependencies
-
-Several modules have optional dependencies loaded on demand (listed in
-`Suggests`). Key ones:
-
-- **Bioconductor** — `GenomicRanges`, `IRanges`, `ChIPseeker`,
-  `clusterProfiler`, `Rsubread`, `rtracklayer`, etc. Install via
-  [`BiocManager::install()`](https://bioconductor.github.io/BiocManager/reference/install.html).
-- **Batch correction** — `sva` (ComBat), `limma` (removeBatchEffect).
-- **Annotation** — `org.Hs.eg.db`, `AnnotationDbi`.
-- **CIBERSORT** — Source code must be obtained separately from the
-  authors. See [References](#references).
-- **Quantile normalization** — `preprocessCore`.
-
-If Bioconductor packages are unexpectedly unavailable after
-installation, run
-[`BiocManager::valid()`](https://bioconductor.github.io/BiocManager/reference/valid.html)
-to identify and fix any version mismatches.
+See the
+[Installation](https://ylefol.github.io/L-Atelier/GAIA/articles/installation.md)
+guide for setup instructions and optional dependencies.
 
 ------------------------------------------------------------------------
 
@@ -905,3 +881,9 @@ S3 print methods for the result objects GAIA’s functions return.
 - [`print(`*`<wgcna_trait_cor>`*`)`](https://ylefol.github.io/L-Atelier/GAIA/reference/print.wgcna_trait_cor.md)
   : Print method for wgcna_trait_cor objects
 
+# Articles
+
+### All vignettes
+
+- [Installation](https://ylefol.github.io/L-Atelier/GAIA/articles/installation.md):
+- [Tutorials](https://ylefol.github.io/L-Atelier/GAIA/articles/tutorials.md):

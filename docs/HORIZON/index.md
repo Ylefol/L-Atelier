@@ -19,6 +19,15 @@ compatibility.
 
 ------------------------------------------------------------------------
 
+## Installation
+
+See the
+[Installation](https://ylefol.github.io/L-Atelier/HORIZON/articles/installation.md)
+guide for the R package, the `horizon_cli` conda environment, and the
+optional PARSE Biosciences environment.
+
+------------------------------------------------------------------------
+
 Output files are in formats GAIA’s import module already understands:
 
 | HORIZON output               | GAIA import                              |
@@ -27,95 +36,6 @@ Output files are in formats GAIA’s import module already understands:
 | `*_fragments.bed`            | `ELEUTHIA_call_regions_from_fragments()` |
 | `*_peaks.narrowPeak`         | `ELEUTHIA_load_peaks()`                  |
 | `*_RPKM.bw` / `*_spikein.bw` | `AETHER_plot_coverage_tracks()`          |
-
-------------------------------------------------------------------------
-
-## Installation
-
-### 1. Install the R package
-
-``` r
-install.packages("devtools")
-devtools::install("path/to/L-Atelier/HORIZON")
-library(HORIZON)
-```
-
-Core R dependencies (`Rsubread`, `Rfastp`, `Rsamtools`) are in `Imports`
-and installed automatically. `bowtie2` is called directly via the conda
-environment (see step 2).
-
-### 2. Create the HORIZON conda environment
-
-The chromatin pipeline (ATAC-seq, ChIP-seq, CUT&TAG/CUT&RUN) calls
-external CLI tools that must be available in a conda environment. Create
-it once:
-
-``` bash
-conda create -n horizon_cli -c bioconda -c conda-forge \
-  samtools=1.23.1 bedtools=2.31.1 macs3=3.0.2 bowtie2
-```
-
-> **Note:** deeptools may need to be installed via pip from within the
-> environment if the bioconda build is unavailable or conflicts:
->
-> ``` bash
-> conda activate horizon_cli
-> pip install deeptools==3.5.5
-> ```
-
-### 3. Register the environment at the start of each session
-
-``` r
-HORIZON_set_conda_env("~/miniconda3/envs/horizon_cli")
-```
-
-This stores the path for the session. Call it once at the top of any
-project script that uses the chromatin pipeline. RNA-seq functions (QC,
-align, count) do not require the conda environment.
-
-### 4. (Optional) Create the PARSE Biosciences conda environment
-
-Only needed for single-cell/single-nucleus library prep via `split-pipe`
-([`HORIZON_run_splitpipe()`](https://ylefol.github.io/L-Atelier/HORIZON/reference/HORIZON_run_splitpipe.md),
-[`HORIZON_combine_splitpipe()`](https://ylefol.github.io/L-Atelier/HORIZON/reference/HORIZON_combine_splitpipe.md),
-[`HORIZON_run_parse_velocity()`](https://ylefol.github.io/L-Atelier/HORIZON/reference/HORIZON_run_parse_velocity.md),
-[`HORIZON_parse_DGE_filter()`](https://ylefol.github.io/L-Atelier/HORIZON/reference/HORIZON_parse_DGE_filter.md)
-— see [Single-cell / single-nucleus library
-prep](#single-cell--single-nucleus-library-prep-parse-biosciences)
-below). This **must be a separate environment from `horizon_cli`** —
-`split-pipe`’s own Python dependencies conflict with the
-`samtools`/`bedtools`/`macs3`/`bowtie2` environment above. Note that the
-parse biosciences spipe installation guide can be found on their
-website.
-
-``` bash
-conda create -n parse_env python=3.10
-conda activate parse_env
-pip install spipe (see their website for details)
-```
-
-[`HORIZON_run_parse_velocity()`](https://ylefol.github.io/L-Atelier/HORIZON/reference/HORIZON_run_parse_velocity.md)
-and
-[`HORIZON_parse_DGE_filter()`](https://ylefol.github.io/L-Atelier/HORIZON/reference/HORIZON_parse_DGE_filter.md)
-call their own Python scripts (`inst/python/parse_velocity.py`,
-`inst/python/parse_dge_filter.py`) inside this same environment, so it
-also needs the packages those scripts import — `split-pipe` alone isn’t
-enough if you plan to use the velocity step:
-
-``` bash
-pip install scanpy scvelo anndata "dask[dataframe]"
-```
-
-Unlike `horizon_cli`, this environment is **not** registered globally
-via
-[`HORIZON_set_conda_env()`](https://ylefol.github.io/L-Atelier/HORIZON/reference/HORIZON_set_conda_env.md)
-— pass its path directly via the `conda_env` argument on each PARSE
-function call, e.g.:
-
-``` r
-HORIZON_run_splitpipe(sample_sheet, run_id = "run1", sample_layout = c(all_cells = "A1-D12"),
-                       conda_env = "~/miniconda3/envs/parse_env")
-```
 
 ------------------------------------------------------------------------
 
@@ -135,6 +55,13 @@ All functions write into a consistent tree under `output_dir`:
     <output_dir>/aggregated/counts/   # Combined gene count matrix + metadata (RNA-seq)
     <output_dir>/aggregated/salmon/   # Combined transcript TPM/count matrices + metadata (RNA-seq)
     <output_dir>/aggregated/tecount/  # Combined TE subfamily count matrix + metadata (RNA-seq)
+
+------------------------------------------------------------------------
+
+## Development
+
+Implementation status is tracked in `STATUS/HORIZON_STATUS.txt` at the
+repository root.
 
 ------------------------------------------------------------------------
 
@@ -185,10 +112,3 @@ Methods/tools wrapped or reimplemented within HORIZON:
   [10.1038/s41587-020-0591-5](https://doi.org/10.1038/s41587-020-0591-5)
 - **PARSE Biosciences `split-pipe`** — proprietary vendor software; see
   parsebiosciences website for code/software.
-
-------------------------------------------------------------------------
-
-## Development
-
-Implementation status is tracked in `STATUS/HORIZON_STATUS.txt` at the
-repository root.

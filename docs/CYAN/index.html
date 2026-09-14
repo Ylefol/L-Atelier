@@ -33,7 +33,9 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
+<li class="nav-item"><a class="nav-link" href="articles/installation.html">Installation</a></li>
 <li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
+<li class="nav-item"><a class="nav-link" href="articles/tutorials.html">Tutorials</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -60,12 +62,7 @@
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"devtools"</span><span class="op">)</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install.html" class="external-link">install</a></span><span class="op">(</span><span class="st">"path/to/L-Atelier/CYAN"</span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ylefol.github.io/L-Atelier/CYAN/">CYAN</a></span><span class="op">)</span></span></code></pre></div>
-<p>R &gt;= 4.3 is required. <code>basilisk</code> and <code>reticulate</code> are in <code>Imports</code> and installed automatically.</p>
-<p>No manual conda setup is needed for RNA editing: <code><a href="reference/CYAN_run_reditools.html">CYAN_run_reditools()</a></code> runs REDItools2 through a <code>basilisk</code>-managed Python environment (Python 3.10.14, <code>pysam</code>, <code>sortedcontainers</code>, <code>psutil</code>, <code>netifaces</code>, pinned versions) that <code>basilisk</code> creates automatically on first use. REDItools2 itself is vendored in <code>inst/python/reditools.py</code> (the original script, unmodified).</p>
+<p>See the <a href="articles/installation.html">Installation</a> guide for setup instructions.</p>
 <hr>
 </div>
 <div class="section level2">
@@ -103,6 +100,12 @@
 <hr>
 </div>
 <div class="section level2">
+<h2 id="development">Development<a class="anchor" aria-label="anchor" href="#development"></a>
+</h2>
+<p>Implementation status is tracked in <code>inst/status/CYAN_STATUS.txt</code>, following the same format as GAIA’s <code>STATUS/</code> files at the repository root.</p>
+<hr>
+</div>
+<div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
 <ul>
@@ -110,12 +113,6 @@
 <strong>REDItools2</strong> — Investigating RNA editing in deep transcriptome datasets with REDItools and REDIportal. doi: <a href="https://doi.org/10.1038/s41596-019-0279-7" class="external-link">10.1038/s41596-019-0279-7</a>
 </li>
 </ul>
-<hr>
-</div>
-<div class="section level2">
-<h2 id="development">Development<a class="anchor" aria-label="anchor" href="#development"></a>
-</h2>
-<p>Implementation status is tracked in <code>inst/status/CYAN_STATUS.txt</code>, following the same format as GAIA’s <code>STATUS/</code> files at the repository root.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">

@@ -2,8 +2,7 @@
 
 A clean, publication-ready ggplot2 theme: white background, subtle grey
 gridlines and borders, no minor grid, and bold plot titles. Use as a
-drop-in replacement for
-[`theme_bw()`](https://ggplot2.tidyverse.org/reference/ggtheme.html).
+drop-in replacement for `theme_bw()`.
 
 ## Usage
 
