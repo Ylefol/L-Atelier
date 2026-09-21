@@ -77,6 +77,15 @@ using the 2x2 contingency table where OR > 1 indicates enrichment.
 Terms are selected as top N per module, then displayed as a union. A term
 may appear significant in one module but not another - dots only appear
 where the term was significant in that module.
+
+The subtitle reports each module's query size (genes actually recognized
+by this source database, from gprofiler2's own \code{query_size} column)
+and the background/domain size (\code{effective_domain_size}) the
+enrichment test was run against, when those columns are present. This is
+the context needed to tell "few significant terms because the query was
+small" apart from "few significant terms despite a large query" -- the
+X-axis module label's annotation-coverage percentage shows a ratio, not
+the raw counts.
 }
 \examples{
 \dontrun{

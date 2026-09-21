@@ -16,6 +16,7 @@ ELEUTHIA_export_atac_results(
   prefix = "atac",
   l2fc_thresh = 1,
   p_thresh = 0.05,
+  filter_choice = "padj",
   sample_info = NULL,
   group_col = "group",
   save_plots = TRUE,
@@ -62,8 +63,12 @@ composition exports. Default: "atac".}
 \item{l2fc_thresh}{Numeric. log2FC threshold for DEA significance.
 Default: 1.0.}
 
-\item{p_thresh}{Numeric. Adjusted p-value threshold for DEA significance.
-Default: 0.05.}
+\item{p_thresh}{Numeric. Threshold applied to the \code{filter_choice}
+column for DEA significance. Default: 0.05.}
+
+\item{filter_choice}{Character. Which p-value column \code{p_thresh} is
+applied to: \code{"padj"} (default) or \code{"pvalue"}. Forwarded to
+\code{\link{ELEUTHIA_export_dea_results}}.}
 
 \item{sample_info}{Data.frame with sample metadata for DEA heatmap.
 Default: NULL.}

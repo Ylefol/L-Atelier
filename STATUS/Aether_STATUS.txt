@@ -224,6 +224,11 @@ aether_enrichment_plots.R:
 ---------------------------
 AETHER_plot_gost_dotplot(enrichment_result, ...)
   - Multi-module dotplot for gprofiler2 enrichment
+  - Subtitle reports each module's query_size and the effective_domain_size
+    (background) the test ran against, when present -- distinguishes "few
+    sig. terms because the query was small" from "...despite a large query"
+    (2026-09-19, added after this context was found missing from every
+    enrichment plot in the project)
 AETHER_plot_gost_full(gost_result, capped=TRUE, save_html=NULL)
   - Traditional g:GOSt Manhattan plot (gprofiler2::gostplot) for ONE module,
     showing every evaluated term regardless of significance

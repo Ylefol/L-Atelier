@@ -21,8 +21,12 @@
 #'   Default: NULL.
 #' @param l2fc_thresh Numeric. log2 fold change threshold for significant
 #'   genes export. Default: 1.0.
-#' @param p_thresh Numeric. Adjusted p-value threshold for significant
-#'   genes export. Default: 0.05.
+#' @param p_thresh Numeric. Threshold applied to the \code{filter_choice}
+#'   column for significant genes export. Default: 0.05.
+#' @param filter_choice Character. Which p-value column \code{p_thresh} is
+#'   applied to: \code{"padj"} (default) or \code{"pvalue"}. Also forwarded
+#'   to \code{\link{AETHER_plot_volcano}}/\code{\link{AETHER_plot_ma}} so the
+#'   plots' significance categories match the exported CSV/metadata.
 #' @param sample_info Data.frame with sample metadata (for heatmap annotations).
 #'   Must have rownames matching sample columns. Default: NULL.
 #' @param group_col Character. Group column in sample_info. Default: "group".
@@ -90,6 +94,7 @@ ELEUTHIA_export_dea_results <- function(output_dir,
                                          enrichment = NULL,
                                          l2fc_thresh = 1.0,
                                          p_thresh = 0.05,
+                                         filter_choice = "padj",
                                          sample_info = NULL,
                                          sample_col = NULL,
                                          group_col = "group",
@@ -152,8 +157,8 @@ ELEUTHIA_export_dea_results <- function(output_dir,
       if (verbose) cat("[ELEUTHIA]   All results:", basename(all_file), "\n")
 
       # Significant results
-      sig_res <- res[!is.na(res$padj) &
-                       res$padj < p_thresh &
+      sig_res <- res[!is.na(res[[filter_choice]]) &
+                       res[[filter_choice]] < p_thresh &
                        abs(res$log2FoldChange) >= l2fc_thresh, ]
 
       sig_file <- file.path(output_dir, paste0(prefix, "_significant.csv"))
@@ -173,7 +178,7 @@ ELEUTHIA_export_dea_results <- function(output_dir,
         "",
         "Thresholds:",
         paste0("  |log2FC| >= ", l2fc_thresh),
-        paste0("  padj < ", p_thresh),
+        paste0("  ", filter_choice, " < ", p_thresh),
         "",
         "Summary:",
         paste0("  Total features tested: ", nrow(res)),
@@ -199,7 +204,8 @@ ELEUTHIA_export_dea_results <- function(output_dir,
           p_vol <- AETHER_plot_volcano(
             dea_result,
             l2fc_thresh = l2fc_thresh,
-            p_thresh = p_thresh
+            p_thresh = p_thresh,
+            filter_choice = filter_choice
           )
           vol_files <- .save_ggplot(p_vol, plot_dir,
                                     paste0(prefix, "_volcano"), plot_format,
@@ -215,7 +221,8 @@ ELEUTHIA_export_dea_results <- function(output_dir,
           p_ma <- AETHER_plot_ma(
             dea_result,
             l2fc_thresh = l2fc_thresh,
-            p_thresh = p_thresh
+            p_thresh = p_thresh,
+            filter_choice = filter_choice
           )
           ma_files <- .save_ggplot(p_ma, plot_dir,
                                    paste0(prefix, "_ma"), plot_format,

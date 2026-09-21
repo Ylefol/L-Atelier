@@ -76,6 +76,23 @@ HORIZON_sort_index_bam(sample_sheet, sample_id, threads=4,
   - Removes unsorted BAM by default (remove_unsorted=FALSE to keep)
   - Writes <sample_id>_sorted.bam + .bai index
 
+HORIZON_mark_duplicates(sample_sheet, sample_id, threads=4L,
+                        memory_per_thread=2000L, remove_duplicates=FALSE,
+                        remove_tmp=TRUE, force=FALSE)
+  - samtools collate -> fixmate -> sort -> markdup, on the _sorted.bam from
+    HORIZON_sort_index_bam() (RNA-seq chain -- separate from
+    HORIZON_process_bam()'s ATAC/ChIP chain, no .latest_bam() involvement)
+  - remove_duplicates=FALSE (default): flags duplicates (SAM FLAG 0x400)
+    without removing them -- correct default for standard RNA-seq
+    quantification, where "duplicate" reads are often real signal from
+    highly expressed transcripts, not PCR artifacts. featureCounts counts
+    all reads regardless of the flag, so marking-only is harmless there
+    while still satisfying tools that filter on the flag themselves (e.g.
+    CYAN_run_reditools(require_dup_marked=TRUE) for RNA editing detection)
+  - remove_duplicates=TRUE: adds markdup -r, same as HORIZON_process_bam
+  - Writes _flagstat.txt (as _markdup_flagstat.txt) + _markdup_stats.txt
+  - Output: <sample_id>_markdup.bam
+
 bigwig.R:
 ---------
 HORIZON_bam_to_bigwig(sample_sheet, sample_id, effective_genome_size,

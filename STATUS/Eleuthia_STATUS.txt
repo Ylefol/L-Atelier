@@ -70,11 +70,13 @@ ELEUTHIA_load_multi_counts(count_paths, ...)
 
 eleuthia_atac_export.R:
 -----------------------
-ELEUTHIA_export_atac_results(output_dir, ...)
+ELEUTHIA_export_atac_results(output_dir, ..., filter_choice="padj")
   - Orchestrating export for full ATAC-seq pipeline results
   - Delegates annotated_peaks → CSV, dea_result → export_dea_results,
     enrichment → export_enrichment, homer_result → export_homer_results,
     sequence_composition → export_sequence_composition
+  - filter_choice ("padj" or "pvalue"): which column p_thresh applies to,
+    forwarded to export_dea_results()
 
 eleuthia_composition_export.R:
 -------------------------------
@@ -84,9 +86,16 @@ ELEUTHIA_export_sequence_composition(composition, output_dir, ...)
 
 eleuthia_dea_export.R:
 -----------------------
-ELEUTHIA_export_dea_results(dea_result, output_dir, ...)
+ELEUTHIA_export_dea_results(dea_result, output_dir, ..., filter_choice="padj")
   - Export differential analysis results to files
   - Now includes volcano and MA plots when save_plots = TRUE
+  - filter_choice ("padj" or "pvalue", default "padj"): which p-value column
+    p_thresh is applied to for dea_significant.csv/dea_metadata.txt and
+    forwarded to AETHER_plot_volcano()/AETHER_plot_ma()'s own filter_choice,
+    so the plots' significance categories stay consistent with the CSV.
+    2026-09-18: added after this was found hardcoded to padj, silently
+    disagreeing with a caller's own nominal-pvalue significance definition
+    (DripC_scripts/dripc_differential_ownpeaks_fastq.R)
 
 eleuthia_discriminative_report.R:
 -----------------------------------

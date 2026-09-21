@@ -46,6 +46,15 @@
 #' may appear significant in one module but not another - dots only appear
 #' where the term was significant in that module.
 #'
+#' The subtitle reports each module's query size (genes actually recognized
+#' by this source database, from gprofiler2's own \code{query_size} column)
+#' and the background/domain size (\code{effective_domain_size}) the
+#' enrichment test was run against, when those columns are present. This is
+#' the context needed to tell "few significant terms because the query was
+#' small" apart from "few significant terms despite a large query" -- the
+#' X-axis module label's annotation-coverage percentage shows a ratio, not
+#' the raw counts.
+#'
 #' @export
 #'
 #' @examples
@@ -199,8 +208,12 @@ AETHER_plot_gost_dotplot <- function(gost_result,
     total_sizes <- gost_result$metadata$module_sizes
   }
 
-  if ("query_size" %in% colnames(df) && !is.null(total_sizes)) {
+  query_sizes <- NULL
+  if ("query_size" %in% colnames(df)) {
     query_sizes <- aggregate(query_size ~ module, data = df, FUN = function(x) x[1])
+  }
+
+  if (!is.null(query_sizes) && !is.null(total_sizes)) {
     module_labels <- sapply(query_sizes$module, function(mod) {
       total <- total_sizes[[mod]]
       qs <- query_sizes$query_size[query_sizes$module == mod]
@@ -217,6 +230,19 @@ AETHER_plot_gost_dotplot <- function(gost_result,
   } else {
     df$module_label <- df$module
   }
+
+  # ---------------------------------------------------------------------------
+  # Query/background size context for the subtitle -- module_label above
+  # already shows annotation-coverage %, but not the raw counts, which is
+  # what actually answers "how many genes were tested here" at a glance
+  # (e.g. distinguishing "only 2 terms significant because the query was
+  # small" from "only 2 terms significant despite a large query").
+  # ---------------------------------------------------------------------------
+  query_info_str <- NULL
+  if (!is.null(query_sizes)) {
+    query_info_str <- paste(sprintf("%s=%d", query_sizes$module, query_sizes$query_size), collapse = ", ")
+  }
+  bg_size <- if ("effective_domain_size" %in% colnames(df)) unique(df$effective_domain_size)[1] else NA
 
   # ---------------------------------------------------------------------------
   # Order terms for Y-axis
@@ -305,13 +331,21 @@ AETHER_plot_gost_dotplot <- function(gost_result,
   # ---------------------------------------------------------------------------
   # Build plot - modules on X-axis, terms on Y-axis
   # ---------------------------------------------------------------------------
+  subtitle <- paste("Top", top_n, "terms")
+  if (!is.null(query_info_str)) {
+    subtitle <- paste0(subtitle, " | Query genes: ", query_info_str)
+  }
+  if (!is.na(bg_size)) {
+    subtitle <- paste0(subtitle, " | Background: ", format(bg_size, big.mark = ","), " genes")
+  }
+
   p <- ggplot(df, aes(x = module_label, y = term_short)) +
     geom_point(aes(size = size_var, color = color_var)) +
     color_scale +
     scale_size_continuous(range = dot_range, name = size_label) +
     labs(
       title = title,
-      subtitle = paste("Top", top_n, "terms per module"),
+      subtitle = subtitle,
       x = NULL,
       y = NULL
     ) +

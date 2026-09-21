@@ -41,8 +41,11 @@
 #'   composition exports. Default: "atac".
 #' @param l2fc_thresh Numeric. log2FC threshold for DEA significance.
 #'   Default: 1.0.
-#' @param p_thresh Numeric. Adjusted p-value threshold for DEA significance.
-#'   Default: 0.05.
+#' @param p_thresh Numeric. Threshold applied to the \code{filter_choice}
+#'   column for DEA significance. Default: 0.05.
+#' @param filter_choice Character. Which p-value column \code{p_thresh} is
+#'   applied to: \code{"padj"} (default) or \code{"pvalue"}. Forwarded to
+#'   \code{\link{ELEUTHIA_export_dea_results}}.
 #' @param sample_info Data.frame with sample metadata for DEA heatmap.
 #'   Default: NULL.
 #' @param group_col Character. Group column in \code{sample_info}.
@@ -97,6 +100,7 @@ ELEUTHIA_export_atac_results <- function(output_dir,
                                           prefix = "atac",
                                           l2fc_thresh = 1.0,
                                           p_thresh = 0.05,
+                                          filter_choice = "padj",
                                           sample_info = NULL,
                                           group_col = "group",
                                           save_plots = TRUE,
@@ -192,9 +196,10 @@ ELEUTHIA_export_atac_results <- function(output_dir,
         output_dir  = dea_dir,
         dea_result  = dea_result,
         enrichment  = NULL,       # enrichment always goes to its own folder
-        l2fc_thresh = l2fc_thresh,
-        p_thresh    = p_thresh,
-        sample_info = sample_info,
+        l2fc_thresh   = l2fc_thresh,
+        p_thresh      = p_thresh,
+        filter_choice = filter_choice,
+        sample_info   = sample_info,
         group_col   = group_col,
         save_plots  = save_plots,
         plot_format = plot_format,

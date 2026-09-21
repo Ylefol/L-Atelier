@@ -12,6 +12,7 @@ ELEUTHIA_export_dea_results(
   enrichment = NULL,
   l2fc_thresh = 1,
   p_thresh = 0.05,
+  filter_choice = "padj",
   sample_info = NULL,
   sample_col = NULL,
   group_col = "group",
@@ -41,8 +42,13 @@ Default: NULL.}
 \item{l2fc_thresh}{Numeric. log2 fold change threshold for significant
 genes export. Default: 1.0.}
 
-\item{p_thresh}{Numeric. Adjusted p-value threshold for significant
-genes export. Default: 0.05.}
+\item{p_thresh}{Numeric. Threshold applied to the \code{filter_choice}
+column for significant genes export. Default: 0.05.}
+
+\item{filter_choice}{Character. Which p-value column \code{p_thresh} is
+applied to: \code{"padj"} (default) or \code{"pvalue"}. Also forwarded
+to \code{\link{AETHER_plot_volcano}}/\code{\link{AETHER_plot_ma}} so the
+plots' significance categories match the exported CSV/metadata.}
 
 \item{sample_info}{Data.frame with sample metadata (for heatmap annotations).
 Must have rownames matching sample columns. Default: NULL.}

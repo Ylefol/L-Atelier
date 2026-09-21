@@ -14,13 +14,27 @@
 #'     optionally \code{extra_flags="--keep-dup all"} if duplicates were not
 #'     removed upstream (CUT&TAG can generate high local duplicate rates from
 #'     genuine signal rather than PCR artefact)
+#'   \item Any assay whose alignment wasn't produced by
+#'     \code{\link{HORIZON_run_bowtie2}} (so no \code{max_insert} cap was ever
+#'     applied) — \code{format="BAMPE"}, passing the BAM directly instead of a
+#'     \code{\link{HORIZON_bam_to_bed}} fragment BED. MACS3's own BAMPE parser
+#'     checks each pair's SAM "properly paired" flag before constructing a
+#'     fragment; the externally pre-built BEDPE path (\code{bedtools bamtobed
+#'     -bedpe}, no concordance check) does not, so a discordant pair there
+#'     becomes one literal fragment spanning however far apart its two mates
+#'     landed. Confirmed on ADAM_proj's DRIP-C data (Arraystar-delivered,
+#'     pre-aligned BAMs — the one assay in that project without a
+#'     \code{HORIZON_run_bowtie2}-applied insert-size ceiling): a handful of
+#'     discordant pairs per sample reconstructed as multi-megabase "fragments"
+#'     under BEDPE, producing MACS3 peaks up to ~230Mb wide.
 #' }
 #'
 #' @param treatment_bed Character. Path to the treatment fragment BED file
-#'   (from \code{\link{HORIZON_bam_to_bed}}).
+#'   (from \code{\link{HORIZON_bam_to_bed}}), or a BAM file when
+#'   \code{format="BAMPE"}.
 #' @param control_bed Character or \code{NULL}. Path to a control (input/IgG)
-#'   BED file.  Recommended for ChIP-seq; optional for CUT&TAG/CUT&RUN; not
-#'   used for ATAC-seq.
+#'   BED file, or a BAM file when \code{format="BAMPE"}. Recommended for
+#'   ChIP-seq; optional for CUT&TAG/CUT&RUN; not used for ATAC-seq.
 #' @param output_dir Character. Directory for MACS3 output files.
 #' @param sample_name Character. Prefix applied to all output filenames.
 #' @param genome_size Character or numeric. Effective genome size for MACS3
@@ -38,6 +52,12 @@
 #' @param extsize Integer or \code{NULL}. Fragment extension size in bp
 #'   (\code{--extsize}).  Only used when \code{nomodel=TRUE}.  Use \code{200}
 #'   for ATAC-seq.  Default \code{NULL} (not passed).
+#' @param format Character. MACS3 input format (\code{-f}): \code{"BEDPE"}
+#'   (default — \code{treatment_bed}/\code{control_bed} are pre-built fragment
+#'   BEDs from \code{\link{HORIZON_bam_to_bed}}) or \code{"BAMPE"}
+#'   (\code{treatment_bed}/\code{control_bed} are BAM files, passed to MACS3
+#'   directly — see the assay note above for why this matters). Default
+#'   \code{"BEDPE"} for backward compatibility.
 #' @param extra_flags Character vector of additional MACS3 flags to append
 #'   verbatim (e.g. \code{c("--keep-dup", "all")} for CUT&TAG/CUT&RUN).
 #'   Default \code{character(0)}.
@@ -56,8 +76,12 @@ HORIZON_call_peaks <- function(treatment_bed,
                                 nomodel      = FALSE,
                                 shift        = NULL,
                                 extsize      = NULL,
+                                format       = c("BEDPE", "BAMPE"),
                                 extra_flags  = character(0),
                                 force        = FALSE) {
+
+  format <- match.arg(format)
+  file_kind <- if (format == "BAMPE") "BAM" else "BED"
 
   peak_ext       <- if (isTRUE(broad)) "_peaks.broadPeak" else "_peaks.narrowPeak"
   peak_file_check <- file.path(output_dir, paste0(sample_name, peak_ext))
@@ -68,9 +92,9 @@ HORIZON_call_peaks <- function(treatment_bed,
   }
 
   if (!file.exists(treatment_bed))
-    stop("Treatment BED not found: ", treatment_bed, call. = FALSE)
+    stop("Treatment ", file_kind, " not found: ", treatment_bed, call. = FALSE)
   if (!is.null(control_bed) && !file.exists(control_bed))
-    stop("Control BED not found: ", control_bed, call. = FALSE)
+    stop("Control ", file_kind, " not found: ", control_bed, call. = FALSE)
   if (!is.null(shift) && !isTRUE(nomodel))
     warning("'shift' is set but nomodel=FALSE — MACS3 ignores --shift without --nomodel.",
             call. = FALSE)
@@ -91,7 +115,7 @@ HORIZON_call_peaks <- function(treatment_bed,
   args <- c(
     "callpeak",
     "-t", treatment_bed,
-    "-f", "BEDPE",
+    "-f", format,
     "-n", sample_name,
     "--outdir", output_dir,
     "-g", as.character(genome_size),

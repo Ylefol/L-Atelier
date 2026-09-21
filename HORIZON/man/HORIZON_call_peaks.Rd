@@ -15,17 +15,19 @@ HORIZON_call_peaks(
   nomodel = FALSE,
   shift = NULL,
   extsize = NULL,
+  format = c("BEDPE", "BAMPE"),
   extra_flags = character(0),
   force = FALSE
 )
 }
 \arguments{
 \item{treatment_bed}{Character. Path to the treatment fragment BED file
-(from \code{\link{HORIZON_bam_to_bed}}).}
+(from \code{\link{HORIZON_bam_to_bed}}), or a BAM file when
+\code{format="BAMPE"}.}
 
 \item{control_bed}{Character or \code{NULL}. Path to a control (input/IgG)
-BED file.  Recommended for ChIP-seq; optional for CUT&TAG/CUT&RUN; not
-used for ATAC-seq.}
+BED file, or a BAM file when \code{format="BAMPE"}. Recommended for
+ChIP-seq; optional for CUT&TAG/CUT&RUN; not used for ATAC-seq.}
 
 \item{output_dir}{Character. Directory for MACS3 output files.}
 
@@ -51,6 +53,13 @@ Default \code{NULL} (not passed).}
 \item{extsize}{Integer or \code{NULL}. Fragment extension size in bp
 (\code{--extsize}).  Only used when \code{nomodel=TRUE}.  Use \code{200}
 for ATAC-seq.  Default \code{NULL} (not passed).}
+
+\item{format}{Character. MACS3 input format (\code{-f}): \code{"BEDPE"}
+(default — \code{treatment_bed}/\code{control_bed} are pre-built fragment
+BEDs from \code{\link{HORIZON_bam_to_bed}}) or \code{"BAMPE"}
+(\code{treatment_bed}/\code{control_bed} are BAM files, passed to MACS3
+directly — see the assay note above for why this matters). Default
+\code{"BEDPE"} for backward compatibility.}
 
 \item{extra_flags}{Character vector of additional MACS3 flags to append
 verbatim (e.g. \code{c("--keep-dup", "all")} for CUT&TAG/CUT&RUN).
@@ -78,5 +87,18 @@ environment registered with \code{\link{HORIZON_set_conda_env}}.
 optionally \code{extra_flags="--keep-dup all"} if duplicates were not
 removed upstream (CUT&TAG can generate high local duplicate rates from
 genuine signal rather than PCR artefact)
+\item Any assay whose alignment wasn't produced by
+\code{\link{HORIZON_run_bowtie2}} (so no \code{max_insert} cap was ever
+applied) — \code{format="BAMPE"}, passing the BAM directly instead of a
+\code{\link{HORIZON_bam_to_bed}} fragment BED. MACS3's own BAMPE parser
+checks each pair's SAM "properly paired" flag before constructing a
+fragment; the externally pre-built BEDPE path (\code{bedtools bamtobed
+    -bedpe}, no concordance check) does not, so a discordant pair there
+becomes one literal fragment spanning however far apart its two mates
+landed. Confirmed on ADAM_proj's DRIP-C data (Arraystar-delivered,
+pre-aligned BAMs — the one assay in that project without a
+\code{HORIZON_run_bowtie2}-applied insert-size ceiling): a handful of
+discordant pairs per sample reconstructed as multi-megabase "fragments"
+under BEDPE, producing MACS3 peaks up to ~230Mb wide.
 }
 }
