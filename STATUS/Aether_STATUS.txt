@@ -1,7 +1,7 @@
 ================================================================================
 AETHER STATUS - Visualization
 ================================================================================
-Last Updated: 2026-09-11
+Last Updated: 2026-09-23
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -132,6 +132,39 @@ AETHER_plot_cluster_pca(cc_result, k, point_size=1.5, alpha=0.7,
   - Axes labelled with % variance explained; Set2 palette
   - show_ellipse: 95% confidence ellipse per cluster (stat_ellipse)
   - show_centroids: filled circle (shape 21) at per-cluster PC1/PC2 mean
+
+AETHER_plot_cluster_umap(cc_result, k, item_consensus=NULL,
+                          color_by=c("cluster","margin","assigned_consensus"),
+                          new_points=NULL, project_confidence=NULL,
+                          new_color_by=c("fixed","purity","margin"),
+                          supervised=FALSE, target_weight=0.5,
+                          n_neighbors=15, min_dist=0.1, seed=42,
+                          point_size=1.5, alpha=0.7, new_point_size=3,
+                          new_point_shape=21, label_new=TRUE, title=NULL)
+  - UMAP sibling of AETHER_plot_cluster_pca; requires uwot (soft dep)
+  - color_by "margin"/"assigned_consensus" (TRAIN points only) needs an
+    ARTEMIS_item_consensus() result for the same k
+  - new_points: already Train-standardized new-sample factor scores, embedded
+    into the SAME fitted UMAP model via uwot::umap_transform() and overlaid
+    (triangle marker, labelled via ggrepel if installed)
+  - new_color_by="purity"/"margin" (2026-09-23): colours the OVERLAY by
+    ARTEMIS_project_confidence()'s neighbor_cluster_purity/neighbor_margin,
+    via a SEPARATE fill scale from color_by's Train scale -- deliberate:
+    Train points stay on item-consensus margin (their own real quantity),
+    projected points get their own distinct quantity, never forced to share
+    one meaning. Default shape changed 17->21 (circle with separate
+    outline/fill, dark border) since shape 17 silently ignored the fill
+    aesthetic entirely -- the previous fixed-yellow styling was a no-op
+    under it, and a bordered dot reads more clearly against Train's
+    borderless points than a triangle does
+  - supervised=TRUE: passes the known cluster labels as uwot::umap()'s y arg
+    (target_weight controls label vs. data weighting) -- pulls clusters
+    together BY CONSTRUCTION; illustrative once structure is already trusted
+    from other diagnostics, not itself evidence of unsupervised separation.
+    Prints a [AETHER] note when used; auto-title flags "(label-supervised)"
+  - Purely a visualization layer -- does NOT compute the out-of-sample
+    confidence number itself (that's ARTEMIS_project_confidence(), run in the
+    real factor space; a 2D embedding can distort neighbor distances)
 
 aether_cibersort_plots.R:
 --------------------------

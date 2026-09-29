@@ -1,7 +1,7 @@
 ================================================================================
 ARTEMIS STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-09-11
+Last Updated: 2026-09-23
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -118,6 +118,43 @@ ARTEMIS_consensus_stability(imputed_obj, k, n_runs=10, vars=NULL, log_vars=NULL,
   - Runs CC n_runs times on one imputed dataset (random restart) to test stability
   - Returns $assignment_matrix (patients × runs), $stability_counts, $pct_stable
   - Use after ARTEMIS_consensus_cluster to assess stability of chosen k
+
+ARTEMIS_item_consensus(cc_result, k, verbose=TRUE)
+  - Classic Monti/Wilkerson "item consensus": each sample's mean pairwise
+    consensus against every cluster's members (not just its own), derived
+    post-hoc from an artemis_cc object's averaged consensus matrix -- no
+    re-run of the resampling needed
+  - Returns $profile (n_samples x k matrix), $summary (per-sample cluster,
+    assigned_consensus, best_other_consensus, margin), $k
+  - margin = assigned_consensus - best_other_consensus; low/negative margin
+    flags a sample nearly as consensus-linked to a different cluster as to
+    its own (fringe/unstable), vs. a sample solidly tied to its own cluster
+  - Single-member clusters yield NA (no other same-cluster sample to average against)
+
+ARTEMIS_project_confidence(cc_result, item_consensus, new_scores, n_neighbors=10,
+                            aggregate=c("mean","min"), verbose=TRUE)
+  - For out-of-sample projected samples (e.g. via HEPHAESTUS_project_mofa_samples()),
+    finds each one's nearest Train neighbors in the REAL K-dimensional factor
+    space (cc_result$scaled_mean_data, same metric as clustering/nearest-centroid
+    assignment -- never a 2D visualization space) and computes TWO different
+    quantities from that neighbor set (2026-09-23, added after empirical check
+    showed they're only weakly correlated, rho~0.3 -- genuinely complementary):
+      1. Aggregated neighbor ARTEMIS_item_consensus margin/assigned_consensus --
+         how individually solid those neighbors are within their own cluster
+      2. neighbor_cluster_purity -- plain majority-vote fraction of the
+         n_neighbors sharing one cluster (NOT affected by `aggregate`, no
+         resampling involved, a different mechanism from margin entirely) --
+         answers "do the neighbors even agree on a cluster", which #1 cannot
+      neighbor_majority_cluster: which cluster that majority-vote picked
+  - new_scores must already be standardized with Train's own center/SD
+  - Returns $per_sample (neighbor IDs/distances/margin/purity per new sample),
+    $summary (per new sample: neighbor_margin, neighbor_assigned_consensus,
+    neighbor_cluster_purity, neighbor_majority_cluster)
+  - A projected sample has no resampling history of its own, so it cannot
+    have a true item consensus; both outputs above are neighbor-borrowed
+    stand-ins answering DIFFERENT questions from each other, and from
+    nearest-centroid distance margin / LDA posterior probability computed
+    elsewhere -- none of these should be reported as equivalent
 
 artemis_decoupler.R:
 --------------------

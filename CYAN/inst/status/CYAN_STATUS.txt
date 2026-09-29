@@ -1,7 +1,7 @@
 ================================================================================
 CYAN STATUS — Niche Genomic Analyses (RNA Editing & Variant Calling)
 ================================================================================
-Last Updated: 2026-09-07
+Last Updated: 2026-09-29
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -68,6 +68,56 @@ CYAN_run_reditools_batch(bam, reference, output_dir, ..., verbose)
 
 print.cyan_batch_result(x, ...)
   - S3 print method: shows succeeded/failed counts + per-sample position summary
+
+cyan_germline_variants.R:
+--------------------------
+CYAN_flag_germline_variants(rna_result, dna_bam, reference, output_dir,
+                            work_dir, sample_name, dna_min_coverage,
+                            dna_min_alt_reads, dna_min_alt_freq,
+                            require_dup_marked, keep_tmp, save_rds, verbose,
+                            debug, ...)
+  - Cross-references confident RNA-editing candidates (substitution-carrying
+    rows of a cyan_editing_result) against matched WGS data from the same
+    individual, to separate true editing from germline variants relative to
+    the reference genome
+  - Does NOT reimplement DNA-seq calling: reuses CYAN_run_reditools() itself
+    as the pileup engine for dna_bam, restricted via bed_file to exactly the
+    RNA-candidate positions, with strand_mode=0 and strict=FALSE (reference-
+    only rows must be reported too, or "no row" is ambiguous between
+    "uncovered" and "no variant")
+  - Entirely optional / additive: CYAN_run_reditools() and
+    CYAN_run_reditools_batch() are completely untouched by this, so an
+    RNA-only workflow with no matched WGS data is unaffected
+  - Per-position primary alt base resolved from AllSubs (highest RNA-read-
+    supported alt, via internal .cyan_primary_alt_base()), then classified
+    from the WGS pileup as "germline" / "confirmed_somatic" / "undetermined"
+    (WGS coverage too thin to call) -- tagged via a new germline_status
+    column, never silently dropped
+  - dna_min_coverage=10L / dna_min_alt_reads=3L / dna_min_alt_freq=0.1
+    default to the original REDItools' REDItoolDnaRna.py conventions
+    (-c 10, -v 3, -N 0.1) for this exact DNA/RNA comparison -- carried over,
+    not independently re-derived; verify before treating as settled
+  - Returns: rna_result + 4 new columns (dna_coverage, dna_alt_reads,
+    dna_alt_freq, germline_status); germline call params attached as a
+    separate germline_params attribute (rna_result's own params attribute
+    is left untouched)
+  - Outputs to output_dir: {sample}_germline_flagged.txt (candidates table),
+    optional {sample}_germline_flagged.rds
+
+.cyan_primary_alt_base(reference, all_subs, count_A, count_C, count_G, count_T)  [internal]
+  - Resolves AllSubs (possibly multi-code, e.g. "AG AC") to the single
+    highest-read-supported alt base among codes matching the reference
+
+.cyan_write_bed(region, position, path)  [internal]
+  - Writes deduped, sorted 0-based half-open BED from a position table
+
+CYAN_flag_germline_variants_batch(rna_results, dna_bam, reference,
+                                  output_dir, ..., verbose)
+  - Batch wrapper: dna_bam is a named vector (names = animal IDs), only
+    needs entries for animals that actually have matched WGS -- samples
+    without one are simply absent, no special-casing required
+  - Per-sample error handling + cyan_batch_result return, same pattern as
+    CYAN_run_reditools_batch()
 
 ================================================================================
 IN PROGRESS

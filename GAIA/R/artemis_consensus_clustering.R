@@ -363,3 +363,264 @@ ARTEMIS_consensus_stability <- function(imputed_obj, k, n_runs = 10,
     sample_names      = sample_names
   ))
 }
+
+
+#' Item Consensus per Sample, per Cluster
+#'
+#' @description For a chosen k, computes each sample's mean pairwise consensus
+#' (from the averaged consensus matrix) against the members of every cluster,
+#' not just its own assigned cluster. This is the classic Monti/Wilkerson
+#' consensus-clustering "item consensus" concept (the same quantity
+#' \code{ConsensusClusterPlus::calcICL()} computes for a single CCP run),
+#' applied here to \code{ARTEMIS_consensus_cluster()}'s multi-imputation-
+#' averaged consensus matrix.
+#'
+#' @param cc_result Output of \code{ARTEMIS_consensus_cluster()}.
+#' @param k Integer. Cluster solution to evaluate.
+#' @param verbose Logical. Print progress/summary. Default = TRUE.
+#'
+#' @return A list with:
+#' \describe{
+#'   \item{profile}{n_samples x k matrix — mean pairwise consensus of each
+#'     sample against each cluster's members (self excluded from its own
+#'     cluster's average).}
+#'   \item{summary}{Data frame with one row per sample: \code{cluster}
+#'     (assigned cluster), \code{assigned_consensus} (consensus with its own
+#'     cluster), \code{best_other_consensus} (highest consensus with any
+#'     other cluster), and \code{margin} (assigned minus best_other). A low
+#'     or negative margin flags a sample nearly as consensus-linked to a
+#'     different cluster as to its own — a fringe/unstable call, as opposed
+#'     to a sample solidly tied to its own cluster.}
+#'   \item{k}{The k evaluated.}
+#' }
+#'
+#' @details
+#' A cluster with only one member has no other same-cluster sample to
+#' average against, so that sample's own-cluster consensus (and therefore
+#' its margin) is returned as \code{NA}.
+#'
+#' @export
+ARTEMIS_item_consensus <- function(cc_result, k, verbose = TRUE) {
+
+  if (!inherits(cc_result, "artemis_cc"))
+    stop("cc_result must be the output of ARTEMIS_consensus_cluster()")
+  if (!k %in% cc_result$k_range)
+    stop("k=", k, " is not in cc_result$k_range (",
+         paste(range(cc_result$k_range), collapse = "-"), ")")
+
+  cm   <- cc_result$consensus_matrices[[k]]
+  asgn <- cc_result$cluster_assignments[[k]]
+  if (is.null(cm) || is.null(asgn))
+    stop("cc_result has no consensus matrix / cluster assignment stored for k=", k)
+
+  samples      <- names(asgn)
+  clust_levels <- seq_len(k)
+
+  if (verbose) {
+    cat("[ARTEMIS] Item Consensus (k=", k, ")\n", sep = "")
+    cat("    Samples:", length(samples), "\n\n")
+  }
+
+  profile <- matrix(NA_real_, nrow = length(samples), ncol = k,
+                     dimnames = list(samples, paste0("C", clust_levels)))
+
+  for (cl in clust_levels) {
+    members     <- samples[asgn == cl]
+    non_members <- setdiff(samples, members)
+    if (length(members) == 0) next
+
+    if (length(non_members) > 0)
+      profile[non_members, cl] <- rowMeans(cm[non_members, members, drop = FALSE])
+
+    if (length(members) > 1) {
+      for (s in members)
+        profile[s, cl] <- mean(cm[s, setdiff(members, s)])
+    }
+    # length(members) == 1: leave as NA -- no other same-cluster sample
+  }
+
+  assigned_consensus <- vapply(samples, function(s) profile[s, asgn[s]], numeric(1))
+  best_other <- vapply(samples, function(s) {
+    other_cols <- setdiff(clust_levels, asgn[s])
+    if (length(other_cols) == 0) return(NA_real_)
+    max(profile[s, other_cols], na.rm = TRUE)
+  }, numeric(1))
+
+  summary_df <- data.frame(
+    sample               = samples,
+    cluster              = unname(asgn[samples]),
+    assigned_consensus   = unname(assigned_consensus),
+    best_other_consensus = unname(best_other),
+    margin               = unname(assigned_consensus - best_other),
+    row.names            = NULL,
+    stringsAsFactors     = FALSE
+  )
+
+  if (verbose) {
+    cat("    Mean assigned-cluster consensus:",
+        round(mean(summary_df$assigned_consensus, na.rm = TRUE), 3), "\n")
+    cat("    Mean margin:", round(mean(summary_df$margin, na.rm = TRUE), 3), "\n")
+    cat("    Samples with negative margin (closer to a different cluster):",
+        sum(summary_df$margin < 0, na.rm = TRUE), "/", nrow(summary_df), "\n\n")
+  }
+
+  list(profile = profile, summary = summary_df, k = k)
+}
+
+
+#' Neighbor-Based Confidence for Projected (Out-of-Sample) Samples
+#'
+#' @description For samples projected into the Train factor space (e.g. via
+#' \code{HEPHAESTUS_project_mofa_samples()} plus the same standardization
+#' Train used), looks up each sample's nearest Train neighbors in that real
+#' K-dimensional factor space and computes two DIFFERENT, complementary
+#' quantities from that neighbor set:
+#' \itemize{
+#'   \item Aggregated neighbor \code{ARTEMIS_item_consensus()} margin/consensus
+#'     — how solidly, INDIVIDUALLY, those specific neighbors were themselves
+#'     tied to their own cluster. A projected sample has no resampling
+#'     history of its own, so it cannot have a true item consensus — this is
+#'     a neighbor-borrowed stand-in for that.
+#'   \item Neighbor cluster purity — a SEPARATE question the above cannot
+#'     answer: do those same neighbors even AGREE on a cluster? A sample can
+#'     have high aggregated neighbor margin (its neighbors are each
+#'     individually solid members of their own clusters) while its neighbor
+#'     SET is still split across two different clusters — i.e. the sample
+#'     itself sits ambiguously between them. Purity is a plain majority-vote
+#'     count over the neighbors' cluster labels, with no resampling involved
+#'     at all (unlike margin) — a different mechanism, not just a
+#'     differently-named copy of the same idea.
+#' }
+#' Empirically (checked against a real projected cohort), these two are only
+#' weakly correlated (Spearman rho around 0.3) — genuinely complementary, not
+#' redundant.
+#'
+#' @param cc_result Output of \code{ARTEMIS_consensus_cluster()}. Supplies the
+#'   Train reference factor space (\code{cc_result$scaled_mean_data}).
+#' @param item_consensus Output of \code{ARTEMIS_item_consensus()}, computed
+#'   for the SAME k as the clustering being evaluated against.
+#' @param new_scores Matrix or data frame of projected samples' factor
+#'   scores, ALREADY standardized with Train's own center/SD (the same
+#'   scaling Train's clustering used — not re-derived here). Rows = samples;
+#'   columns must include every column of \code{cc_result$scaled_mean_data}.
+#' @param n_neighbors Integer. Number of nearest Train neighbors per new
+#'   sample. Default = 10.
+#' @param aggregate Character. How to summarize the neighbors' margin/
+#'   consensus: \code{"mean"} (average confidence of the neighborhood) or
+#'   \code{"min"} (worst-case neighbor, most conservative). Default = "mean".
+#' @param verbose Logical. Print progress/summary. Default = TRUE.
+#'
+#' @return A list with:
+#' \describe{
+#'   \item{per_sample}{Named list (by new-sample ID) of neighbor IDs,
+#'     neighbor distances, the aggregated neighbor margin/consensus, and the
+#'     neighbor-set cluster purity/majority cluster.}
+#'   \item{summary}{Data frame, one row per new sample: \code{neighbor_margin},
+#'     \code{neighbor_assigned_consensus}, \code{neighbor_cluster_purity}
+#'     (fraction of the \code{n_neighbors} nearest Train neighbors sharing the
+#'     majority cluster — NOT affected by \code{aggregate}, since it is a
+#'     property of the whole neighbor set, not an aggregate of per-neighbor
+#'     values), \code{neighbor_majority_cluster} (which cluster that is).}
+#'   \item{n_neighbors}{Neighbors used.}
+#'   \item{aggregate}{Aggregation method used (applies to margin/consensus only).}
+#' }
+#'
+#' @details
+#' Distance is Euclidean, computed in \code{cc_result$scaled_mean_data}'s own
+#' column space — the same space/metric \code{ARTEMIS_consensus_cluster()}
+#' and nearest-centroid assignment already use, not any 2D visualization
+#' space (a UMAP or PCA embedding can distort neighbor relationships and
+#' should not be used to compute this).
+#'
+#' @export
+ARTEMIS_project_confidence <- function(cc_result, item_consensus, new_scores,
+                                        n_neighbors = 10,
+                                        aggregate = c("mean", "min"),
+                                        verbose = TRUE) {
+
+  aggregate <- match.arg(aggregate)
+
+  if (!inherits(cc_result, "artemis_cc"))
+    stop("cc_result must be the output of ARTEMIS_consensus_cluster()")
+  if (is.null(item_consensus$summary))
+    stop("item_consensus must be the output of ARTEMIS_item_consensus()")
+
+  train_mat  <- cc_result$scaled_mean_data
+  train_vars <- colnames(train_mat)
+
+  new_scores <- as.matrix(new_scores)
+  miss_vars  <- setdiff(train_vars, colnames(new_scores))
+  if (length(miss_vars) > 0)
+    stop("new_scores is missing column(s) present in cc_result$scaled_mean_data: ",
+         paste(miss_vars, collapse = ", "))
+  new_scores <- new_scores[, train_vars, drop = FALSE]
+
+  ic_summary <- item_consensus$summary
+  rownames(ic_summary) <- ic_summary$sample
+  ref_pool <- intersect(rownames(train_mat), ic_summary$sample)
+  if (length(ref_pool) < nrow(train_mat))
+    warning(nrow(train_mat) - length(ref_pool),
+            " Train sample(s) in cc_result have no entry in item_consensus$summary -- excluded from the neighbor pool")
+  if (n_neighbors > length(ref_pool))
+    stop("n_neighbors (", n_neighbors, ") exceeds the usable Train reference pool (",
+         length(ref_pool), ")")
+
+  train_mat   <- train_mat[ref_pool, , drop = FALSE]
+  ic_margin   <- stats::setNames(ic_summary[ref_pool, "margin"], ref_pool)
+  ic_assigned <- stats::setNames(ic_summary[ref_pool, "assigned_consensus"], ref_pool)
+  ic_cluster  <- stats::setNames(ic_summary[ref_pool, "cluster"], ref_pool)
+
+  new_ids <- rownames(new_scores)
+  if (is.null(new_ids)) new_ids <- paste0("new", seq_len(nrow(new_scores)))
+
+  if (verbose) {
+    cat("[ARTEMIS] Projection Confidence\n")
+    cat("    New samples:", nrow(new_scores), "| Train reference pool:", length(ref_pool), "\n")
+    cat("    Neighbors per sample:", n_neighbors, "| Aggregate:", aggregate, "\n\n")
+  }
+
+  agg_fun <- if (aggregate == "mean") {
+    function(x) mean(x, na.rm = TRUE)
+  } else {
+    function(x) min(x, na.rm = TRUE)
+  }
+
+  per_sample <- lapply(seq_len(nrow(new_scores)), function(i) {
+    d  <- sqrt(rowSums(sweep(train_mat, 2, new_scores[i, ], "-")^2))
+    nn <- names(sort(d))[seq_len(n_neighbors)]
+    nn_tab <- table(ic_cluster[nn])
+    list(
+      neighbors                   = nn,
+      neighbor_distances          = d[nn],
+      neighbor_margin             = agg_fun(ic_margin[nn]),
+      neighbor_assigned_consensus = agg_fun(ic_assigned[nn]),
+      neighbor_cluster_purity     = as.numeric(max(nn_tab)) / length(nn),
+      neighbor_majority_cluster   = names(nn_tab)[which.max(nn_tab)]
+    )
+  })
+  names(per_sample) <- new_ids
+
+  summary_df <- data.frame(
+    sample                       = new_ids,
+    neighbor_margin               = vapply(per_sample, `[[`, numeric(1), "neighbor_margin"),
+    neighbor_assigned_consensus   = vapply(per_sample, `[[`, numeric(1), "neighbor_assigned_consensus"),
+    neighbor_cluster_purity       = vapply(per_sample, `[[`, numeric(1), "neighbor_cluster_purity"),
+    neighbor_majority_cluster     = vapply(per_sample, `[[`, character(1), "neighbor_majority_cluster"),
+    row.names                     = NULL,
+    stringsAsFactors              = FALSE
+  )
+
+  if (verbose) {
+    cat("    Neighbor-margin across new samples -- median:",
+        round(stats::median(summary_df$neighbor_margin), 3),
+        "| range:", round(min(summary_df$neighbor_margin), 3), "to",
+        round(max(summary_df$neighbor_margin), 3), "\n")
+    cat("    Neighbor-cluster-purity across new samples -- median:",
+        round(stats::median(summary_df$neighbor_cluster_purity), 3),
+        "| samples below 0.6 (neighbor set meaningfully mixed):",
+        sum(summary_df$neighbor_cluster_purity < 0.6), "/", nrow(summary_df), "\n\n")
+  }
+
+  list(per_sample = per_sample, summary = summary_df,
+       n_neighbors = n_neighbors, aggregate = aggregate)
+}

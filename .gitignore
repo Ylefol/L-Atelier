@@ -6,6 +6,8 @@ icons/
 data/
 projects/
 
+script_builder/
+
 to_process/
 
 .Rhistory
