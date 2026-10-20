@@ -4,11 +4,56 @@
 \alias{.cyan_parse_reditools_output}
 \title{Parse REDItools2 tab-delimited output into a data.frame}
 \usage{
-.cyan_parse_reditools_output(path)
+.cyan_parse_reditools_output(path, chunk_size = 1e+07)
+}
+\arguments{
+\item{path}{Character. Path to the raw REDItools2 output file.}
+
+\item{chunk_size}{Integer. Number of lines to read and parse per chunk.
+Default 10 million -- large enough to keep the number of chunks (and
+their per-chunk \code{fread()} overhead) small, small enough to keep
+any one chunk's memory footprint modest. Lower this if parsing still
+runs out of memory on a very large file or a more memory-constrained
+machine.}
 }
 \description{
 REDItools2 emits a header line beginning with "Region" and then one row
 per position. The BaseCount[ACGT] column (e.g. \code{"[0, 5, 100, 3]"}) is
 split into four integer columns.
+}
+\details{
+Reads the file in fixed-size line chunks rather than loading it whole --
+a \code{strict=FALSE} genome-wide run writes one row per COVERED position
+(not just substitution-carrying ones), which can reach hundreds of
+millions of rows and tens of GB of raw text. The previous
+\code{read.table()} + \code{do.call(rbind, strsplit(...))} approach does
+not scale to that -- confirmed: crashed (OOM) on a 37GB file on a machine
+with 58GB available RAM, 2026-10-14. Each chunk is parsed with
+\code{data.table::fread()} and its \code{BaseCount[ACGT]} column is split
+with \code{data.table::tstrsplit()} (vectorised -- avoids the
+intermediate list-of-vectors that \code{strsplit()} + \code{do.call(rbind, .)}
+builds, which is what actually drove the memory blowup, not \code{fread()}
+vs \code{read.table()} alone).
+
+Each chunk is also filtered down to substitution rows
+(\code{all_subs != "-"}) \strong{before} being added to the accumulator --
+the object this function returns (and that \code{\link{CYAN_run_reditools}}
+retains/saves as RDS) is always at the scale a \code{strict=TRUE} run would
+have produced, regardless of the \code{strict} value the raw file was
+actually generated with (a no-op filter on an already-strict file, since
+every row already qualifies). This is what keeps per-sample memory bounded
+by the number of editing sites rather than the number of covered positions,
+and is why \code{\link{CYAN_run_reditools_batch}} can accumulate many
+samples' results without a separate rewrite.
+
+Non-substitution rows are not retained or written anywhere by this
+function. The full covered-position table still exists on disk as the raw
+REDItools2 \code{.txt} checkpoint written by \code{CYAN_run_reditools}
+before parsing ever runs -- recovering the non-strict background (e.g. for
+APOBEC signature work) means a separate, targeted read of that raw file,
+not a slice of an in-memory object from this function.
+
+Chunks accumulate as a list and are combined once with
+\code{data.table::rbindlist()} at the end.
 }
 \keyword{internal}

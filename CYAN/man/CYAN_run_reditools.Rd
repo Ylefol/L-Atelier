@@ -107,7 +107,10 @@ problem.}
 }
 \value{
 An object of class \code{cyan_editing_result}: a \code{data.frame}
-  with one row per reported genomic position and columns:
+  with one row per \strong{substitution-carrying} position -- even when
+  \code{strict = FALSE}, only rows with \code{all_subs != "-"} are parsed
+  into this object (see \code{\link{.cyan_parse_reditools_output}}) --
+  and columns:
   \describe{
     \item{region}{Chromosome / contig name}
     \item{position}{1-based genomic position}
@@ -137,13 +140,21 @@ environment. The raw output (tab-delimited text) is written to
 computation is never lost. The parsed \code{data.frame} is saved
 alongside as an RDS file (opt-out with \code{save_rds = FALSE}).
 
+Before running, this checks \code{output_dir} for an existing raw
+checkpoint for the same sample and reuses it if found, re-parsing rather
+than re-running REDItools2 (reported with the file's modification time
+and size). This does not check whether that file was generated with the
+same parameters you are calling with now -- delete it first to force a
+re-run with different settings; keep your own record of which parameters
+produced it (e.g. via logs) if that matters.
+
 \strong{File outputs} (in \code{output_dir}):
 \itemize{
-  \item \code{{sample}_{date}_reditools.txt}      — full raw REDItools2 table
+  \item \code{{sample}_reditools.txt}      — full raw REDItools2 table
     (all covered positions)
-  \item \code{{sample}_{date}_reditools_subs.txt} — substitution sites only
+  \item \code{{sample}_reditools_subs.txt} — substitution sites only
     (rows where \code{all_subs != "-"})
-  \item \code{{sample}_{date}_reditools.rds}      — parsed \code{cyan_editing_result}
+  \item \code{{sample}_reditools.rds}      — parsed \code{cyan_editing_result}
     (if \code{save_rds = TRUE})
 }
 }
@@ -152,7 +163,11 @@ alongside as an RDS file (opt-out with \code{save_rds = FALSE}).
 \describe{
   \item{\code{strict}}{When \code{TRUE} (default), only positions with at
     least one detected substitution are emitted. Set to \code{FALSE} to
-    receive all covered positions (large output).}
+    have REDItools2 report all covered positions in the raw \code{.txt}
+    checkpoint (large output) -- note that the parsed/returned/RDS'd
+    result is always substitution-rows-only regardless of this setting
+    (see \code{\link{.cyan_parse_reditools_output}}); the non-strict rows
+    are only ever available by reading the raw checkpoint directly.}
   \item{\code{min_coverage}}{Minimum number of reads covering a position
     (after base-quality filtering) for it to be reported.}
   \item{\code{min_edits}}{Minimum number of edited reads at a position.}

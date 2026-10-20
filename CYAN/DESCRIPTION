@@ -11,7 +11,8 @@ Depends: R (>= 4.3)
 Imports:
     basilisk,
     reticulate,
-    methods
+    methods,
+    data.table
 Suggests:
     VariantAnnotation,
     GenomicRanges,

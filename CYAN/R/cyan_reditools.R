@@ -12,13 +12,21 @@
 #' computation is never lost. The parsed \code{data.frame} is saved
 #' alongside as an RDS file (opt-out with \code{save_rds = FALSE}).
 #'
+#' Before running, this checks \code{output_dir} for an existing raw
+#' checkpoint for the same sample and reuses it if found, re-parsing rather
+#' than re-running REDItools2 (reported with the file's modification time
+#' and size). This does not check whether that file was generated with the
+#' same parameters you are calling with now -- delete it first to force a
+#' re-run with different settings; keep your own record of which parameters
+#' produced it (e.g. via logs) if that matters.
+#'
 #' \strong{File outputs} (in \code{output_dir}):
 #' \itemize{
-#'   \item \code{{sample}_{date}_reditools.txt}      — full raw REDItools2 table
+#'   \item \code{{sample}_reditools.txt}      — full raw REDItools2 table
 #'     (all covered positions)
-#'   \item \code{{sample}_{date}_reditools_subs.txt} — substitution sites only
+#'   \item \code{{sample}_reditools_subs.txt} — substitution sites only
 #'     (rows where \code{all_subs != "-"})
-#'   \item \code{{sample}_{date}_reditools.rds}      — parsed \code{cyan_editing_result}
+#'   \item \code{{sample}_reditools.rds}      — parsed \code{cyan_editing_result}
 #'     (if \code{save_rds = TRUE})
 #' }
 #'
@@ -26,7 +34,11 @@
 #' \describe{
 #'   \item{\code{strict}}{When \code{TRUE} (default), only positions with at
 #'     least one detected substitution are emitted. Set to \code{FALSE} to
-#'     receive all covered positions (large output).}
+#'     have REDItools2 report all covered positions in the raw \code{.txt}
+#'     checkpoint (large output) -- note that the parsed/returned/RDS'd
+#'     result is always substitution-rows-only regardless of this setting
+#'     (see \code{\link{.cyan_parse_reditools_output}}); the non-strict rows
+#'     are only ever available by reading the raw checkpoint directly.}
 #'   \item{\code{min_coverage}}{Minimum number of reads covering a position
 #'     (after base-quality filtering) for it to be reported.}
 #'   \item{\code{min_edits}}{Minimum number of edited reads at a position.}
@@ -96,7 +108,10 @@
 #'   problem.
 #'
 #' @return An object of class \code{cyan_editing_result}: a \code{data.frame}
-#'   with one row per reported genomic position and columns:
+#'   with one row per \strong{substitution-carrying} position -- even when
+#'   \code{strict = FALSE}, only rows with \code{all_subs != "-"} are parsed
+#'   into this object (see \code{\link{.cyan_parse_reditools_output}}) --
+#'   and columns:
 #'   \describe{
 #'     \item{region}{Chromosome / contig name}
 #'     \item{position}{1-based genomic position}
@@ -147,20 +162,23 @@ CYAN_run_reditools <- function(
                                      splicing_file, bed_file)
 
   sample <- .cyan_sample_name(bam, sample_name)
-  date   <- format(Sys.Date(), "%Y%m%d")
 
   output_dir <- .cyan_ensure_dir(output_dir, "output directory")
   work_dir   <- .cyan_ensure_dir(work_dir,   "work directory")
 
   # ------------------------------------------------------------------
-  # 2. Define output file paths
+  # 2. Define output file paths and check for an existing raw checkpoint
   # ------------------------------------------------------------------
-  raw_out  <- file.path(output_dir, paste0(sample, "_", date, "_reditools.txt"))
-  subs_out <- file.path(output_dir, paste0(sample, "_", date, "_reditools_subs.txt"))
-  rds_out  <- file.path(output_dir, paste0(sample, "_", date, "_reditools.rds"))
+  raw_out  <- file.path(output_dir, paste0(sample, "_reditools.txt"))
+  subs_out <- file.path(output_dir, paste0(sample, "_reditools_subs.txt"))
+  rds_out  <- file.path(output_dir, paste0(sample, "_reditools.rds"))
 
   if (file.exists(raw_out)) {
-    message("[CYAN] Raw output already exists, skipping REDItools2 run: ", raw_out,
+    finfo   <- file.info(raw_out)
+    size_gb <- round(finfo$size / 1024^3, 2)
+    message("[CYAN] Existing raw output found (made ",
+            format(finfo$mtime, "%Y-%m-%d %H:%M"), ", ", size_gb,
+            " GB), skipping REDItools2 run: ", raw_out,
             "\n  Delete the file to force a re-run.")
     result <- .cyan_parse_reditools_output(raw_out)
     result <- .cyan_attach_params(result, as.list(match.call()[-1]))
@@ -251,10 +269,8 @@ CYAN_run_reditools <- function(
   }
 
   if (verbose) {
-    n_subs <- sum(result$all_subs != "-" & !is.na(result$all_subs))
-    message("[CYAN] Done. ", nrow(result), " positions reported (",
-            n_subs, " with substitutions).")
-    message("[CYAN] Full output : ", raw_out)
+    message("[CYAN] Done. ", nrow(result), " substitution sites parsed into memory.")
+    message("[CYAN] Full checkpoint (all covered positions, on disk only): ", raw_out)
     message("[CYAN] Subs output : ", subs_out)
     if (save_rds) message("[CYAN] RDS output  : ", rds_out)
   }
@@ -380,12 +396,50 @@ CYAN_run_reditools <- function(
 #' REDItools2 emits a header line beginning with "Region" and then one row
 #' per position. The BaseCount[ACGT] column (e.g. \code{"[0, 5, 100, 3]"}) is
 #' split into four integer columns.
+#'
+#' Reads the file in fixed-size line chunks rather than loading it whole --
+#' a \code{strict=FALSE} genome-wide run writes one row per COVERED position
+#' (not just substitution-carrying ones), which can reach hundreds of
+#' millions of rows and tens of GB of raw text. The previous
+#' \code{read.table()} + \code{do.call(rbind, strsplit(...))} approach does
+#' not scale to that -- confirmed: crashed (OOM) on a 37GB file on a machine
+#' with 58GB available RAM, 2026-10-14. Each chunk is parsed with
+#' \code{data.table::fread()} and its \code{BaseCount[ACGT]} column is split
+#' with \code{data.table::tstrsplit()} (vectorised -- avoids the
+#' intermediate list-of-vectors that \code{strsplit()} + \code{do.call(rbind, .)}
+#' builds, which is what actually drove the memory blowup, not \code{fread()}
+#' vs \code{read.table()} alone).
+#'
+#' Each chunk is also filtered down to substitution rows
+#' (\code{all_subs != "-"}) \strong{before} being added to the accumulator --
+#' the object this function returns (and that \code{\link{CYAN_run_reditools}}
+#' retains/saves as RDS) is always at the scale a \code{strict=TRUE} run would
+#' have produced, regardless of the \code{strict} value the raw file was
+#' actually generated with (a no-op filter on an already-strict file, since
+#' every row already qualifies). This is what keeps per-sample memory bounded
+#' by the number of editing sites rather than the number of covered positions,
+#' and is why \code{\link{CYAN_run_reditools_batch}} can accumulate many
+#' samples' results without a separate rewrite.
+#'
+#' Non-substitution rows are not retained or written anywhere by this
+#' function. The full covered-position table still exists on disk as the raw
+#' REDItools2 \code{.txt} checkpoint written by \code{CYAN_run_reditools}
+#' before parsing ever runs -- recovering the non-strict background (e.g. for
+#' APOBEC signature work) means a separate, targeted read of that raw file,
+#' not a slice of an in-memory object from this function.
+#'
+#' Chunks accumulate as a list and are combined once with
+#' \code{data.table::rbindlist()} at the end.
+#'
+#' @param path Character. Path to the raw REDItools2 output file.
+#' @param chunk_size Integer. Number of lines to read and parse per chunk.
+#'   Default 10 million -- large enough to keep the number of chunks (and
+#'   their per-chunk \code{fread()} overhead) small, small enough to keep
+#'   any one chunk's memory footprint modest. Lower this if parsing still
+#'   runs out of memory on a very large file or a more memory-constrained
+#'   machine.
 #' @keywords internal
-.cyan_parse_reditools_output <- function(path) {
-  raw <- utils::read.table(path, sep = "\t", header = TRUE,
-                           stringsAsFactors = FALSE, check.names = FALSE,
-                           comment.char = "")
-
+.cyan_parse_reditools_output <- function(path, chunk_size = 10e6) {
   # REDItools2 column names vary slightly across versions; normalise them
   col_map <- c(
     "Region"            = "region",
@@ -400,54 +454,85 @@ CYAN_run_reditools <- function(
     "AllSubs"           = "all_subs",
     "Frequency"         = "frequency"
   )
-
-  # Rename columns that are present
-  for (old in names(col_map)) {
-    idx <- match(old, colnames(raw))
-    if (!is.na(idx)) colnames(raw)[idx] <- col_map[[old]]
-  }
-
-  # Keep only the core columns we care about (drop genomic-strand duplicates)
   core_cols <- c("region", "position", "reference", "strand",
                  "coverage", "mean_quality", "base_count", "all_subs", "frequency")
-  present <- intersect(core_cols, colnames(raw))
-  df <- raw[, present, drop = FALSE]
 
-  # Parse BaseCount[ACGT] string "[A, C, G, T]" → four integer columns
-  if ("base_count" %in% colnames(df)) {
-    bc <- gsub("[\\[\\] ]", "", df$base_count)
-    bc_mat <- do.call(rbind, strsplit(bc, ","))
-    df$count_A <- as.integer(bc_mat[, 1])
-    df$count_C <- as.integer(bc_mat[, 2])
-    df$count_G <- as.integer(bc_mat[, 3])
-    df$count_T <- as.integer(bc_mat[, 4])
-    df$base_count <- NULL  # remove raw string column
+  con <- file(path, open = "r")
+  on.exit(close(con), add = TRUE)
+  header_raw <- strsplit(readLines(con, n = 1), "\t", fixed = TRUE)[[1]]
+
+  chunks   <- list()
+  n_chunks <- 0L
+  repeat {
+    lines <- readLines(con, n = chunk_size)
+    if (length(lines) == 0) break
+    n_chunks <- n_chunks + 1L
+
+    raw <- data.table::fread(text = paste(lines, collapse = "\n"), sep = "\t",
+                             header = FALSE, col.names = header_raw,
+                             colClasses = "character")
+
+    for (old in names(col_map)) {
+      idx <- match(old, colnames(raw))
+      if (!is.na(idx)) colnames(raw)[idx] <- col_map[[old]]
+    }
+    present <- intersect(core_cols, colnames(raw))
+    dt <- raw[, ..present]
+
+    # Keep only substitution rows -- see function doc for rationale. Filtered
+    # before the BaseCount parse below so that parse never runs on rows we
+    # are about to discard.
+    if ("all_subs" %in% colnames(dt)) {
+      dt <- dt[all_subs != "-" & !is.na(all_subs)]
+    }
+
+    # Parse BaseCount[ACGT] string "[A, C, G, T]" -> four integer columns
+    # (tstrsplit is vectorised -- this is the fix for the memory blowup, see
+    # function doc above)
+    if ("base_count" %in% colnames(dt)) {
+      bc    <- gsub("[\\[\\] ]", "", dt$base_count)
+      parts <- data.table::tstrsplit(bc, ",", fixed = TRUE)
+      dt[, count_A := as.integer(parts[[1]])]
+      dt[, count_C := as.integer(parts[[2]])]
+      dt[, count_G := as.integer(parts[[3]])]
+      dt[, count_T := as.integer(parts[[4]])]
+      dt[, base_count := NULL]
+    }
+
+    if ("position" %in% colnames(dt))  dt[, position  := as.integer(position)]
+    if ("coverage" %in% colnames(dt))  dt[, coverage  := as.integer(coverage)]
+    if ("frequency" %in% colnames(dt)) dt[, frequency := as.numeric(frequency)]
+
+    chunks[[n_chunks]] <- dt
+    cat("    Chunk", n_chunks, "parsed (", length(lines), "lines ->",
+        nrow(dt), "substitution rows)\n")
   }
 
-  # Coerce types
-  df$position  <- as.integer(df$position)
-  df$coverage  <- as.integer(df$coverage)
-  df$frequency <- as.numeric(df$frequency)
+  df <- data.table::rbindlist(chunks, use.names = TRUE)
 
   # Reorder columns for clarity
   col_order <- c("region", "position", "reference", "strand",
                  "coverage", "mean_quality",
                  "count_A", "count_C", "count_G", "count_T",
                  "all_subs", "frequency")
-  df <- df[, intersect(col_order, colnames(df)), drop = FALSE]
+  data.table::setcolorder(df, intersect(col_order, colnames(df)))
+  data.table::setDF(df)  # match the original plain-data.frame return type
 
   class(df) <- c("cyan_editing_result", "data.frame")
   df
 }
 
-#' Write substitution-only rows to a TSV checkpoint file
+#' Write the substitution-rows checkpoint file
+#'
+#' \code{result} is already substitution-rows-only by the time this is
+#' called -- \code{\link{.cyan_parse_reditools_output}} filters to them
+#' during parsing -- so this just persists that table to \code{path}.
 #' @keywords internal
 .cyan_save_subs <- function(result, path, verbose) {
-  subs <- result[result$all_subs != "-" & !is.na(result$all_subs), , drop = FALSE]
-  utils::write.table(subs, path, sep = "\t", row.names = FALSE, quote = FALSE)
+  utils::write.table(result, path, sep = "\t", row.names = FALSE, quote = FALSE)
   if (verbose)
-    message("[CYAN] Substitution sites (", nrow(subs), " rows) saved: ", path)
-  invisible(subs)
+    message("[CYAN] Substitution sites (", nrow(result), " rows) saved: ", path)
+  invisible(result)
 }
 
 #' Attach call parameters as an attribute for reproducibility
@@ -458,15 +543,15 @@ CYAN_run_reditools <- function(
 }
 
 #' Print method for cyan_editing_result
+#'
+#' \code{x} is always substitution-rows-only (see
+#' \code{\link{.cyan_parse_reditools_output}}), regardless of the
+#' \code{strict} value the underlying raw file was generated with.
 #' @export
 #' @method print cyan_editing_result
 print.cyan_editing_result <- function(x, ...) {
   cat("cyan_editing_result\n")
-  cat("  Positions :", nrow(x), "\n")
-  if ("all_subs" %in% colnames(x)) {
-    has_subs <- x$all_subs != "-" & !is.na(x$all_subs)
-    cat("  With subs :", sum(has_subs), "\n")
-  }
+  cat("  Substitution sites:", nrow(x), "\n")
   if ("frequency" %in% colnames(x))
     cat("  Freq range:", round(min(x$frequency, na.rm = TRUE), 3), "–",
         round(max(x$frequency, na.rm = TRUE), 3), "\n")
@@ -491,6 +576,12 @@ print.cyan_editing_result <- function(x, ...) {
 #' is recorded as \code{NULL} in the returned list; remaining samples continue.
 #' Because \code{CYAN_run_reditools} checkpoints its raw output, re-running
 #' after a partial failure skips already-completed samples automatically.
+#'
+#' Each retained \code{cyan_editing_result} is substitution-rows-only (see
+#' \code{\link{.cyan_parse_reditools_output}}), so holding every sample's
+#' result in this function's return list stays bounded by the number of
+#' editing sites per sample, not the number of covered positions -- even for
+#' a genome-wide \code{strict=FALSE} run across many samples.
 #'
 #' @param bam        Named or unnamed character vector of BAM file paths.
 #'   Names, if present, are used as \code{sample_name} for each sample.
@@ -550,13 +641,9 @@ CYAN_run_reditools_batch <- function(bam, reference, output_dir, ...,
     message("\n[CYAN] Batch complete: ", sum(succeeded), "/", length(bam),
             " samples succeeded.")
     if (any(succeeded)) {
-      pos <- vapply(results[succeeded],  nrow,         integer(1))
-      sub <- vapply(results[succeeded],
-                    function(r) sum(r$all_subs != "-" & !is.na(r$all_subs)),
-                    integer(1))
-      for (nm in names(pos))
-        message("[CYAN]   ", nm, ": ", pos[nm], " positions, ", sub[nm],
-                " with substitutions")
+      n_sites <- vapply(results[succeeded], nrow, integer(1))
+      for (nm in names(n_sites))
+        message("[CYAN]   ", nm, ": ", n_sites[nm], " substitution sites")
     }
     if (any(!succeeded))
       message("[CYAN] Failed samples: ",
@@ -580,9 +667,7 @@ print.cyan_batch_result <- function(x, ...) {
   cat("\n")
   for (nm in names(x)[succeeded]) {
     r <- x[[nm]]
-    n_subs <- sum(r$all_subs != "-" & !is.na(r$all_subs))
-    cat("  ", nm, ": ", nrow(r), " positions, ", n_subs,
-        " with substitutions\n", sep = "")
+    cat("  ", nm, ": ", nrow(r), " substitution sites\n", sep = "")
   }
   invisible(x)
 }

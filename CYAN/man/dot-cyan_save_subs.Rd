@@ -2,11 +2,13 @@
 % Please edit documentation in R/cyan_reditools.R
 \name{.cyan_save_subs}
 \alias{.cyan_save_subs}
-\title{Write substitution-only rows to a TSV checkpoint file}
+\title{Write the substitution-rows checkpoint file}
 \usage{
 .cyan_save_subs(result, path, verbose)
 }
 \description{
-Write substitution-only rows to a TSV checkpoint file
+\code{result} is already substitution-rows-only by the time this is
+called -- \code{\link{.cyan_parse_reditools_output}} filters to them
+during parsing -- so this just persists that table to \code{path}.
 }
 \keyword{internal}

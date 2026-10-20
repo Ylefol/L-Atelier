@@ -21,6 +21,7 @@
 #' @importFrom basilisk BasiliskEnvironment basiliskRun
 #' @importFrom reticulate py_exe
 #' @importFrom methods is
+#' @importFrom data.table :=
 #'
 #' @docType package
 #' @name CYAN-package

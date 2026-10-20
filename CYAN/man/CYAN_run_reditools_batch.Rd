@@ -39,6 +39,12 @@ Samples are processed sequentially. A failed sample issues a warning and
 is recorded as \code{NULL} in the returned list; remaining samples continue.
 Because \code{CYAN_run_reditools} checkpoints its raw output, re-running
 after a partial failure skips already-completed samples automatically.
+
+Each retained \code{cyan_editing_result} is substitution-rows-only (see
+\code{\link{.cyan_parse_reditools_output}}), so holding every sample's
+result in this function's return list stays bounded by the number of
+editing sites per sample, not the number of covered positions -- even for
+a genome-wide \code{strict=FALSE} run across many samples.
 }
 \seealso{
 \code{\link{CYAN_run_reditools}}

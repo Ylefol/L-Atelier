@@ -122,7 +122,7 @@ HORIZON_mark_duplicates <- function(sample_sheet,
 
   if (!isTRUE(force) && file.exists(markdup_bam)) {
     cat("Duplicate-marked BAM already exists for: ", sample_id,
-            " — skipping (use force=TRUE to reprocess)")
+            " — skipping (use force=TRUE to reprocess)\n")
     return(invisible(markdup_bam))
   }
 

@@ -7,5 +7,7 @@
 \method{print}{cyan_editing_result}(x, ...)
 }
 \description{
-Print method for cyan_editing_result
+\code{x} is always substitution-rows-only (see
+\code{\link{.cyan_parse_reditools_output}}), regardless of the
+\code{strict} value the underlying raw file was generated with.
 }
