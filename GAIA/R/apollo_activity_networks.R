@@ -303,14 +303,26 @@ APOLLO_get_progeny <- function(organism = "human",
 #'   (degree 0) from the returned graph, instead of keeping them as
 #'   disconnected nodes. Default: FALSE.
 #' @param directed Logical. Whether to return directed interactions.
-#'   Default: FALSE (undirected PPI network).
+#'   Default: FALSE (undirected PPI network). Forced to TRUE when
+#'   \code{signed_only = TRUE} (sign is only meaningful on a directed edge).
+#' @param signed_only Logical. If TRUE, restrict to interactions OmniPath's
+#'   consensus annotation marks as both directed AND signed (consensus
+#'   activation XOR consensus inhibition -- edges consensus-flagged as both,
+#'   or as neither, are dropped as ambiguous). Adds a \code{sign} edge
+#'   attribute (+1 activation / -1 inhibition) and attaches a
+#'   \code{source, interaction, target} data.frame as the
+#'   \code{"carnival_pkn"} graph attribute, in the shape
+#'   \code{ARTEMIS_run_carnival()} expects for its \code{pkn} argument.
+#'   Default: FALSE.
 #' @param verbose Logical. Print network summary. Default: TRUE.
 #'
 #' @return An igraph graph object with:
 #'   \describe{
 #'     \item{Vertex attributes}{name (gene symbol), degree, betweenness}
-#'     \item{Edge attributes}{source, target, n_resources, resources (database names)}
-#'     \item{Graph attributes}{organism, n_query_genes, n_mapped_genes}
+#'     \item{Edge attributes}{source, target, n_resources, resources (database
+#'       names); \code{sign} as well when \code{signed_only = TRUE}}
+#'     \item{Graph attributes}{organism, n_query_genes, n_mapped_genes;
+#'       \code{carnival_pkn} as well when \code{signed_only = TRUE}}
 #'   }
 #'   Also has attribute "interaction_df" with the raw interaction data.frame.
 #'
@@ -326,6 +338,12 @@ APOLLO_get_progeny <- function(organism = "human",
 #' Network metrics (degree, betweenness) are computed automatically and stored
 #' as vertex attributes for use in downstream visualization.
 #'
+#' \code{signed_only = TRUE} is the PKN (prior knowledge network) source for
+#' CARNIVAL-style causal network analysis -- see \code{ARTEMIS_run_carnival()}.
+#' Unlike the default unsigned mode, this discards undirected and sign-
+#' ambiguous edges rather than keeping them, so the resulting network will be
+#' sparser.
+#'
 #' @examples
 #' \dontrun{
 #' # PPI network for a set of DEGs
@@ -337,6 +355,10 @@ APOLLO_get_progeny <- function(organism = "human",
 #' # Stricter filtering: require at least 2 supporting databases
 #' graph <- APOLLO_get_ppi(genes, min_resources = 2)
 #'
+#' # Signed/directed PKN for CARNIVAL
+#' graph <- APOLLO_get_ppi(genes, signed_only = TRUE)
+#' pkn <- attr(graph, "carnival_pkn")
+#'
 #' }
 #' @export
 APOLLO_get_ppi <- function(genes,
@@ -345,7 +367,12 @@ APOLLO_get_ppi <- function(genes,
                             min_resources = 1,
                             drop_isolates = FALSE,
                             directed = FALSE,
+                            signed_only = FALSE,
                             verbose = TRUE) {
+
+  if (signed_only && !directed) {
+    directed <- TRUE
+  }
 
   if (!requireNamespace("OmnipathR", quietly = TRUE)) {
     stop("Package 'OmnipathR' is required. Install from Bioconductor:\n",
@@ -403,6 +430,30 @@ APOLLO_get_ppi <- function(genes,
     return(graph)
   }
 
+  # --- Signed/directed consensus filter (CARNIVAL PKN mode) ---
+  if (signed_only) {
+    sign_cols <- c("consensus_direction", "consensus_stimulation", "consensus_inhibition")
+    if (!all(sign_cols %in% colnames(interactions))) {
+      stop("signed_only = TRUE requires OmnipathR columns ", paste(sign_cols, collapse = ", "),
+           ", not found in this OmnipathR version's import_all_interactions() output.",
+           call. = FALSE)
+    }
+    # Keep consensus-directed edges with an unambiguous consensus sign
+    # (stimulation XOR inhibition -- drop edges consensus-flagged as both or
+    # as neither, since CARNIVAL's PKN needs exactly one sign per edge).
+    is_signed <- interactions$consensus_stimulation != interactions$consensus_inhibition
+    interactions <- interactions[interactions$consensus_direction == 1 & is_signed, ]
+    interactions$sign <- ifelse(interactions$consensus_stimulation == 1, 1, -1)
+
+    if (nrow(interactions) == 0) {
+      stop("No signed, directed, consensus interactions remain between the provided genes. ",
+           "Try signed_only = FALSE, or expand/adjust the gene list.", call. = FALSE)
+    }
+    if (verbose) {
+      cat("   Signed/directed consensus edges:", nrow(interactions), "\n")
+    }
+  }
+
   # --- Filter by minimum number of supporting resources ---
   if (min_resources > 1 && "n_resources" %in% colnames(interactions)) {
     interactions <- interactions[interactions$n_resources >= min_resources, ]
@@ -430,6 +481,9 @@ APOLLO_get_ppi <- function(genes,
   if ("sources" %in% colnames(interactions)) {
     edge_df$resources <- interactions$sources
   }
+  if (signed_only) {
+    edge_df$sign <- interactions$sign
+  }
 
   # Remove self-loops
   edge_df <- edge_df[edge_df$from != edge_df$to, ]
@@ -440,6 +494,16 @@ APOLLO_get_ppi <- function(genes,
     edge_df$key <- apply(edge_df[, c("from", "to")], 1, function(x) {
       paste(sort(x), collapse = "_")
     })
+    if ("n_resources" %in% colnames(edge_df)) {
+      edge_df <- edge_df[order(-edge_df$n_resources), ]
+    }
+    edge_df <- edge_df[!duplicated(edge_df$key), ]
+    edge_df$key <- NULL
+  } else if (signed_only) {
+    # Same source/target/sign reported by multiple underlying resources --
+    # collapse to one edge (sign, unlike generic directed mode, makes a
+    # single key well-defined here).
+    edge_df$key <- paste(edge_df$from, edge_df$to, edge_df$sign, sep = "_")
     if ("n_resources" %in% colnames(edge_df)) {
       edge_df <- edge_df[order(-edge_df$n_resources), ]
     }
@@ -467,6 +531,18 @@ APOLLO_get_ppi <- function(genes,
 
   # Store raw interaction data
   attr(graph, "interaction_df") <- edge_df
+
+  # CARNIVAL-ready PKN (source, interaction, target) -- the column name
+  # "interaction" for the sign matches CARNIVAL's own PKN convention, NOT
+  # igraph's "sign" edge attribute set above.
+  if (signed_only) {
+    attr(graph, "carnival_pkn") <- data.frame(
+      source      = edge_df$from,
+      interaction = edge_df$sign,
+      target      = edge_df$to,
+      stringsAsFactors = FALSE
+    )
+  }
 
   if (verbose) {
     cat("   Nodes:", igraph::vcount(graph), "\n")

@@ -566,3 +566,92 @@ HEPHAESTUS_project_mofa_samples <- function(mofa_result, train_data, new_data,
 
     Z
 }
+
+
+#' Extract one MOFA factor's per-feature loadings as a signature matrix
+#'
+#' @description Bridges a trained MOFA2 model to \code{ARTEMIS_run_decoupler()}:
+#' a factor's per-gene loadings in one view are treated as a single-column
+#' expression-like "signature", the same role a differential contrast's
+#' logFC/stat vector would normally play. Everything downstream --
+#' \code{ARTEMIS_run_decoupler()}, \code{ARTEMIS_run_carnival()} -- is
+#' unchanged; only how the input signature was built differs.
+#'
+#' @param mofa_result A \code{hephaestus_mofa} object from
+#'   \code{HEPHAESTUS_run_mofa()} or \code{HEPHAESTUS_load_mofa_model()}.
+#' @param factor Character or integer. Which factor to extract (e.g.
+#'   \code{"Factor1"}, or \code{1}).
+#' @param view Character. Which view's loadings to extract (must be one of
+#'   the views the model was trained on).
+#' @param verbose Logical. Print progress. Default \code{TRUE}.
+#'
+#' @return A numeric matrix (features x 1), column named after \code{factor},
+#'   rownames = feature names -- the shape \code{ARTEMIS_run_decoupler()}'s
+#'   \code{mat} argument expects.
+#'
+#' @details
+#' MOFA2's \code{get_weights()} shape (list-per-view of feature x factor
+#' matrices) matches its documentation/vignettes as of this writing, mirroring
+#' the same not-independently-verified-per-release caveat already noted in
+#' \code{.hephaestus_mofa_build_result()} -- confirm dimnames/orientation on
+#' first real run if a future MOFA2 version changes them.
+#'
+#' Factor loadings are not differential-expression statistics -- they have no
+#' inherent up/down-regulation sign convention beyond what MOFA2 assigned
+#' during fitting (arbitrary per-factor sign). Treat
+#' \code{ARTEMIS_run_decoupler()}/\code{ARTEMIS_run_carnival()} results from a
+#' factor signature as "what varies together with this factor", not as a
+#' directional contrast in the same sense as a DE-based signature.
+#'
+#' @examples
+#' \dontrun{
+#' sig <- HEPHAESTUS_mofa_factor_signature(mofa_result, factor = "Factor1", view = "rna")
+#' tf_activity <- ARTEMIS_run_decoupler(sig, APOLLO_get_collectri(), method = "ulm")
+#'
+#' }
+#' @export
+HEPHAESTUS_mofa_factor_signature <- function(mofa_result, factor, view, verbose = TRUE) {
+
+    if (!inherits(mofa_result, "hephaestus_mofa")) {
+        stop("mofa_result must be a hephaestus_mofa object from HEPHAESTUS_run_mofa() ",
+             "or HEPHAESTUS_load_mofa_model().", call. = FALSE)
+    }
+    if (is.null(mofa_result$model)) {
+        stop("mofa_result$model is NULL -- the raw MOFA2 model object is required.",
+             call. = FALSE)
+    }
+    if (!requireNamespace("MOFA2", quietly = TRUE)) {
+        stop("Package 'MOFA2' is required.", call. = FALSE)
+    }
+
+    weights_list <- MOFA2::get_weights(mofa_result$model)
+
+    if (!view %in% names(weights_list)) {
+        stop("view '", view, "' not found. Available views: ",
+             paste(names(weights_list), collapse = ", "), call. = FALSE)
+    }
+    w <- weights_list[[view]]
+
+    factor_names <- colnames(w)
+    if (is.numeric(factor) || is.integer(factor)) {
+        if (factor < 1 || factor > length(factor_names)) {
+            stop("factor index ", factor, " out of range (1-", length(factor_names), ").",
+                 call. = FALSE)
+        }
+        factor <- factor_names[factor]
+    }
+    if (!factor %in% factor_names) {
+        stop("factor '", factor, "' not found. Available factors: ",
+             paste(factor_names, collapse = ", "), call. = FALSE)
+    }
+
+    sig <- matrix(w[, factor], ncol = 1, dimnames = list(rownames(w), factor))
+
+    if (verbose) {
+        cat("[HEPHAESTUS] MOFA factor signature\n")
+        cat("    View:", view, "| Factor:", factor, "\n")
+        cat("    Features:", nrow(sig), "\n")
+    }
+
+    sig
+}

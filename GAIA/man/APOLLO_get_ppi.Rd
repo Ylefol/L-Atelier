@@ -11,6 +11,7 @@ APOLLO_get_ppi(
   min_resources = 1,
   drop_isolates = FALSE,
   directed = FALSE,
+  signed_only = FALSE,
   verbose = TRUE
 )
 }
@@ -33,7 +34,18 @@ stringent filtering.}
 disconnected nodes. Default: FALSE.}
 
 \item{directed}{Logical. Whether to return directed interactions.
-Default: FALSE (undirected PPI network).}
+Default: FALSE (undirected PPI network). Forced to TRUE when
+\code{signed_only = TRUE} (sign is only meaningful on a directed edge).}
+
+\item{signed_only}{Logical. If TRUE, restrict to interactions OmniPath's
+consensus annotation marks as both directed AND signed (consensus
+activation XOR consensus inhibition -- edges consensus-flagged as both,
+or as neither, are dropped as ambiguous). Adds a \code{sign} edge
+attribute (+1 activation / -1 inhibition) and attaches a
+\code{source, interaction, target} data.frame as the
+\code{"carnival_pkn"} graph attribute, in the shape
+\code{ARTEMIS_run_carnival()} expects for its \code{pkn} argument.
+Default: FALSE.}
 
 \item{verbose}{Logical. Print network summary. Default: TRUE.}
 }
@@ -41,8 +53,10 @@ Default: FALSE (undirected PPI network).}
 An igraph graph object with:
 \describe{
 \item{Vertex attributes}{name (gene symbol), degree, betweenness}
-\item{Edge attributes}{source, target, n_resources, resources (database names)}
-\item{Graph attributes}{organism, n_query_genes, n_mapped_genes}
+\item{Edge attributes}{source, target, n_resources, resources (database
+names); \code{sign} as well when \code{signed_only = TRUE}}
+\item{Graph attributes}{organism, n_query_genes, n_mapped_genes;
+\code{carnival_pkn} as well when \code{signed_only = TRUE}}
 }
 Also has attribute "interaction_df" with the raw interaction data.frame.
 }
@@ -61,6 +75,12 @@ the gene list before calling.
 
 Network metrics (degree, betweenness) are computed automatically and stored
 as vertex attributes for use in downstream visualization.
+
+\code{signed_only = TRUE} is the PKN (prior knowledge network) source for
+CARNIVAL-style causal network analysis -- see \code{ARTEMIS_run_carnival()}.
+Unlike the default unsigned mode, this discards undirected and sign-
+ambiguous edges rather than keeping them, so the resulting network will be
+sparser.
 }
 \examples{
 \dontrun{
@@ -72,6 +92,10 @@ graph <- APOLLO_get_ppi(genes, organism = 10090, resources = c("STRING", "BioGRI
 
 # Stricter filtering: require at least 2 supporting databases
 graph <- APOLLO_get_ppi(genes, min_resources = 2)
+
+# Signed/directed PKN for CARNIVAL
+graph <- APOLLO_get_ppi(genes, signed_only = TRUE)
+pkn <- attr(graph, "carnival_pkn")
 
 }
 }

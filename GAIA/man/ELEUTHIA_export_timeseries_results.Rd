@@ -14,7 +14,9 @@ ELEUTHIA_export_timeseries_results(
   sample_col = NULL,
   time_col = "timepoint",
   group_col = "group",
+  group_colors = NULL,
   save_plots = TRUE,
+  save_full_gostplot = TRUE,
   plot_format = "png",
   prefix = "timeseries",
   save_rds = TRUE,
@@ -45,7 +47,18 @@ Must have rownames matching sample columns. Default: NULL.}
 
 \item{group_col}{Character. Group column in sample_info. Default: "group".}
 
+\item{group_colors}{Named character vector of colors for groups (names must
+match values in \code{sample_info[[group_col]]}). Forwarded to
+\code{AETHER_plot_part_heatmap()} and \code{AETHER_plot_cluster_trajectories()}.
+NULL = each function's own default (auto-assigned by first-appearance
+order of the group column). Default: NULL.}
+
 \item{save_plots}{Logical. Generate and save plots. Default: TRUE.}
+
+\item{save_full_gostplot}{Logical. When \code{enrichment} is exported, also
+generate the full (unfiltered) interactive g:GOSt Manhattan plot per
+module/cluster -- forwarded as-is to \code{ELEUTHIA_export_enrichment()}.
+Default: TRUE.}
 
 \item{plot_format}{Character. "png", "pdf", or "both". Default: "png".}
 

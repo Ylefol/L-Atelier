@@ -69,6 +69,14 @@ Exported:
       regularization (plain OLS).
   print.hephaestus_mofa(x)
     - Prints view/sample/factor counts and total variance explained per view
+  HEPHAESTUS_mofa_factor_signature(mofa_result, factor, view)
+    - Extracts one factor's per-feature loadings (one view) as a 1-column
+      matrix, in the shape ARTEMIS_run_decoupler() expects as 'mat' -- bridges
+      a trained MOFA2 model to TF-activity inference / ARTEMIS_run_carnival()
+      without going through COSMOS. Factor loadings have no inherent DE-style
+      up/down sign convention (arbitrary per-factor sign from MOFA2 fitting) --
+      treat downstream results as "co-varies with this factor", not a
+      directional contrast
 
 ================================================================================
 IN PROGRESS

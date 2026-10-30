@@ -15,12 +15,18 @@ APOLLO_get_dorothea(...)
   - Retrieve DoRothEA TF regulatory network
 APOLLO_get_progeny(...)
   - Retrieve PROGENy pathway network
-APOLLO_get_ppi(genes, ..., min_resources=1, drop_isolates=FALSE, ...)
+APOLLO_get_ppi(genes, ..., min_resources=1, drop_isolates=FALSE,
+  signed_only=FALSE, ...)
   - Retrieve protein-protein interaction network
   - Uses OmnipathR::import_all_interactions() (renamed from all_interactions()
     in OmnipathR >= 3.x; update if a future OmnipathR version renames it again)
   - drop_isolates=TRUE removes query genes with zero interactions (degree 0)
     from the returned graph instead of keeping them as disconnected nodes
+  - signed_only=TRUE (added 2026-10-26): restricts to OmniPath consensus-
+    directed, consensus-signed edges (stimulation XOR inhibition; forces
+    directed=TRUE); adds a 'sign' edge attribute and attaches a
+    source/interaction/target data.frame as attr(graph, "carnival_pkn") --
+    the PKN shape ARTEMIS_run_carnival() expects
 APOLLO_get_string_ppi(genes, score_threshold=400, network_type="functional",
   image_format="image", image_path=NULL, ...)
   - Queries the STRING REST API (string-db.org/api) via POST requests

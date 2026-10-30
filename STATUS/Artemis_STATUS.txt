@@ -177,6 +177,37 @@ ARTEMIS_infer_tf_activity(counts, network, ...)
 ARTEMIS_infer_pathway_activity(counts, network, ...)
   - Infer pathway activity
 
+artemis_carnival.R:
+--------------------
+ARTEMIS_run_carnival(measurements, pkn, perturbations=NULL, discretize=TRUE,
+  discretize_threshold=1, solver="lpsolve", output_dir=NULL, ...)
+  - CARNIVAL causal network contextualization: given per-node activity scores
+    (e.g. one column of ARTEMIS_run_decoupler()'s $activities, from a DE
+    contrast OR from HEPHAESTUS_mofa_factor_signature()) and a signed/directed
+    PKN (APOLLO_get_ppi(signed_only=TRUE)), finds the causal subnetwork that
+    explains them -- Standard CARNIVAL (perturbations supplied) or Inverse
+    CARNIVAL (perturbations=NULL, broader/weaker search)
+  - discretize_threshold=1 is an unvalidated generic cutoff, NOT an
+    established standard for any particular decoupleR method's score scale --
+    inspect the measurements distribution and adjust per use
+  - solver="lpsolve" is the only option confirmed against the current
+    CARNIVAL vignette (pure-R, CRAN lpSolve, no external binary, small
+    networks only); cbc/cplex/gurobi dispatched by naming convention, not
+    individually confirmed
+  - Written 2026-10-26 against the documented CARNIVAL API (not installed
+    locally at the time); confirmed against a real run same day --
+    weightedSIF/nodesAttributes parsing matched on the first try
+  - Fixed 2026-10-26: $graph's edge weight attribute is named
+    'carnival_weight', NOT 'weight' -- igraph/ggraph layouts (e.g. "fr", used
+    by AETHER_plot_ppi_network()'s default) auto-detect an edge attribute
+    literally called "weight" and require it strictly positive; CARNIVAL's
+    weight is a 0-100 confidence/frequency score where 0 is valid, which
+    broke the default layout with "Weights must be positive"
+  - Returns artemis_carnival S3: $edges (source/sign/target/weight), $nodes
+    (node/zero_act/up_act/down_act/avg_act), $graph (igraph, pass directly to
+    AETHER_plot_ppi_network()), $mode, $n_measurements_used, $params, $raw
+  - S3 print: print.artemis_carnival
+
 artemis_differential_analysis.R:
 ----------------------------------
 ARTEMIS_normalize_counts(counts, sample_sheet, ...)
@@ -305,5 +336,8 @@ DEPENDENCIES / NOTES
   automatically in ARTEMIS_wgcna_detect_modules
 - limma: in Suggests; required for ARTEMIS_limma_de()
 - decoupleR, OmnipathR: in Suggests (load manually)
+- CARNIVAL, lpSolve: in Suggests (load manually); required for
+  ARTEMIS_run_carnival() (NOT installed as of 2026-10-26, implementation
+  written against documented API only -- see artemis_carnival.R header)
 - FactoMineR, missMDA: in Suggests (load manually for FAMD)
 - grpreg, nnet: in Suggests (load manually for discriminative analysis)

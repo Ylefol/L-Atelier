@@ -224,6 +224,21 @@ eleuthia_timeseries_export.R:
 ------------------------------
 ELEUTHIA_export_timeseries_results(ts_result, output_dir, ...)
   - Export time series analysis results to files
+  - save_full_gostplot=TRUE (added 2026-10-30): forwarded through to
+    ELEUTHIA_export_enrichment()'s own save_full_gostplot param -- lets a
+    caller suppress the full/unfiltered interactive gostplot HTML per
+    module while keeping dotplots and enrichment maps (both still gated
+    together by save_plots alone, no independent toggle between them)
+  - group_colors=NULL (added 2026-10-30): named character vector, names
+    matching values in sample_info[[group_col]]. Forwarded to
+    AETHER_plot_part_heatmap()'s group_colors param and
+    AETHER_plot_cluster_trajectories()'s colors param, so the heatmap's
+    group annotation and the trajectory plot use the same caller-specified
+    mapping instead of each auto-assigning from unique(group) first-
+    appearance order independently. NULL (default) preserves prior
+    behavior for both. Not forwarded to AETHER_plot_cluster_means() --
+    that function colors by cluster and uses linetype for group, so group
+    color doesn't apply there.
 
 eleuthia_wgcna_export.R:
 ------------------------

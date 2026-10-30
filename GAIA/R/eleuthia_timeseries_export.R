@@ -28,7 +28,16 @@
 #'   Must have rownames matching sample columns. Default: NULL.
 #' @param time_col Character. Timepoint column in sample_info. Default: "timepoint".
 #' @param group_col Character. Group column in sample_info. Default: "group".
+#' @param group_colors Named character vector of colors for groups (names must
+#'   match values in \code{sample_info[[group_col]]}). Forwarded to
+#'   \code{AETHER_plot_part_heatmap()} and \code{AETHER_plot_cluster_trajectories()}.
+#'   NULL = each function's own default (auto-assigned by first-appearance
+#'   order of the group column). Default: NULL.
 #' @param save_plots Logical. Generate and save plots. Default: TRUE.
+#' @param save_full_gostplot Logical. When \code{enrichment} is exported, also
+#'   generate the full (unfiltered) interactive g:GOSt Manhattan plot per
+#'   module/cluster -- forwarded as-is to \code{ELEUTHIA_export_enrichment()}.
+#'   Default: TRUE.
 #' @param plot_format Character. "png", "pdf", or "both". Default: "png".
 #' @param prefix Character. Prefix for output filenames. Default: "timeseries".
 #' @param save_rds Logical. Save full R objects as RDS. Default: TRUE.
@@ -88,7 +97,9 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
                                                 sample_col = NULL,
                                                 time_col = "timepoint",
                                                 group_col = "group",
+                                                group_colors = NULL,
                                                 save_plots = TRUE,
+                                                save_full_gostplot = TRUE,
                                                 plot_format = "png",
                                                 prefix = "timeseries",
                                                 save_rds = TRUE,
@@ -207,6 +218,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
               part_result, sample_info,
               sample_col = sample_col,
               group_col = group_col, time_col = time_col,
+              group_colors = group_colors,
               save_path = file.path(plot_dir, "part_heatmap.png"),
               width = hm_width, height = hm_height
             )
@@ -216,6 +228,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
               part_result, sample_info,
               sample_col = sample_col,
               group_col = group_col, time_col = time_col,
+              group_colors = group_colors,
               save_path = file.path(plot_dir, "part_heatmap.pdf"),
               width = hm_width, height = hm_height
             )
@@ -235,7 +248,8 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
         tryCatch({
           p <- AETHER_plot_cluster_trajectories(
             part_result, sample_info,
-            time_col = time_col, group_col = group_col
+            time_col = time_col, group_col = group_col,
+            colors = group_colors
           )
           .ts_save_ggplot(p, plot_dir, "cluster_trajectories", plot_format,
                            width = max(10, part_result$n_clusters * 3),
@@ -408,6 +422,7 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
         output_dir = enrich_dir,
         prefix = prefix,
         save_plots = save_plots,
+        save_full_gostplot = save_full_gostplot,
         plot_format = plot_format,
         save_rds = save_rds,
         verbose = verbose
