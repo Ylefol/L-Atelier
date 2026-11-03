@@ -926,3 +926,84 @@ AETHER_plot_timeseries_summary <- function(ts_de_result,
 
   return(p)
 }
+
+
+# ==============================================================================
+# PART CLUSTER TRAJECTORY DIVERGENCE PLOT
+# ==============================================================================
+
+#' Plot PART Cluster Trajectory Divergence
+#'
+#' Dot plot ranking PART clusters by trajectory divergence between two
+#' groups, from \code{ARTEMIS_part_trajectory_divergence()}. Intended as a
+#' companion to the per-cluster trajectory plots (e.g.
+#' \code{AETHER_plot_cluster_trajectories()}) -- a quick way to see which
+#' clusters are most worth a closer look before paging through all of them
+#' individually.
+#'
+#' @param divergence_result An \code{artemis_part_divergence} object from
+#'   \code{ARTEMIS_part_trajectory_divergence()}.
+#' @param alpha Numeric. BH-adjusted p-value threshold marking significance
+#'   (color + reference line). Default: 0.05.
+#' @param title Character. Plot title. Default: "PART Cluster Trajectory
+#'   Divergence".
+#'
+#' @return A ggplot object.
+#'
+#' @details
+#' X-axis is \eqn{-\log_{10}} of the BH-adjusted p-value (how surprising the
+#' divergence is under the null); point size is the raw divergence statistic
+#' (how large the gap between the two groups' mean trajectories actually is).
+#' These two are reported as separate visual channels deliberately -- see
+#' \code{ARTEMIS_part_trajectory_divergence()}'s own documentation for why a
+#' cluster can be highly significant with a small divergence statistic (a
+#' small but highly reproducible gap), or vice versa. Clusters are ordered
+#' top-to-bottom by significance.
+#'
+#' @examples
+#' \dontrun{
+#' div <- ARTEMIS_part_trajectory_divergence(part_result, sample_info)
+#' AETHER_plot_cluster_divergence(div)
+#'
+#' }
+#' @export
+AETHER_plot_cluster_divergence <- function(divergence_result,
+                                            alpha = 0.05,
+                                            title = "PART Cluster Trajectory Divergence") {
+
+  if (!inherits(divergence_result, "artemis_part_divergence")) {
+    stop("'divergence_result' must be an artemis_part_divergence object ",
+         "from ARTEMIS_part_trajectory_divergence()")
+  }
+
+  df <- divergence_result$results
+  df$neg_log10_p <- -log10(df$p_adj)
+
+  sig_lbl <- c(paste0("p_adj < ", alpha), paste0("p_adj ≥ ", alpha))
+  df$significant <- factor(ifelse(df$p_adj < alpha, sig_lbl[1], sig_lbl[2]),
+                            levels = sig_lbl)
+
+  cluster_order <- df$cluster[order(df$p_adj, decreasing = TRUE)]
+  df$cluster <- factor(df$cluster, levels = cluster_order)
+
+  p <- ggplot(df, aes(x = neg_log10_p, y = cluster,
+                       size = divergence_stat, color = significant)) +
+    geom_vline(xintercept = -log10(alpha), linetype = "dashed",
+               color = "black", linewidth = 0.4) +
+    geom_point() +
+    scale_color_manual(values = setNames(c("#B31B21", "grey60"), sig_lbl)) +
+    labs(
+      x = expression(-log[10]*"(BH-adjusted p-value)"),
+      y = "Cluster",
+      size = "Divergence\nstatistic",
+      color = NULL,
+      title = title
+    ) +
+    theme_bw() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      legend.position = "right"
+    )
+
+  return(p)
+}

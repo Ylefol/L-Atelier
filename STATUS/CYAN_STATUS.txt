@@ -1,0 +1,260 @@
+================================================================================
+CYAN STATUS - Niche Genomic Analyses (RNA editing, somatic/germline variants)
+================================================================================
+Last Updated: 2026-11-03
+
+================================================================================
+IMPLEMENTED FUNCTIONS
+================================================================================
+
+cyan_reditools.R:
+------------------
+CYAN_run_reditools(bam, reference, output_dir, work_dir=tempdir(),
+                   sample_name=NULL, strand_mode=0L, min_coverage=1L,
+                   min_base_quality=30L, min_read_quality=20L,
+                   min_read_length=30L, min_edits=0L, strict=FALSE,
+                   region=NULL, omopolymeric_file=NULL, splicing_file=NULL,
+                   bed_file=NULL, require_dup_marked=TRUE, keep_tmp=FALSE,
+                   save_rds=TRUE, verbose=TRUE, debug=FALSE)
+  - Runs REDItools2 (pysam-based pileup engine) on one BAM via a managed
+    basilisk Python env; detects RNA-editing-type substitutions relative to
+    the reference
+  - Checkpoints raw tab-delimited REDItools2 output to
+    <output_dir>/<sample>_reditools.txt before parsing -- expensive pileup
+    is never lost. On a subsequent call, an existing raw_out checkpoint is
+    detected and only RE-PARSED (REDItools2 itself is not re-run), so fixing
+    a parsing bug or re-deriving the substitutions-only table is cheap
+  - Parsed/returned/RDS'd result (cyan_editing_result) is ALWAYS
+    substitution-rows-only (all_subs != "-"), regardless of the strict value
+    the raw file was generated with -- the full covered-position table
+    (needed e.g. for APOBEC-signature background work) only ever exists in
+    the raw .txt checkpoint, not in-memory or in the RDS
+  - require_dup_marked=TRUE (default) hard-stops unless the BAM has at least
+    one SAM FLAG 0x400 read -- REDItools2's own duplicate filter is a silent
+    no-op on a BAM that was never duplicate-marked upstream
+  - bed_file: restricts which positions are WRITTEN to output -- it does
+    NOT restrict the scan range; without a region, the underlying pysam
+    fetch() is unbounded and every read in the BAM is walked base-by-base
+    regardless of how few BED sites were requested. CYAN_flag_germline_variants()
+    used to reuse this function as the WGS-side pileup engine via bed_file
+    alone -- confirmed (2026-11-03) to take hours on just ~150 sites because
+    of this. It now uses CYAN_run_targeted_pileup() (cyan_targeted_pileup.R)
+    instead; see that section below.
+  - Output: <sample>_reditools.txt (raw checkpoint, all covered positions),
+    <sample>_reditools_subs.txt (substitution rows only),
+    <sample>_reditools.rds (parsed cyan_editing_result, if save_rds=TRUE)
+
+CYAN_run_reditools_batch(bam, reference, output_dir, ..., verbose=TRUE)
+  - Loops CYAN_run_reditools() over a named vector of BAM paths (names =
+    sample labels); per-sample failures are caught and warned on, not fatal
+    to the batch
+  - Returns a cyan_batch_result: named list, one cyan_editing_result (or
+    NULL on failure) per sample
+
+print.cyan_editing_result(x, ...) / print.cyan_batch_result(x, ...)
+  - S3 print methods; batch summary shared between
+    CYAN_run_reditools_batch() and CYAN_flag_germline_variants_batch()
+    (both return class cyan_batch_result)
+
+.cyan_reditools_build_args(...)  [internal]
+  - Builds the REDItools2 CLI argument vector from R-level parameters
+
+.cyan_check_duplicates_marked(bam, max_reads=5e6, verbose=TRUE)  [internal]
+  - Scans up to max_reads reads for SAM FLAG 0x400; backs require_dup_marked
+
+.cyan_reditools_run(script_path, cli_args, verbose, debug)  [internal]
+  - Executes REDItools2 via basilisk::basiliskRun() + system2() on the
+    resolved Python binary; stdout/stderr suppressed unless debug=TRUE
+
+.cyan_parse_reditools_output(path, chunk_size=10e6)  [internal]
+  - Streams the raw REDItools2 .txt in line chunks (data.table::fread() per
+    chunk), filters to substitution rows, splits the BaseCount column into
+    count_A/count_C/count_G/count_T (data.table::tstrsplit(), vectorised)
+  - Chunked/vectorised specifically because the prior read.table() +
+    strsplit()+do.call(rbind,.) approach OOM'd on a 37GB strict=FALSE raw
+    file with 58GB RAM available (2026-10-14)
+  - col_map normalises REDItools2's raw header names across versions.
+    BUG FIXED 2026-11-02: the map only had "BaseCount[ACGT]" (no commas) as
+    a key, but REDItools2's actual header is "BaseCount[A,C,G,T]" (commas
+    between letters) -- the rename silently never matched, so count_A/C/G/T
+    were silently absent from every parsed result (all samples, both the
+    original strict=TRUE run and the strand_mode=2/strict=FALSE re-run) with
+    no warning or error until a downstream consumer
+    (CYAN_flag_germline_variants(), which requires those columns) hard-
+    stopped on it. Fix: added "BaseCount[A,C,G,T]" as a second key mapping
+    to the same "base_count" target, keeping the no-comma variant too in
+    case some REDItools2 version genuinely emits it header-wise. Since raw
+    .txt checkpoints are untouched by this, recovery is a cheap re-parse
+    (CYAN_run_reditools()'s own cache-hit path), not a REDItools2 re-run.
+
+.cyan_save_subs(result, path, verbose)  [internal]
+  - Writes the (already substitution-rows-only) parsed result to the
+    _reditools_subs.txt checkpoint
+
+.cyan_attach_params(result, params)  [internal]
+  - Attaches the calling function's arguments as a "params" attribute for
+    reproducibility
+
+cyan_targeted_pileup.R:
+------------------------
+CYAN_run_targeted_pileup(bam, reference=NULL, bed_file, output_dir,
+                         work_dir=tempdir(), sample_name=NULL,
+                         min_base_quality=30L, min_read_quality=20L,
+                         min_read_length=30L, require_dup_marked=TRUE,
+                         keep_tmp=FALSE, save_rds=TRUE, verbose=TRUE,
+                         debug=FALSE)
+  - ADDED 2026-11-03. Computes coverage + per-base (A/C/G/T) read counts at
+    a short, sparse list of known positions (bed_file) via pysam's indexed
+    pileup seeked directly to each site -- O(sites) indexed lookups instead
+    of REDItools2's O(genome length) base-by-base scan. Purpose-built to
+    replace CYAN_run_reditools() as the WGS-side engine inside
+    CYAN_flag_germline_variants(): REDItools2's bed_file only filters
+    output, not the scan range (see cyan_reditools.R notes above) --
+    confirmed to hang for hours on a 150-site test that this function
+    completes in ~30 seconds on the same BAM/sites
+  - Read/base-level filtering ported from REDItools2's own
+    filter_read()/filter_base() (unmapped/QC-fail/secondary/supplementary/
+    duplicate exclusion, mapping quality, read length, proper-pair flag
+    check, SA-tag chimeric-read exclusion, base quality) via a new bundled
+    script (inst/python/targeted_pileup.py) -- NOT REDItools2 itself, no
+    substitution/strand/omopolymeric/splicing logic, since the germline
+    step never needed any of that
+  - Every bed_file site is written exactly once, including zero-coverage
+    ones (REDItools2 would simply omit uncovered positions) -- required so
+    "no row" is never ambiguous for the germline-status classification
+  - Same checkpoint-reuse pattern as CYAN_run_reditools(): an existing
+    <sample>_targeted_pileup.txt in output_dir is re-parsed, not re-run
+  - Reuses .cyan_reditools_env (basilisk) and .cyan_reditools_run() --
+    those are generic Python-subprocess plumbing, not REDItools2-specific
+  - Output: <sample>_targeted_pileup.txt (raw checkpoint),
+    <sample>_targeted_pileup.rds (if save_rds=TRUE)
+
+.cyan_parse_targeted_pileup_output(path)  [internal]
+  - Parses targeted_pileup.py's tab-delimited output (Region/Position/
+    Reference/Coverage-q<N>/BaseCount[A,C,G,T]) into a data.frame with
+    region/position/reference/coverage/count_A/count_C/count_G/count_T
+
+cyan_germline_variants.R:
+--------------------------
+CYAN_flag_germline_variants(rna_result, dna_bam, reference, output_dir,
+                            work_dir=tempdir(), sample_name=NULL,
+                            dna_min_coverage=10L, dna_min_alt_reads=3L,
+                            dna_min_alt_freq=0.1, require_dup_marked=TRUE,
+                            keep_tmp=FALSE, save_rds=TRUE, verbose=TRUE,
+                            debug=FALSE, ...)
+  - Cross-references RNA-editing candidates (from CYAN_run_reditools())
+    against matched WGS data from the SAME individual to distinguish true
+    post-transcriptional editing from germline variants
+  - CHANGED 2026-11-03: WGS-side lookup now calls CYAN_run_targeted_pileup()
+    instead of CYAN_run_reditools() -- same bed_file-of-candidate-positions
+    input, same four appended output columns, but no longer scans the whole
+    BAM to answer a 150-site question (see cyan_targeted_pileup.R above for
+    the full rationale). The RNA-side call (CYAN_run_reditools() on the
+    RNA-seq BAM, upstream of this function) is unaffected by this change.
+  - rna_result and dna_bam MUST already share one coordinate system
+    (contig naming AND genome build) -- this function does no liftover or
+    build reconciliation itself; see rna_editing_germline.R (Mouse_Spleen_bulk
+    project) for a worked liftover-based wrapper when RNA and WGS data are
+    on different builds
+  - Per candidate: primary alt base (highest RNA-read-supported substitution
+    at that position, via .cyan_primary_alt_base()) is looked up in the WGS
+    pileup and classified: "germline" (WGS alt freq/reads above threshold),
+    "confirmed_somatic" (WGS covered, reference-only), "undetermined" (WGS
+    coverage below dna_min_coverage) -- never silently dropped
+  - dna_min_coverage/dna_min_alt_reads/dna_min_alt_freq default to
+    REDItoolDnaRna.py's own defaults (-c 10/-v 3/-N 0.1), carried over as a
+    starting point, not independently re-derived -- verify before treating
+    as settled
+  - Output: <output_dir>/<sample>_germline_flagged.txt (candidate table),
+    <sample>_germline_flagged.rds (full rna_result + 4 appended columns, if
+    save_rds=TRUE)
+
+CYAN_flag_germline_variants_batch(rna_results, dna_bam, reference,
+                                  output_dir, ..., verbose=TRUE)
+  - Loops CYAN_flag_germline_variants() over dna_bam (named vector, names =
+    animal IDs); only animals present in dna_bam are processed -- samples
+    with no WGS match are simply absent from dna_bam, no special-casing
+    needed by the caller
+  - Per-sample failures caught and warned on, not fatal to the batch
+  - Returns a cyan_batch_result (same class/print method as
+    CYAN_run_reditools_batch())
+
+.cyan_primary_alt_base(reference, all_subs, count_A, count_C, count_G, count_T)  [internal]
+  - AllSubs may list >1 substitution code (e.g. "AG AC"); only codes whose
+    first character matches the reference base are meaningful, and among
+    those the alt base with the most supporting reads is primary
+
+.cyan_write_bed(region, position, path)  [internal]
+  - Writes 0-based half-open BED from 1-based region/position pairs
+
+cyan_utils.R:
+--------------
+CYAN_check_bam(bam)
+  - Validates a BAM exists and has a .bai (either <bam>.bai or
+    <stem>.bai); normalises path; stops with a fix-it message otherwise
+
+CYAN_check_references(reference, ...)
+  - Validates a reference FASTA exists and has a .fai; ... accepts extra
+    paths (VCFs, BEDs) checked for existence only
+
+CYAN_resolve_gatk(gatk_path=NULL)
+  - Resolves the GATK executable: explicit gatk_path arg -> GATK_PATH env
+    var -> `gatk` on PATH -- stops with guidance if none found
+  - Groundwork for planned MuTect2 support (see PLANNED/TODO) -- no
+    variant-calling function uses this yet
+
+.cyan_ensure_dir(path, label="directory")  [internal]
+.cyan_sample_name(bam, sample_name=NULL)  [internal]
+
+basilisk.R:
+------------
+.cyan_reditools_env  [internal, basilisk::BasiliskEnvironment]
+  - python==3.10.14, pysam==0.22.1, sortedcontainers==2.4.0, psutil==6.0.0,
+    netifaces==0.11.0 (bioconda/conda-forge/defaults) -- pinned Python deps
+    for CYAN_run_reditools()/.cyan_check_duplicates_marked()/
+    CYAN_run_targeted_pileup() (shared env -- targeted_pileup.py only needs
+    pysam, already pinned here for REDItools2)
+
+================================================================================
+IN PROGRESS
+================================================================================
+- None
+
+================================================================================
+PLANNED / TODO
+================================================================================
+- Somatic variant calling via GATK MuTect2 (per package description) --
+  CYAN_resolve_gatk() exists as groundwork; no CYAN_call_somatic_variants()
+  or equivalent wrapper implemented yet
+- omopolymeric_file / splicing_file generation for this project's genome
+  builds (recommended by REDItools2 to cut false positives, currently left
+  NULL everywhere they're used -- see Mouse_Spleen_bulk's
+  rna_editing_reditools.R)
+
+================================================================================
+DEPENDENCIES / NOTES
+================================================================================
+- basilisk (Bioconductor, Imports): managed Python env for REDItools2 --
+  see basilisk.R for pinned package versions
+- reticulate (Imports): py_exe() to resolve the basilisk-managed Python
+  binary before system2() calls
+- data.table (Imports): chunked fread()/tstrsplit() parsing of large raw
+  REDItools2 output -- required for strict=FALSE genome-wide runs, which
+  can reach hundreds of millions of rows / tens of GB (see
+  .cyan_parse_reditools_output() notes)
+- GATK: external Java tool, invoked via system2("gatk", ...) once a
+  MuTect2 wrapper exists -- not bundled/managed by CYAN (unlike REDItools2,
+  which runs through basilisk)
+- Positioned between HORIZON (upstream BAM processing -- duplicate-marking
+  via HORIZON_mark_duplicates() is a precondition for
+  require_dup_marked=TRUE) and GAIA/CAULDRON (downstream expression-level
+  analysis); CYAN itself does not depend on either package
+- One sample per call is the core design (CYAN_run_reditools(),
+  CYAN_run_targeted_pileup(), CYAN_flag_germline_variants()); cohort
+  looping is the batch wrappers' job, not baked into the core functions
+- No liftover/genome-build reconciliation inside CYAN itself -- when RNA
+  and matched WGS data are on different builds (e.g. Mouse_Spleen_bulk:
+  RNA on mm39, WGS on mm10), that reconciliation (liftOver + contig-name
+  mapping) is a project-script-level concern, not something
+  CYAN_flag_germline_variants() handles
+================================================================================

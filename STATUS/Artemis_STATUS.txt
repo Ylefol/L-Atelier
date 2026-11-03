@@ -255,6 +255,38 @@ ARTEMIS_part(expr_matrix, ...)
     beforehand if clustering data with missingness.
 ARTEMIS_part_summary(part_result, ...)
   - Summary statistics for PART clustering result
+ARTEMIS_part_trajectory_divergence(part_result, sample_info, sample_col=NULL,
+                                    group_col="group", time_col="timepoint",
+                                    clusters=NULL, perm=10000, seed=NULL, verbose=TRUE)
+  - Added 2026-11-02. Per-cluster group x time interaction test: collapses
+    each cluster to one "eigengene" trajectory per sample (mean z-score
+    across member features, using part_result$data as-is), then tests
+    whether the two groups' mean trajectories diverge more than chance --
+    "does this cluster's temporal SHAPE differ between conditions", distinct
+    from per-timepoint conditional DEA ("is this feature different between
+    conditions at some point")
+  - group_col must resolve to exactly 2 groups among the matched samples --
+    stop()s otherwise with a clear message; no reference/experiment
+    distinction needed since the divergence statistic (sum of squared
+    group-mean differences across timepoints) is symmetric
+  - Significance via STRATIFIED permutation only (group labels shuffled
+    within each timepoint, preserving that timepoint's group-size split) --
+    the only valid null when timepoint is a fixed design factor; no
+    unstratified option offered since it would be wrong, not just a
+    simpler/faster alternative
+  - Returns artemis_part_divergence: $results (cluster, n_genes,
+    divergence_stat, p_value, p_adj via BH, ordered by p_value) + $parameters
+  - Known limitation (documented in-function, not a bug): collapsing to one
+    eigengene per cluster masks within-cluster heterogeneity -- a cluster can
+    score non-significant here while still containing a genuinely diverging
+    subset alongside a flat majority. divergence_stat (effect size) and
+    p_value (how surprising under the null) are reported separately on
+    purpose -- a cluster with large parallel movement in both groups can have
+    a small divergence_stat yet still be significant if that small gap is
+    highly reproducible across replicates
+  - S3 print: print.artemis_part_divergence
+  - Companion plot: AETHER_plot_cluster_divergence() (Aether); export via
+    ELEUTHIA_export_timeseries_results(part_divergence=...)
 
 artemis_timeseries_analysis.R:
 --------------------------------

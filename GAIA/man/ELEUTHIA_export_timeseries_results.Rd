@@ -7,6 +7,7 @@
 ELEUTHIA_export_timeseries_results(
   output_dir,
   part_result = NULL,
+  part_divergence = NULL,
   ts_de = NULL,
   gene_selection = NULL,
   enrichment = NULL,
@@ -28,6 +29,12 @@ ELEUTHIA_export_timeseries_results(
 
 \item{part_result}{An \code{artemis_part} object from \code{ARTEMIS_part()}.
 NULL to skip PART export. Default: NULL.}
+
+\item{part_divergence}{An \code{artemis_part_divergence} object from
+\code{ARTEMIS_part_trajectory_divergence()}, or NULL to skip. Only used
+alongside \code{part_result} (same PART plots directory/prefix); exports
+the results table and, when \code{save_plots = TRUE}, the
+\code{AETHER_plot_cluster_divergence()} ranking plot. Default: NULL.}
 
 \item{ts_de}{One or a list of \code{artemis_ts_de} objects from
 \code{ARTEMIS_timeseries_conditional()} or

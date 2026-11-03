@@ -314,6 +314,221 @@ print.artemis_part <- function(x, ...) {
 }
 
 
+#' Test Trajectory Divergence Between Two Groups per PART Cluster
+#'
+#' For each PART cluster, collapses member features to one "eigengene"
+#' trajectory per sample (the mean z-score across the cluster's features,
+#' using \code{part_result$data} as-is), then tests whether the two groups'
+#' mean trajectories across timepoints diverge more than expected by chance
+#' -- a group x time interaction test, answering "does this cluster's
+#' temporal shape differ between conditions" rather than "is this cluster
+#' different between conditions at some point" (which per-timepoint
+#' conditional DEA already answers at the single-feature level).
+#'
+#' @param part_result An \code{artemis_part} object from \code{ARTEMIS_part()}.
+#' @param sample_info Data.frame with sample metadata. Must have rownames (or
+#'   \code{sample_col}) matching colnames of \code{part_result$data}, and
+#'   columns for \code{group_col}/\code{time_col}.
+#' @param sample_col Character or NULL. Column in sample_info whose values are
+#'   sample identifiers matching \code{colnames(part_result$data)}. Default:
+#'   NULL (rownames used as-is).
+#' @param group_col Character. Column name in sample_info for group. Must
+#'   resolve to exactly 2 groups among the matched samples -- subset
+#'   sample_info first if more are present. Default: \code{"group"}.
+#' @param time_col Character. Column name in sample_info for timepoint.
+#'   Default: \code{"timepoint"}.
+#' @param clusters Character vector of clusters to test (e.g.
+#'   \code{c("C1", "C3")}). NULL = all non-outlier clusters (same convention
+#'   as \code{AETHER_plot_cluster_trajectories()}). Default: NULL.
+#' @param perm Integer. Number of stratified label permutations per cluster.
+#'   Default: 10000.
+#' @param seed Integer or NULL. Random seed for reproducibility. Default: NULL.
+#' @param verbose Logical. Print progress. Default: TRUE.
+#'
+#' @return An S3 object of class \code{"artemis_part_divergence"}:
+#' \describe{
+#'   \item{results}{Data.frame: cluster, n_genes, divergence_stat, p_value,
+#'     p_adj (Benjamini-Hochberg across the tested clusters), ordered by
+#'     p_value ascending}
+#'   \item{parameters}{List of call parameters, including the two group
+#'     levels tested and the timepoints found}
+#' }
+#'
+#' @details
+#' The divergence statistic for a cluster is the sum, across timepoints, of
+#' the squared difference between the two groups' mean eigengene values:
+#' \eqn{\sum_t (\bar{x}_{A,t} - \bar{x}_{B,t})^2}. Significance is assessed
+#' by a stratified permutation test: group labels are shuffled independently
+#' \emph{within each timepoint} (preserving that timepoint's group-size
+#' split), the statistic recomputed, and an empirical p-value derived from
+#' how often the permuted statistic meets or exceeds the observed one. This
+#' is the correct null for a group effect when timepoint is a fixed design
+#' factor -- an unstratified (fully random) permutation would not respect
+#' that design and is not offered as an option.
+#'
+#' Two things this test cannot tell you, by construction:
+#' \itemize{
+#'   \item \strong{Within-cluster heterogeneity}: collapsing to one
+#'     eigengene per cluster means a cluster can score non-significant here
+#'     while still containing a genuinely diverging subset of features
+#'     alongside a flat majority (or vice versa).
+#'   \item \strong{Absolute divergence is not the same as effect size}: a
+#'     cluster where both groups move by a large, nearly parallel amount
+#'     (large temporal change, small \emph{group} gap) can still reach
+#'     significance if that small gap is highly reproducible across
+#'     replicates -- the statistic and the p-value answer different
+#'     questions (magnitude vs. how surprising that magnitude is under the
+#'     null), and are reported as separate columns for that reason.
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' div <- ARTEMIS_part_trajectory_divergence(
+#'   part_result, sample_info, group_col = "group", time_col = "timepoint",
+#'   perm = 10000, seed = 42
+#' )
+#' print(div)
+#' head(div$results)
+#' }
+#' @export
+ARTEMIS_part_trajectory_divergence <- function(part_result,
+                                                sample_info,
+                                                sample_col = NULL,
+                                                group_col  = "group",
+                                                time_col   = "timepoint",
+                                                clusters   = NULL,
+                                                perm       = 10000,
+                                                seed       = NULL,
+                                                verbose    = TRUE) {
+
+  if (!inherits(part_result, "artemis_part")) {
+    stop("'part_result' must be an artemis_part object from ARTEMIS_part()")
+  }
+  if (!group_col %in% colnames(sample_info)) {
+    stop("'", group_col, "' column not found in sample_info")
+  }
+  if (!time_col %in% colnames(sample_info)) {
+    stop("'", time_col, "' column not found in sample_info")
+  }
+
+  mat <- part_result$data
+  if (!is.null(sample_col)) rownames(sample_info) <- sample_info[[sample_col]]
+
+  common_samples <- intersect(colnames(mat), rownames(sample_info))
+  if (length(common_samples) == 0) {
+    stop("No matching samples between part_result and sample_info rownames")
+  }
+  mat         <- mat[, common_samples, drop = FALSE]
+  sample_info <- sample_info[common_samples, , drop = FALSE]
+
+  groups <- as.character(sample_info[[group_col]])
+  times  <- sample_info[[time_col]]
+
+  group_levels <- unique(groups)
+  if (length(group_levels) != 2) {
+    stop("'group_col' must resolve to exactly 2 groups among the matched samples -- found ",
+         length(group_levels), ": ", paste(group_levels, collapse = ", "),
+         ". Subset sample_info to the 2 groups being compared first.")
+  }
+
+  tp_levels <- sort(unique(times))
+  tp_idx    <- lapply(tp_levels, function(tp) which(times == tp))
+
+  # Filter clusters
+  cmap <- part_result$cluster_map
+  if (is.null(clusters)) {
+    clusters <- sort(unique(cmap$cluster))
+    clusters <- clusters[clusters != "C0"]
+  }
+
+  if (verbose) {
+    cat("[ARTEMIS] PART Trajectory Divergence \n")
+    cat("    Groups:", paste(group_levels, collapse = " vs "), "\n")
+    cat("    Timepoints:", paste(tp_levels, collapse = ", "), "\n")
+    cat("    Clusters:", length(clusters), "| Permutations:", perm, "\n")
+  }
+
+  if (!is.null(seed)) set.seed(seed)
+
+  .divergence_stat <- function(eigengene, groups_vec) {
+    grp_means <- tapply(eigengene, list(groups_vec, times), mean)
+    if (anyNA(grp_means)) {
+      stop("Empty group x timepoint cell(s) found -- every group needs at ",
+           "least one sample at every timepoint for this test.")
+    }
+    sum((grp_means[group_levels[1], ] - grp_means[group_levels[2], ])^2)
+  }
+
+  gene_cluster <- setNames(cmap$cluster, cmap$gene)
+
+  out_rows <- vector("list", length(clusters))
+  names(out_rows) <- clusters
+
+  for (cl in clusters) {
+    genes_cl <- names(gene_cluster)[gene_cluster == cl]
+    genes_cl <- intersect(genes_cl, rownames(mat))
+
+    eigengene <- colMeans(mat[genes_cl, , drop = FALSE])
+    eigengene <- eigengene[rownames(sample_info)]
+
+    stat_obs <- .divergence_stat(eigengene, groups)
+
+    perm_stats <- numeric(perm)
+    for (i in seq_len(perm)) {
+      perm_groups <- groups
+      for (idx in tp_idx) perm_groups[idx] <- sample(groups[idx])
+      perm_stats[i] <- .divergence_stat(eigengene, perm_groups)
+    }
+
+    p_val <- (sum(perm_stats >= stat_obs) + 1) / (perm + 1)
+
+    out_rows[[cl]] <- data.frame(
+      cluster = cl, n_genes = length(genes_cl),
+      divergence_stat = stat_obs, p_value = p_val,
+      stringsAsFactors = FALSE
+    )
+
+    if (verbose) cat("    ", cl, ": stat =", round(stat_obs, 3), ", p =", signif(p_val, 3), "\n")
+  }
+
+  results <- do.call(rbind, out_rows)
+  rownames(results) <- NULL
+  results$p_adj <- stats::p.adjust(results$p_value, method = "BH")
+  results <- results[order(results$p_value), ]
+
+  result <- list(
+    results = results,
+    parameters = list(
+      group_col = group_col, time_col = time_col,
+      group_levels = group_levels, timepoints = tp_levels,
+      perm = perm, seed = seed
+    )
+  )
+  class(result) <- c("artemis_part_divergence", "list")
+
+  if (verbose) cat("[ARTEMIS] Done.\n")
+
+  return(result)
+}
+
+
+#' Print method for artemis_part_divergence
+#' @param x An artemis_part_divergence object
+#' @param ... Additional arguments (ignored)
+#' @method print artemis_part_divergence
+#' @export
+print.artemis_part_divergence <- function(x, ...) {
+  cat("PART trajectory divergence:", nrow(x$results), "clusters tested\n")
+  cat("------------------------------\n")
+  cat("Groups:", paste(x$parameters$group_levels, collapse = " vs "), "\n")
+  cat("Permutations:", x$parameters$perm, "\n")
+  n_sig <- sum(x$results$p_adj < 0.05)
+  cat("Significant (BH p_adj < 0.05):", n_sig, "of", nrow(x$results), "\n\n")
+  print(utils::head(x$results, 10))
+  invisible(x)
+}
+
+
 # ==============================================================================
 # INTERNAL: Core PART Algorithm
 # ==============================================================================

@@ -1,7 +1,7 @@
 ================================================================================
 ELEUTHIA STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-09-10
+Last Updated: 2026-11-03
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -239,6 +239,37 @@ ELEUTHIA_export_timeseries_results(ts_result, output_dir, ...)
     behavior for both. Not forwarded to AETHER_plot_cluster_means() --
     that function colors by cluster and uses linetype for group, so group
     color doesn't apply there.
+  - part_divergence=NULL (added 2026-11-02): an artemis_part_divergence
+    object from ARTEMIS_part_trajectory_divergence(). Only takes effect
+    alongside part_result (shares its plots directory/prefix). When
+    supplied: writes <prefix>_cluster_divergence.csv (+ .rds if
+    save_rds=TRUE) next to the other PART tables, and (save_plots=TRUE)
+    saves AETHER_plot_cluster_divergence()'s ranking plot alongside the
+    other PART plots -- this one plot doesn't require sample_info (the
+    divergence object already has everything it needs), unlike the heatmap/
+    trajectories/means plots above it.
+
+ELEUTHIA_build_de_comparison_table(ts_de, id_map=NULL, sig_col="padj",
+                                    sig_thresh=0.05, l2fc_thresh=0.5, digits=3)
+  - ADDED 2026-11-03. Returns a wide data.frame (one row per feature
+    significant in >=1 comparison, log2FoldChange/padj column pair per
+    comparison) meant to be piped straight into DT::datatable() in a report
+    for a searchable/sortable DEG table -- the function itself has no DT
+    dependency, only the Rmd chunk that renders its output does
+  - Accepts artemis_ts_de object(s) directly (same input shape as
+    ELEUTHIA_export_timeseries_results()'s ts_de arg) rather than requiring
+    the caller to pre-shape a gene-column data.frame per comparison --
+    flattens every comparison across all supplied objects into its own
+    column pair
+  - id_map (feature_id -> gene/protein symbol) optional -- adds a Symbol
+    column; without it, rows are identified by feature_id alone
+  - Mirrors CAULDRON's TALARIA_build_de_comparison_table() (same shape/
+    DT::datatable() pairing, same significance/union logic) -- that one
+    targets DESeq2-style pseudobulk DE (gene/log2FoldChange/padj columns),
+    this one targets ARTEMIS's own limma-based artemis_ts_de objects
+    (feature_id/log2FoldChange/padj, already the same column-naming
+    convention internally -- see ARTEMIS_timeseries_conditional_limma()/
+    ARTEMIS_timeseries_temporal_limma())
 
 eleuthia_wgcna_export.R:
 ------------------------

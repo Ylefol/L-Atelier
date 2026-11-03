@@ -9,12 +9,19 @@
 #'
 #' @details
 #' This does not re-implement RNA-editing detection for DNA-seq data from
-#' scratch. It reuses \code{\link{CYAN_run_reditools}} itself as the pileup
-#' engine for the WGS BAM, restricted (via \code{bed_file}) to exactly the
-#' genomic positions flagged as RNA-editing candidates, with
-#' \code{strand_mode = 0} (DNA has no library strand) and
-#' \code{strict = FALSE} (reference-only positions must be reported too --
-#' otherwise "no row" is ambiguous between "not covered" and "no variant").
+#' scratch. The WGS side is looked up with
+#' \code{\link{CYAN_run_targeted_pileup}}, which seeks directly to exactly
+#' the genomic positions flagged as RNA-editing candidates (via
+#' \code{bed_file}) instead of scanning the whole BAM -- every candidate
+#' position is reported, including reference-only/zero-coverage ones, so
+#' "no row" is never ambiguous between "not covered" and "no variant".
+#' (An earlier version of this function used \code{\link{CYAN_run_reditools}}
+#' itself as the WGS-side pileup engine; REDItools2's \code{bed_file} option
+#' only filters what gets written, not what gets scanned, so that approach
+#' scanned the entire BAM regardless -- confirmed to take hours even
+#' restricted to ~150 positions. \code{\link{CYAN_run_targeted_pileup}}
+#' answers the same "coverage and base counts at these exact positions"
+#' question without the whole-genome scan.)
 #' The RNA-side call is left completely untouched by this function; nothing
 #' about \code{\link{CYAN_run_reditools}} or \code{\link{CYAN_run_reditools_batch}}
 #' changes, and this step is entirely optional -- an RNA-only workflow with
@@ -55,8 +62,8 @@
 #' @param work_dir     Character. Directory for intermediate/temporary files
 #'   (created if absent). Defaults to \code{tempdir()}.
 #' @param sample_name  Character or \code{NULL}. Label used in output
-#'   filenames and as the DNA-side REDItools2 sample prefix. Derived from
-#'   \code{dna_bam}'s filename if \code{NULL}.
+#'   filenames and as the DNA-side targeted-pileup sample prefix. Derived
+#'   from \code{dna_bam}'s filename if \code{NULL}.
 #' @param dna_min_coverage  Integer. Minimum WGS coverage at a position to
 #'   call it confidently (either germline or confirmed-somatic) rather than
 #'   \code{"undetermined"}. Default \code{10L}.
@@ -65,21 +72,21 @@
 #' @param dna_min_alt_freq  Numeric. Minimum WGS alt-allele frequency to call
 #'   a position germline. Default \code{0.1}.
 #' @param require_dup_marked Logical. Passed through to the internal
-#'   \code{\link{CYAN_run_reditools}} call on \code{dna_bam} -- see its own
-#'   documentation. Default \code{TRUE}.
+#'   \code{\link{CYAN_run_targeted_pileup}} call on \code{dna_bam} -- see its
+#'   own documentation. Default \code{TRUE}.
 #' @param keep_tmp     Logical. If \code{FALSE} (default), the temporary
-#'   candidate-site BED file (and REDItools2's own intermediates in
-#'   \code{work_dir}) are removed after completion.
+#'   candidate-site BED file (and the targeted-pileup call's own
+#'   intermediates in \code{work_dir}) are removed after completion.
 #' @param save_rds     Logical. If \code{TRUE} (default), the flagged result
 #'   is saved as an RDS file in \code{output_dir}.
 #' @param verbose      Logical. Print \code{[CYAN]} progress messages
 #'   (default \code{TRUE}).
 #' @param debug        Logical. Passed through to the internal
-#'   \code{\link{CYAN_run_reditools}} call on \code{dna_bam} (default
+#'   \code{\link{CYAN_run_targeted_pileup}} call on \code{dna_bam} (default
 #'   \code{FALSE}).
 #' @param ...          Additional arguments forwarded to the internal
-#'   \code{\link{CYAN_run_reditools}} call on \code{dna_bam} (e.g.
-#'   \code{min_base_quality}, \code{min_read_quality}, \code{omopolymeric_file}).
+#'   \code{\link{CYAN_run_targeted_pileup}} call on \code{dna_bam} (e.g.
+#'   \code{min_base_quality}, \code{min_read_quality}, \code{min_read_length}).
 #'
 #' @return \code{rna_result} with four columns appended:
 #'   \code{dna_coverage}, \code{dna_alt_reads}, \code{dna_alt_freq},
@@ -89,7 +96,8 @@
 #'   (the original \code{params} attribute from \code{rna_result} is left
 #'   untouched).
 #'
-#' @seealso \code{\link{CYAN_run_reditools}}, \code{\link{CYAN_flag_germline_variants_batch}}
+#' @seealso \code{\link{CYAN_run_reditools}}, \code{\link{CYAN_run_targeted_pileup}},
+#'   \code{\link{CYAN_flag_germline_variants_batch}}
 #'
 #' @export
 CYAN_flag_germline_variants <- function(
@@ -159,20 +167,18 @@ CYAN_flag_germline_variants <- function(
   }
 
   # ------------------------------------------------------------------
-  # 3. Write candidate-site BED and run REDItools2 on the WGS BAM
+  # 3. Write candidate-site BED and run a targeted pileup on the WGS BAM
   # ------------------------------------------------------------------
   bed_path <- file.path(work_dir, paste0(sample, "_candidates.bed"))
   .cyan_write_bed(cand$region, cand$position, bed_path)
 
-  dna_result <- CYAN_run_reditools(
+  dna_result <- CYAN_run_targeted_pileup(
     bam                 = dna_bam,
     reference           = reference,
+    bed_file            = bed_path,
     output_dir          = output_dir,
     work_dir            = work_dir,
     sample_name         = paste0(sample, "_dna"),
-    strand_mode         = 0L,
-    strict              = FALSE,
-    bed_file            = bed_path,
     require_dup_marked  = require_dup_marked,
     keep_tmp            = keep_tmp,
     save_rds            = FALSE,

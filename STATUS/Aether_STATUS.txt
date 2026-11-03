@@ -407,6 +407,17 @@ AETHER_plot_cluster_group_means(part_result, sample_info, sample_col=NULL,
   - Cluster x-axis labels colored via part_result$cluster_colors
 AETHER_plot_timeseries_summary(part_result, ...)
   - Summary plot for time series analysis
+AETHER_plot_cluster_divergence(divergence_result, alpha=0.05,
+                                title="PART Cluster Trajectory Divergence")
+  - Added 2026-11-02. Companion to ARTEMIS_part_trajectory_divergence()
+    (Artemis) -- dot plot ranking clusters by divergence significance, meant
+    to be read before paging through individual per-cluster trajectory plots
+  - x = -log10(BH-adjusted p-value), y = cluster (ordered by significance,
+    most significant at top), point size = divergence_stat (effect size),
+    color = whether p_adj < alpha. Size and color are deliberately separate
+    channels -- see ARTEMIS_part_trajectory_divergence()'s own docs for why a
+    cluster can be highly significant with a small divergence_stat or vice
+    versa; collapsing them into one channel would hide that distinction
 
 aether_wgcna_plots.R:
 ---------------------

@@ -16,6 +16,11 @@
 #' @param output_dir Character. Directory to save results. Created if needed.
 #' @param part_result An \code{artemis_part} object from \code{ARTEMIS_part()}.
 #'   NULL to skip PART export. Default: NULL.
+#' @param part_divergence An \code{artemis_part_divergence} object from
+#'   \code{ARTEMIS_part_trajectory_divergence()}, or NULL to skip. Only used
+#'   alongside \code{part_result} (same PART plots directory/prefix); exports
+#'   the results table and, when \code{save_plots = TRUE}, the
+#'   \code{AETHER_plot_cluster_divergence()} ranking plot. Default: NULL.
 #' @param ts_de One or a list of \code{artemis_ts_de} objects from
 #'   \code{ARTEMIS_timeseries_conditional()} or
 #'   \code{ARTEMIS_timeseries_temporal()}. NULL to skip. Default: NULL.
@@ -90,6 +95,7 @@
 #' @export
 ELEUTHIA_export_timeseries_results <- function(output_dir,
                                                 part_result = NULL,
+                                                part_divergence = NULL,
                                                 ts_de = NULL,
                                                 gene_selection = NULL,
                                                 enrichment = NULL,
@@ -167,6 +173,25 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
     write.csv(summary_df, summary_file, row.names = FALSE)
     files_created <- c(files_created, summary_file)
     if (verbose) cat("[ELEUTHIA]   Cluster summary:", summary_file, "\n")
+
+    # Cluster trajectory divergence (optional -- ARTEMIS_part_trajectory_divergence())
+    if (!is.null(part_divergence)) {
+      if (!inherits(part_divergence, "artemis_part_divergence")) {
+        stop("'part_divergence' must be an artemis_part_divergence object ",
+             "from ARTEMIS_part_trajectory_divergence()")
+      }
+      divergence_file <- file.path(output_dir, paste0(prefix, "_cluster_divergence.csv"))
+      write.csv(part_divergence$results, divergence_file, row.names = FALSE)
+      files_created <- c(files_created, divergence_file)
+      if (verbose) cat("[ELEUTHIA]   Cluster divergence:", divergence_file, "\n")
+
+      if (save_rds) {
+        divergence_rds <- file.path(output_dir, paste0(prefix, "_cluster_divergence.rds"))
+        saveRDS(part_divergence, divergence_rds)
+        files_created <- c(files_created, divergence_rds)
+        if (verbose) cat("[ELEUTHIA]   Cluster divergence RDS:", divergence_rds, "\n")
+      }
+    }
 
     # Parameters
     param_file <- file.path(output_dir, paste0(prefix, "_part_parameters.txt"))
@@ -274,6 +299,21 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
           if (verbose) cat("[ELEUTHIA]     Cluster means overlay\n")
         }, error = function(e) {
           if (verbose) cat("[ELEUTHIA]     Warning: Could not create cluster means plot -", e$message, "\n")
+        })
+      }
+
+      # Cluster trajectory divergence ranking (optional, no sample_info needed --
+      # already baked into part_divergence)
+      if (!is.null(part_divergence)) {
+        tryCatch({
+          p <- AETHER_plot_cluster_divergence(part_divergence)
+          .ts_save_ggplot(p, plot_dir, "cluster_divergence", plot_format,
+                           width = 8, height = max(4, part_result$n_clusters * 0.35 + 2))
+          files_created <- c(files_created,
+                              .ts_plot_paths(plot_dir, "cluster_divergence", plot_format))
+          if (verbose) cat("[ELEUTHIA]     Cluster divergence ranking\n")
+        }, error = function(e) {
+          if (verbose) cat("[ELEUTHIA]     Warning: Could not create cluster divergence plot -", e$message, "\n")
         })
       }
 
@@ -443,6 +483,134 @@ ELEUTHIA_export_timeseries_results <- function(output_dir,
   }
 
   invisible(files_created)
+}
+
+
+#' Build a browsable table of time series DE results across comparisons
+#'
+#' @description Returns a wide data.frame -- one row per feature significant
+#' in at least one comparison, with a \code{log2FoldChange}/\code{padj}
+#' column pair per comparison -- meant to be rendered with
+#' \code{DT::datatable()} directly in a report, so a viewer can search/sort
+#' across every comparison's result for one feature at a glance. Mirrors
+#' CAULDRON's \code{TALARIA_build_de_comparison_table()} (same shape, same
+#' intended \code{DT::datatable()} pairing), adapted to accept ARTEMIS's own
+#' \code{artemis_ts_de} result objects directly instead of requiring the
+#' caller to pre-shape a \code{gene}-column data.frame per comparison.
+#'
+#' @param ts_de One \code{artemis_ts_de} object (from
+#'   \code{ARTEMIS_timeseries_conditional_limma()} or
+#'   \code{ARTEMIS_timeseries_temporal_limma()}), or a list of them -- the
+#'   same input shape accepted by
+#'   \code{\link{ELEUTHIA_export_timeseries_results}}'s \code{ts_de}
+#'   argument. Every comparison across all supplied objects is flattened
+#'   into its own pair of output columns, named \code{"<type>_<comparison>
+#'   log2FC"/"padj"} when more than one \code{artemis_ts_de} object is
+#'   supplied (so e.g. a conditional and a temporal comparison sharing a
+#'   name don't collide), or just \code{"<comparison> log2FC"/"padj"} when
+#'   only one is supplied.
+#' @param id_map Named character vector (\code{feature_id -> gene/protein
+#'   symbol}), or \code{NULL} (default) to leave \code{Feature} as the only
+#'   row identifier. When supplied, an additional \code{Symbol} column is
+#'   added (\code{NA} for any \code{feature_id} absent from \code{id_map}).
+#' @param sig_col Character. Column used to decide which features are
+#'   included (i.e. significant in at least one comparison). Default
+#'   \code{"padj"}. Set to \code{"pvalue"} for pipelines that call
+#'   significance on the raw p-value instead of FDR.
+#' @param sig_thresh Numeric. Cutoff applied to \code{sig_col}. Default
+#'   \code{0.05}.
+#' @param l2fc_thresh Numeric. Absolute log2 fold change cutoff used to
+#'   decide which features are included. Default \code{0.5}.
+#' @param digits Integer. Rounding applied to \code{log2FoldChange} columns
+#'   (\code{padj} columns are kept to 3 significant figures regardless).
+#'   Default \code{3}.
+#'
+#' @return A data.frame with a \code{Feature} column (and a \code{Symbol}
+#'   column if \code{id_map} given), plus a \code{"<comparison> log2FC"} /
+#'   \code{"<comparison> padj"} column pair per comparison.
+#'
+#' @seealso \code{\link{ELEUTHIA_export_timeseries_results}}
+#'
+#' @examples
+#' \dontrun{
+#' tbl <- ELEUTHIA_build_de_comparison_table(list(cond_de, temp_de), id_map = id_map)
+#' DT::datatable(tbl, rownames = FALSE)
+#' }
+#' @export
+ELEUTHIA_build_de_comparison_table <- function(ts_de,
+                                                id_map      = NULL,
+                                                sig_col     = "padj",
+                                                sig_thresh  = 0.05,
+                                                l2fc_thresh = 0.5,
+                                                digits      = 3) {
+
+  if (inherits(ts_de, "artemis_ts_de")) {
+    ts_de_list <- list(ts_de)
+  } else if (is.list(ts_de)) {
+    ts_de_list <- ts_de
+  } else {
+    stop("[ELEUTHIA] 'ts_de' must be an artemis_ts_de object or a list of them.", call. = FALSE)
+  }
+  for (x in ts_de_list) {
+    if (!inherits(x, "artemis_ts_de"))
+      stop("[ELEUTHIA] Every element of 'ts_de' must be an artemis_ts_de object.", call. = FALSE)
+  }
+
+  multi_type <- length(ts_de_list) > 1
+  de_list <- list()
+  for (ts_obj in ts_de_list) {
+    for (exp_name in names(ts_obj$results)) {
+      label <- if (multi_type) paste0(ts_obj$type, "_", exp_name) else exp_name
+      de_list[[label]] <- ts_obj$results[[exp_name]]$results
+    }
+  }
+
+  req_cols <- unique(c("feature_id", "log2FoldChange", "padj", sig_col))
+  for (nm in names(de_list)) {
+    missing_cols <- setdiff(req_cols, names(de_list[[nm]]))
+    if (length(missing_cols) > 0)
+      stop("[ELEUTHIA] Comparison '", nm, "' is missing column(s): ",
+           paste(missing_cols, collapse = ", "), call. = FALSE)
+  }
+
+  comparisons <- names(de_list)
+
+  # Union of features significant in at least one comparison -- every value
+  # in a selected/listed feature's row is still shown for every comparison,
+  # significant there or not.
+  sig_features <- unique(unlist(lapply(de_list, function(df) {
+    mask <- !is.na(df[[sig_col]]) & !is.na(df$log2FoldChange) &
+      df[[sig_col]] < sig_thresh & abs(df$log2FoldChange) >= l2fc_thresh
+    df$feature_id[mask]
+  })))
+  sig_features <- sort(sig_features)
+
+  if (length(sig_features) == 0)
+    stop("[ELEUTHIA] No feature was significant (", sig_col, " < ", sig_thresh,
+         ", |log2FoldChange| >= ", l2fc_thresh, ") in any comparison in 'ts_de'.", call. = FALSE)
+
+  # feature x comparison matrices, NA where a feature wasn't tested in that
+  # comparison.
+  log2fc_mat <- matrix(NA_real_, nrow = length(sig_features), ncol = length(comparisons),
+                        dimnames = list(sig_features, comparisons))
+  padj_mat <- log2fc_mat
+
+  for (nm in comparisons) {
+    df  <- de_list[[nm]]
+    idx <- match(sig_features, df$feature_id)
+    hit <- !is.na(idx)
+    log2fc_mat[hit, nm] <- df$log2FoldChange[idx[hit]]
+    padj_mat[hit, nm]   <- df$padj[idx[hit]]
+  }
+
+  out <- data.frame(Feature = sig_features, stringsAsFactors = FALSE, check.names = FALSE)
+  if (!is.null(id_map)) out$Symbol <- unname(id_map[sig_features])
+  for (nm in comparisons) {
+    out[[paste0(nm, " log2FC")]] <- round(log2fc_mat[, nm], digits)
+    out[[paste0(nm, " padj")]]   <- signif(padj_mat[, nm], 3)
+  }
+  rownames(out) <- NULL
+  out
 }
 
 

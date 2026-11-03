@@ -825,7 +825,7 @@ def load_target_positions(bed_file, region):
                 end = start # In case the file has 2 columns only or the third column is not an integer 
             
             intersection_start = max(region[1] if region is not None and len(region)>1 else 0, start)
-            intersection_end = min(region[2] if region is not None and len(region)>2 else sys.maxint, end)
+            intersection_end = min(region[2] if region is not None and len(region)>2 else sys.maxsize, end)
             
             
             # If the target region does not intersect the currently analyzed region

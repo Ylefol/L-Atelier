@@ -450,7 +450,8 @@ CYAN_run_reditools <- function(
     "Coverage-q20"      = "coverage",
     "Coverage"          = "coverage",
     "MeanQ"             = "mean_quality",
-    "BaseCount[ACGT]"   = "base_count",
+    "BaseCount[ACGT]"    = "base_count",
+    "BaseCount[A,C,G,T]" = "base_count",
     "AllSubs"           = "all_subs",
     "Frequency"         = "frequency"
   )
@@ -490,7 +491,7 @@ CYAN_run_reditools <- function(
     # (tstrsplit is vectorised -- this is the fix for the memory blowup, see
     # function doc above)
     if ("base_count" %in% colnames(dt)) {
-      bc    <- gsub("[\\[\\] ]", "", dt$base_count)
+      bc    <- gsub("[][ ]", "", dt$base_count)
       parts <- data.table::tstrsplit(bc, ",", fixed = TRUE)
       dt[, count_A := as.integer(parts[[1]])]
       dt[, count_C := as.integer(parts[[2]])]
