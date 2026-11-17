@@ -1187,7 +1187,12 @@ DEMETER_generate_colors <- function(n, palette = "Dark 3", max_brightness = 200)
     pool <- c(pool, rep(pool, length.out = n - length(pool)))
   }
 
-  pool[seq_len(n)]
+  # Sample evenly across the filtered pool rather than taking the first n --
+  # the pool is a hue-ordered sequence spanning the full color wheel, so
+  # pool[seq_len(n)] for small n (relative to pool size) returns colors that
+  # are hue-adjacent and visually near-identical instead of spread across
+  # distinct hues.
+  pool[round(seq(1, length(pool), length.out = n))]
 }
 
 

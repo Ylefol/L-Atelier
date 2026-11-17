@@ -14,6 +14,7 @@ CYAN_run_targeted_pileup(
   min_base_quality = 30L,
   min_read_quality = 20L,
   min_read_length = 30L,
+  processes = 1L,
   require_dup_marked = TRUE,
   keep_tmp = FALSE,
   save_rds = TRUE,
@@ -48,6 +49,17 @@ matching \code{\link{CYAN_run_reditools}}'s native default).}
 
 \item{min_read_length}{Integer. Minimum read length; shorter reads are
 discarded (default 30).}
+
+\item{processes}{Integer. Number of worker processes to split the
+candidate sites across (default 1, sequential). Nearby candidate sites
+(within 1000bp of each other) are first merged into shared pileup
+windows regardless of \code{processes} -- this alone was ~13x fewer
+pileup() calls on this project's own germline candidate list, since
+candidate sites cluster tightly (median gap ~70bp). \code{processes}
+then splits those windows across independent worker processes, each
+with its own BAM/reference file handle. Safe to set close to the
+number of free cores: workers never share reads across window
+boundaries, and the BAM is only ever read, never written.}
 
 \item{require_dup_marked}{Logical. If \code{TRUE} (default), hard-stops
 before running unless the BAM has at least one read flagged as a

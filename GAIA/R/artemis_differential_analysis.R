@@ -207,6 +207,26 @@ ARTEMIS_normalize_counts <- function(counts,
       stop("batch_col '", batch_col, "' not found in targets")
     }
     col_data$batch <- factor(targets[[batch_col]])
+  }
+
+  # A group_col with a single level (e.g. no real grouping, just normalizing
+  # a whole cohort for something like CIBERSORT that doesn't need a DEA
+  # design) makes DESeqDataSetFromMatrix() error on design = ~condition
+  # ("design has a single variable, with all samples having the same
+  # value"). Size factor estimation (median-of-ratios) does not depend on
+  # the design formula at all, so fall back to design = ~1 in that case --
+  # norm_counts is identical either way; only ARTEMIS_differential_counts()
+  # (which needs a real design) is affected, and this object should not be
+  # passed to it when group_col was degenerate.
+  if (nlevels(col_data$condition) < 2) {
+    if (verbose) {
+      cat("    Note: group_col '", group_col, "' has a single level -- ",
+          "using design = ~1 (size factors are design-independent, so ",
+          "norm_counts is unaffected; do not use this object for ",
+          "ARTEMIS_differential_counts()).\n", sep = "")
+    }
+    design_formula <- ~1
+  } else if (!is.null(batch_col)) {
     design_formula <- ~ batch + condition
   } else {
     design_formula <- ~ condition

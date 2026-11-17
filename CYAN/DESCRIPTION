@@ -12,10 +12,15 @@ Imports:
     basilisk,
     reticulate,
     methods,
-    data.table
+    data.table,
+    GenomicRanges,
+    IRanges,
+    BiocGenerics,
+    Biostrings,
+    Rsamtools,
+    rtracklayer
 Suggests:
     VariantAnnotation,
-    GenomicRanges,
     BiocManager
 SystemRequirements: Python (>= 3.8); GATK >= 4.0 (for MuTect2 functions)
 License: MIT + file LICENSE

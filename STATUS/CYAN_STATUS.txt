@@ -1,7 +1,7 @@
 ================================================================================
 CYAN STATUS - Niche Genomic Analyses (RNA editing, somatic/germline variants)
 ================================================================================
-Last Updated: 2026-11-03
+Last Updated: 2026-11-13
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -100,7 +100,8 @@ cyan_targeted_pileup.R:
 CYAN_run_targeted_pileup(bam, reference=NULL, bed_file, output_dir,
                          work_dir=tempdir(), sample_name=NULL,
                          min_base_quality=30L, min_read_quality=20L,
-                         min_read_length=30L, require_dup_marked=TRUE,
+                         min_read_length=30L, processes=1L,
+                         require_dup_marked=TRUE,
                          keep_tmp=FALSE, save_rds=TRUE, verbose=TRUE,
                          debug=FALSE)
   - ADDED 2026-11-03. Computes coverage + per-base (A/C/G/T) read counts at
@@ -112,6 +113,51 @@ CYAN_run_targeted_pileup(bam, reference=NULL, bed_file, output_dir,
     output, not the scan range (see cyan_reditools.R notes above) --
     confirmed to hang for hours on a 150-site test that this function
     completes in ~30 seconds on the same BAM/sites
+  - FIXED 2026-11-04: the 150-site benchmark above did not reflect real
+    candidate-list scale. A live production run (2,185,297 candidate sites,
+    one sample) measured ~33 sites/sec (~18h for that one sample, 16
+    samples in the batch -- days, not hours) -- each site was still paying
+    one full pysam.pileup() call's htslib-seek + BGZF-decompression +
+    object-construction overhead, even though the underlying base-level
+    work is trivial. Real candidate lists cluster tightly (median gap ~70bp
+    on this project's own S327 candidates, chr1), so
+    inst/python/targeted_pileup.py now (a) merges sites within
+    --merge-gap bp (default 1000) of each other into ONE pileup() call
+    per window instead of one per site -- ~13x fewer calls on that same
+    chr1 list -- and (b) splits windows across `processes` worker
+    processes (new -p/--processes CLI flag, new `processes` R param,
+    default 1L/sequential, forwarded transparently through
+    CYAN_flag_germline_variants()'s/..._batch()'s existing `...`). Measured
+    on a reconstructed full-chr1-scale candidate set (163,625 real-spaced
+    sites) against the SAME BAM: old algorithm ~33 sites/sec -> new
+    single-process ~324 sites/sec (windowing alone, ~10x) -> new
+    10-process ~1518 sites/sec (~46x total). Output verified byte-for-byte
+    identical to the pre-fix algorithm on a real 23,746-site subset, and
+    identical across process counts (p=1 vs p=10) on the 163,625-site set
+    -- windowing/parallelism changes call volume only, not which reads or
+    bases are counted per site, or the result. Row order in the output
+    file is no longer guaranteed to match bed_file's input order (grouped
+    by merged window instead) -- .cyan_parse_targeted_pileup_output() does
+    not depend on row order, so this is not a breaking change.
+  - FIXED 2026-11-04 (second issue, same day): the first real multiprocess
+    production run (S327, ~97% through) crashed with exit code 1. Root
+    cause: this project's liftOver'd candidate BED labels the mitochondrial
+    contig "M", but the BAM/reference FASTA both use "MT" -- the existing
+    chr-prefix-only fallback in open_pileup()/ref_base_at() couldn't
+    resolve that, so pysam.pileup() raised an uncaught ValueError in
+    whichever worker hit the first mitochondrial window. That exception
+    propagating out of multiprocessing.Pool.map() made the Pool's `with`
+    block terminate every OTHER worker immediately too (Pool.__exit__ calls
+    terminate()) -- which is why every chunk was sitting at ~97% done
+    simultaneously rather than one finishing while the rest continued.
+    Fixed by replacing the single hardcoded fallback with
+    chrom_candidates(chrom) -- tries the name as given, its chr-prefix-
+    swapped form, and (new) the M/MT synonym of both, in order, before
+    giving up. Applied to both open_pileup() and ref_base_at() for
+    consistency. Verified against the real BAM: M-chromosome sites that
+    previously crashed now resolve correctly (e.g. position M:5001 ->
+    6300x coverage, matching mitochondrial DNA's typically extreme
+    sequencing depth) with exit code 0.
   - Read/base-level filtering ported from REDItools2's own
     filter_read()/filter_base() (unmapped/QC-fail/secondary/supplementary/
     duplicate exclusion, mapping quality, read length, proper-pair flag
@@ -153,7 +199,7 @@ CYAN_flag_germline_variants(rna_result, dna_bam, reference, output_dir,
     RNA-seq BAM, upstream of this function) is unaffected by this change.
   - rna_result and dna_bam MUST already share one coordinate system
     (contig naming AND genome build) -- this function does no liftover or
-    build reconciliation itself; see rna_editing_germline.R (Mouse_Spleen_bulk
+    build reconciliation itself; see rna_editing_germline.R (Mouse_A3B
     project) for a worked liftover-based wrapper when RNA and WGS data are
     on different builds
   - Per candidate: primary alt base (highest RNA-read-supported substitution
@@ -206,6 +252,115 @@ CYAN_resolve_gatk(gatk_path=NULL)
 .cyan_ensure_dir(path, label="directory")  [internal]
 .cyan_sample_name(bam, sample_name=NULL)  [internal]
 
+cyan_motif_editing.R:
+----------------------
+CYAN_scan_motif_editing(raw_reditools_path, reference, gtf, motif=NULL,
+                         motif_position=NULL, alt_base=NULL, output_dir,
+                         work_dir=tempdir(), sample_name=NULL,
+                         control_motif=NULL, min_coverage=10L, region=NULL,
+                         bed_file=NULL, chunk_size=10e6, save_rds=TRUE,
+                         verbose=TRUE)
+  - Motif-conditioned RNA-editing background/enrichment (e.g. APOBEC
+    TCW/UCC). Builds a genome-wide catalog of every exonic occurrence of
+    `motif` (transcript-oriented, via `gtf`'s exon strand -- deliberately
+    NOT REDItools2's own per-row strand call, to stay independent of that
+    project's earlier strand_mode=1/2 inversion bug), then streams a
+    sample's RAW REDItools2 checkpoint (`{sample}_reditools.txt`, requires
+    strict=FALSE -- NOT the parsed cyan_editing_result/RDS, which is always
+    substitution-rows-only regardless of strict) to determine per-position
+    coverage and (reusing the existing all_subs call, not a new threshold)
+    edited status, for both the target motif and a control context (default:
+    same base, any other flanking context). Returns site-level + per-group
+    summary tables and an enrichment_ratio attribute.
+  - motif/motif_position/alt_base have no default -- all required.
+  - Two independent strand-correction steps per matched row: (1) undo
+    REDItools2's own per-row 0/1/2 strand call to reach genomic (+); strand
+    2 ("ambiguous") positions keep their coverage but get edited=NA; (2)
+    apply the GTF strand to reach transcript orientation. Verified
+    2026-11-05 against the real GRCm39 FASTA (strand 1 rows report
+    Reference/AllSubs as-is on the genomic (+) strand, strand 0 rows report
+    them complemented) and against a hand-built synthetic +/- strand
+    fixture covering both correction steps, the target/control exclusion
+    logic, and the zero-coverage ("never seen in the raw file") path.
+  - Performance (benchmarked 2026-11-05 on a real 20M-line/1.1GB slice of
+    this project's S327_reditools.txt, then two fixes applied): per-chunk
+    parsing originally round-tripped `readLines()` lines through
+    `paste(collapse="\n")` into `fread(text=<string>)` (mirroring
+    .cyan_parse_reditools_output()'s existing pattern) -- fread's `text=`
+    actually accepts the character vector directly, so dropping the paste
+    cut per-chunk parse time from ~33s to ~8s. Separately, the sites table
+    (can be catalog-sized -- every control position, covered or not, e.g.
+    ~29M rows for TCC genome-wide) was written with `utils::write.csv()`
+    (~49s at that scale) -- switched to `data.table::fwrite()` (~2.8s).
+    Net result at real scale: ~6.5 min one-time catalog build (paid once
+    by CYAN_scan_motif_editing_batch(), NOT per sample) + ~93 sec/GB
+    per-sample streaming (dominated by readLines(), not further optimized
+    -- readr::read_lines() looked faster in isolation but needs a binary
+    connection, not pursued since it would mean restructuring the
+    header-line handling and isn't a CYAN dependency yet).
+  - Catalog excludes exon sequence annotated on both strands (overlapping
+    antisense genes) entirely -- motif direction can't be resolved there.
+  - ADDED 2026-11-13: `sites` now also carries `alt_count` (reads
+    supporting `alt_base` at `motif_position`, same two-step strand
+    correction as Reference/AllSubs above -- a strand flip relabels which
+    base a count belongs to, A<->T/C<->G, applied to REDItools2's own raw
+    `BaseCount[A,C,G,T]` field) and `frequency` (`alt_count / coverage`).
+    Motivation (Mouse_A3B APOBEC analysis): `edited` is a presence/absence
+    call gated only by `CYAN_run_reditools()`'s `min_edits` (1 supporting
+    read is enough at that function's default of 0) -- confirmed on 4 real
+    samples to scale almost 1:1 with mean coverage (e.g. target-motif edit
+    RATE 1.79x higher in a sample with 1.66x the coverage of another, no
+    consistent relationship to genotype), i.e. largely a depth artifact,
+    not biology. `alt_count`/`frequency` let a caller apply their own
+    depth-robust minimum-read-support/frequency threshold downstream
+    instead, without a second raw-checkpoint streaming pass. `edited`
+    itself is unchanged (still the project's one presence/absence
+    definition) -- this is an addition, not a replacement. NA under the
+    same conditions as `edited` (strand 2, or reference mismatch after
+    correction), or when coverage is 0.
+  - Fixed 2026-11-09: the per-sample result list used to build via
+    `as.data.frame(sites)`, which copies the (potentially catalog-sized)
+    `sites` data.table rather than converting it in place -- confirmed to
+    OOM-kill the process on a real run (Mouse_A3B, 17-sample batch,
+    killed ~60GB RSS on the last/largest sample, right between the
+    fwrite() calls and saveRDS()). Now uses `data.table::setDF(sites)`
+    (in-place conversion, no second copy).
+  - Second, deeper fix the same day: that first fix only removed the
+    per-sample transient doubling -- the real driver of the original crash
+    was CYAN_scan_motif_editing_batch() itself accumulating every
+    completed sample's full result (sites table included) into one
+    in-memory list across the whole batch, so memory grew with every
+    sample and the last one paid for all the ones before it. Confirmed by
+    reproducing the same ~55-60GB RSS pattern (static free RAM, matches
+    ~17 x one sample's sites-table size) when manually re-combining 17
+    already-saved per-sample .rds files the same way. New `keep_sites`
+    arg on CYAN_scan_motif_editing_batch() (default FALSE): drops each
+    sample's `sites` from the returned list right after that sample's own
+    on-disk outputs are written, bounding memory to ~one sample's sites
+    table regardless of batch size. Full per-sample `sites` remain on disk
+    (`_motif_sites.csv`, and `_motif_result.rds` if save_rds=TRUE) either
+    way -- `keep_sites=TRUE` opts back into the old full-detail-in-memory
+    behavior for small batches that want it.
+
+CYAN_scan_motif_editing_batch(raw_reditools_paths, reference, gtf, motif=NULL,
+                               motif_position=NULL, alt_base=NULL, output_dir,
+                               control_motif=NULL, region=NULL, bed_file=NULL,
+                               keep_sites=FALSE, verbose=TRUE, ...)
+  - Builds the catalog once (sequence-only, doesn't depend on the sample)
+    and reuses it across every sample. Per-sample failures warn and record
+    NULL, remaining samples continue (same tolerance pattern as
+    CYAN_run_reditools_batch()).
+
+.cyan_build_motif_catalog(), .cyan_scan_motif_positions(),
+.cyan_region_to_granges(), .cyan_complement_base(), .cyan_complement_subs(),
+.cyan_validate_motif(), .cyan_validate_motif_editing_args(),
+.cyan_scan_motif_editing_core()  [internal]
+  - Catalog build is a pure sequence/annotation operation (Biostrings
+    matchPattern per chromosome per strand, ~seconds even on full mouse
+    chromosomes) -- the batch wrapper's reuse-once design is about not
+    repeating that, not about the raw-file streaming cost, which still
+    happens per sample.
+
 basilisk.R:
 ------------
 .cyan_reditools_env  [internal, basilisk::BasiliskEnvironment]
@@ -228,7 +383,7 @@ PLANNED / TODO
   or equivalent wrapper implemented yet
 - omopolymeric_file / splicing_file generation for this project's genome
   builds (recommended by REDItools2 to cut false positives, currently left
-  NULL everywhere they're used -- see Mouse_Spleen_bulk's
+  NULL everywhere they're used -- see Mouse_A3B's
   rna_editing_reditools.R)
 
 ================================================================================
@@ -253,8 +408,14 @@ DEPENDENCIES / NOTES
   CYAN_run_targeted_pileup(), CYAN_flag_germline_variants()); cohort
   looping is the batch wrappers' job, not baked into the core functions
 - No liftover/genome-build reconciliation inside CYAN itself -- when RNA
-  and matched WGS data are on different builds (e.g. Mouse_Spleen_bulk:
+  and matched WGS data are on different builds (e.g. Mouse_A3B:
   RNA on mm39, WGS on mm10), that reconciliation (liftOver + contig-name
   mapping) is a project-script-level concern, not something
   CYAN_flag_germline_variants() handles
+- GenomicRanges, IRanges, BiocGenerics, Biostrings, Rsamtools, rtracklayer
+  (Bioconductor, Imports as of 2026-11-05, added for
+  cyan_motif_editing.R): all called fully `pkg::fun()`-qualified
+  throughout that file -- no new NAMESPACE importFrom entries were needed,
+  only the DESCRIPTION Imports additions (GenomicRanges moved there from
+  Suggests)
 ================================================================================

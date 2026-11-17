@@ -1400,3 +1400,379 @@ AETHER_create_circos <- function(circos_data,
 
   return(colors)
 }
+
+
+#' Circos Plot Comparing Gene Groups (e.g. Transcription Factors, GO Terms)
+#'
+#' @description Creates a categorical circos plot comparing genes across
+#' groups -- e.g. which transcription factors target which genes, or which
+#' GO terms a gene belongs to. Gene labels form the outer ring; one fixed
+#' ring per group shows, for each gene, whether it belongs to that group
+#' (colored cell) or not (blank); a value ring shows a continuous value
+#' (e.g. log2FoldChange) per gene; and an inner ring shows a dendrogram
+#' clustering genes by that value.
+#'
+#' @param main_df Data frame with columns \code{gene}, \code{group}, and
+#'   \code{value}. One row per gene-group membership -- a gene belonging to
+#'   multiple groups should appear in multiple rows (same gene, same value,
+#'   different group).
+#' @param group_cols Named character vector of colors, one per unique value
+#'   in \code{main_df$group}. If NULL (default), colors are auto-assigned via
+#'   \code{DEMETER_generate_colors()}.
+#' @param start_gap_deg Numeric. Degrees of empty gap at the plot's start,
+#'   used to separate the first and last genes (default = 90).
+#' @param start_degree Numeric. Starting angle in degrees for the first
+#'   gene (default = 90, i.e. 12 o'clock -- with the default
+#'   \code{start_gap_deg = 90}, the empty gap occupies 12 o'clock through
+#'   9 o'clock, top-left). In circlize's standard convention (0=3 o'clock,
+#'   90=12 o'clock, 180=9 o'clock, 270=6 o'clock, increasing
+#'   counterclockwise), the gap spans
+#'   \code{[start_degree, start_degree + start_gap_deg]}.
+#' @param t.height_gene_names Numeric. Height of the gene-label track, as a
+#'   fraction of total radius (default = 0.05).
+#' @param t.height_groups Numeric. Height of EACH group's ring (one ring per
+#'   unique value in \code{main_df$group}; default = 0.05 per ring, for
+#'   roughly square cells -- lower this for datasets with many groups).
+#' @param t.height_value Numeric. Height of the value track (default = 0.1,
+#'   deliberately taller than \code{t.height_groups} so it stands out from
+#'   the group rings).
+#' @param t.height_dendro Numeric. Height of the dendrogram track (default = 0.3).
+#' @param output Character string. Output file path; extension (".png" or
+#'   ".pdf") determines format. If NULL (default), the plot is drawn to the
+#'   current device but not saved.
+#' @param width Numeric. Output width in inches (default = 10).
+#' @param height Numeric. Output height in inches (default = 10).
+#' @param res Numeric. Resolution for PNG output in DPI (default = 300).
+#' @param show_legend Logical. Draw a standard filled-box-and-text legend
+#'   for the group colors (default = TRUE). Set to FALSE to omit it --
+#'   e.g. to draw a custom one instead, or none.
+#' @param legend_position Character. One of "topleft" (default),
+#'   "topright", "bottomleft", "bottomright", or "top" -- position of the
+#'   combined group-color/log2FC legend relative to the whole plot.
+#' @param verbose Logical. Print progress messages (default = TRUE).
+#'
+#' @return Invisibly returns NULL. Side effect is creating the plot.
+#'
+#' @details
+#' This is a categorical circos layout, not a genomic one (see
+#' \code{AETHER_create_circos()} for that) -- there is no chromosome/
+#' ideogram track. All genes share a single circos sector spanning
+#' \code{x = 0..n_genes}, ordered by hierarchical clustering on
+#' \code{value} so genes with similar values sit close together; gene
+#' \code{i} occupies \code{x} in \code{[i - 1, i]} in every ring.
+#'
+#' Two prototype functions existed for this plot: \code{YLs_circos_group_comp()}
+#' (one fixed ring per group, blank cells where a gene isn't a member -- this
+#' is the one that actually matches the intended design and reference output)
+#' and a later \code{YLs_circos_group_comp_V2()} (stretches whichever groups a
+#' gene belongs to across one shared ring instead). This function follows the
+#' first design, fixing bugs found in both:
+#' \enumerate{
+#'   \item (V2) Silently read a global variable named \code{df} instead of
+#'     its own \code{main_df} parameter -- it only worked because the
+#'     calling script happened to also name its data frame \code{df}. This
+#'     function uses \code{main_df} throughout.
+#'   \item (both) Gene deduplication used \code{unique()} on a named value
+#'     vector, which compares by VALUE, not NAME -- two different genes
+#'     that happen to share the exact same value would have had one
+#'     silently dropped. This function dedups with
+#'     \code{!duplicated(names(gene_value))} instead.
+#'   \item (both) Documented as unfixable in both prototypes: the
+#'     dendrogram ring never aligned with the gene rings (V1's own docs:
+#'     "cannot be corrected... user will have to manually rotate the
+#'     dendrogram"). Root cause: \code{circlize::circos.dendrogram()}
+#'     positions leaf \code{i} at local x-coordinate \code{i - 0.5} within
+#'     ONE sector spanning \code{x = 0..n_genes} -- it is not designed to
+#'     span many separate per-gene sectors (each with its own \code{xlim},
+#'     which is what both prototypes used). Using one shared sector instead
+#'     (as this function does) makes every ring use that same convention,
+#'     so they align by construction. A single sector's x-axis also runs in
+#'     the opposite rotational direction from multiple sectors by default
+#'     (confirmed directly) -- \code{xaxis.clock.wise = FALSE} restores the
+#'     original rotational direction.
+#'   \item (V1) Group row labels were placed inline, next to each ring --
+#'     V1 itself documents this as not lining up well, and an inline label
+#'     anchored at a fixed arc-length gap from its own ring still varies in
+#'     distance from ring to ring unless that gap is corrected for each
+#'     ring's own radius (arc length = angle * radius, and radius shrinks
+#'     ring by ring). This function instead uses a standard filled-box
+#'     legend (see \code{show_legend}/\code{legend_position}) -- simpler,
+#'     and sidesteps the per-ring alignment problem entirely.
+#' }
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' df <- data.frame(
+#'   gene  = c("GENE1", "GENE1", "GENE2", "GENE3"),
+#'   group = c("TF_A", "TF_B", "TF_A", "TF_B"),
+#'   value = c(1.2, 1.2, -0.8, 2.1)
+#' )
+#' AETHER_circos_group_comparison(df, output = "circos.png")
+#' }
+AETHER_circos_group_comparison <- function(main_df,
+                                            group_cols = NULL,
+                                            start_gap_deg = 90,
+                                            start_degree = 90,
+                                            t.height_gene_names = 0.05,
+                                            t.height_groups = 0.05,
+                                            t.height_value = 0.1,
+                                            t.height_dendro = 0.3,
+                                            output = NULL,
+                                            width = 10,
+                                            height = 10,
+                                            res = 300,
+                                            show_legend = TRUE,
+                                            legend_position = "topleft",
+                                            verbose = TRUE) {
+
+  if (!requireNamespace("circlize", quietly = TRUE)) {
+    stop("Package 'circlize' is required for circos plots. ",
+         "Install with: install.packages('circlize')")
+  }
+
+  required_cols <- c("gene", "group", "value")
+  missing_cols <- setdiff(required_cols, colnames(main_df))
+  if (length(missing_cols) > 0) {
+    stop("main_df missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+
+  groups <- sort(unique(main_df$group))
+
+  if (verbose) {
+    cat("[AETHER] Creating group-comparison circos plot\n")
+    cat("    Genes:", length(unique(main_df$gene)), "\n")
+    cat("    Groups:", paste(groups, collapse = ", "), "\n")
+  }
+
+  # One value per gene (not per gene-group row) -- dedup by NAME, not
+  # value. unique() on a named vector compares VALUES, which would wrongly
+  # drop a distinct gene that happens to share another gene's exact value.
+  gene_value <- main_df$value
+  names(gene_value) <- main_df$gene
+  gene_value <- gene_value[!duplicated(names(gene_value))]
+
+  # Assign group colors
+  if (is.null(group_cols)) {
+    group_cols <- setNames(DEMETER_generate_colors(length(groups)), groups)
+    if (verbose) cat("    Group colors: auto-assigned via DEMETER_generate_colors()\n")
+  } else {
+    missing_group_cols <- setdiff(groups, names(group_cols))
+    if (length(missing_group_cols) > 0) {
+      stop("group_cols missing colors for: ", paste(missing_group_cols, collapse = ", "))
+    }
+  }
+
+  # Cluster genes by value; use the dendrogram leaf order as gene order
+  gene_dist  <- stats::dist(gene_value)
+  gene_clust <- stats::hclust(gene_dist)
+  gene_dend  <- stats::as.dendrogram(gene_clust)
+  genes      <- labels(gene_dend)
+  n_genes    <- length(genes)
+
+  gene_value <- gene_value[genes]
+
+  # Map each gene to the group(s) it belongs to
+  gene_to_groups <- lapply(genes, function(g) {
+    unique(main_df$group[main_df$gene == g])
+  })
+  names(gene_to_groups) <- genes
+
+  # ---------------------------------------------------------------------------
+  # Output device
+  # ---------------------------------------------------------------------------
+  if (!is.null(output)) {
+    ext <- tolower(tools::file_ext(output))
+    if (ext == "png") {
+      grDevices::png(output, width = width, height = height, units = "in", res = res)
+    } else if (ext == "pdf") {
+      grDevices::pdf(output, width = width, height = height)
+    } else {
+      warning("Unknown file extension '", ext, "'. Defaulting to PNG.")
+      grDevices::png(output, width = width, height = height, units = "in", res = res)
+    }
+    on.exit(grDevices::dev.off())
+  }
+
+  # ---------------------------------------------------------------------------
+  # Circos layout: a SINGLE sector spanning the whole circle (minus
+  # start_gap_deg), xlim = c(0, n_genes) -- gene i occupies x in [i-1, i].
+  # This is the coordinate convention circlize::circos.dendrogram() itself
+  # uses internally (leaf i at x = i - 0.5), so every track below positions
+  # gene i the same way and the rings align with the dendrogram by
+  # construction, instead of fighting a per-gene-sector layout that
+  # dendrogram drawing was never designed for (see @details above).
+  # ---------------------------------------------------------------------------
+  # xaxis.clock.wise = FALSE -- a single sector's x-axis otherwise runs in
+  # the OPPOSITE rotational direction from how circlize orders multiple
+  # sectors by default (confirmed directly: a 4-sector A/B/C/D layout and a
+  # single sector with A/B/C/D placed at x = 0.5/1.5/2.5/3.5 render as
+  # mirror images of each other under default settings). This flag matches
+  # the direction gene order appeared in the original per-gene-sector
+  # version.
+  circlize::circos.clear()
+  circlize::circos.par(
+    cell.padding = c(0, 0, 0, 0),
+    track.margin = c(0.001, 0.001),
+    start.degree = start_degree,
+    gap.degree   = start_gap_deg,
+    xaxis.clock.wise = FALSE,
+    points.overflow.warning = FALSE
+  )
+  circlize::circos.initialize(factors = "genes", xlim = c(0, n_genes))
+
+  # --- Track 1: gene name labels ---
+  # niceFacing = TRUE lets circlize determine per-point whether text needs
+  # flipping to stay readable, rather than manually computing each point's
+  # angle (which the per-sector layout needed; a single sector's cell angle
+  # no longer corresponds to any one gene's actual position).
+  circlize::circos.trackPlotRegion(
+    track.index = 1, ylim = c(0, 1), bg.border = NA,
+    track.height = t.height_gene_names,
+    panel.fun = function(x, y) {
+      for (i in seq_len(n_genes)) {
+        circlize::circos.text(
+          x = i - 0.5, y = 0, labels = genes[i],
+          facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5), cex = 1
+        )
+      }
+    }
+  )
+
+  # --- Tracks 2..(1 + n_groups): one fixed ring per group ---
+  # Ported from YLs_circos_group_comp() (V1, no "_V2" suffix) rather than
+  # the V2 function the calling script actually sourced -- V1 is what
+  # produced the reference plot: one ring per group, a cell colored only
+  # when that gene belongs to that specific group (otherwise left blank),
+  # not V2's "stretch whichever groups a gene has to fill the whole ring"
+  # approach (which was actually faithfully ported/fixed in the prior
+  # iteration of this function, but does not match the reference image or,
+  # it turns out, the intended design).
+  n_groups <- length(groups)
+
+  for (gi in seq_along(groups)) {
+    this_group <- groups[gi]
+    track_idx  <- 1 + gi
+
+    circlize::circos.trackPlotRegion(
+      track.index = track_idx, ylim = c(0, 1), bg.border = NA,
+      track.height = t.height_groups,
+      panel.fun = function(x, y) {
+        for (i in seq_len(n_genes)) {
+          fill_col <- if (this_group %in% gene_to_groups[[genes[i]]]) group_cols[this_group] else NA
+          circlize::circos.rect(
+            xleft = i - 1, ybottom = 0, xright = i, ytop = 1,
+            col = fill_col, border = "grey30", lwd = 0.3
+          )
+        }
+      }
+    )
+  }
+
+  # --- Track (2 + n_groups): value heat (blue-white-red diverging) ---
+  value_track_idx <- 2 + n_groups
+  min_value <- min(gene_value)
+  max_value <- max(gene_value)
+  col_fun <- circlize::colorRamp2(
+    breaks = c(min_value, 0, max_value),
+    colors = c("blue", "white", "red")
+  )
+
+  circlize::circos.trackPlotRegion(
+    track.index = value_track_idx, ylim = c(0, 1), bg.border = NA,
+    track.height = t.height_value,
+    panel.fun = function(x, y) {
+      for (i in seq_len(n_genes)) {
+        circlize::circos.rect(
+          xleft = i - 1, ybottom = 0, xright = i, ytop = 1,
+          col = col_fun(gene_value[genes[i]]), border = "grey30"
+        )
+      }
+    }
+  )
+
+  # --- Track (3 + n_groups): dendrogram ---
+  dendro_track_idx <- 3 + n_groups
+  max_dist <- max(gene_dist)
+  circlize::circos.trackPlotRegion(
+    track.index = dendro_track_idx, ylim = c(0, max_dist), bg.border = NA,
+    track.height = t.height_dendro,
+    panel.fun = function(x, y) {}
+  )
+  circlize::circos.dendrogram(
+    gene_dend, max_height = NULL, facing = "outside",
+    sector.index = "genes", track.index = dendro_track_idx
+  )
+
+  circlize::circos.clear()
+
+  # Legend: a standard box-and-text swatch per group, stacked above a
+  # log2FC color-bar legend for the value ring -- in place of the inline
+  # per-ring row labels this function used before. Toggle off with
+  # show_legend = FALSE if a caller wants to draw their own, or none.
+  # ComplexHeatmap::Legend()/packLegend() (same pattern already used in
+  # AETHER_plot_part_wgcna_circos()) rather than graphics::legend(), since
+  # the latter has no continuous color-bar legend type -- this way both
+  # legends stack as one unit via grid, independent of circlize's own
+  # (unrelated) base-plot coordinate system.
+  if (show_legend) {
+    group_legend <- ComplexHeatmap::Legend(
+      labels = names(group_cols), legend_gp = grid::gpar(fill = unname(group_cols)),
+      title = "", border = NA
+    )
+    value_legend <- ComplexHeatmap::Legend(
+      col_fun = col_fun, title = "log2FC", direction = "vertical",
+      at = pretty(c(min_value, max_value))
+    )
+    packed_legend <- ComplexHeatmap::packLegend(
+      group_legend, value_legend, direction = "horizontal", gap = grid::unit(4, "mm")
+    )
+    legend_grid_pos <- .AETHER_legend_position_to_grid(legend_position)
+    ComplexHeatmap::draw(
+      packed_legend, x = legend_grid_pos$x, y = legend_grid_pos$y,
+      just = legend_grid_pos$just
+    )
+  }
+
+  if (verbose) {
+    if (!is.null(output)) {
+      cat("[AETHER] Plot saved to:", output, "\n")
+    } else {
+      cat("[AETHER] Plot displayed\n")
+    }
+  }
+
+  invisible(NULL)
+}
+
+
+#' Convert a Legend Position Keyword to Grid Coordinates (Internal)
+#'
+#' @description Internal helper mapping a small set of position keywords
+#' (same vocabulary as the common \code{graphics::legend()} corner/edge
+#' keywords) to the \code{x}/\code{y}/\code{just} arguments
+#' \code{ComplexHeatmap::draw()} expects, for positioning a legend grob
+#' relative to the whole device (\code{"npc"} units) rather than inside
+#' any particular plot region.
+#'
+#' @param pos Character. One of "topleft", "topright", "bottomleft",
+#'   "bottomright", or "top".
+#'
+#' @return A list with \code{x}, \code{y} (\code{grid::unit} objects) and
+#'   \code{just} (length-2 character vector).
+#'
+#' @keywords internal
+#'
+.AETHER_legend_position_to_grid <- function(pos) {
+  margin <- grid::unit(2, "mm")
+  switch(
+    pos,
+    topleft     = list(x = margin, y = grid::unit(1, "npc") - margin, just = c("left", "top")),
+    topright    = list(x = grid::unit(1, "npc") - margin, y = grid::unit(1, "npc") - margin, just = c("right", "top")),
+    bottomleft  = list(x = margin, y = margin, just = c("left", "bottom")),
+    bottomright = list(x = grid::unit(1, "npc") - margin, y = margin, just = c("right", "bottom")),
+    top         = list(x = grid::unit(0.5, "npc"), y = grid::unit(1, "npc") - margin, just = c("center", "top")),
+    stop("legend_position must be one of: topleft, topright, bottomleft, bottomright, top")
+  )
+}
