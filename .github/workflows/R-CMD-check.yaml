@@ -1,0 +1,48 @@
+# R CMD check (build, documentation, examples, tests) per package.
+# Pilot: HORIZON only, Linux only. Widen the matrix once this is green.
+name: R-CMD-check
+
+on:
+  push:
+    branches: [master, dev]   # NOTE: 'dev' is temporary while CI is being set up. Remove before the final merge to master.
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ${{ matrix.config.os }}
+    name: check ${{ matrix.package }} (${{ matrix.config.os }}, R ${{ matrix.config.r }})
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [HORIZON]
+        config:
+          - {os: ubuntu-latest, r: release}
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.config.r }}
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: ${{ matrix.package }}
+          extra-packages: any::rcmdcheck
+          needs: check
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          working-directory: ${{ matrix.package }}
+          # While getting started only hard errors fail the job; warnings and notes
+          # are still printed in the log. Tighten to "warning" once the list is clean.
+          error-on: '"error"'
+          upload-snapshots: true
