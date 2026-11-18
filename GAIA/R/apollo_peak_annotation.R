@@ -73,6 +73,12 @@ APOLLO_make_txdb <- function(gtf_path,
          "  BiocManager::install('GenomicFeatures')")
   }
 
+  # makeTxDbFromGFF() lives in txdbmaker (Bioconductor >= 3.19)
+  if (!requireNamespace("txdbmaker", quietly = TRUE)) {
+    stop("Package 'txdbmaker' is required. Install from Bioconductor:\n",
+         "  BiocManager::install('txdbmaker')")
+  }
+
   # Validate GTF path
   if (!file.exists(gtf_path)) {
     stop("GTF file not found: ", gtf_path)
@@ -184,7 +190,7 @@ APOLLO_make_txdb <- function(gtf_path,
   is_gff <- grepl("\\.(gff|gff3)(\\.gz)?$", gtf_path, ignore.case = TRUE)
   format <- if (is_gff) "gff3" else "gtf"
 
-  txdb <- GenomicFeatures::makeTxDbFromGFF(
+  txdb <- txdbmaker::makeTxDbFromGFF(
     file = gtf_path,
     format = format,
     organism = organism,

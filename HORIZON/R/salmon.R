@@ -68,7 +68,9 @@ HORIZON_build_salmon_index <- function(gtf,
   if (!file.exists(genome_fasta))
     stop("Genome FASTA not found: ", genome_fasta, call. = FALSE)
 
-  for (pkg in c("GenomicFeatures", "Biostrings", "Rsamtools")) {
+  # makeTxDbFromGFF() lives in txdbmaker (Bioconductor >= 3.19); the remaining
+  # TxDb accessors (exonsBy, extractTranscriptSeqs) stay in GenomicFeatures.
+  for (pkg in c("txdbmaker", "GenomicFeatures", "Biostrings", "Rsamtools")) {
     if (!requireNamespace(pkg, quietly = TRUE))
       stop("Package '", pkg, "' is required. ",
            "Install with: BiocManager::install('", pkg, "')", call. = FALSE)
@@ -77,7 +79,7 @@ HORIZON_build_salmon_index <- function(gtf,
   info_file <- file.path(index_dir, "info.json")
   if (!isTRUE(force) && file.exists(info_file)) {
     cat("Salmon index already exists at: ", index_dir,
-            " — skipping (use force=TRUE to rebuild)")
+            " - skipping (use force=TRUE to rebuild)")
     return(invisible(index_dir))
   }
 
@@ -86,8 +88,8 @@ HORIZON_build_salmon_index <- function(gtf,
   dir.create(prep_dir, recursive = TRUE, showWarnings = FALSE)
 
   cat("[SALMON] Building TxDb from GTF (this may take a while)...")
-  txdb <- GenomicFeatures::makeTxDbFromGFF(file = gtf, format = "gtf",
-                                            dataSource = basename(gtf))
+  txdb <- txdbmaker::makeTxDbFromGFF(file = gtf, format = "gtf",
+                                     dataSource = basename(gtf))
 
   fa_index <- paste0(genome_fasta, ".fai")
   if (!file.exists(fa_index)) {
@@ -253,7 +255,7 @@ HORIZON_run_salmon <- function(sample_sheet = NULL,
   quant_file <- file.path(out_dir, "quant.sf")
   if (!isTRUE(force) && file.exists(quant_file)) {
     cat("Salmon quant already exists for: ", sample_id,
-            " — skipping (use force=TRUE to rerun)")
+            " - skipping (use force=TRUE to rerun)")
     return(invisible(quant_file))
   }
 
@@ -326,7 +328,7 @@ HORIZON_aggregate_salmon <- function(sample_sheet,
     quant_file <- file.path(sample_out_dir, sid, "salmon", "quant.sf")
 
     if (!file.exists(quant_file)) {
-      warning("quant.sf not found for sample '", sid, "' — skipped.")
+      warning("quant.sf not found for sample '", sid, "' - skipped.")
       next
     }
 

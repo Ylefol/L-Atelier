@@ -15,7 +15,7 @@ BugReports: https://github.com/Ylefol/L-Atelier/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends:
-    R (>= 4.1.0)
+    R (>= 4.4.0)
 Imports:
     Rsubread,
     Rfastp,
@@ -30,6 +30,7 @@ Suggests:
     GenomicFeatures,
     Biostrings,
     S4Vectors,
+    txdbmaker,
     testthat (>= 3.0.0)
 biocViews: Sequencing, RNASeq, Preprocessing, QualityControl, Alignment
 Config/testthat/edition: 3
