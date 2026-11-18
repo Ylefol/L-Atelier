@@ -60,7 +60,7 @@ HORIZON_run_qc_trim <- function(sample_sheet,
   outputs_exist <- file.exists(r1_out) && (!paired || file.exists(r2_out))
   if (!isTRUE(force) && outputs_exist) {
     cat("Trimmed FASTQs already exist for: ", sample_id,
-            " — skipping (use force=TRUE to overwrite)")
+            " - skipping (use force=TRUE to overwrite)")
     return(invisible(list(
       trimmed_r1  = r1_out,
       trimmed_r2  = if (paired) r2_out else NULL,

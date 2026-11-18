@@ -165,7 +165,7 @@ HORIZON_separate_spike_in <- function(sample_sheet,
 
   if (!isTRUE(force) && file.exists(host_bam) && file.exists(spikein_bam)) {
     cat("Separated BAMs already exist for: ", sample_id,
-            " — skipping (use force=TRUE to re-separate)")
+            " - skipping (use force=TRUE to re-separate)")
     return(invisible(list(host = host_bam, spikein = spikein_bam)))
   }
 

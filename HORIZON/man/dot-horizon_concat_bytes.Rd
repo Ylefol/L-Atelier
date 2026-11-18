@@ -2,7 +2,7 @@
 % Please edit documentation in R/concat_lanes.R
 \name{.horizon_concat_bytes}
 \alias{.horizon_concat_bytes}
-\title{Concatenate files at the byte level \link{internal}}
+\title{Concatenate files at the byte level (internal)}
 \usage{
 .horizon_concat_bytes(input_files, output_file)
 }
@@ -13,6 +13,6 @@
 \item{output_file}{Character. Destination file path.}
 }
 \description{
-Concatenate files at the byte level \link{internal}
+Concatenate files at the byte level (internal)
 }
 \keyword{internal}

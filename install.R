@@ -27,16 +27,17 @@
 LATELIER_REPO  <- "Ylefol/L-Atelier"
 LATELIER_PKGS  <- c("HORIZON", "GAIA", "CAULDRON")
 
-# Minimum R version. 4.1.0 is what the DESCRIPTION files declare. The toolkit
-# has only been tested on R 4.3.3 / Bioconductor 3.18 (Ubuntu 24.04) so far.
-# NOTE: verify and update these once the CI matrix has run on other versions.
-LATELIER_MIN_R    <- "4.1.0"
-LATELIER_TESTED_R <- "4.3.0"   # below this: warn, do not stop
+# Policy: the toolkit targets the CURRENT Bioconductor release only (no version
+# matrix). Hard minimum is R 4.4.0 / Bioconductor 3.19, because makeTxDbFromGFF()
+# was moved to txdbmaker in that release. CI runs on the current R release; the
+# Bioconductor 3.24 release (Nov 2026) requires R >= 4.6.0, so warn below that.
+LATELIER_MIN_R    <- "4.4.0"
+LATELIER_TESTED_R <- "4.6.0"   # below this: warn, do not stop
 
 # --- Optional dependency groups -----------------------------------------------
 # Each entry: which L-Atelier package(s) it belongs to, a description shown to
 # the user, and the packages to install. "github" entries are not on CRAN or
-# Bioconductor and are installed with remotes::install_github().
+# Bioconductor and are installed with the GitHub repository tarball (no GitHub API).
 # NOTE: GitHub repository names below should be verified before release.
 LATELIER_OPTIONAL <- list(
   enrichment = list(
@@ -44,6 +45,12 @@ LATELIER_OPTIONAL <- list(
     desc = "Functional enrichment (clusterProfiler, gprofiler2, fgsea, msigdbr, rrvgo, org.Hs.eg.db)",
     cran = c("gprofiler2", "msigdbr", "treemap"),
     bioc = c("clusterProfiler", "fgsea", "rrvgo", "GO.db", "org.Hs.eg.db", "AnnotationDbi")
+  ),
+  salmon = list(
+    pkgs = "HORIZON",
+    desc = "Salmon transcriptome index building (txdbmaker, GenomicFeatures, Biostrings, Rsamtools)",
+    cran = character(0),
+    bioc = c("txdbmaker", "GenomicFeatures", "Biostrings", "Rsamtools")
   ),
   chromatin = list(
     pkgs = "GAIA",
@@ -119,6 +126,18 @@ LATELIER_OPTIONAL <- list(
   ans <- tolower(trimws(readline(paste(prompt, d, ""))))
   if (!nzchar(ans)) return(default)
   ans %in% c("y", "yes")
+}
+
+# Install an R package from a GitHub repository by downloading the repository
+# tarball. This deliberately avoids remotes::install_github(), which queries the
+# GitHub API: unauthenticated API calls can fail or be rate limited on a machine
+# without a GitHub token (observed in CI). Tarball downloads need no token and
+# no git installation. `ref` may be a branch, tag or commit.
+.lat_install_github_tarball <- function(repo, subdir = NULL, ref = "master",
+                                        upgrade = "never") {
+  url <- sprintf("https://github.com/%s/archive/%s.tar.gz", repo, ref)
+  remotes::install_url(url, subdir = subdir, dependencies = NA,
+                       upgrade = upgrade, quiet = FALSE)
 }
 
 .lat_need_pkg <- function(pkg, bioc = FALSE) {
@@ -198,9 +217,8 @@ LATELIER_OPTIONAL <- list(
   for (p in pkgs) {
     .lat_cat("    ", p, "\n")
     tryCatch(
-      remotes::install_github(LATELIER_REPO, subdir = p, ref = ref,
-                              dependencies = NA, upgrade = upgrade,
-                              quiet = FALSE),
+      .lat_install_github_tarball(LATELIER_REPO, subdir = p, ref = ref,
+                                  upgrade = upgrade),
       error = function(e) {
         .lat_cat("    FAILED: ", p, "\n    ", conditionMessage(e), "\n")
       }
@@ -256,7 +274,13 @@ LATELIER_OPTIONAL <- list(
       if (length(g$cran)) install.packages(setdiff(g$cran, rownames(installed.packages())))
       if (length(g$bioc)) BiocManager::install(g$bioc, ask = FALSE, update = FALSE)
       if (length(g$github)) {
-        for (gh in g$github) remotes::install_github(gh, upgrade = "never")
+        for (gh in g$github) {
+          parts  <- strsplit(gh, "/", fixed = TRUE)[[1]]   # owner/repo[/subdir]
+          subdir <- if (length(parts) > 2) paste(parts[-(1:2)], collapse = "/") else NULL
+          .lat_install_github_tarball(paste(parts[1:2], collapse = "/"),
+                                      subdir = subdir, ref = "HEAD",
+                                      upgrade = "never")
+        }
       }
     }, error = function(e) {
       .lat_cat("    FAILED group ", nm, ": ", conditionMessage(e), "\n")

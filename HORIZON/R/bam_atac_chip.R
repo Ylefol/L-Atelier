@@ -51,7 +51,7 @@ HORIZON_process_bam <- function(sample_sheet,
 
   if (!isTRUE(force) && file.exists(final_bam)) {
     cat("Processed BAM already exists for: ", sample_id,
-            " — skipping (use force=TRUE to reprocess)")
+            " - skipping (use force=TRUE to reprocess)")
     return(invisible(final_bam))
   }
 
@@ -182,12 +182,12 @@ HORIZON_filter_blacklist <- function(sample_sheet,
 
   if (!isTRUE(force) && !is.null(blacklist_bed) && file.exists(out_bam)) {
     cat("Blacklist-filtered BAM already exists for: ", sample_id,
-            " — skipping (use force=TRUE to re-filter)")
+            " - skipping (use force=TRUE to re-filter)")
     return(invisible(out_bam))
   }
 
   if (is.null(blacklist_bed)) {
-    warning("blacklist_bed is NULL — skipping blacklist filtering for: ",
+    warning("blacklist_bed is NULL - skipping blacklist filtering for: ",
             sample_id, "\n",
             "  For T2T-CHM13 or other assemblies without an ENCODE blacklist,\n",
             "  this is expected. Provide a custom BED to suppress this warning.",
@@ -290,7 +290,7 @@ HORIZON_downsample_bam <- function(sample_sheet,
 
   if (!isTRUE(force) && file.exists(output_bam)) {
     cat("Downsampled BAM already exists for: ", sample_id,
-            " — skipping (use force=TRUE to redo)")
+            " - skipping (use force=TRUE to redo)")
     return(invisible(output_bam))
   }
 
@@ -298,7 +298,7 @@ HORIZON_downsample_bam <- function(sample_sheet,
   thr       <- as.integer(threads)
 
   if (scale_factor >= 1.0) {
-    cat("[", sample_id, "] scale_factor = 1 — no downsampling needed; ",
+    cat("[", sample_id, "] scale_factor = 1 - no downsampling needed; ",
             "copying BAM for pipeline consistency")
     file.copy(input_bam, output_bam, overwrite = TRUE)
     bai_in <- paste0(input_bam, ".bai")

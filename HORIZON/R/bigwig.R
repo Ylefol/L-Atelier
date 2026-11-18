@@ -133,7 +133,7 @@ HORIZON_bam_to_bigwig <- function(sample_sheet = NULL,
 
   if (!isTRUE(force) && file.exists(bw_path)) {
     cat("BigWig already exists for: ", sample_id,
-            " — skipping (use force=TRUE to regenerate)")
+            " - skipping (use force=TRUE to regenerate)")
     return(invisible(bw_path))
   }
 

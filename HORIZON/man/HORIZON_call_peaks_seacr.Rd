@@ -57,7 +57,7 @@ Character.  Path to the output BED file
 }
 \description{
 A native R reimplementation of the SEACR (Sparse Enrichment Analysis for
-CUT\&RUN) peak-calling method published by Meers, Tenenbaum and Bhatt
+CUT&RUN) peak-calling method published by Meers, Tenenbaum and Bhatt
 (2019, \doi{10.1186/s13072-019-0287-4}).  \strong{This function
 reimplements their published algorithm; it is not an independent method.}
 Results should be validated against the original SEACR tool

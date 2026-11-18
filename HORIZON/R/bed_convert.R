@@ -75,7 +75,7 @@ HORIZON_bam_to_bed <- function(sample_sheet,
 
   if (!isTRUE(force) && file.exists(out_bed)) {
     cat("Fragment BED already exists for: ", sample_id,
-            " — skipping (use force=TRUE to regenerate)")
+            " - skipping (use force=TRUE to regenerate)")
     return(invisible(out_bed))
   }
 

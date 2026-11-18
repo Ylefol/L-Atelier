@@ -75,7 +75,7 @@ HORIZON_build_star_index <- function(genome_fasta,
   index_marker <- file.path(index_dir, "SAindex")
   if (!isTRUE(force) && file.exists(index_marker)) {
     cat("[STAR] Index already exists at:", index_dir,
-        "— skipping (use force=TRUE to rebuild)\n")
+        "- skipping (use force=TRUE to rebuild)\n")
     return(invisible(index_dir))
   }
 
@@ -215,7 +215,7 @@ HORIZON_run_star_align <- function(sample_sheet,
 
   if (!isTRUE(force) && file.exists(sorted_bam)) {
     cat("[STAR] Sorted BAM already exists for:", sample_id,
-        "— skipping (use force=TRUE to realign)\n")
+        "- skipping (use force=TRUE to realign)\n")
     return(invisible(sorted_bam))
   }
 

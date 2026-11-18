@@ -87,7 +87,7 @@ HORIZON_call_peaks <- function(treatment_bed,
   peak_file_check <- file.path(output_dir, paste0(sample_name, peak_ext))
   if (!isTRUE(force) && file.exists(peak_file_check)) {
     cat("Peak file already exists for: ", sample_name,
-            " — skipping (use force=TRUE to rerun)")
+            " - skipping (use force=TRUE to rerun)")
     return(invisible(peak_file_check))
   }
 
@@ -96,10 +96,10 @@ HORIZON_call_peaks <- function(treatment_bed,
   if (!is.null(control_bed) && !file.exists(control_bed))
     stop("Control ", file_kind, " not found: ", control_bed, call. = FALSE)
   if (!is.null(shift) && !isTRUE(nomodel))
-    warning("'shift' is set but nomodel=FALSE — MACS3 ignores --shift without --nomodel.",
+    warning("'shift' is set but nomodel=FALSE - MACS3 ignores --shift without --nomodel.",
             call. = FALSE)
   if (!is.null(extsize) && !isTRUE(nomodel))
-    warning("'extsize' is set but nomodel=FALSE — MACS3 ignores --extsize without --nomodel.",
+    warning("'extsize' is set but nomodel=FALSE - MACS3 ignores --extsize without --nomodel.",
             call. = FALSE)
 
   # Assemble model flags
@@ -218,7 +218,7 @@ HORIZON_call_peaks <- function(treatment_bed,
 #' Call peaks with SEACR (pure-R reimplementation)
 #'
 #' A native R reimplementation of the SEACR (Sparse Enrichment Analysis for
-#' CUT\&RUN) peak-calling method published by Meers, Tenenbaum and Bhatt
+#' CUT&RUN) peak-calling method published by Meers, Tenenbaum and Bhatt
 #' (2019, \doi{10.1186/s13072-019-0287-4}).  \strong{This function
 #' reimplements their published algorithm; it is not an independent method.}
 #' Results should be validated against the original SEACR tool
@@ -298,7 +298,7 @@ HORIZON_call_peaks_seacr <- function(treatment_bed,
   if (!isTRUE(force) && file.exists(out_file)) {
     if (isTRUE(verbose))
       cat("Peak file already exists for: ", sample_name,
-              " — skipping (use force=TRUE to rerun)")
+              " - skipping (use force=TRUE to rerun)")
     return(invisible(out_file))
   }
 

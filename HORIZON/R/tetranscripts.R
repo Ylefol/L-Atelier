@@ -164,7 +164,7 @@ HORIZON_run_tecount <- function(sample_sheet  = NULL,
 
   if (!isTRUE(force) && file.exists(cnt_file)) {
     cat("[TECOUNT] Output already exists for:", sample_id,
-        "— skipping (use force=TRUE to rerun)\n")
+        "- skipping (use force=TRUE to rerun)\n")
     return(invisible(cnt_file))
   }
 
@@ -282,7 +282,7 @@ HORIZON_aggregate_tecount <- function(sample_sheet,
     cnt_file <- file.path(sample_out_dir, sid, "tecount", paste0(sid, ".cntTable"))
 
     if (!file.exists(cnt_file)) {
-      warning("cntTable not found for sample '", sid, "' — skipped.")
+      warning("cntTable not found for sample '", sid, "' - skipped.")
       next
     }
 

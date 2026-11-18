@@ -95,7 +95,7 @@ HORIZON_run_bowtie2 <- function(sample_sheet,
   filt_bam <- file.path(out_dir, paste0(sample_id, "_mapq_filtered.bam"))
   if (!isTRUE(force) && file.exists(filt_bam)) {
     cat("Aligned BAM already exists for: ", sample_id,
-            " — skipping (use force=TRUE to re-align)")
+            " - skipping (use force=TRUE to re-align)")
     return(invisible(filt_bam))
   }
 

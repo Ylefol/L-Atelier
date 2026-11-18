@@ -20,7 +20,7 @@
 #' @keywords internal
 #' @importFrom GenomicRanges GRanges coverage binnedAverage
 #' @importFrom IRanges IRanges slice viewSums viewMaxs start end width
-#' @importFrom stats quantile
-#' @importFrom utils read.table write.table
+#' @importFrom stats quantile setNames
+#' @importFrom utils read.table write.table read.csv write.csv head capture.output sessionInfo
 #' @importFrom scales percent
 "_PACKAGE"

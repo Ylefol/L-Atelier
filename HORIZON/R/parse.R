@@ -104,7 +104,7 @@ HORIZON_validate_parse_sheet <- function(path, check_files = TRUE) {
            paste(" ", missing_genome, collapse = "\n"), call. = FALSE)
   }
 
-  cat("[PARSE] Sample sheet OK —", nrow(ss), "run(s) validated.\n")
+  cat("[PARSE] Sample sheet OK -", nrow(ss), "run(s) validated.\n")
   ss
 }
 
@@ -214,7 +214,7 @@ HORIZON_run_splitpipe <- function(sample_sheet,
 
   if (!isTRUE(force) && dir.exists(out_dir)) {
     cat("[PARSE] Output directory already exists for run:", run_id,
-        "— skipping (use force=TRUE to reprocess)\n")
+        "- skipping (use force=TRUE to reprocess)\n")
     return(invisible(out_dir))
   }
 
@@ -324,7 +324,7 @@ HORIZON_run_parse_velocity <- function(sample_sheet,
     output_file <- file.path(working_dir, "adata_vel.h5ad")
 
   if (!isTRUE(force) && file.exists(output_file)) {
-    cat("[PARSE] Velocity AnnData already exists — skipping",
+    cat("[PARSE] Velocity AnnData already exists - skipping",
         "(use force=TRUE to reprocess)\n")
     cat("    Output:", output_file, "\n")
     return(invisible(output_file))
@@ -432,7 +432,7 @@ HORIZON_parse_DGE_filter <- function(velocity_h5ad,
     output_file <- file.path(dirname(velocity_h5ad), "adata_vel_filtered.h5ad")
 
   if (!isTRUE(force) && file.exists(output_file)) {
-    cat("[PARSE] Filtered AnnData already exists — skipping",
+    cat("[PARSE] Filtered AnnData already exists - skipping",
         "(use force=TRUE to reprocess)\n")
     cat("    Output:", output_file, "\n")
     return(invisible(output_file))
@@ -518,7 +518,7 @@ HORIZON_combine_splitpipe <- function(sample_sheet,
          call. = FALSE)
 
   if (!isTRUE(force) && dir.exists(combined_dir)) {
-    cat("[PARSE] Combined output already exists — skipping",
+    cat("[PARSE] Combined output already exists - skipping",
         "(use force=TRUE to reprocess)\n")
     cat("    Output:", combined_dir, "\n")
     return(invisible(combined_dir))

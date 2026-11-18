@@ -34,7 +34,7 @@ HORIZON_run_fragment_size <- function(sample_sheet,
 
   if (!isTRUE(force) && file.exists(out_png)) {
     cat("Fragment size plot already exists for: ", sample_id,
-            " — skipping (use force=TRUE to rerun)")
+            " - skipping (use force=TRUE to rerun)")
     return(invisible(out_png))
   }
 

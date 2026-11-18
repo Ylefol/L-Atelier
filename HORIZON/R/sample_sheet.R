@@ -120,6 +120,6 @@ HORIZON_validate_sample_sheet <- function(path, check_files = TRUE) {
     }
   }
 
-  cat("Sample sheet OK — ", nrow(ss), " sample(s) validated.")
+  cat("Sample sheet OK - ", nrow(ss), " sample(s) validated.")
   ss
 }

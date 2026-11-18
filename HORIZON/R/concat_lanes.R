@@ -64,7 +64,7 @@ HORIZON_concat_lanes <- function(fastq_r1,
   outputs_exist <- file.exists(r1_out) && (!paired || file.exists(r2_out))
   if (!isTRUE(force) && outputs_exist) {
     cat("Concatenated FASTQ(s) already exist for: ", sample_id,
-            " — skipping (use force=TRUE to overwrite)")
+            " - skipping (use force=TRUE to overwrite)")
     return(invisible(list(fastq_r1 = r1_out, fastq_r2 = r2_out)))
   }
 
@@ -77,7 +77,7 @@ HORIZON_concat_lanes <- function(fastq_r1,
 }
 
 
-#' Concatenate files at the byte level [internal]
+#' Concatenate files at the byte level (internal)
 #'
 #' @param input_files Character vector of input file paths, written to
 #'   \code{output_file} in order.

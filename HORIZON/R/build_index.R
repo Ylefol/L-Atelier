@@ -47,13 +47,13 @@ HORIZON_build_index <- function(basename,
   if (length(existing) > 0) {
     if (!force) {
       cat("Index already exists at: ", basename)
-      cat("  (", length(existing), " file(s) found — use force = TRUE to rebuild)")
+      cat("  (", length(existing), " file(s) found - use force = TRUE to rebuild)")
       return(invisible(basename))
     }
     cat("Overwriting existing index at: ", basename, " (force = TRUE)")
   }
 
-  cat("Building Rsubread genome index — this may take a while for large genomes.")
+  cat("Building Rsubread genome index - this may take a while for large genomes.")
   cat("  Reference  : ", reference)
   cat("  Index path : ", basename)
   cat("  Memory     : ", memory, " MB")

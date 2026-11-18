@@ -47,7 +47,7 @@ HORIZON_aggregate_counts <- function(sample_sheet,
                                 paste0(sid, "_counts.txt"))
 
     if (!file.exists(counts_file)) {
-      warning("Count file not found for sample '", sid, "' — skipped.")
+      warning("Count file not found for sample '", sid, "' - skipped.")
       next
     }
 
