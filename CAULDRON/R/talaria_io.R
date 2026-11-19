@@ -115,7 +115,7 @@ TALARIA_load_h5ad <- function(path,
     cat("Note: assay 'X' contained raw integer counts and has been renamed to 'counts' (Bioconductor convention).\n")
   } else {
     stop(
-      "Assay 'X' does not appear to contain raw integer counts — values are ",
+      "Assay 'X' does not appear to contain raw integer counts - values are ",
       "continuous, suggesting the matrix has already been log-normalised.\n",
       "Raw counts are required for downstream QC and doublet detection.\n",
       "Re-export the h5ad with raw counts stored in 'adata.raw' so they are ",
@@ -139,7 +139,7 @@ TALARIA_load_h5ad <- function(path,
   vals <- vals[vals != 0]
 
   if (length(vals) == 0)
-    return(TRUE)   # empty block — assume integers (e.g. very sparse data)
+    return(TRUE)   # empty block - assume integers (e.g. very sparse data)
 
   all(vals >= 0) && all(abs(vals - round(vals)) < 1e-6)
 }
@@ -471,7 +471,7 @@ TALARIA_export_matrix <- function(sce,
     n_genes <- nrow(sce)
     if (n_cells * n_genes > 5e7)
       warning("Matrix has ", format(n_cells * n_genes, big.mark = ","),
-              " elements — CSV export will be large and slow. ",
+              " elements - CSV export will be large and slow. ",
               "Consider format = \"mex\".", call. = FALSE)
 
     out_path <- file.path(output_dir, paste0(assay_name, "_matrix.csv"))

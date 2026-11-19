@@ -98,7 +98,7 @@ TRIPODES_score_cytotrace_v1 <- function(sce,
 
   if (inherits(expr_raw, "IterableMatrix")) {
     message("[TRIPODES] Materialising BPCells-backed '", assay_name,
-            "' assay — CytoTRACE v1 requires full matrix operations.")
+            "' assay - CytoTRACE v1 requires full matrix operations.")
     expr_mat <- as.matrix(expr_raw)
   } else {
     expr_mat <- as.matrix(expr_raw)
@@ -112,7 +112,7 @@ TRIPODES_score_cytotrace_v1 <- function(sce,
   gene_counts <- colSums(expr_mat > 0)
 
   if (all(gene_counts == 0))
-    stop("[TRIPODES] All gene counts are zero — check that '", assay_name,
+    stop("[TRIPODES] All gene counts are zero - check that '", assay_name,
          "' contains non-zero expression values.", call. = FALSE)
 
   # ── Step 2: Spearman correlation of each gene vs gene_counts ─────────────────

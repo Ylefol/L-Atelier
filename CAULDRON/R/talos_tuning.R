@@ -222,8 +222,18 @@ print.talos_pc_sweep <- function(x, ...) {
 #'   Default \code{c(10, 15, 20, 30, 50)}.
 #' @param min_dist_range Numeric vector of min_dist values to test.
 #'   Default \code{c(0.05, 0.1, 0.3, 0.5)}.
+#' @param use_rep Character. Name of the \code{reducedDims} slot used as input
+#'   and for the KNN reference.  Default \code{"PCA"}; use \code{"scVI"} for
+#'   the scVI latent space from \code{\link{TALOS_run_scvi}}.
 #' @param n_pcs Integer. Number of PCA components used as UMAP input and for
 #'   KNN reference computation. Default \code{30}.
+#' @param use_graph Logical.  If \code{TRUE} (default), each UMAP is computed
+#'   from the SNN graph in \code{metadata(sce)$snn_graph}
+#'   (\code{\link{TALOS_build_graph}}), as in \code{\link{TALOS_run_umap}}.
+#'   The neighbourhood size is then fixed by the graph, so only
+#'   \code{min_dist_range} is swept and \code{n_neighbors_range} is not used.
+#'   If \code{FALSE}, both ranges are swept using a nearest-neighbour graph
+#'   computed from \code{use_rep}.  Requires \pkg{uwot} when \code{TRUE}.
 #' @param knn_k Integer. Number of nearest neighbours used for the KNN overlap
 #'   metric. Default \code{15}.
 #' @param cluster_col Character. \code{colData} column containing cluster
@@ -271,7 +281,7 @@ TALOS_tune_umap <- function(sce,
   has_clusters <- cluster_col %in% names(colData(sce))
   if (!has_clusters && verbose)
     cat(sprintf(
-      "  Note: '%s' not found in colData — silhouette will be skipped.\n",
+      "  Note: '%s' not found in colData - silhouette will be skipped.\n",
       cluster_col))
 
   # ── Pre-compute KNN reference in representation space (once) ─────────────────
@@ -304,12 +314,12 @@ TALOS_tune_umap <- function(sce,
 
     if (verbose)
       cat(sprintf(
-        "── TALOS: UMAP sweep (graph-aligned) %s\n  Input      : SNN graph  |  k = %s\n  min_dist   : %s\n  Combos     : %s  (n_neighbors fixed by graph)\n%s\n",
-        strrep("─", 19),
+        "-- TALOS: UMAP sweep (graph-aligned) %s\n  Input      : SNN graph  |  k = %s\n  min_dist   : %s\n  Combos     : %s  (n_neighbors fixed by graph)\n%s\n",
+        strrep("-", 19),
         k_graph,
         paste(min_dist_range, collapse = ", "),
         n_combos,
-        strrep("─", 56)))
+        strrep("-", 56)))
 
     results    <- vector("list", n_combos)
     embeddings <- vector("list", n_combos)
@@ -364,9 +374,9 @@ TALOS_tune_umap <- function(sce,
     if (verbose)
       cat(sprintf(
         "%s\n  Best min_dist: %.2f  (composite = %.3f)\n%s\n",
-        strrep("─", 56),
+        strrep("-", 56),
         best_params$min_dist, res_df$composite[best_i],
-        strrep("─", 56)))
+        strrep("-", 56)))
 
     return(structure(
       list(results     = res_df,
@@ -393,12 +403,12 @@ TALOS_tune_umap <- function(sce,
 
   if (verbose)
     cat(sprintf(
-      "── TALOS: UMAP sweep %s\n  n_neighbors: %s\n  min_dist   : %s\n  Input      : %s (%s dims)  |  knn_k: %s\n  Combos     : %s\n%s\n",
-      strrep("─", 37),
+      "-- TALOS: UMAP sweep %s\n  n_neighbors: %s\n  min_dist   : %s\n  Input      : %s (%s dims)  |  knn_k: %s\n  Combos     : %s\n%s\n",
+      strrep("-", 37),
       paste(n_neighbors_range, collapse = ", "),
       paste(min_dist_range,    collapse = ", "),
       use_rep, n_dims, knn_k, n_combos,
-      strrep("─", 56)))
+      strrep("-", 56)))
 
   results    <- vector("list", n_combos)
   embeddings <- vector("list", n_combos)
@@ -456,10 +466,10 @@ TALOS_tune_umap <- function(sce,
   if (verbose)
     cat(sprintf(
       "%s\n  Best combo : n_neighbors = %d, min_dist = %.2f  (composite = %.3f)\n%s\n",
-      strrep("─", 56),
+      strrep("-", 56),
       best_params$n_neighbors, best_params$min_dist,
       res_df$composite[best_i],
-      strrep("─", 56)))
+      strrep("-", 56)))
 
   structure(
     list(results     = res_df,
@@ -520,6 +530,10 @@ TALOS_tune_umap <- function(sce,
 #' @param perplexity_range Numeric vector of perplexity values to test.
 #'   Values exceeding \eqn{N/3} are removed automatically.
 #'   Default \code{c(10, 20, 30, 50, 100)}.
+#' @param use_rep Character. Name of the \code{reducedDims} slot used as input
+#'   and for the KNN reference.  Default \code{"PCA"}; use \code{"scVI"} for
+#'   the scVI latent space.  \code{n_pcs} applies only when
+#'   \code{use_rep = "PCA"}.
 #' @param n_pcs Integer. PCA components used for tSNE input and KNN reference.
 #'   Default \code{30}.
 #' @param max_iter Integer. tSNE iterations per run (fixed; not a tuning
@@ -578,7 +592,7 @@ TALOS_tune_tsne <- function(sce,
   has_clusters <- cluster_col %in% names(colData(sce))
   if (!has_clusters && verbose)
     cat(sprintf(
-      "  Note: '%s' not found in colData — silhouette will be skipped.\n",
+      "  Note: '%s' not found in colData - silhouette will be skipped.\n",
       cluster_col))
 
   # ── Pre-compute KNN reference (once) ─────────────────────────────────────────
@@ -745,7 +759,7 @@ print.talos_embedding_sweep <- function(x, ...) {
 # emb_mat    : numeric matrix (cells × 2)
 # k          : integer, number of neighbours to use in embedding
 .talos_knn_overlap <- function(knn_ref_idx, emb_mat, k) {
-  knn_emb <- BiocNeighbors::findKNN(emb_mat, k = k)$index  # cells × k
+  knn_emb <- BiocNeighbors::findKNN(emb_mat, k = k)$index  # cells x k
   n_cells <- nrow(knn_ref_idx)
 
   overlaps <- vapply(seq_len(n_cells), function(i) {

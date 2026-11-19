@@ -24,6 +24,11 @@ TALOS_tune_tsne(
 Values exceeding \eqn{N/3} are removed automatically.
 Default \code{c(10, 20, 30, 50, 100)}.}
 
+\item{use_rep}{Character. Name of the \code{reducedDims} slot used as input
+and for the KNN reference.  Default \code{"PCA"}; use \code{"scVI"} for
+the scVI latent space.  \code{n_pcs} applies only when
+\code{use_rep = "PCA"}.}
+
 \item{n_pcs}{Integer. PCA components used for tSNE input and KNN reference.
 Default \code{30}.}
 

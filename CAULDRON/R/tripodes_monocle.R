@@ -129,7 +129,7 @@ TRIPODES_run_monocle <- function(sce,
     stop("[TRIPODES] Monocle3 requires a 'UMAP' embedding.\n",
          "  Run TALOS_run_umap() before calling TRIPODES_run_monocle().\n",
          "  Note: Monocle3 does not support non-UMAP embeddings (e.g. tSNE) ",
-         "due to hardcoded internal checks in learn_graph() — this is a ",
+         "due to hardcoded internal checks in learn_graph() - this is a ",
          "known limitation of the monocle3 package.",
          call. = FALSE)
 
@@ -243,7 +243,7 @@ TRIPODES_run_monocle <- function(sce,
     n_ordered <- sum(!is.na(pt))
     message("[TRIPODES] Monocle3 complete.")
     message("  ", n_ordered, " / ", ncol(sce), " cells ordered ",
-            "(", ncol(sce) - n_ordered, " in rootless partitions → NA).")
+            "(", ncol(sce) - n_ordered, " in rootless partitions -> NA).")
     message("  Pseudotime stored in colData(sce)$", pseudotime_col)
     message("  Branch stored in colData(sce)$", branch_col)
   }

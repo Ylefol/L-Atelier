@@ -369,14 +369,14 @@ KERAUNOS_score_markers <- function(sce,
     else ""
 
     cat(sprintf(
-      "── KERAUNOS: score_markers %s\n  Clusters   : %d\n  min AUC    : %.2f%s\n  Top genes  : %s total (range %d–%d per cluster)\n  Stored as  : keraunos_markers object\n%s\n",
-      strrep("─", 28),
+      "-- KERAUNOS: score_markers %s\n  Clusters   : %d\n  min AUC    : %.2f%s\n  Top genes  : %s total (range %d-%d per cluster)\n  Stored as  : keraunos_markers object\n%s\n",
+      strrep("-", 28),
       n_clusters,
       if (is.null(min_auc)) 0 else min_auc,
       restrict_line,
       format(nrow(top_df), big.mark = ","),
       min(n_per), max(n_per),
-      strrep("─", 56)
+      strrep("-", 56)
     ))
   }
 
@@ -568,7 +568,7 @@ KERAUNOS_fetch_marker_genes <- function(source  = c("C8", "PanglaoDB"),
     )
 
     if (!"gene_symbol" %in% names(gs_df))
-      stop("Unexpected msigdbr output — 'gene_symbol' column not found.",
+      stop("Unexpected msigdbr output - 'gene_symbol' column not found.",
            call. = FALSE)
 
     unique(gs_df$gene_symbol)
@@ -628,13 +628,13 @@ KERAUNOS_fetch_marker_genes <- function(source  = c("C8", "PanglaoDB"),
 
   if (isTRUE(verbose)) {
     cat(sprintf(
-      "── KERAUNOS: fetch_marker_genes %s\n  Source     : %s\n  Species    : %s%s\n  Result     : %s unique gene symbols\n%s\n",
-      strrep("─", 22),
+      "-- KERAUNOS: fetch_marker_genes %s\n  Source     : %s\n  Species    : %s%s\n  Result     : %s unique gene symbols\n%s\n",
+      strrep("-", 22),
       source,
       species,
       if (!is.null(tissue)) paste0("\n  Tissue     : ", tissue) else "",
       format(length(genes), big.mark = ","),
-      strrep("─", 56)
+      strrep("-", 56)
     ))
   }
 
@@ -716,7 +716,7 @@ KERAUNOS_contrast_groups <- function(sce,
     cat(
       "KERAUNOS_contrast_groups: cell-level test between groups [",
       paste(group_levels, collapse = ", "), "].\n",
-      "  Note: no sample aggregation — pseudoreplication risk for ",
+      "  Note: no sample aggregation - pseudoreplication risk for ",
       "multi-sample data.\n",
       "  For rigorous multi-sample DE use KERAUNOS_de_pseudobulk()."
     )
@@ -800,7 +800,7 @@ KERAUNOS_contrast_groups <- function(sce,
         tbl <- table(sub_grp)
         if (any(tbl < 2L)) {
           if (isTRUE(verbose))
-            cat("  Cluster '", cl, "': skipping — a group has < 2 cells.")
+            cat("  Cluster '", cl, "': skipping - a group has < 2 cells.")
           n_skipped <<- n_skipped + 1L
           return(NULL)
         }
@@ -1009,7 +1009,7 @@ KERAUNOS_de_pseudobulk <- function(sce,
 
     if (length(smp_use) == 0) {
       if (isTRUE(verbose))
-        cat("  Cluster '", cl, "': skipped — no samples remain after ",
+        cat("  Cluster '", cl, "': skipped - no samples remain after ",
                 "min_cells filter.")
       skipped <- c(skipped, cl)
       next
@@ -1025,7 +1025,7 @@ KERAUNOS_de_pseudobulk <- function(sce,
 
     if (!has_both) {
       if (isTRUE(verbose))
-        cat("  Cluster '", cl, "': skipped — need >= ", min_samples,
+        cat("  Cluster '", cl, "': skipped - need >= ", min_samples,
                 " replicates per condition after filtering.")
       skipped <- c(skipped, cl)
       next
@@ -1055,7 +1055,7 @@ KERAUNOS_de_pseudobulk <- function(sce,
       DESeq2::DESeq(dds, quiet = !verbose),
       error = function(e) {
         if (isTRUE(verbose))
-          cat("  Cluster '", cl, "': DESeq2 failed — ", conditionMessage(e))
+          cat("  Cluster '", cl, "': DESeq2 failed - ", conditionMessage(e))
         NULL
       }
     )
@@ -2118,7 +2118,7 @@ KERAUNOS_gsea_markers_pairwise <- function(markers_result,
   cl_names <- names(markers_result$markers)
   if (is.null(cluster_pairs)) {
     if (length(cl_names) < 2L)
-      stop("'markers_result' has fewer than 2 clusters — nothing to compare.",
+      stop("'markers_result' has fewer than 2 clusters - nothing to compare.",
            call. = FALSE)
     pair_mat     <- utils::combn(cl_names, 2L)
     cluster_pairs <- lapply(seq_len(ncol(pair_mat)), function(i) pair_mat[, i])
@@ -2254,13 +2254,13 @@ KERAUNOS_gsea_markers_pairwise <- function(markers_result,
 
   if (isTRUE(verbose)) {
     cat(sprintf(
-      "── KERAUNOS: gsea_markers_pairwise %s\n  Pairs      : %d run, %d skipped\n  FDR < %.2f : %s sig. pathways total\n%s\n",
-      strrep("─", 15),
+      "-- KERAUNOS: gsea_markers_pairwise %s\n  Pairs      : %d run, %d skipped\n  FDR < %.2f : %s sig. pathways total\n%s\n",
+      strrep("-", 15),
       length(results_list),
       length(skipped),
       fdr_threshold,
       format(sum(summary_df$n_sig, na.rm = TRUE), big.mark = ","),
-      strrep("─", 56)
+      strrep("-", 56)
     ))
     if (nrow(summary_df) > 0)
       print(summary_df, row.names = FALSE)
@@ -2411,7 +2411,7 @@ KERAUNOS_ora_pseudobulk <- function(de_result,
     if (n_up < as.integer(min_sig_genes) && n_down < as.integer(min_sig_genes)) {
       if (isTRUE(verbose))
         cat("  Cluster ", cl, ": skipped (", n_up, " up / ", n_down,
-                " down genes — both below min_sig_genes = ",
+                " down genes - both below min_sig_genes = ",
                 as.integer(min_sig_genes), ").")
       skipped <<- c(skipped, cl)
       return(data.frame(

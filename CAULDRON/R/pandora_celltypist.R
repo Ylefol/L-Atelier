@@ -119,7 +119,7 @@ PANDORA_annotate_celltypist <- function(sce,
 
   if (!"counts" %in% assayNames(sce))
     stop("'counts' assay not found. PANDORA_annotate_celltypist() requires ",
-         "raw counts — ensure the SCE was loaded via TALARIA.", call. = FALSE)
+         "raw counts - ensure the SCE was loaded via TALARIA.", call. = FALSE)
 
   if (!is.null(cluster_col)) {
     if (!cluster_col %in% names(colData(sce)))
@@ -260,8 +260,8 @@ PANDORA_celltypist_markers <- function(cell_types,
   )
 
   if (isTRUE(verbose)) {
-    cat("── PANDORA: CellTypist model-driving genes (", model, ") ",
-        strrep("─", 20), "\n\n", sep = "")
+    cat("-- PANDORA: CellTypist model-driving genes (", model, ") ",
+        strrep("-", 20), "\n\n", sep = "")
     for (ct in names(result)) {
       cat("  ", ct, ":\n    ", paste(result[[ct]], collapse = ", "), "\n\n", sep = "")
     }

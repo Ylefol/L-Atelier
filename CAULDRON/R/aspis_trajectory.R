@@ -701,7 +701,7 @@ ASPIS_plot_trajectory <- function(sce,
   coords$colour <- colour_vals
 
   # ── Build principal graph edge data frame ────────────────────────────────────
-  pg_nodes <- metadata(sce)$monocle_graph_nodes   # nodes × 2
+  pg_nodes <- metadata(sce)$monocle_graph_nodes   # nodes x 2
   pg_graph <- metadata(sce)$monocle_graph
 
   edge_list <- igraph::as_edgelist(pg_graph, names = FALSE)

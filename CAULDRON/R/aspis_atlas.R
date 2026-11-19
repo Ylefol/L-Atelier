@@ -24,7 +24,7 @@
 # A split is accepted when the best mean silhouette score >= min_sil.
 # Returns a data.frame: x, y, label, size, angle — one row per placed label.
 # ------------------------------------------------------------------------------
-.aspis_split_labels <- function(emb,            # n×2 matrix (all cells)
+.aspis_split_labels <- function(emb,            # nx2 matrix (all cells)
                                 col_vals,        # character vector, one per cell
                                 cats,            # ordered category names
                                 pal,             # named colour vector
@@ -82,7 +82,7 @@
   # Map sub-cluster fraction to a size within [sz_min, sz_max]
   .scaled_size <- function(n_sub, n_cat) {
     if (!size_scale) return(sz_max)
-    frac <- sqrt(n_sub / n_cat)   # 0..1; largest sub-cluster → sz_max
+    frac <- sqrt(n_sub / n_cat)   # 0..1; largest sub-cluster -> sz_max
     sz_min + (sz_max - sz_min) * frac
   }
 
@@ -513,6 +513,11 @@
 #'   \code{0.3}.
 #' @param sat_point_alpha Numeric.  Point transparency in satellite scatters.
 #'   Default \code{0.5}.
+#' @param show_sat_title Logical.  Draw a title above each satellite panel (the
+#'   name of the \code{meta_col} variable shown).  Set to \code{FALSE} to
+#'   remove the titles, e.g. when the panels are annotated elsewhere.  Title
+#'   size and colour are set by \code{sat_title_cex} and \code{sat_title_col}.
+#'   Default \code{TRUE}.
 #' @param sat_title_cex Numeric.  Title text size for satellite panels,
 #'   expressed as a multiplier on the base ggplot size (11 pt).  Default
 #'   \code{0.7} (≈ 7.7 pt).

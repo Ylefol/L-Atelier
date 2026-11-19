@@ -387,6 +387,12 @@ each satellite panel.  Default \code{0.22}.}
 \item{sat_point_alpha}{Numeric.  Point transparency in satellite scatters.
 Default \code{0.5}.}
 
+\item{show_sat_title}{Logical.  Draw a title above each satellite panel (the
+name of the \code{meta_col} variable shown).  Set to \code{FALSE} to
+remove the titles, e.g. when the panels are annotated elsewhere.  Title
+size and colour are set by \code{sat_title_cex} and \code{sat_title_col}.
+Default \code{TRUE}.}
+
 \item{sat_title_cex}{Numeric.  Title text size for satellite panels,
 expressed as a multiplier on the base ggplot size (11 pt).  Default
 \code{0.7} (≈ 7.7 pt).}

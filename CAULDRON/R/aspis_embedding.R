@@ -200,6 +200,10 @@ ASPIS_plot_elbow <- function(sce,
 #'   beyond the data range (e.g. \code{0.10} = 10\%).  Increase if contour
 #'   lines are clipped at the edges; decrease if there is too much whitespace.
 #'   Default \code{0.10}.
+#' @param legend_point_size Numeric.  Size of the coloured point in the
+#'   discrete legend, independent of \code{point_size} (which is usually much
+#'   smaller and makes legend keys hard to see).  Ignored for continuous
+#'   colour scales or when \code{show_legend = FALSE}.  Default \code{4}.
 #'
 #' @return A \code{ggplot} (single \code{colour_by}) or a \code{gtable} grid
 #'   (multiple \code{colour_by}).
@@ -291,6 +295,10 @@ ASPIS_plot_umap <- function(sce,
 #'   beyond the data range (e.g. \code{0.10} = 10\%).  Increase if contour
 #'   lines are clipped at the edges; decrease if there is too much whitespace.
 #'   Default \code{0.10}.
+#' @param legend_point_size Numeric.  Size of the coloured point in the
+#'   discrete legend, independent of \code{point_size} (which is usually much
+#'   smaller and makes legend keys hard to see).  Ignored for continuous
+#'   colour scales or when \code{show_legend = FALSE}.  Default \code{4}.
 #'
 #' @return A \code{ggplot} (single \code{colour_by}) or a \code{gtable} grid
 #'   (multiple \code{colour_by}).
@@ -407,7 +415,7 @@ ASPIS_plot_pca <- function(sce,
                           point_alpha       = point_alpha,
                           palette           = palette,
                           title             = if (!is.null(title)) title else
-                                               paste0("PCA — ", colour_by),
+                                               paste0("PCA - ", colour_by),
                           label_clusters    = label_clusters,
                           label_size        = label_size,
                           assay_name        = assay_name,

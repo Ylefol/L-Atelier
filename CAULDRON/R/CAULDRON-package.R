@@ -6,7 +6,9 @@
 # ============================================================================
 
 #' @importFrom stats median mad IQR quantile sd var p.adjust wilcox.test model.matrix na.omit setNames cor aggregate
-#' @importFrom utils head tail read.csv read.table write.csv capture.output sessionInfo
+#' @importFrom stats as.dendrogram ave dendrapply dist hclust order.dendrogram
+#' @importFrom graphics par
+#' @importFrom utils head tail read.csv read.table read.delim write.csv capture.output sessionInfo
 #' @importFrom grDevices col2rgb colorRampPalette dev.off pdf png rgb
 #' @importFrom methods is as new
 
@@ -19,6 +21,8 @@
 #' @importFrom ggplot2 guide_legend guides labs margin scale_color_gradient scale_color_gradient2 scale_color_manual
 #' @importFrom ggplot2 scale_fill_gradient scale_fill_gradient2 scale_fill_gradientn scale_fill_manual scale_size_continuous
 #' @importFrom ggplot2 scale_x_continuous scale_y_continuous theme theme_bw theme_minimal theme_void unit ggsave
+#' @importFrom ggplot2 arrow coord_cartesian geom_path geom_segment ggplotGrob guide_colourbar rel scale_colour_gradientn scale_colour_manual
+#' @importFrom ggplot2 scale_colour_viridis_c scale_size_identity stat_density_2d theme_classic
 
 # ============================================================================
 # rlang (tidy eval)
@@ -31,7 +35,7 @@
 # ============================================================================
 
 #' @importFrom SingleCellExperiment SingleCellExperiment reducedDim reducedDim<- reducedDims reducedDimNames colLabels colLabels<-
-#' @importFrom SummarizedExperiment colData colData<- rowData rowData<- assay assay<- assayNames
+#' @importFrom SummarizedExperiment colData colData<- rowData rowData<- assay assay<- assayNames assayNames<-
 #' @importFrom BiocGenerics counts counts<- normalize
 #' @importFrom S4Vectors DataFrame metadata metadata<-
 
@@ -72,5 +76,33 @@ utils::globalVariables(c(
   "k", "metric_label", "n_clusters", "modularity", "mean_sil",
   "dim1", "dim2", "colour_val",
   "n_neighbors", "min_dist", "perplexity", "raw_val", "metric",
-  "panel_label", "method", "resolution", "xintercept", "min_cl_size"
+  "panel_label", "method", "resolution", "xintercept", "min_cl_size",
+  # added for R CMD check (ggplot2 aes / NSE column names)
+  "NES",
+  "Significance",
+  "angle",
+  "baseMean_log2",
+  "colour",
+  "cum_var",
+  "expr_plot",
+  "fold_enrichment",
+  "gene",
+  "intersection_size",
+  "line_id",
+  "log2FoldChange",
+  "n_hvgs",
+  "n_pcs",
+  "padj",
+  "pc",
+  "pct_expr",
+  "proportion",
+  "pseudotime",
+  "pvalue",
+  "size",
+  "stream_id",
+  "val",
+  "var_exp",
+  "xend",
+  "yend",
+  "yintercept"
 ))

@@ -1251,7 +1251,7 @@ title.setAttribute('x', padL);
 title.setAttribute('y', 14);
 title.setAttribute('font-size', '12');
 title.setAttribute('font-weight', '600');
-title.textContent = gene + ' — mean expression by ' + groupingSelect.value;
+title.textContent = gene + ' - mean expression by ' + groupingSelect.value;
 svg.appendChild(title);
 
 var nTicks = 4;
@@ -1675,10 +1675,14 @@ TALARIA_build_de_comparison_table <- function(de_list,
 #' \dontrun{
 #' TALARIA_export_de_comparison_widget(
 #'   de_list = list(
-#'     "SNc DA Neuron: AST23 vs CL21" = de_results[["SNc_DA_Neuron_CL21_vs_AST23"]]$results[["SNc_DA_Neuron"]],
-#'     "SNc DA Neuron: AST23 vs CL18" = de_results[["SNc_DA_Neuron_CL18_vs_AST23"]]$results[["SNc_DA_Neuron"]],
-#'     "DA Neuron: AST23 vs CL21"     = de_results[["DA_Neuron_CL21_vs_AST23"]]$results[["DA_Neuron"]],
-#'     "DA Neuron: AST23 vs CL18"     = de_results[["DA_Neuron_CL18_vs_AST23"]]$results[["DA_Neuron"]]
+#'     "SNc DA Neuron: AST23 vs CL21" =
+#'       de_results[["SNc_DA_Neuron_CL21_vs_AST23"]]$results[["SNc_DA_Neuron"]],
+#'     "SNc DA Neuron: AST23 vs CL18" =
+#'       de_results[["SNc_DA_Neuron_CL18_vs_AST23"]]$results[["SNc_DA_Neuron"]],
+#'     "DA Neuron: AST23 vs CL21" =
+#'       de_results[["DA_Neuron_CL21_vs_AST23"]]$results[["DA_Neuron"]],
+#'     "DA Neuron: AST23 vs CL18" =
+#'       de_results[["DA_Neuron_CL18_vs_AST23"]]$results[["DA_Neuron"]]
 #'   ),
 #'   sig_col = "pvalue", sig_thresh = 0.05, l2fc_thresh = 0.5
 #' )
@@ -1822,7 +1826,7 @@ title.setAttribute('x', padL);
 title.setAttribute('y', 14);
 title.setAttribute('font-size', '12');
 title.setAttribute('font-weight', '600');
-title.textContent = gene + ' — log2 fold change by comparison';
+title.textContent = gene + ' - log2 fold change by comparison';
 svg.appendChild(title);
 
 var nTicks = 4;

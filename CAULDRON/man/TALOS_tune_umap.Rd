@@ -27,6 +27,10 @@ Default \code{c(10, 15, 20, 30, 50)}.}
 \item{min_dist_range}{Numeric vector of min_dist values to test.
 Default \code{c(0.05, 0.1, 0.3, 0.5)}.}
 
+\item{use_rep}{Character. Name of the \code{reducedDims} slot used as input
+and for the KNN reference.  Default \code{"PCA"}; use \code{"scVI"} for
+the scVI latent space from \code{\link{TALOS_run_scvi}}.}
+
 \item{n_pcs}{Integer. Number of PCA components used as UMAP input and for
 KNN reference computation. Default \code{30}.}
 
@@ -35,6 +39,14 @@ metric. Default \code{15}.}
 
 \item{cluster_col}{Character. \code{colData} column containing cluster
 labels used for silhouette computation. Default \code{"cluster"}.}
+
+\item{use_graph}{Logical.  If \code{TRUE} (default), each UMAP is computed
+from the SNN graph in \code{metadata(sce)$snn_graph}
+(\code{\link{TALOS_build_graph}}), as in \code{\link{TALOS_run_umap}}.
+The neighbourhood size is then fixed by the graph, so only
+\code{min_dist_range} is swept and \code{n_neighbors_range} is not used.
+If \code{FALSE}, both ranges are swept using a nearest-neighbour graph
+computed from \code{use_rep}.  Requires \pkg{uwot} when \code{TRUE}.}
 
 \item{seed}{Integer. Random seed for UMAP reproducibility. Default \code{42L}.}
 

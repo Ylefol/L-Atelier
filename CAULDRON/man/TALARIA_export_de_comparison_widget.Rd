@@ -70,10 +70,14 @@ mistaken for a log2FoldChange of exactly zero.
 \dontrun{
 TALARIA_export_de_comparison_widget(
   de_list = list(
-    "SNc DA Neuron: AST23 vs CL21" = de_results[["SNc_DA_Neuron_CL21_vs_AST23"]]$results[["SNc_DA_Neuron"]],
-    "SNc DA Neuron: AST23 vs CL18" = de_results[["SNc_DA_Neuron_CL18_vs_AST23"]]$results[["SNc_DA_Neuron"]],
-    "DA Neuron: AST23 vs CL21"     = de_results[["DA_Neuron_CL21_vs_AST23"]]$results[["DA_Neuron"]],
-    "DA Neuron: AST23 vs CL18"     = de_results[["DA_Neuron_CL18_vs_AST23"]]$results[["DA_Neuron"]]
+    "SNc DA Neuron: AST23 vs CL21" =
+      de_results[["SNc_DA_Neuron_CL21_vs_AST23"]]$results[["SNc_DA_Neuron"]],
+    "SNc DA Neuron: AST23 vs CL18" =
+      de_results[["SNc_DA_Neuron_CL18_vs_AST23"]]$results[["SNc_DA_Neuron"]],
+    "DA Neuron: AST23 vs CL21" =
+      de_results[["DA_Neuron_CL21_vs_AST23"]]$results[["DA_Neuron"]],
+    "DA Neuron: AST23 vs CL18" =
+      de_results[["DA_Neuron_CL18_vs_AST23"]]$results[["DA_Neuron"]]
   ),
   sig_col = "pvalue", sig_thresh = 0.05, l2fc_thresh = 0.5
 )

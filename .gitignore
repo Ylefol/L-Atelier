@@ -10,5 +10,8 @@ script_builder/
 
 to_process/
 
+# Tutorial datasets (downloaded locally, not tracked)
+tutorial_data/
+
 .Rhistory
 omnipathr-log/

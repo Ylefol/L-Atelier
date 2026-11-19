@@ -373,7 +373,7 @@ PANDORA_annotate_sctype <- function(sce,
         cat(sprintf("  Unmapped   : %d markers excluded\n",
                     ortho_info$n_total - ortho_info$n_mapped))
       if (ortho_info$pct_num < 50)
-        cat("  WARNING    : Conversion rate <50% — interpret results with caution.\n")
+        cat("  WARNING    : Conversion rate <50% - interpret results with caution.\n")
     }
     cat(sprintf(
       "  Clusters   : %d  \u2192  %d unique cell types\n  Markers    : %d found in SCE (of %d post-conversion)\n  Stored as  : colData(sce)[[\"%s\"]]\n%s\n",
@@ -425,7 +425,7 @@ PANDORA_assign_labels <- function(sce,
          call. = FALSE)
 
   if (missing(label_col) || !nzchar(label_col))
-    stop("'label_col' must be specified — name for the new colData column.",
+    stop("'label_col' must be specified - name for the new colData column.",
          call. = FALSE)
 
   clusters        <- as.character(colData(sce)[[cluster_col]])
@@ -659,7 +659,7 @@ PANDORA_convert_orthologs <- function(genes,
     else if (n_mapped < n_input)
       cat("    Unmapped :", n_input - n_mapped, "genes set to NA\n")
     if (pct < 50)
-      cat("    WARNING  : Conversion rate <50% — interpret results with caution.\n")
+      cat("    WARNING  : Conversion rate <50% - interpret results with caution.\n")
   }
 
   if (isTRUE(drop_na))

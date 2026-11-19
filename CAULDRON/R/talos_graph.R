@@ -357,6 +357,11 @@ print.talos_k_sweep <- function(x, ...) {
 #'   Default \code{seq(0.1, 2.0, by = 0.1)}.
 #' @param method Character.  \code{"leiden"}, \code{"louvain"}, or
 #'   \code{"both"} (default).
+#' @param use_rep Character. Name of the \code{reducedDims} slot used to
+#'   compute the silhouette distance matrix.  Default \code{"PCA"}; use
+#'   \code{"scVI"} for the scVI latent space.  \code{n_pcs} applies only when
+#'   \code{use_rep = "PCA"}.  The clustering itself uses the graph stored in
+#'   \code{metadata(sce)$snn_graph}.
 #' @param n_pcs Integer.  PCA components used for the silhouette distance
 #'   matrix.  Default \code{30}.
 #' @param compute_silhouette Logical.  Compute mean silhouette.  Automatically

@@ -320,7 +320,7 @@ ASPIS_plot_marker_heatmap <- function(sce,
     sc_order    <- unique(source_map[gene_order])  # order of first appearance
     long_df$source_cluster <- factor(
       source_map[as.character(long_df$gene)],
-      levels = rev(sc_order)   # rev → first cluster appears at top
+      levels = rev(sc_order)   # rev -> first cluster appears at top
     )
   }
 

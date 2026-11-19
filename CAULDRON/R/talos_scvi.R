@@ -69,7 +69,7 @@ TALOS_run_scvi <- function(sce,
   # ── Input validation ─────────────────────────────────────────────────────────
   if (!"counts" %in% assayNames(sce))
     stop("Assay 'counts' not found. TALOS_run_scvi() requires raw integer ",
-         "counts — do not use a normalised assay.", call. = FALSE)
+         "counts - do not use a normalised assay.", call. = FALSE)
 
   if (!is.null(batch_key)) {
     if (!batch_key %in% names(colData(sce)))
@@ -92,14 +92,14 @@ TALOS_run_scvi <- function(sce,
   # ── Progress header ──────────────────────────────────────────────────────────
   if (isTRUE(verbose))
     cat(sprintf(
-      "── TALOS: scVI %s\n  Cells      : %s\n  Genes      : %s\n  n_latent   : %s  |  n_layers: %s  |  n_hidden: %s\n  max_epochs : %s  |  batch_key: %s\n%s\n",
-      strrep("─", 43),
+      "-- TALOS: scVI %s\n  Cells      : %s\n  Genes      : %s\n  n_latent   : %s  |  n_layers: %s  |  n_hidden: %s\n  max_epochs : %s  |  batch_key: %s\n%s\n",
+      strrep("-", 43),
       format(ncol(sce), big.mark = ","),
       format(nrow(sce), big.mark = ","),
       n_latent, n_layers, n_hidden,
       max_epochs,
       if (!is.null(batch_key)) batch_key else "none (no batch correction)",
-      strrep("─", 56)
+      strrep("-", 56)
     ))
 
   # ── Run via basilisk ─────────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ TALOS_run_scvi <- function(sce,
     cat(sprintf(
       "  Stored in  : reducedDims(sce)[[\"scVI\"]] (%s latent dims)\n%s\n",
       n_latent,
-      strrep("─", 56)
+      strrep("-", 56)
     ))
 
   sce
@@ -155,7 +155,7 @@ TALOS_run_scvi <- function(sce,
   reticulate::py_set_attr(main, "r_counts",     counts_mat)
   reticulate::py_set_attr(main, "r_genes",      genes)
   reticulate::py_set_attr(main, "r_cells",      cells)
-  reticulate::py_set_attr(main, "r_batch",      batch_vec)   # NULL → Python None
+  reticulate::py_set_attr(main, "r_batch",      batch_vec)   # NULL -> Python None
   reticulate::py_set_attr(main, "r_n_latent",   n_latent)
   reticulate::py_set_attr(main, "r_n_layers",   n_layers)
   reticulate::py_set_attr(main, "r_n_hidden",   n_hidden)

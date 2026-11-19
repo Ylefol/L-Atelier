@@ -136,8 +136,8 @@ TALOS_run_harmony <- function(sce,
 
   if (isTRUE(verbose)) {
     cat(sprintf(
-      "── TALOS: Harmony %s\n  Source  : PCA (%d dims)\n  Batch   : %s (%d levels)\n  theta   : %g | max_iter: %d\n",
-      strrep("─", 40),
+      "-- TALOS: Harmony %s\n  Source  : PCA (%d dims)\n  Batch   : %s (%d levels)\n  theta   : %g | max_iter: %d\n",
+      strrep("-", 40),
       n_dims, batch_col, n_batches,
       theta, as.integer(max_iter)
     ))
@@ -159,7 +159,7 @@ TALOS_run_harmony <- function(sce,
       "  Stored  : reducedDims(sce)[['Harmony']] (%s cells x %d dims)\n%s\n",
       format(ncol(sce), big.mark = ","),
       n_dims,
-      strrep("─", 56)
+      strrep("-", 56)
     ))
   }
 
@@ -187,6 +187,14 @@ TALOS_run_harmony <- function(sce,
 #'   structure. Default \code{15}.
 #' @param min_dist Numeric. Minimum distance between points in the embedding.
 #'   Smaller values pack points more tightly. Default \code{0.1}.
+#' @param use_graph Logical. If \code{TRUE} (default), the UMAP is computed from
+#'   the shared nearest-neighbour graph stored in \code{metadata(sce)$snn_graph}
+#'   by \code{\link{TALOS_build_graph}}, so the embedding and the clustering use
+#'   the same neighbourhood structure.  In this mode \code{use_rep},
+#'   \code{n_pcs} and \code{n_neighbors} are not used: the neighbourhood size
+#'   is the \code{k} used to build the graph.  Requires the \pkg{uwot} package.
+#'   If \code{FALSE}, a new nearest-neighbour graph is computed from
+#'   \code{use_rep} using \code{n_pcs} and \code{n_neighbors}.
 #' @param seed Integer. Random seed for reproducibility. Default \code{42L}.
 #' @param verbose Logical. Print a summary. Default \code{TRUE}.
 #'

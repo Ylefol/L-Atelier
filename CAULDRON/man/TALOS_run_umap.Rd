@@ -34,6 +34,15 @@ structure. Default \code{15}.}
 \item{min_dist}{Numeric. Minimum distance between points in the embedding.
 Smaller values pack points more tightly. Default \code{0.1}.}
 
+\item{use_graph}{Logical. If \code{TRUE} (default), the UMAP is computed from
+the shared nearest-neighbour graph stored in \code{metadata(sce)$snn_graph}
+by \code{\link{TALOS_build_graph}}, so the embedding and the clustering use
+the same neighbourhood structure.  In this mode \code{use_rep},
+\code{n_pcs} and \code{n_neighbors} are not used: the neighbourhood size
+is the \code{k} used to build the graph.  Requires the \pkg{uwot} package.
+If \code{FALSE}, a new nearest-neighbour graph is computed from
+\code{use_rep} using \code{n_pcs} and \code{n_neighbors}.}
+
 \item{seed}{Integer. Random seed for reproducibility. Default \code{42L}.}
 
 \item{verbose}{Logical. Print a summary. Default \code{TRUE}.}

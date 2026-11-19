@@ -34,7 +34,7 @@
   canonical = list(
     spliced   = "spliced",
     unspliced = "unspliced",
-    note      = NULL   # this is the required convention — no rename needed
+    note      = NULL   # this is the required convention - no rename needed
   ),
   scvelo_moments = list(
     spliced   = "Ms",
@@ -100,15 +100,15 @@ TRIPODES_check_velocity_ready <- function(sce,
                                            verbose         = TRUE) {
 
   avail    <- assayNames(sce)
-  issues   <- character(0L)   # hard errors — block ready=TRUE
-  warnings <- character(0L)   # soft warnings — inform only
+  issues   <- character(0L)   # hard errors - block ready=TRUE
+  warnings <- character(0L)   # soft warnings - inform only
 
   # ------------------------------------------------------------------
   # 1. Detect alternate / incompatible naming conventions
   # ------------------------------------------------------------------
   for (conv_name in names(.tripodes_known_conventions)) {
     conv <- .tripodes_known_conventions[[conv_name]]
-    if (is.null(conv$note)) next   # skip canonical — handled below
+    if (is.null(conv$note)) next   # skip canonical - handled below
 
     found_s <- conv$spliced   %in% avail
     found_u <- conv$unspliced %in% avail
@@ -427,7 +427,7 @@ TRIPODES_assess_splicing <- function(sce,
     ))
     .tripodes_msg(paste0(
       "  Cells with <10% spliced:    ", pct_low_ratio, "%",
-      if (pct_low_ratio > 20) " [notable — review splicing_ratio distribution]" else ""
+      if (pct_low_ratio > 20) " [notable - review splicing_ratio distribution]" else ""
     ))
     .tripodes_msg(paste0(
       "  Velocity-reliable genes:    ",
@@ -564,7 +564,7 @@ TRIPODES_run_velocity <- function(sce,
     message(
       "[TRIPODES] [~] Dimensionality reduction '", use_dimred, "' not found in SCE. ",
       "Available: ", paste(dimred_names, collapse = ", "), ". ",
-      "scVelo will compute its own PCA — velocity neighbours may not match your embedding."
+      "scVelo will compute its own PCA - velocity neighbours may not match your embedding."
     )
   }
 
@@ -603,7 +603,7 @@ TRIPODES_run_velocity <- function(sce,
     } else {
       message(
         "[TRIPODES] [~] Too few velocity-reliable genes (", length(reliable),
-        ") to subset — proceeding with all genes. ",
+        ") to subset - proceeding with all genes. ",
         "Consider reviewing TRIPODES_assess_splicing() output."
       )
     }
@@ -612,7 +612,7 @@ TRIPODES_run_velocity <- function(sce,
   # Coerce to dgCMatrix float
   .to_dgc_float <- function(mat) {
     if (inherits(mat, "IterableMatrix")) return(mat)   # BPCells: leave as-is
-    mat <- methods::as(mat, "CsparseMatrix")           # any sparse → column-compressed
+    mat <- methods::as(mat, "CsparseMatrix")           # any sparse -> column-compressed
     mat <- methods::as(mat, "dgCMatrix")               # ensure double (not integer)
     mat
   }
@@ -625,7 +625,7 @@ TRIPODES_run_velocity <- function(sce,
   if (verbose) {
     .tripodes_msg(paste0("Running RNA velocity (mode = '", mode, "')..."))
     if (mode == "dynamical")
-      .tripodes_msg("  Dynamical mode fits full kinetic model per gene — this may take a while.")
+      .tripodes_msg("  Dynamical mode fits full kinetic model per gene - this may take a while.")
   }
 
   script  <- system.file("python", "scvelo_run.py", package = "CAULDRON")
@@ -678,7 +678,7 @@ TRIPODES_run_velocity <- function(sce,
     }
     if (verbose) .tripodes_msg("  Stored: assay 'velocity'")
   } else {
-    warning("[TRIPODES] Velocity matrix not returned — check scVelo logs.")
+    warning("[TRIPODES] Velocity matrix not returned - check scVelo logs.")
   }
 
   # Moments-smoothed spliced/unspliced (Ms/Mu) — opt-in via store_moments,
@@ -688,7 +688,7 @@ TRIPODES_run_velocity <- function(sce,
   if (isTRUE(store_moments)) {
     .store_moment_assay <- function(mat_sub, assay_name) {
       if (is.null(mat_sub)) {
-        warning("[TRIPODES] '", assay_name, "' matrix not returned — check scVelo logs.")
+        warning("[TRIPODES] '", assay_name, "' matrix not returned - check scVelo logs.")
         return(invisible(NULL))
       }
       if (nrow(sce_vel) < nrow(sce)) {
@@ -782,7 +782,7 @@ TRIPODES_run_velocity <- function(sce,
   reticulate::py_set_attr(main, "r_n_pcs",        as.integer(n_pcs))
   reticulate::py_set_attr(main, "r_n_neighbors",  as.integer(n_neighbors))
   reticulate::py_set_attr(main, "r_store_moments", isTRUE(store_moments))
-  reticulate::py_set_attr(main, "r_pca",          pca_mat)    # NULL → Python None
+  reticulate::py_set_attr(main, "r_pca",          pca_mat)    # NULL -> Python None
   reticulate::py_set_attr(main, "r_umap",         umap_mat)
   reticulate::py_set_attr(main, "r_tsne",         tsne_mat)
 
