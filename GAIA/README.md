@@ -10,7 +10,9 @@ Part of the [L-Atelier](../) repository. Its nine subordinate modules are each n
 
 ## Installation
 
-GAIA is an R package installed directly from the repository. R >= 4.1.0 is required.
+GAIA is an R package installed directly from the repository. R >= 4.4.0 is required, and the package targets the current Bioconductor release (older releases are not supported).
+
+The easiest route is the installer in the repository root, which installs the required packages and offers the optional ones by feature (see the [main README](../README.md#installation)). To install GAIA by hand instead:
 
 ```r
 install.packages("devtools")

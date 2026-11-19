@@ -6,6 +6,22 @@ L-Atelier (French for *the workshop*) is a multi-omics toolkit that I've been de
 
 ---
 
+## Installation
+
+R >= 4.4.0 is required. The toolkit targets the **current Bioconductor release** only; older releases are not supported (Bioconductor 3.24, released November 2026, needs R >= 4.6.0).
+
+The installer lets you choose which packages to install, checks your R and Bioconductor versions, and offers optional dependencies by feature:
+
+```r
+source("https://raw.githubusercontent.com/Ylefol/L-Atelier/master/install.R")
+```
+
+It does not install system libraries, create conda environments, or fetch software that must be obtained from its authors (e.g. CIBERSORT); it reports what is missing. On Linux, compiling some Bioconductor packages needs system libraries (for example `libcurl4-openssl-dev`).
+
+To install a single package by hand, see its own README.
+
+---
+
 ## Packages
 
 ### [GAIA](GAIA/) — Multi-omics Analysis

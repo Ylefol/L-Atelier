@@ -24,6 +24,8 @@ Output files are in formats GAIA's import module already understands:
 
 ### 1. Install the R package
 
+R >= 4.4.0 is required (current Bioconductor release). The installer in the repository root (`install.R`, see the [main README](../README.md#installation)) can do this step for you.
+
 ```r
 install.packages("devtools")
 devtools::install("path/to/L-Atelier/HORIZON")

@@ -13,7 +13,7 @@ BugReports: https://github.com/Ylefol/L-Atelier/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends:
-    R (>= 4.1.0),
+    R (>= 4.4.0),
     ggplot2,
     SingleCellExperiment,
     SummarizedExperiment
@@ -35,9 +35,13 @@ Imports:
     SingleR,
     BiocParallel,
     basilisk,
-    matrixStats
-Suggests:
+    matrixStats,
     cluster,
+    graphics,
+    grid,
+    tools,
+    reticulate
+Suggests:
     zellkonverter,
     DropletUtils,
     LoomExperiment,

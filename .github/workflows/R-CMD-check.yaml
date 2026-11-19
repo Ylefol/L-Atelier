@@ -1,5 +1,5 @@
 # R CMD check (build, documentation, examples, tests) per package.
-# HORIZON and GAIA, Linux only. Widen the OS matrix once these are green.
+# HORIZON, GAIA and CAULDRON, Linux only. Widen the OS matrix once these are green.
 # Only hard dependencies (Depends/Imports) are installed, plus testthat, so GAIA's
 # long Suggests list does not have to build for every check.
 name: R-CMD-check
@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [HORIZON, GAIA]
+        package: [HORIZON, GAIA, CAULDRON]
         config:
           - {os: ubuntu-latest, r: release}
 
