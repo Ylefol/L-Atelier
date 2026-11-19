@@ -86,9 +86,9 @@ LATELIER_OPTIONAL <- list(
   ),
   isoform = list(
     pkgs = "GAIA",
-    desc = "Isoform switching (IsoformSwitchAnalyzeR; also needs basilisk/reticulate for some tools)",
+    desc = "Isoform switching (IsoformSwitchAnalyzeR; reticulate for some tools)",
     cran = c("reticulate"),
-    bioc = c("IsoformSwitchAnalyzeR", "basilisk")
+    bioc = c("IsoformSwitchAnalyzeR")
   ),
   sc_core = list(
     pkgs = "CAULDRON",

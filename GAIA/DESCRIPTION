@@ -30,6 +30,7 @@ Imports:
     GenomicRanges,
     IRanges,
     GenomeInfoDb,
+    basilisk,
     rtracklayer
 Suggests:
     sva,
@@ -87,7 +88,6 @@ Suggests:
     readxl,
     IsoformSwitchAnalyzeR,
     RUVSeq,
-    basilisk,
     reticulate,
     BSgenome,
     uwot,
