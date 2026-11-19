@@ -77,4 +77,8 @@ Suggests:
     jsonlite,
     knitr,
     testthat (>= 3.0.0)
+Remotes:
+    cole-trapnell-lab/monocle3,
+    jinworks/CellChat,
+    bnprks/BPCells/r
 Config/roxygen2/version: 8.0.0
