@@ -57,7 +57,7 @@ AETHER_plot_cluster_pca <- function(cc_result, k,
     ggplot2::geom_point(size = point_size, alpha = alpha) +
     ggplot2::scale_color_brewer(palette = "Set2", name = "Cluster") +
     ggplot2::labs(
-      title = if (!is.null(title)) title else paste0("PCA — Consensus Clusters (k=", k, ")"),
+      title = if (!is.null(title)) title else paste0("PCA - Consensus Clusters (k=", k, ")"),
       x     = paste0("PC1 (", var_exp[1], "%)"),
       y     = paste0("PC2 (", var_exp[2], "%)")
     ) +
@@ -277,7 +277,7 @@ AETHER_plot_cluster_umap <- function(cc_result, k, item_consensus = NULL,
   p <- p +
     ggplot2::labs(title = if (!is.null(title)) title else paste0(
       "UMAP", if (supervised) " (label-supervised)" else "",
-      " — Consensus Clusters (k=", k, ")")) +
+      " - Consensus Clusters (k=", k, ")")) +
     ggplot2::theme_bw() +
     ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5), legend.position = "right")
 

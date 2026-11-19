@@ -119,7 +119,7 @@ APOLLO_link_degs_to_peaks <- function(deg_result,
     peaks_gr <- GenomicRanges::GRanges(
       seqnames = peaks_df$chr,
       ranges   = IRanges::IRanges(
-        start = as.integer(peaks_df$start) + 1L,  # 0-based → 1-based
+        start = as.integer(peaks_df$start) + 1L,  # 0-based -> 1-based
         end   = as.integer(peaks_df$end)
       )
     )
@@ -267,10 +267,10 @@ APOLLO_link_degs_to_peaks <- function(deg_result,
   )
 
   if (verbose) {
-    message("[APOLLO] Genes with ≥1 nearby peak: ", stats$n_genes_with_peaks,
+    message("[APOLLO] Genes with >=1 nearby peak: ", stats$n_genes_with_peaks,
             " / ", stats$n_genes_input,
             " (", round(100 * stats$n_genes_with_peaks / stats$n_genes_input, 1), "%)")
-    message("[APOLLO] Peaks near ≥1 gene: ", stats$n_peaks_near_genes,
+    message("[APOLLO] Peaks near >=1 gene: ", stats$n_peaks_near_genes,
             " / ", stats$n_peaks_input)
     message("[APOLLO] Total peak-gene pairs: ", stats$n_pairs)
   }
@@ -416,7 +416,7 @@ APOLLO_link_degs_to_peaks <- function(deg_result,
 
   if (nrow(raw_df) == 0)
     warning("No genes matched IDs in TxDb. TxDb gene IDs may not be gene ",
-            "symbols — consider using gtf_file instead.", call. = FALSE)
+            "symbols - consider using gtf_file instead.", call. = FALSE)
 
   rownames(raw_df) <- NULL
   raw_df

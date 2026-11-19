@@ -338,7 +338,7 @@ ARTEMIS_limma_de <- function(matrix,
   if (!is.null(feature_id_col)) {
     if (!feature_id_col %in% colnames(results_df)) {
       warning("feature_id_col '", feature_id_col, "' not found in results ",
-              "after joining feature_meta — feature_id unchanged.")
+              "after joining feature_meta - feature_id unchanged.")
     } else {
       new_ids <- as.character(results_df[[feature_id_col]])
       if (anyDuplicated(new_ids[!is.na(new_ids)])) {

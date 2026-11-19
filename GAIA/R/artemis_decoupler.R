@@ -210,7 +210,7 @@ ARTEMIS_run_decoupler <- function(mat,
 
   # Handle artemis_norm input
   if (inherits(mat, "artemis_norm")) {
-    if (verbose) cat("[ARTEMIS] artemis_norm object detected — extracting log2(DESeq2-normalized + 1) counts.\n")
+    if (verbose) cat("[ARTEMIS] artemis_norm object detected - extracting log2(DESeq2-normalized + 1) counts.\n")
     mat <- log2(mat$norm_counts + 1)
     norm_method <- "none"
   }
@@ -229,7 +229,7 @@ ARTEMIS_run_decoupler <- function(mat,
   # Apply normalization or warn if raw counts passed with norm_method = "none"
   if (norm_method != "none") {
     if (verbose && .is_raw_counts(mat)) {
-      cat("[ARTEMIS] Raw integer counts detected — applying", norm_method, "normalization.\n")
+      cat("[ARTEMIS] Raw integer counts detected - applying", norm_method, "normalization.\n")
     }
     mat <- .normalize_for_decoupler(mat, norm_method, verbose)
   } else if (.is_raw_counts(mat)) {
@@ -429,12 +429,12 @@ ARTEMIS_decoupler_compare_methods <- function(mat,
 
   # Handle artemis_norm input
   if (inherits(mat, "artemis_norm")) {
-    if (verbose) cat("[ARTEMIS] artemis_norm object detected — extracting log2(DESeq2-normalized + 1) counts.\n")
+    if (verbose) cat("[ARTEMIS] artemis_norm object detected - extracting log2(DESeq2-normalized + 1) counts.\n")
     mat <- log2(mat$norm_counts + 1)
     norm_method <- "none"
   } else if (norm_method != "none") {
     if (verbose) cat("[ARTEMIS] Normalizing matrix once before running", length(methods), "methods...\n")
-    if (verbose && .is_raw_counts(mat)) cat("[ARTEMIS] Raw integer counts detected — applying", norm_method, "normalization.\n")
+    if (verbose && .is_raw_counts(mat)) cat("[ARTEMIS] Raw integer counts detected - applying", norm_method, "normalization.\n")
     mat <- .normalize_for_decoupler(mat, norm_method, verbose = FALSE)
     norm_method <- "none"
   } else if (.is_raw_counts(mat)) {

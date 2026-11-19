@@ -67,7 +67,7 @@ AETHER_plot_tss_enrichment <- function(
     color_col <- color_by
   } else {
     cat("[AETHER] color_by column '", color_by,
-        "' not found in scores — colouring by sample.\n", sep = "")
+        "' not found in scores - colouring by sample.\n", sep = "")
     color_col <- "sample_id"
   }
 

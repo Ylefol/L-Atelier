@@ -180,7 +180,7 @@ ELEUTHIA_load_massspec <- function(ms_file,
 
   if (verbose && any(!has_plate))
     cat("[ELEUTHIA]   Warning:", sum(!has_plate),
-        "column(s) do not match the '{SampleID}_Plate N' convention — PlateID set to NA\n")
+        "column(s) do not match the '{SampleID}_Plate N' convention - PlateID set to NA\n")
 
   if (anyDuplicated(parsed_ids)) {
     n_duped    <- sum(duplicated(parsed_ids))

@@ -202,7 +202,7 @@ HADES_tss_enrichment <- function(
 
     if (length(sig) == 0L) {
       warning("No signal found in BigWig for '", sid,
-              "' — score set to NA.", call. = FALSE)
+              "' - score set to NA.", call. = FALSE)
       score_vec[i]        <- NA_real_
       profile_list[[sid]] <- rep(NA_real_, n_bins)
       next
@@ -323,7 +323,7 @@ print.hades_tss_enrichment <- function(x, ...) {
   p      <- x$params
   scores <- x$scores
   cat("hades_tss_enrichment\n")
-  cat("  Window:      ±", p$window, " bp  |  Bin size: ~", p$bin_size,
+  cat("  Window:      +/-", p$window, " bp  |  Bin size: ~", p$bin_size,
       " bp  |  n_bins: ", p$n_bins, "\n", sep = "")
   cat("  TSSs used:   ", p$n_tss, "\n", sep = "")
   cat("  Threshold:   ", p$threshold, "\n", sep = "")

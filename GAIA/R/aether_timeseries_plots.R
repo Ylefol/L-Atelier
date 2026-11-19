@@ -979,7 +979,7 @@ AETHER_plot_cluster_divergence <- function(divergence_result,
   df <- divergence_result$results
   df$neg_log10_p <- -log10(df$p_adj)
 
-  sig_lbl <- c(paste0("p_adj < ", alpha), paste0("p_adj ≥ ", alpha))
+  sig_lbl <- c(paste0("p_adj < ", alpha), paste0("p_adj \u2265 ", alpha))
   df$significant <- factor(ifelse(df$p_adj < alpha, sig_lbl[1], sig_lbl[2]),
                             levels = sig_lbl)
 

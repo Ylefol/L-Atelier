@@ -48,7 +48,7 @@
 }
 
 
-#' Discretize a named activity vector to {-1, 0, 1} and drop sub-threshold entries
+#' Discretize a named activity vector to \{-1, 0, 1\} and drop sub-threshold entries
 #' @keywords internal
 .artemis_carnival_discretize <- function(x, threshold, verbose) {
   n_before <- length(x)

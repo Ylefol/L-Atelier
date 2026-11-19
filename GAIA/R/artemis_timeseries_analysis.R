@@ -795,7 +795,7 @@ ARTEMIS_normalize_timeseries_limma <- function(matrix,
   if (length(non_na) > 0 &&
       all(non_na == floor(non_na)) &&
       all(non_na >= 0)) {
-    warning("Matrix contains only non-negative integers — it may be raw counts. ",
+    warning("Matrix contains only non-negative integers - it may be raw counts. ",
             "ARTEMIS_normalize_timeseries_limma() expects a log2-scale matrix. ",
             "For count data use the DESeq2 workflow (ARTEMIS_normalize_timeseries).")
   }

@@ -144,7 +144,7 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
   if (verbose) cat("[AETHER] Extracting gene positions from TxDb...\n")
   pos_df <- .aether_phm_get_positions(txdb, genes, verbose)
   if (nrow(pos_df) == 0L)
-    stop("No genes found — check txdb and the genes argument\n", call. = FALSE)
+    stop("No genes found - check txdb and the genes argument\n", call. = FALSE)
   if (verbose) cat("    Genes: ", nrow(pos_df),"\n")
 
   # --- Gene filtering ---------------------------------------------------------
@@ -207,7 +207,7 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
   } else if (!is.null(max_genes) && nrow(pos_df) > max_genes) {
     # --- TSS-signal pre-filter (fallback when no peaks supplied) ------------
     if (verbose)
-      cat("[AETHER] No peaks supplied — pre-filtering ", nrow(pos_df),
+      cat("[AETHER] No peaks supplied - pre-filtering ", nrow(pos_df),
               " genes to top ", max_genes, " by TSS signal...\n")
     pos_df <- .aether_phm_prefilter(
       pos_df    = pos_df,
@@ -392,7 +392,7 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
   )
 
   if (is.null(sig) || length(sig) == 0L) {
-    if (verbose) cat("[AETHER]   No TSS signal found — keeping first ",
+    if (verbose) cat("[AETHER]   No TSS signal found - keeping first ",
                          max_genes, " genes\n")
     return(pos_df[seq_len(min(max_genes, n)), ])
   }
@@ -481,7 +481,7 @@ AETHER_plot_profile_heatmap <- function(bigwig_files,
       verbose        = FALSE
     )
 
-    m <- unclass(nm)         # strip NormalizedMatrix S4 class → plain matrix
+    m <- unclass(nm)         # strip NormalizedMatrix S4 class -> plain matrix
     m[is.na(m)] <- 0.0
 
     # Capture actual layout from NormalizedMatrix attributes on first file only

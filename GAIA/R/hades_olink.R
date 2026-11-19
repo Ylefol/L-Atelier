@@ -204,7 +204,7 @@ HADES_detect_outliers_olink <- function(olink_data,
   # ---------------------------------------------------------------------------
 
   pca     <- stats::prcomp(t(mat_scaled), center = FALSE, scale. = FALSE)
-  scores  <- pca$x[, seq_len(n_pcs), drop = FALSE]   # samples × n_pcs
+  scores  <- pca$x[, seq_len(n_pcs), drop = FALSE]   # samples x n_pcs
 
   centroid  <- colMeans(scores)
   distances <- sqrt(rowSums(sweep(scores, 2L, centroid)^2))

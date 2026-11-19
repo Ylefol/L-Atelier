@@ -437,7 +437,7 @@ ELEUTHIA_export_olink_qc <- function(olink_data,
 
   if (!is.null(qc_plots)) {
     qc_sets <- if (!is.null(qc_plots$npx_distributions)) {
-      setNames(list(qc_plots), "")  # single set — no filename prefix
+      setNames(list(qc_plots), "")  # single set - no filename prefix
     } else {
       qc_plots                     # named list of sets
     }
@@ -487,7 +487,7 @@ ELEUTHIA_export_olink_qc <- function(olink_data,
     }
 
     if (verbose)
-      cat("[ELEUTHIA]   [qc]  batch PCA:", length(batch_plots), "plot(s) —",
+      cat("[ELEUTHIA]   [qc]  batch PCA:", length(batch_plots), "plot(s) -",
           paste0("pca_batch_", names(batch_plots), ".png", collapse = ", "), "\n")
   }
 

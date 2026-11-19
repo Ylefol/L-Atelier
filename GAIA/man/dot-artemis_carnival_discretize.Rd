@@ -2,11 +2,11 @@
 % Please edit documentation in R/artemis_carnival.R
 \name{.artemis_carnival_discretize}
 \alias{.artemis_carnival_discretize}
-\title{Discretize a named activity vector to {-1, 0, 1} and drop sub-threshold entries}
+\title{Discretize a named activity vector to \{-1, 0, 1\} and drop sub-threshold entries}
 \usage{
 .artemis_carnival_discretize(x, threshold, verbose)
 }
 \description{
-Discretize a named activity vector to {-1, 0, 1} and drop sub-threshold entries
+Discretize a named activity vector to \{-1, 0, 1\} and drop sub-threshold entries
 }
 \keyword{internal}

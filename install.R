@@ -61,21 +61,22 @@ LATELIER_OPTIONAL <- list(
   ),
   batch_norm = list(
     pkgs = "GAIA",
-    desc = "Batch correction and normalization (sva, limma, preprocessCore, vsn, RUVSeq, imputeLCMD)",
-    cran = c("imputeLCMD"),
+    desc = "Batch correction, normalization, imputation (sva, limma, preprocessCore, vsn, RUVSeq, imputeLCMD, mice)",
+    cran = c("imputeLCMD", "mice"),
     bioc = c("sva", "limma", "preprocessCore", "vsn", "RUVSeq")
   ),
   integration = list(
     pkgs = "GAIA",
-    desc = "Multi-omics integration and ML (MOFA2, PMA, grpreg, FactoMineR, missMDA, e1071, uwot)",
+    desc = "Multi-omics integration, ML and consensus clustering (MOFA2, ConsensusClusterPlus, PMA, grpreg, FactoMineR, missMDA, e1071, uwot)",
     cran = c("PMA", "grpreg", "FactoMineR", "missMDA", "e1071", "uwot", "cluster", "nnet"),
-    bioc = c("MOFA2")
+    bioc = c("MOFA2", "ConsensusClusterPlus")
   ),
   network_viz = list(
     pkgs = "GAIA",
-    desc = "Network and interactive visualization (igraph, ggraph, visNetwork, plotly, pheatmap, patchwork)",
+    desc = "Network and interactive visualization (igraph, ggraph, visNetwork, plotly, ggalluvial, png, pheatmap, patchwork)",
     cran = c("igraph", "ggraph", "visNetwork", "plotly", "htmlwidgets", "pheatmap",
-             "patchwork", "ggrepel", "gridExtra", "RColorBrewer", "scales"),
+             "patchwork", "ggrepel", "gridExtra", "RColorBrewer", "scales",
+             "ggalluvial", "png"),
     bioc = character(0)
   ),
   signaling = list(
@@ -334,14 +335,11 @@ LATELIER_OPTIONAL <- list(
     for (grp in c("out_of_date", "too_new")) {
       d <- tryCatch(v[[grp]], error = function(e) NULL)
       if (is.null(d) || NROW(d) == 0) next
-      col <- function(nm) if (nm %in% names(d)) as.character(d[[nm]]) else rep("?", NROW(d))
-      pkg <- if ("Package" %in% names(d)) as.character(d$Package) else rownames(d)
       .lat_cat("    ", if (grp == "out_of_date") "Out of date" else "Newer than release",
                " (", NROW(d), "):\n")
-      for (i in seq_len(NROW(d))) {
-        .lat_cat("        ", pkg[i], " (installed ", col("Installed")[i],
-                 ", release ", col("ReposVer")[i], ")\n")
-      }
+      # Print the table as returned (indented) instead of picking columns, since
+      # the column layout is not guaranteed across BiocManager versions.
+      .lat_cat(paste0("        ", utils::capture.output(print(as.data.frame(d))), "\n"))
     }
   }
 

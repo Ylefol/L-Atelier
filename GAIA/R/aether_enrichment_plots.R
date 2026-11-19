@@ -1348,7 +1348,7 @@ AETHER_plot_go_treemap <- function(enrichment_result,
 
     df_ont <- df_go_all[df_go_all$source == ont_source[o], ]
     if (nrow(df_ont) == 0L) {
-      if (verbose) cat("[AETHER] No ", ont_source[o], " terms found — skipping.")
+      if (verbose) cat("[AETHER] No ", ont_source[o], " terms found - skipping.")
       next
     }
 
@@ -1379,7 +1379,7 @@ AETHER_plot_go_treemap <- function(enrichment_result,
                                 ont = o, method = method),
       error = function(e) {
         warning("calculateSimMatrix failed for GO:", o,
-                " — ", conditionMessage(e))
+                " - ", conditionMessage(e))
         NULL
       }
     )
@@ -1389,7 +1389,7 @@ AETHER_plot_go_treemap <- function(enrichment_result,
     common_ids <- intersect(rownames(sim_mat), names(scores))
     if (length(common_ids) < 2L) {
       if (verbose)
-        cat("Too few GO:", o, " terms present in OrgDb after filtering — skipping.")
+        cat("Too few GO:", o, " terms present in OrgDb after filtering - skipping.")
       next
     }
     sim_mat  <- sim_mat[common_ids, common_ids]

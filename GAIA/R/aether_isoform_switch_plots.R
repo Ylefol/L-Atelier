@@ -146,7 +146,7 @@ AETHER_plot_isoform_switch_volcano <- function(switch_result,
     up      = paste0("increased usage | ", q_col, "<", alpha, " (n=", n_up, ")"),
     down    = paste0("decreased usage | ", q_col, "<", alpha, " (n=", n_down, ")"),
     low_dIF = paste0("low-dIF | ", q_col, "<", alpha, " (n=", n_low_dIF, ")"),
-    non_sig = paste0("non-significant | ", q_col, "≥", alpha, " (n=", n_non_sig, ")")
+    non_sig = paste0("non-significant | ", q_col, "\u2265", alpha, " (n=", n_non_sig, ")")
   )
 
   df$Significance <- factor(lbl[df$.cat],

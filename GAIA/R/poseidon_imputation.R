@@ -69,7 +69,7 @@ POSEIDON_impute_massspec <- function(massspec_data, verbose = TRUE) {
 
   if (n_na == 0L) {
     if (verbose)
-      cat("[POSEIDON] No missing values in massspec_data$wide — skipping QRILC.\n")
+      cat("[POSEIDON] No missing values in massspec_data$wide - skipping QRILC.\n")
     return(massspec_data)
   }
 

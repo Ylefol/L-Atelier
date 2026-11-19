@@ -184,7 +184,7 @@ APOLLO_extract_summits <- function(peak_files,
       mapped_chr <- chr_map_vec[bed$chr]
       n_unmapped <- sum(is.na(mapped_chr))
       if (n_unmapped > 0) {
-        warning(nm, ": ", n_unmapped, " peak(s) on chromosomes not in mapping — dropped.")
+        warning(nm, ": ", n_unmapped, " peak(s) on chromosomes not in mapping - dropped.")
         bed <- bed[!is.na(mapped_chr), , drop = FALSE]
         mapped_chr <- mapped_chr[!is.na(mapped_chr)]
       }

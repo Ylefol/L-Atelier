@@ -267,7 +267,7 @@ AETHER_plot_stability_histogram <- function(stability_result, title = NULL) {
 AETHER_plot_stability_alluvial <- function(stability_result, title = NULL) {
 
   if (!requireNamespace("ggalluvial", quietly = TRUE)) {
-    cat("[AETHER] ggalluvial not available — falling back to stability histogram.\n")
+    cat("[AETHER] ggalluvial not available - falling back to stability histogram.\n")
     cat("    Install with: install.packages('ggalluvial')\n")
     return(AETHER_plot_stability_histogram(stability_result, title = title))
   }

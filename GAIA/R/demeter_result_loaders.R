@@ -1950,7 +1950,7 @@ DEMETER_load_enrichment <- function(file_path, verbose = TRUE) {
       metadata = list(
         organism = NULL,
         sources  = unique(combined$source),
-        note     = paste("Reconstructed from CSV —",
+        note     = paste("Reconstructed from CSV -",
                          "per-module gost objects and metadata not available.")
       )
     )

@@ -175,7 +175,7 @@ AETHER_plot_coverage_tracks <- function(bigwig_files      = NULL,
     stop("Provide either bigwig_files (BigWig mode) or bed_files (BED mode)",
          call. = FALSE)
   if (!is.null(bigwig_files) && !is.null(bed_files))
-    stop("bigwig_files and bed_files are mutually exclusive — provide only one",
+    stop("bigwig_files and bed_files are mutually exclusive - provide only one",
          call. = FALSE)
 
   use_bed <- !is.null(bed_files)
@@ -976,7 +976,7 @@ AETHER_plot_coverage_tracks <- function(bigwig_files      = NULL,
     data.frame(
       x     = candidates,
       row   = g$row,
-      arrow = if (g$strand == "-") "\u25C2" else "\u25B8",  # ◂ or ▸
+      arrow = if (g$strand == "-") "\u25C2" else "\u25B8",  # left or right pointer
       stringsAsFactors = FALSE
     )
   }))

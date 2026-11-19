@@ -8,7 +8,8 @@
 #' @importFrom stats IQR aggregate as.formula binomial chisq.test coef complete.cases contr.poly
 #' @importFrom stats contrasts<- cor.test cov cutree density dist gaussian glm hclust
 #' @importFrom stats kruskal.test mad median model.matrix na.omit p.adjust pnorm prcomp qnorm
-#' @importFrom stats quantile reshape rnorm runif sd setNames t.test var wilcox.test
+#' @importFrom stats quantile reshape rnorm runif sd setNames t.test var wilcox.test as.dist
+#' @importFrom methods as
 #' @importFrom utils capture.output head read.csv read.delim read.table sessionInfo tail write.csv
 #' @importFrom grDevices col2rgb colorRampPalette dev.off pdf png rgb
 #' @importFrom graphics abline par points text
@@ -32,6 +33,8 @@
 #' @importFrom ggplot2 scale_size_continuous scale_x_continuous scale_y_continuous sec_axis
 #' @importFrom ggplot2 stat_ellipse theme theme_bw theme_minimal theme_void unit ggsave
 #' @importFrom ggplot2 geom_bin2d after_stat
+#' @importFrom ggplot2 geom_density geom_ribbon ggtitle position_dodge scale_y_reverse
+#' @importFrom ggplot2 stat_summary theme_light xlab ylab
 
 # ============================================================================
 # ggplot2 .data pronoun for tidy eval
@@ -44,7 +47,7 @@
 # ============================================================================
 
 #' @importFrom DESeq2 DESeq DESeqDataSetFromMatrix estimateDispersions estimateSizeFactors
-#' @importFrom DESeq2 nbinomWaldTest results sizeFactors counts design "design<-"
+#' @importFrom DESeq2 nbinomWaldTest results sizeFactors "sizeFactors<-" counts design "design<-"
 #' @importFrom SummarizedExperiment colData "colData<-"
 #' @importFrom GenomicRanges seqinfo seqnames GRanges start end strand coverage
 #' @importFrom GenomicRanges tileGenome binnedAverage distanceToNearest findOverlaps
@@ -91,6 +94,16 @@ utils::globalVariables(c(
 
   # Other NSE / internal
   "Xtilde_1", "CIBERSORT", "cor",
+
+  # Column names used inside ggplot2 aes() / data frame construction.
+  # Added from R CMD check "no visible binding for global variable" notes.
+  ".label", "AStype", "Direction", "NES", "Significance", "Significant",
+  "UMAP1", "UMAP2", "baseMean_log2", "bracket_y", "cdf", "consensus", "dIF",
+  "delta_area", "divergence_stat", "gene_length", "label_y", "log2FoldChange",
+  "n_consistent", "n_patients", "n_total", "neg_log10_p", "node_size", "padj",
+  "patient", "propUp", "propUpCiHi", "propUpCiLo", "pvalue", "rel_type", "run",
+  "sample_id", "sig_label", "significance", "significant", "size",
+  "switchConsequence", "value", "wcss", "x1", "x2", "xmid",
 
   # GenomeInfoDb (Suggested package)
   "seqlevels"
