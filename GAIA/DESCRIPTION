@@ -29,11 +29,11 @@ Imports:
     WGCNA,
     GenomicRanges,
     IRanges,
+    GenomeInfoDb,
     rtracklayer
 Suggests:
     sva,
     limma,
-    GenomeInfoDb,
     GenomicFeatures,
     txdbmaker,
     AnnotationDbi,

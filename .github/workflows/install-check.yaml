@@ -31,6 +31,15 @@ jobs:
           r-version: release
           use-public-rspm: true
 
+      # System libraries a user must install themselves; install.R cannot do this.
+      # Keep this list in sync with the system-dependency table in INSTALL.md.
+      # Start minimal and add libraries only when a CI failure shows they are needed.
+      - name: Install system libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+
       - name: Run install.R (HORIZON + GAIA, no optional groups)
         shell: Rscript {0}
         run: |
