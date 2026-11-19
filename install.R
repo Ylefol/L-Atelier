@@ -325,8 +325,24 @@ LATELIER_OPTIONAL <- list(
     .lat_cat("    All Bioconductor packages are consistent with release ",
              as.character(BiocManager::version()), "\n")
   } else if (!is.null(v)) {
-    .lat_cat("    Some packages are out of date or too new for this Bioconductor release.\n")
-    .lat_cat("    See the BiocManager::valid() output for details.\n")
+    .lat_cat("    Some installed packages differ from Bioconductor release ",
+             as.character(BiocManager::version()), ".\n")
+    .lat_cat("    This is usually harmless. To update them, run: BiocManager::install()\n")
+    # Name the packages so the message is actionable. valid() returns a list with
+    # `out_of_date` and `too_new` data frames; read columns defensively since the
+    # exact layout is not guaranteed across BiocManager versions.
+    for (grp in c("out_of_date", "too_new")) {
+      d <- tryCatch(v[[grp]], error = function(e) NULL)
+      if (is.null(d) || NROW(d) == 0) next
+      col <- function(nm) if (nm %in% names(d)) as.character(d[[nm]]) else rep("?", NROW(d))
+      pkg <- if ("Package" %in% names(d)) as.character(d$Package) else rownames(d)
+      .lat_cat("    ", if (grp == "out_of_date") "Out of date" else "Newer than release",
+               " (", NROW(d), "):\n")
+      for (i in seq_len(NROW(d))) {
+        .lat_cat("        ", pkg[i], " (installed ", col("Installed")[i],
+                 ", release ", col("ReposVer")[i], ")\n")
+      }
+    }
   }
 
   if (all(ok)) {

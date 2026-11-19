@@ -1,5 +1,7 @@
 # R CMD check (build, documentation, examples, tests) per package.
-# Pilot: HORIZON only, Linux only. Widen the matrix once this is green.
+# HORIZON and GAIA, Linux only. Widen the OS matrix once these are green.
+# Only hard dependencies (Depends/Imports) are installed, plus testthat, so GAIA's
+# long Suggests list does not have to build for every check.
 name: R-CMD-check
 
 on:
@@ -17,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [HORIZON]
+        package: [HORIZON, GAIA]
         config:
           - {os: ubuntu-latest, r: release}
 
@@ -36,7 +38,8 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           working-directory: ${{ matrix.package }}
-          extra-packages: any::rcmdcheck
+          extra-packages: any::rcmdcheck, any::testthat
+          dependencies: '"hard"'
           needs: check
 
       - uses: r-lib/actions/check-r-package@v2
