@@ -6,12 +6,16 @@
 # ============================================================================
 
 #' @importFrom stats IQR aggregate as.formula binomial chisq.test coef complete.cases contr.poly
-#' @importFrom stats contrasts<- cor.test cov cutree density dist end gaussian glm hclust
+#' @importFrom stats contrasts<- cor.test cov cutree density dist gaussian glm hclust
 #' @importFrom stats kruskal.test mad median model.matrix na.omit p.adjust pnorm prcomp qnorm
-#' @importFrom stats quantile reshape rnorm runif sd setNames start t.test var wilcox.test
+#' @importFrom stats quantile reshape rnorm runif sd setNames t.test var wilcox.test
 #' @importFrom utils capture.output head read.csv read.delim read.table sessionInfo tail write.csv
 #' @importFrom grDevices col2rgb colorRampPalette dev.off pdf png rgb
 #' @importFrom graphics abline par points text
+
+# NOTE: stats::start and stats::end are deliberately NOT imported. GenomicRanges
+# exports generics of the same name (imported below); importing both made R
+# warn "replacing previous import" on every library(GAIA).
 
 # ============================================================================
 # ggplot2 imports (listed in Imports)
