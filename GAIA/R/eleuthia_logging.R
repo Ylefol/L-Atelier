@@ -2,6 +2,7 @@
 #'
 #' @description Functions for managing console output logging to files.
 #' Duplicates console output to both screen and log file (does not redirect).
+#' @noRd
 
 
 # Package environment to store log state

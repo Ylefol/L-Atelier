@@ -2,6 +2,7 @@
 #'
 #' @description General-purpose differential analysis functions using
 #' established statistical methods (DESeq2, etc.) for count-based data.
+#' @noRd
 
 
 # ==============================================================================

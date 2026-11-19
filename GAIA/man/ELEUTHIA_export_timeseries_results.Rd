@@ -50,6 +50,11 @@ Default: NULL.}
 \item{sample_info}{Data.frame with sample metadata (for trajectory plots).
 Must have rownames matching sample columns. Default: NULL.}
 
+\item{sample_col}{Character or NULL. Column in \code{sample_info} whose values
+are sample identifiers matching the sample names of the PART data. Passed
+to \code{AETHER_plot_part_heatmap()} when plots are saved.
+Default: NULL (rownames used as-is).}
+
 \item{time_col}{Character. Timepoint column in sample_info. Default: "timepoint".}
 
 \item{group_col}{Character. Group column in sample_info. Default: "group".}

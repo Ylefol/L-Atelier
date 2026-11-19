@@ -6,6 +6,15 @@
 \usage{
 \method{print}{apollo_deg_peaks}(x, ...)
 }
+\arguments{
+\item{x}{An object of class \code{apollo_deg_peaks}, as returned by
+\code{APOLLO_link_degs_to_peaks()}.}
+
+\item{...}{Unused; included for consistency with the \code{print} generic.}
+}
+\value{
+\code{x}, invisibly.
+}
 \description{
 Print method for apollo_deg_peaks
 }

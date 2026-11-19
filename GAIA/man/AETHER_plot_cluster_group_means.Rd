@@ -21,6 +21,12 @@ AETHER_plot_cluster_group_means(
 \item{sample_info}{Data.frame with sample metadata. Must have rownames
 matching colnames of the PART data matrix.}
 
+\item{sample_col}{Character or NULL. Column in \code{sample_info} whose values
+are sample identifiers matching \code{colnames(part_result$data)}. When
+provided, sets \code{rownames(sample_info)} to that column before matching;
+use this when rownames are integer indices rather than sample IDs.
+Default: NULL (rownames used as-is).}
+
 \item{group_col}{Character. Group column in sample_info. Default: "group".}
 
 \item{clusters}{Character vector of clusters to plot. NULL = all

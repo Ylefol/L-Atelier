@@ -598,6 +598,11 @@ APOLLO_get_ppi <- function(genes,
 #'   (vector), or "none" (skip image download entirely).
 #' @param image_path Character. File path to save the downloaded image.
 #'   Required when \code{image_format != "none"}.
+#' @param white_background Logical. STRING's PNG images have a transparent
+#'   background; if TRUE, the downloaded image is flattened onto white. Applies
+#'   only when \code{image_format} is "image" or "highres_image" (not "svg").
+#'   Requires the \code{png} package; if it is not installed a warning is
+#'   issued and the image is left transparent. Default: TRUE.
 #' @param verbose Logical. Print progress and network summary. Default: TRUE.
 #'
 #' @return A list of class "apollo_string_ppi" with:

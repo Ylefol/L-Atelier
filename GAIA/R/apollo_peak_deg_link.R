@@ -465,6 +465,12 @@ APOLLO_link_degs_to_peaks <- function(deg_result,
 
 
 #' Print method for apollo_deg_peaks
+#'
+#' @param x An object of class \code{apollo_deg_peaks}, as returned by
+#'   \code{APOLLO_link_degs_to_peaks()}.
+#' @param ... Unused; included for consistency with the \code{print} generic.
+#'
+#' @return \code{x}, invisibly.
 #' @export
 print.apollo_deg_peaks <- function(x, ...) {
   s <- x$stats

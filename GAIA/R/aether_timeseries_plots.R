@@ -684,6 +684,11 @@ AETHER_plot_cluster_means <- function(part_result,
 #' @param part_result An \code{artemis_part} object from \code{ARTEMIS_part()}.
 #' @param sample_info Data.frame with sample metadata. Must have rownames
 #'   matching colnames of the PART data matrix.
+#' @param sample_col Character or NULL. Column in \code{sample_info} whose values
+#'   are sample identifiers matching \code{colnames(part_result$data)}. When
+#'   provided, sets \code{rownames(sample_info)} to that column before matching;
+#'   use this when rownames are integer indices rather than sample IDs.
+#'   Default: NULL (rownames used as-is).
 #' @param group_col Character. Group column in sample_info. Default: "group".
 #' @param clusters Character vector of clusters to plot. NULL = all
 #'   non-outlier clusters, in the same order as \code{part_result$cluster_colors}

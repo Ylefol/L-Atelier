@@ -53,6 +53,12 @@ plots' significance categories match the exported CSV/metadata.}
 \item{sample_info}{Data.frame with sample metadata (for heatmap annotations).
 Must have rownames matching sample columns. Default: NULL.}
 
+\item{sample_col}{Character or NULL. Column in \code{sample_info} whose values
+are sample identifiers matching the sample names of the PART data. Passed
+to \code{AETHER_plot_part_heatmap()} and
+\code{AETHER_plot_cluster_group_means()} when plots are saved.
+Default: NULL (rownames used as-is).}
+
 \item{group_col}{Character. Group column in sample_info. Default: "group".}
 
 \item{save_plots}{Logical. Generate and save plots. Default: TRUE.}

@@ -29,6 +29,11 @@
 #'   plots' significance categories match the exported CSV/metadata.
 #' @param sample_info Data.frame with sample metadata (for heatmap annotations).
 #'   Must have rownames matching sample columns. Default: NULL.
+#' @param sample_col Character or NULL. Column in \code{sample_info} whose values
+#'   are sample identifiers matching the sample names of the PART data. Passed
+#'   to \code{AETHER_plot_part_heatmap()} and
+#'   \code{AETHER_plot_cluster_group_means()} when plots are saved.
+#'   Default: NULL (rownames used as-is).
 #' @param group_col Character. Group column in sample_info. Default: "group".
 #' @param save_plots Logical. Generate and save plots. Default: TRUE.
 #' @param plot_format Character. "png", "pdf", or "both". Default: "png".

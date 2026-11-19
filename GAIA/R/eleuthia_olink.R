@@ -336,6 +336,15 @@ ELEUTHIA_load_olink <- function(npx_file,
 #'   Each element is saved as \code{qc/pca_batch_{name}.png}. Supply one plot
 #'   coloured by PlateID for a standard batch check, or a before/after pair
 #'   when batch correction has been applied. Default: NULL (no plots saved).
+#' @param qc_steps Named list or NULL. Record of the filtering steps applied to
+#'   \code{olink_data}, used to write the "FILTER CHAIN" section of
+#'   \code{summary.txt}. Built by the user, one entry per step, in order. An
+#'   element named "raw" holds the counts before filtering (\code{n_proteins},
+#'   \code{n_samples}). Every other element describes one filter step and
+#'   requires \code{n_samples} and \code{n_proteins} (counts after the step) and
+#'   \code{threshold} (character; use \code{NA} if none); \code{step} (name)
+#'   and \code{description} are shown in the summary. Default: NULL (no filter
+#'   chain is written).
 #' @param verbose Logical. Print progress. Default: TRUE.
 #'
 #' @return Invisibly returns NULL. All outputs are written to disk.
