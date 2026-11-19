@@ -897,6 +897,10 @@ print.wgcna_power <- function(x, ...) {
 #' The function wraps WGCNA::blockwiseModules() with sensible defaults and
 #' returns results in a more accessible format.
 #'
+#' blockwiseModules requires WGCNA's own \code{cor()} to be found on the search
+#' path. If WGCNA is not attached, it is attached for the duration of the call
+#' and detached afterwards; the user's global environment is not modified.
+#'
 #' Module colors are assigned by WGCNA. The "grey" module contains genes that
 #' couldn't be assigned to any module.
 #'
@@ -927,22 +931,20 @@ ARTEMIS_wgcna_detect_modules <- function(wgcna_data,
   if (verbose) cat("[ARTEMIS] WGCNA Module Detection \n")
 
   # --------------------------------------------------------------------------
-  # Check for WGCNA cor() masking issue
+  # Make WGCNA::cor visible to blockwiseModules (temporary)
   # --------------------------------------------------------------------------
   # WGCNA has its own cor() with extra arguments (weights.x, weights.y, cosine).
-  # blockwiseModules passes these args internally; if stats::cor is found instead
-  # of WGCNA::cor the call fails. We check the runtime search path (not GAIA's
-  # namespace) and assign WGCNA::cor to .GlobalEnv when needed.
-  wgcna_cor_ok <- tryCatch({
-    cor_on_path <- get("cor", envir = .GlobalEnv, inherits = TRUE)
-    identical(environment(cor_on_path), asNamespace("WGCNA"))
-  }, error = function(e) FALSE)
-
-  if (!wgcna_cor_ok) {
+  # blockwiseModules calls cor() through the search path; if stats::cor is found
+  # instead of WGCNA::cor the call fails ("unused arguments (weights.x = ...)").
+  # WGCNA is attached only for the duration of this call and detached on exit,
+  # so the user's session is left unchanged. If WGCNA is already attached it is
+  # left as is.
+  if (!"package:WGCNA" %in% search()) {
     if (verbose) {
-      cat("    Note: WGCNA::cor() not found on search path. Assigning WGCNA::cor to global environment for blockwiseModules.\n")
+      cat("    Note: attaching WGCNA temporarily so blockwiseModules finds WGCNA::cor().\n")
     }
-    assign("cor", WGCNA::cor, envir = .GlobalEnv)
+    suppressMessages(attachNamespace("WGCNA"))
+    on.exit(detach("package:WGCNA", unload = FALSE), add = TRUE)
   }
 
   # --------------------------------------------------------------------------

@@ -79,6 +79,10 @@ This is the core network construction and module detection step.
 The function wraps WGCNA::blockwiseModules() with sensible defaults and
 returns results in a more accessible format.
 
+blockwiseModules requires WGCNA's own \code{cor()} to be found on the search
+path. If WGCNA is not attached, it is attached for the duration of the call
+and detached afterwards; the user's global environment is not modified.
+
 Module colors are assigned by WGCNA. The "grey" module contains genes that
 couldn't be assigned to any module.
 }

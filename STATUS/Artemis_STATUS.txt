@@ -1,7 +1,7 @@
 ================================================================================
 ARTEMIS STATUS - Analysis & Statistics
 ================================================================================
-Last Updated: 2026-09-23
+Last Updated: 2026-11-19
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -338,7 +338,7 @@ ARTEMIS_wgcna_pick_power(wgcna_data, ...)
 ARTEMIS_wgcna_detect_modules(wgcna_data, power, ...)
   - Detect co-expression modules via blockwiseModules
   - S3 print: print.wgcna_modules
-  - Note: assigns WGCNA::cor to .GlobalEnv if not on search path
+  - Note: temporarily attaches WGCNA (detached on exit) so blockwiseModules finds WGCNA::cor; no global assignment
 ARTEMIS_wgcna_module_traits(wgcna_modules, traits, ...)
   - Correlate modules to sample traits
   - S3 print: print.wgcna_trait_cor
@@ -364,8 +364,8 @@ PLANNED / TODO
 DEPENDENCIES / NOTES
 ================================================================================
 - DESeq2, SummarizedExperiment: in Imports (loaded with library(GAIA))
-- WGCNA: in Imports (loaded with library(GAIA)); cor() override handled
-  automatically in ARTEMIS_wgcna_detect_modules
+- WGCNA: in Imports (loaded with library(GAIA)); WGCNA::cor visibility for
+  blockwiseModules handled by a temporary attach in ARTEMIS_wgcna_detect_modules
 - limma: in Suggests; required for ARTEMIS_limma_de()
 - decoupleR, OmnipathR: in Suggests (load manually)
 - CARNIVAL, lpSolve: in Suggests (load manually); required for
