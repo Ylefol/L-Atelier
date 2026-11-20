@@ -45,7 +45,7 @@ jobs:
       - uses: r-lib/actions/check-r-package@v2
         with:
           working-directory: ${{ matrix.package }}
-          # While getting started only hard errors fail the job; warnings and notes
-          # are still printed in the log. Tighten to "warning" once the list is clean.
-          error-on: '"error"'
+          # All three packages are clean (Status: OK), so a new WARNING fails the job.
+          # NOTEs are still printed in the log but do not fail it.
+          error-on: '"warning"'
           upload-snapshots: true
