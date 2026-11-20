@@ -11,6 +11,7 @@ ELEUTHIA_load_massspec(
   metadata_sheet = 1,
   sample_col = "SampleID",
   n_annotation_cols = NULL,
+  source = c("dia-nn"),
   verbose = TRUE
 )
 }
@@ -36,6 +37,17 @@ matched against this column. Default: \code{"SampleID"}.}
 protein annotations rather than sample intensities. \code{NULL} (default)
 uses auto-detection: annotation columns are those whose names do not contain
 a file-path separator (\code{/} or \code{\\}) or a \code{.d} extension.}
+
+\item{source}{Character. Which acquisition tool's export this is -- NOT
+acquisition mode (DDA/DIA): the file shape is determined by which
+software produced it, not by that software's run mode (DIA-NN itself
+supports both DDA and DIA runs; two DDA-oriented tools like MaxQuant and
+Proteome Discoverer still produce mutually incompatible file shapes).
+Dispatches to an internal, tool-specific adapter. Currently only
+\code{"dia-nn"} is implemented (DIA-NN's \code{report.pg_matrix}, via
+\code{prep_MS_data.R}); a new tool gets its own internal adapter and
+one new value here, without touching the existing one. Default:
+\code{"dia-nn"}.}
 
 \item{verbose}{Logical. Print loading progress. Default: TRUE.}
 }

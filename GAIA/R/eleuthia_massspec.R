@@ -25,6 +25,16 @@
 #'   protein annotations rather than sample intensities. \code{NULL} (default)
 #'   uses auto-detection: annotation columns are those whose names do not contain
 #'   a file-path separator (\code{/} or \code{\\}) or a \code{.d} extension.
+#' @param source Character. Which acquisition tool's export this is -- NOT
+#'   acquisition mode (DDA/DIA): the file shape is determined by which
+#'   software produced it, not by that software's run mode (DIA-NN itself
+#'   supports both DDA and DIA runs; two DDA-oriented tools like MaxQuant and
+#'   Proteome Discoverer still produce mutually incompatible file shapes).
+#'   Dispatches to an internal, tool-specific adapter. Currently only
+#'   \code{"dia-nn"} is implemented (DIA-NN's \code{report.pg_matrix}, via
+#'   \code{prep_MS_data.R}); a new tool gets its own internal adapter and
+#'   one new value here, without touching the existing one. Default:
+#'   \code{"dia-nn"}.
 #' @param verbose Logical. Print loading progress. Default: TRUE.
 #'
 #' @return An S3 object of class \code{"massspec_data"} containing:
@@ -103,7 +113,36 @@ ELEUTHIA_load_massspec <- function(ms_file,
                                     metadata_sheet    = 1,
                                     sample_col        = "SampleID",
                                     n_annotation_cols = NULL,
+                                    source            = c("dia-nn"),
                                     verbose           = TRUE) {
+
+  source <- match.arg(source)
+
+  switch(source,
+    "dia-nn" = .eleuthia_load_massspec_dia_nn(
+      ms_file = ms_file, sheet = sheet, metadata_file = metadata_file,
+      metadata_sheet = metadata_sheet, sample_col = sample_col,
+      n_annotation_cols = n_annotation_cols, verbose = verbose
+    )
+  )
+}
+
+
+# Internal: DIA-NN report.pg_matrix adapter -- the only
+# ELEUTHIA_load_massspec() `source` implemented so far. Column names must
+# follow the standardised convention produced by the project's
+# prep_MS_data.R script ({SampleID}_Plate N) -- see ELEUTHIA_load_massspec()'s
+# own documentation above for the full format contract. A new acquisition
+# tool (MaxQuant, Spectronaut, ...) gets its own internal adapter here plus
+# one new `source` value on the exported function, without touching this one.
+#' @noRd
+.eleuthia_load_massspec_dia_nn <- function(ms_file,
+                                            sheet,
+                                            metadata_file,
+                                            metadata_sheet,
+                                            sample_col,
+                                            n_annotation_cols,
+                                            verbose) {
 
   if (!file.exists(ms_file))
     stop("ms_file not found: ", ms_file)
@@ -336,7 +375,8 @@ ELEUTHIA_load_massspec <- function(ms_file,
     ms_file       = ms_file,
     metadata_file = metadata_file,
     sample_col    = sample_col,
-    sheet         = sheet
+    sheet         = sheet,
+    source        = "dia-nn"
   )
 
   result <- list(
