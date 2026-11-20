@@ -16,7 +16,10 @@ PYRI_select_hvg(
 \item{sce}{A \code{SingleCellExperiment} with a \code{"logcounts"} assay
 (i.e. \code{\link{PYRI_normalize}} must have been run first).}
 
-\item{n_hvgs}{Integer. Number of top HVGs to select. Default \code{2000}.}
+\item{n_hvgs}{Integer. Maximum number of top HVGs to select. Default
+\code{2000}.  Only genes with positive biological variance can be selected,
+so fewer than \code{n_hvgs} genes are returned when fewer qualify (the
+number actually selected is stored in \code{metadata(sce)$hvg}).}
 
 \item{block_col}{Character. Column in \code{colData} to use as a blocking
 factor (typically sample or animal ID).  \code{NULL} (default) fits one

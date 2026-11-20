@@ -789,7 +789,9 @@ ARTEMIS_select_de_genes <- function(de_results,
     }
   }
 
-  if (length(per_comparison) == 0) {
+  # Nothing to combine: either no comparison could be read, or every comparison
+  # was read but no gene passed the thresholds.
+  if (length(per_comparison) == 0 || length(unlist(per_comparison)) == 0) {
     warning("No significant genes found in any comparison")
     result <- character(0)
     attr(result, "per_comparison") <- per_comparison

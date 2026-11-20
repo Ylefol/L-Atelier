@@ -101,7 +101,10 @@ PYRI_normalize <- function(sce,
 #'
 #' @param sce A \code{SingleCellExperiment} with a \code{"logcounts"} assay
 #'   (i.e. \code{\link{PYRI_normalize}} must have been run first).
-#' @param n_hvgs Integer. Number of top HVGs to select. Default \code{2000}.
+#' @param n_hvgs Integer. Maximum number of top HVGs to select. Default
+#'   \code{2000}.  Only genes with positive biological variance can be selected,
+#'   so fewer than \code{n_hvgs} genes are returned when fewer qualify (the
+#'   number actually selected is stored in \code{metadata(sce)$hvg}).
 #' @param block_col Character. Column in \code{colData} to use as a blocking
 #'   factor (typically sample or animal ID).  \code{NULL} (default) fits one
 #'   trend across all cells.
@@ -135,7 +138,11 @@ PYRI_select_hvg <- function(sce,
   # used internally by scran::modelGeneVar.  Use a BPCells-native path instead.
   if (inherits(assay(sce, assay_name), "IterableMatrix")) {
     gene_var <- .pyri_bpcells_model_gene_var(assay(sce, assay_name), block)
-    hvg_list <- rownames(gene_var)[order(gene_var$bio, decreasing = TRUE)][seq_len(n_hvgs)]
+    # Same rule as scran::getTopHVGs(): only genes with positive biological
+    # variance can be selected, so both backends return the same kind of result.
+    ord      <- order(gene_var$bio, decreasing = TRUE)
+    ord      <- ord[!is.na(gene_var$bio[ord]) & gene_var$bio[ord] > 0]
+    hvg_list <- rownames(gene_var)[utils::head(ord, n_hvgs)]
   } else {
     gene_var <- scran::modelGeneVar(sce, assay.type = assay_name, block = block)
     hvg_list <- scran::getTopHVGs(gene_var, n = n_hvgs)
@@ -147,10 +154,14 @@ PYRI_select_hvg <- function(sce,
   if (isTRUE(verbose)) {
     bio_var <- gene_var$bio
     cat(sprintf(
-      "\u2500\u2500 PYRI: HVG selection %s\n  Selected   : %s / %s genes\n  Block      : %s\n  Bio var    : %.4f \u2013 %.4f (median %.4f)\n%s\n",
+      "\u2500\u2500 PYRI: HVG selection %s\n  Selected   : %s / %s genes%s\n  Block      : %s\n  Bio var    : %.4f \u2013 %.4f (median %.4f)\n%s\n",
       strrep("\u2500", 34),
-      format(n_hvgs, big.mark = ","),
+      format(length(hvg_list), big.mark = ","),
       format(nrow(sce), big.mark = ","),
+      if (length(hvg_list) < n_hvgs)
+        paste0(" (requested ", format(n_hvgs, big.mark = ","),
+               "; only genes with positive biological variance are selected)")
+      else "",
       if (!is.null(block_col)) block_col else "none",
       min(bio_var, na.rm = TRUE),
       max(bio_var, na.rm = TRUE),
