@@ -1,5 +1,7 @@
 # Tests the documented install path (install.R) on a blank machine per OS.
-# This is the closest thing to "what happens for a new user".
+# This is the closest thing to "what happens for a new user". After installing,
+# it runs the cross-package integration tests (tests/integration) against the
+# INSTALLED packages, so functions are exercised on every OS, not just loaded.
 name: install-check
 
 on:
@@ -56,3 +58,9 @@ jobs:
           print(ok)
           if (!all(ok)) stop("Package(s) failed to install: ",
                              paste(names(ok)[!ok], collapse = ", "))
+
+      # Runs real workflows from the installed packages (HORIZON output -> GAIA
+      # analysis) on this OS. Simulated data only; no external tools needed.
+      - name: Integration tests (HORIZON -> GAIA) on the installed packages
+        shell: Rscript {0}
+        run: source("tests/integration/run_integration.R")

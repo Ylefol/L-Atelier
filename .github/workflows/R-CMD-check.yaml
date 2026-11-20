@@ -1,5 +1,6 @@
 # R CMD check (build, documentation, examples, tests) per package.
-# HORIZON, GAIA and CAULDRON, Linux only. Widen the OS matrix once these are green.
+# HORIZON and GAIA run on Linux, macOS and Windows so that the unit tests run on
+# every OS. CAULDRON runs on Linux only for now.
 # Only hard dependencies (Depends/Imports) are installed, plus testthat, so GAIA's
 # long Suggests list does not have to build for every check.
 name: R-CMD-check
@@ -19,9 +20,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [HORIZON, GAIA, CAULDRON]
+        package: [HORIZON, GAIA]
         config:
           - {os: ubuntu-latest, r: release}
+          - {os: macos-latest, r: release}
+          - {os: windows-latest, r: release}
+        include:
+          - package: CAULDRON
+            config: {os: ubuntu-latest, r: release}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
