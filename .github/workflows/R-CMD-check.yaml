@@ -45,6 +45,13 @@ jobs:
           r-version: ${{ matrix.config.r }}
           use-public-rspm: true
 
+      # Installing pandoc up front makes setup-r-dependencies skip its "does this
+      # package need pandoc" step. That step resolves ALL direct dependencies,
+      # Suggests included, and fails on macOS/Windows while decoupleR is missing from
+      # the Bioconductor 3.24 repositories (GAIA Suggests). Ubuntu runners already
+      # ship pandoc, which is why only macOS/Windows failed. Harmless to keep.
+      - uses: r-lib/actions/setup-pandoc@v2
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           working-directory: ${{ matrix.package }}
