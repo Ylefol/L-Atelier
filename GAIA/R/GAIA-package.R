@@ -10,7 +10,7 @@
 #' @importFrom stats kruskal.test mad median model.matrix na.omit p.adjust pnorm prcomp qnorm
 #' @importFrom stats quantile reshape rnorm runif sd setNames t.test var wilcox.test as.dist
 #' @importFrom methods as
-#' @importFrom utils capture.output head read.csv read.delim read.table sessionInfo tail write.csv
+#' @importFrom utils capture.output head read.csv read.delim read.table sessionInfo tail write.csv write.table
 #' @importFrom grDevices col2rgb colorRampPalette dev.off pdf png rgb
 #' @importFrom graphics abline par points text
 

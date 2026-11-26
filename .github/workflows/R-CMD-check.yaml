@@ -44,7 +44,8 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           working-directory: ${{ matrix.package }}
-          extra-packages: any::rcmdcheck, any::testthat
+          # GAIA's tests use limma, sva and mice (Suggests); without them 10-14 tests skip silently.
+          extra-packages: any::rcmdcheck, any::testthat${{ matrix.package == 'GAIA' && ', any::limma, any::sva, any::mice' || '' }}
           dependencies: '"hard"'
           needs: check
 
