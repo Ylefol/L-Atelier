@@ -32,6 +32,10 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      # pak (used by setup-r-dependencies) otherwise resolves Bioconductor against
+      # the previous release (3.23) for a while after a new one ships. Policy: test
+      # the CURRENT Bioconductor release. Bump this at each Bioconductor release.
+      R_BIOC_VERSION: "3.24"
 
     steps:
       - uses: actions/checkout@v4
