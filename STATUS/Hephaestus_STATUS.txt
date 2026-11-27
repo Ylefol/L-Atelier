@@ -1,7 +1,7 @@
 ================================================================================
 HEPHAESTUS STATUS - Integration
 ================================================================================
-Last Updated: 2026-09-03
+Last Updated: 2026-11-27
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -22,6 +22,10 @@ Internal helpers (not exported):
 Exported:
   HEPHAESTUS_convCCA(X_1, X_2, tauW_1, tauW_2, ...)
     - Convex sparse CCA for 2 datasets
+    - Fixed 2026-11-27: (1) nIter = NULL (auto-converge, the default) never terminated because the
+      loop tested `diff` but assigned `diffU`; it now stops at weight change < 1e-5.
+      (2) R = 2 returned the third canonical pair (`1:R-1` precedence); the deflation loop now
+      runs R-1 times. Note the auto-converge loop has no iteration cap
   HEPHAESTUS_multi_convCCA(X, tau, ...)
     - Convex sparse CCA for multiple datasets
 

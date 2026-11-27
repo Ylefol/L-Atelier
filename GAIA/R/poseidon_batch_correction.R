@@ -299,8 +299,12 @@ POSEIDON_correct_ruvg <- function(quant_result,
 #'   \code{ELEUTHIA_load_massspec()}), typically after
 #'   \code{HADES_filter_massspec()}/\code{HADES_filter_massspec_proteins()}
 #'   and \code{POSEIDON_normalize_massspec()}.
-#' @param batch_col Character string. Column in \code{$sample_meta} containing
-#'   batch information (default = \code{"PlateID"}).
+#' @param batch_col Character string, \strong{required}. Column in
+#'   \code{$sample_meta} containing batch information (for example a plate or
+#'   run number supplied through the loader's \code{metadata}, or derived from
+#'   \code{$sample_meta$source_column}). There is no default because the loader
+#'   no longer creates a batch column; if all samples are in one batch, set the
+#'   column to a single value.
 #' @param group_col Character string or NULL. Optional column in
 #'   \code{$sample_meta} for a biological covariate to preserve during
 #'   correction (default = NULL, no covariate preserved). Samples with NA in
@@ -360,7 +364,7 @@ POSEIDON_correct_ruvg <- function(quant_result,
 #' ms <- POSEIDON_correct_batch_massspec(ms, batch_col = "PlateID", impute_method = "global")
 #' }
 POSEIDON_correct_batch_massspec <- function(massspec_data,
-                                             batch_col = "PlateID",
+                                             batch_col,
                                              group_col = NULL,
                                              method    = "combat",
                                              impute_method = "batchmean",
@@ -368,6 +372,11 @@ POSEIDON_correct_batch_massspec <- function(massspec_data,
 
   if (!inherits(massspec_data, "massspec_data"))
     stop("massspec_data must be a massspec_data object from ELEUTHIA_load_massspec().")
+
+  if (missing(batch_col))
+    stop("'batch_col' is required: name the column in $sample_meta that holds the ",
+         "batch (e.g. plate or run). If all samples share one batch, add a column ",
+         "with a single value.", call. = FALSE)
 
   method <- tolower(method)
   if (!method %in% c("combat", "limma"))

@@ -54,6 +54,10 @@ metadata columns.}
 \item{assay_meta}{Per-protein data.frame: OlinkID, Assay, UniProt, Panel,
 warn_fraction (proportion of samples with AssayQC == "WARN").}
 \item{params}{List of loader parameters used (for provenance).}
+\item{qc_log}{The QC record. Starts with one entry for the load itself
+(arguments, instrument rows and blank-ID rows dropped, samples removed by
+\code{restrict_to_metadata}); each \code{HADES_*_olink*} step appends one
+more. Read it with \code{HADES_get_olink_qc_log()}.}
 }
 }
 \description{

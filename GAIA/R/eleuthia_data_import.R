@@ -75,7 +75,7 @@ ELEUTHIA_load_counts_from_dir <- function(count_path,
 
   # Load and merge files
   for (i in all_files) {
-    file_path <- paste0(count_path, i)
+    file_path <- file.path(count_path, i)
 
     # Read file
     temp_dta <- tryCatch({

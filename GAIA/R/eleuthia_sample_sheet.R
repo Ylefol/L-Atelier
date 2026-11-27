@@ -333,8 +333,12 @@ ELEUTHIA_validate_sample_sheet <- function(sample_sheet,
       }
     }
   }
-  # Set rownames before returning
-  rownames(sample_sheet) <- sample_sheet$sample_id
+  # Set rownames before returning (only possible when the IDs are unique; a
+  # duplicate-ID error has already been recorded above and is reported below)
+  if ("sample_id" %in% colnames(sample_sheet) &&
+      !anyNA(sample_sheet$sample_id) && !anyDuplicated(sample_sheet$sample_id)) {
+    rownames(sample_sheet) <- sample_sheet$sample_id
+  }
   
   # ---------------------------------------------------------------------------
   # Final validation status

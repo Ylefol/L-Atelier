@@ -45,14 +45,26 @@ test_that("scad thresholding keeps the order of the input and is continuous at t
 })
 
 test_that("scad honours a non-default shape parameter 'a'", {
-  # KNOWN BUG (reported, fix pending): the interpolated regime hard-codes the
-  # constants for a = 3.7 (2.7 and 1.7) instead of using (a - 1) and (a - 2), so
-  # for any other 'a' the thresholding is discontinuous at |x| = 2 * tau.
-  # Remove this skip once MINERVA_soft_threshold_scad() uses 'a' throughout.
-  skip("known bug: scad ignores 'a' in the interpolated regime")
+  # The middle regime is ((a - 1) * x - sign(x) * a * tau) / (a - 2), so the
+  # function stays continuous at |x| = 2 * tau and at |x| = a * tau for any a > 2.
   eps <- 1e-9
-  expect_equal(MINERVA_soft_threshold_scad(2 - eps, 1, a = 5),
-               MINERVA_soft_threshold_scad(2 + eps, 1, a = 5), tolerance = 1e-6)
+  for (a in c(2.5, 3.7, 5, 10)) {
+    expect_equal(MINERVA_soft_threshold_scad(2 - eps, 1, a = a),
+                 MINERVA_soft_threshold_scad(2 + eps, 1, a = a), tolerance = 1e-6)
+    expect_equal(MINERVA_soft_threshold_scad(a - eps, 1, a = a),
+                 MINERVA_soft_threshold_scad(a + eps, 1, a = a), tolerance = 1e-6)
+  }
+  # known value: a = 5, tau = 1, x = 3 -> (4 * 3 - 5) / 3
+  expect_equal(MINERVA_soft_threshold_scad(3, 1, a = 5), 7 / 3)
+  expect_equal(MINERVA_soft_threshold_scad(-3, 1, a = 5), -7 / 3)
+  # the default is unchanged
+  expect_equal(MINERVA_soft_threshold_scad(3, 1), (2.7 * 3 - 3.7) / 1.7)
+})
+
+test_that("scad rejects a shape parameter that is not greater than 2", {
+  expect_error(MINERVA_soft_threshold_scad(1, 1, a = 2), "greater than 2")
+  expect_error(MINERVA_soft_threshold_scad(1, 1, a = 1.5), "greater than 2")
+  expect_error(MINERVA_soft_threshold_scad(1, 1, a = NA_real_), "greater than 2")
 })
 
 test_that("proximal lasso follows the three-case rule", {

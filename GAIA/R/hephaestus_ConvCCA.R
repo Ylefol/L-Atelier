@@ -166,7 +166,7 @@ HEPHAESTUS_convCCA_algo <- function(X_1, X_2, tauW_1, tauW_2, initW_1 = NULL, in
             diff0.u <- sqrt(sum((oldW_1 - newW_1) ^ 2))
             diffTemp <- diff0.u + diff0.v
             if (!is.na(diffTemp)){
-                diffU = diffTemp
+                diff <- diffTemp
             }
         }
     } else if (!is.numeric(nIter)){
@@ -319,7 +319,7 @@ HEPHAESTUS_convCCA <-  function(X_1, X_2, tauW_1, tauW_2, initW_1 = NULL, initW_
         values = HEPHAESTUS_convCCA_algo(X_1 = X_1, X_2 = X_2, tauW_1 = tauW_1, tauW_2 = tauW_2, initW_1 = initW_1, initW_2 = initW_2, nIter = nIter, penalty = penalty)
         tempW_1 <- values$w_1
         tempW_2 <- values$w_2
-        for (i in 1:R-1){
+        for (i in seq_len(R - 1)){
             addX_1_1 <- t(tempW_1) %*% t(X_1) %*% X_1
             addX_1_2 <- t(tempW_2) %*% t(X_2) %*% X_1
             addX_2_1 <- t(tempW_2) %*% t(X_2) %*% X_2

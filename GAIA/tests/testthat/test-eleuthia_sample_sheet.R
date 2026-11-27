@@ -100,12 +100,9 @@ test_that("without a sample_id column, IDs are generated from omics, group and r
 })
 
 test_that("duplicate sample IDs are reported as a validation error", {
-  # KNOWN BUG (reported, fix pending approval): the duplicate is detected and an
-  # error recorded, but the function then sets row names from sample_id, which
-  # fails for duplicates with a raw R error ("duplicate 'row.names' are not
-  # allowed") instead of returning valid = FALSE with the message.
-  # Remove this skip once rownames are only set when the IDs are unique.
-  skip("known bug: duplicate sample_id crashes on rownames<- instead of returning valid = FALSE")
+  # Regression test: the duplicate used to be detected and then crash on
+  # rownames<- ("duplicate 'row.names' are not allowed") instead of returning
+  # valid = FALSE with the message.
   f <- make_sheet_files(); on.exit(unlink(f$dir, recursive = TRUE), add = TRUE)
   f$sheet$sample_id[2] <- f$sheet$sample_id[1]
   v <- validate(f$sheet)

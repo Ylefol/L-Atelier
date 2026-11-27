@@ -13,7 +13,7 @@ HADES_filter_olink_assay_warn(
 \arguments{
 \item{olink_data}{An \code{olink_data} object from \code{ELEUTHIA_load_olink()}.}
 
-\item{max_warn_fraction}{Numeric (0–1). Maximum allowable proportion of samples
+\item{max_warn_fraction}{Numeric (0-1). Maximum allowable proportion of samples
 with \code{AssayQC == "WARN"} for a protein to be retained. Proteins
 exceeding this threshold are removed. Default: \code{0.2} (20\%). No
 established universal standard exists; verify this threshold against your
@@ -29,7 +29,9 @@ unchanged.
 \description{
 Removes proteins (rows) from an \code{olink_data} object whose
 AssayQC warn fraction across samples exceeds a threshold. A high warn
-fraction indicates systematic assay instability for that protein.
+fraction indicates systematic assay instability for that protein. The step
+and the removed protein IDs (with their warn fractions) are appended to
+\code{$qc_log}.
 
 \code{warn_fraction} is computed at load time by \code{ELEUTHIA_load_olink()}
 and stored in \code{$assay_meta}. It reflects the proportion of samples
@@ -39,7 +41,6 @@ where that protein received \code{AssayQC == "WARN"}.
 \dontrun{
 ol <- HADES_filter_olink(ol_raw)
 ol <- HADES_filter_olink_proteins(ol, max_na_fraction = 0.2)
-ol <- HADES_filter_olink_lod(ol, max_lod_fraction = 0.5)
 ol <- HADES_filter_olink_assay_warn(ol, max_warn_fraction = 0.2)
 }
 }

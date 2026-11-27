@@ -6,7 +6,7 @@
 \usage{
 POSEIDON_correct_batch_massspec(
   massspec_data,
-  batch_col = "PlateID",
+  batch_col,
   group_col = NULL,
   method = "combat",
   impute_method = "batchmean",
@@ -19,8 +19,12 @@ POSEIDON_correct_batch_massspec(
 \code{HADES_filter_massspec()}/\code{HADES_filter_massspec_proteins()}
 and \code{POSEIDON_normalize_massspec()}.}
 
-\item{batch_col}{Character string. Column in \code{$sample_meta} containing
-batch information (default = \code{"PlateID"}).}
+\item{batch_col}{Character string, \strong{required}. Column in
+\code{$sample_meta} containing batch information (for example a plate or
+run number supplied through the loader's \code{metadata}, or derived from
+\code{$sample_meta$source_column}). There is no default because the loader
+no longer creates a batch column; if all samples are in one batch, set the
+column to a single value.}
 
 \item{group_col}{Character string or NULL. Optional column in
 \code{$sample_meta} for a biological covariate to preserve during

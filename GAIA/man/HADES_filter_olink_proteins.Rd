@@ -24,7 +24,8 @@ and \code{$assay_meta} contain only the retained proteins.
 Removes proteins (rows) from an \code{olink_data} object whose
 NPX missingness fraction across samples exceeds a threshold. High-NA
 proteins are dropped because missingness cannot be reliably attributed to
-a true zero signal versus technical absence.
+a true zero signal versus technical absence. The step and the removed protein
+IDs (with their NA fractions) are appended to \code{$qc_log}.
 }
 \examples{
 \dontrun{

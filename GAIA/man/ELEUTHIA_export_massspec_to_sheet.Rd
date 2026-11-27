@@ -35,8 +35,8 @@ column. Default \code{"Proteomics"}.}
 \item{id_col}{Character or NULL. Column in
 \code{massspec_data$protein_meta} to use as each file's identifier
 column. \code{NULL} (default) uses \code{rownames(massspec_data$wide)}
-directly (whichever identifier the loader assigned, e.g.
-\code{Protein.Group} for the DIA-NN adapter). If duplicated, values are
+directly (the protein ID column given to the loader as \code{id_col}).
+If duplicated, values are
 made unique with \code{make.unique()} and a warning is issued.}
 
 \item{value_col}{Character. Header for the value column in each written

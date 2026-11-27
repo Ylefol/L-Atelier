@@ -16,10 +16,11 @@ HADES_filter_olink(
 
 \item{keep_controls}{Logical. Retain non-SAMPLE SampleTypes (e.g.
 NEGATIVE_CONTROL, PLATE_CONTROL) in the output. Default: FALSE (removes
-them, keeping only SampleType == "SAMPLE").}
+them, keeping only SampleType == "SAMPLE"). A missing (\code{NA})
+SampleType is treated as not being a SAMPLE and is removed.}
 
 \item{filter_qc}{Logical. Remove samples where SampleQC == "FAIL".
-Default: TRUE.}
+Default: TRUE. A missing (\code{NA}) SampleQC is not treated as a failure.}
 
 \item{verbose}{Logical. Print filtering summary. Default: TRUE.}
 }
@@ -27,18 +28,20 @@ Default: TRUE.}
 A filtered \code{olink_data} object of the same class. \code{$data},
 \code{$wide}, and \code{$sample_meta} contain only the retained samples.
 \code{$assay_meta} is unchanged (warn_fraction is computed from the
-original load and reflects all samples).
+original load and reflects all samples). \code{$qc_log} gains one entry.
 }
 \description{
 Applies QC-based filtering to an \code{olink_data} object:
 optionally removes non-biological control samples and/or samples that
 failed Olink's SampleQC. Updates \code{$data}, \code{$wide}, and
-\code{$sample_meta} to reflect the filtered set.
+\code{$sample_meta} to reflect the filtered set. The step, its arguments and
+the IDs it removed are appended to \code{$qc_log}.
 }
 \examples{
 \dontrun{
 ol_raw <- ELEUTHIA_load_olink("data.parquet", metadata_file = "layout.xlsx")
 ol <- HADES_filter_olink(ol_raw, keep_controls = FALSE, filter_qc = TRUE)
 print(ol)
+HADES_get_olink_qc_log(ol, "removed_samples")
 }
 }

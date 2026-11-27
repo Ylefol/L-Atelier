@@ -31,8 +31,8 @@
 #' @param id_col Character or NULL. Column in
 #'   \code{massspec_data$protein_meta} to use as each file's identifier
 #'   column. \code{NULL} (default) uses \code{rownames(massspec_data$wide)}
-#'   directly (whichever identifier the loader assigned, e.g.
-#'   \code{Protein.Group} for the DIA-NN adapter). If duplicated, values are
+#'   directly (the protein ID column given to the loader as \code{id_col}).
+#'   If duplicated, values are
 #'   made unique with \code{make.unique()} and a warning is issued.
 #' @param value_col Character. Header for the value column in each written
 #'   file. Default \code{"intensity"} -- a label only; reading back via
@@ -150,6 +150,9 @@ ELEUTHIA_export_massspec_to_sheet <- function(massspec_data,
   }
 
   result <- do.call(rbind, sheet_rows)
+  if (is.null(result))
+    stop("No samples were exported: none of the SAMPLE-type samples in ",
+         "massspec_data$sample_meta were found in massspec_data$wide.", call. = FALSE)
   rownames(result) <- NULL
 
   if (verbose)

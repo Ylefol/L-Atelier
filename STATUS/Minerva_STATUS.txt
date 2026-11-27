@@ -1,7 +1,7 @@
 ================================================================================
 MINERVA STATUS - Machine Learning & Validation
 ================================================================================
-Last Updated: 2026-02-18
+Last Updated: 2026-11-27
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -13,6 +13,9 @@ MINERVA_soft_threshold_lasso(x, tau)
   - Soft-thresholding operator for LASSO penalty
 MINERVA_soft_threshold_scad(x, tau, a)
   - SCAD thresholding penalty
+  - Fixed 2026-11-27: the middle regime now uses ((a-1)x - sign(x)*a*tau)/(a-2) (Fan & Li 2001)
+    instead of constants hard-coded for a = 3.7, so non-default `a` is continuous; the
+    default a = 3.7 gives unchanged results. a must be a single number > 2 (error otherwise)
 MINERVA_proximal_lasso(omega, mu, c, tau, old)
   - Proximal gradient step for LASSO
 MINERVA_proximal_scad(omega, mu, c, tau, old, a)

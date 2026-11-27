@@ -1,7 +1,7 @@
 ================================================================================
 HADES STATUS - Quality Control & Filtering
 ================================================================================
-Last Updated: 2026-06-15
+Last Updated: 2026-11-27
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -19,9 +19,10 @@ HADES_filter_massspec_proteins(massspec_data, max_na_fraction=0.5, verbose=TRUE)
   - Also removes rows with no primary protein identifier (protein_meta's
     first column is NA) BEFORE the missingness filter -- catches search
     report summary/statistic rows (e.g. DIA-NN's "Sum intensities", "Number
-    of valid values" appended to the bottom of the report) that
-    ELEUTHIA_load_massspec() assigns a placeholder rowname to but are not
-    real protein measurements (added 2026-06-22, SEPSOMICS dataset had 2)
+    of valid values" appended to the bottom of the report) that are not
+    real protein measurements (added 2026-06-22, SEPSOMICS dataset had 2).
+    ELEUTHIA_load_massspec() now drops blank-ID rows itself, so this is only a
+    safety net for objects built elsewhere
   - Updates $wide and $protein_meta; $sample_meta unchanged
 HADES_detect_outliers_massspec(massspec_data, n_pcs=5, threshold=3, method="sd", filter=FALSE, verbose=TRUE)
   - PCA-based multivariate outlier detection (mirrors HADES_detect_outliers_olink)
@@ -38,21 +39,40 @@ HADES_filter_olink(olink_data, keep_controls=FALSE, filter_qc=TRUE, verbose=TRUE
   - Updates $data, $wide, $sample_meta to retained samples
   - $assay_meta unchanged (warn_fraction reflects original load)
   - Returns olink_data S3 object of the same class
+  - NA SampleType is treated as not-SAMPLE (removed); NA SampleQC is not a failure
+    (previously either produced all-NA rows in $sample_meta)
+  - Appends a $qc_log entry (action "removed"): arguments used, sample counts, IDs removed
+    with reason ("SampleType != SAMPLE (...)" / "SampleQC == FAIL")
 HADES_detect_outliers_olink(olink_data, n_pcs=5, threshold=3, method="sd", filter=FALSE, verbose=TRUE)
   - PCA-based multivariate outlier detection on $wide matrix
   - Mean-imputes NAs and scales proteins internally (does NOT modify data)
   - Adds outlier_distance and outlier columns to $sample_meta
   - filter=TRUE removes flagged samples from $data, $wide, $sample_meta
   - method="sd": centre + threshold*sd; method="mad": median + threshold*mad
+  - Outliers are RECOMPUTED on every call: a filter=TRUE call removes what ITS OWN
+    n_pcs/threshold/method find, not what an earlier detect-only call flagged
+  - $qc_log entry: action "flagged" when filter=FALSE (samples kept, listed in
+    flagged_samples), "removed" when filter=TRUE; records resolved n_pcs (and
+    n_pcs_requested if clamped), threshold, method, and the cutoff
 HADES_filter_olink_proteins(olink_data, max_na_fraction=0.2, verbose=TRUE)
   - Removes proteins with NA fraction > max_na_fraction across samples
   - Updates $wide, $data, $assay_meta to retained proteins
   - $sample_meta unchanged
+  - $qc_log entry: removed OlinkID/Assay with their NA fractions
 HADES_filter_olink_assay_warn(olink_data, max_warn_fraction=0.2, verbose=TRUE)
   - Removes proteins where warn_fraction (from $assay_meta) exceeds threshold
   - warn_fraction = proportion of samples with AssayQC == "WARN", computed at
     load time by ELEUTHIA_load_olink()
   - Updates $wide, $data, $assay_meta; $sample_meta unchanged
+  - $qc_log entry: removed OlinkID/Assay with their warn fractions
+HADES_get_olink_qc_log(olink_data, what=c("steps","removed_samples","removed_proteins","flagged_samples"))
+  - Reads olink_data$qc_log as tidy data.frames. "steps": one row per step (step_id, step,
+    action loaded/removed/flagged, parameters, counts before/after, n removed/flagged,
+    timestamp). The other tables list every ID with step_id, step, reason, value.
+  - Errors if the object has no $qc_log
+  - The log is maintained by ELEUTHIA_load_olink() (first entry) and every HADES_*_olink*
+    step; internal helpers .olink_log_entry/.olink_log_append/.olink_removed_proteins.
+    Olink-specific on purpose (HADES_*_massspec do not record a log)
 
 hades_qc_mixed_data.R:
 -----------------------

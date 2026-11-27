@@ -5,30 +5,41 @@
 \title{Export Olink QC Results}
 \usage{
 ELEUTHIA_export_olink_qc(
-  olink_data,
-  assoc,
-  qc_plots,
   output_dir,
+  olink_data,
+  assoc = NULL,
+  qc_plots = NULL,
+  batch_plots = NULL,
   top_n_vars = 5L,
   p_threshold = 0.05,
   heatmap_top_n = NULL,
   ntop_pca = NULL,
-  batch_plots = NULL,
-  qc_steps = NULL,
+  save_plots = TRUE,
+  plot_format = "png",
+  prefix = "olink",
+  save_rds = TRUE,
   verbose = TRUE
 )
 }
 \arguments{
-\item{olink_data}{An \code{olink_data} object — the filtered, QC-cleaned
+\item{output_dir}{Character. Root directory for all outputs. Created if it
+does not exist.}
+
+\item{olink_data}{An \code{olink_data} object - the filtered, QC-cleaned
 object to export.}
 
 \item{assoc}{An \code{artemis_pc_assoc} object from
-\code{ARTEMIS_pc_metadata_association()}.}
+\code{ARTEMIS_pc_metadata_association()}, or \code{NULL} to skip the
+association heatmap, per-variable PCA plots and the association section of
+the summary.}
 
-\item{qc_plots}{A named list from \code{AETHER_plot_olink_qc()}.}
+\item{qc_plots}{A named list from \code{AETHER_plot_olink_qc()} (single pass),
+or a named list of such lists for several passes (e.g. \code{pre} and
+\code{post}), or \code{NULL}.}
 
-\item{output_dir}{Character. Root directory for all outputs. Created if it
-does not exist.}
+\item{batch_plots}{Named list of ggplot objects for batch-check PCA plots.
+Each element is saved as \code{qc/<prefix>_pca_batch_<name>}. Default:
+\code{NULL}.}
 
 \item{top_n_vars}{Integer. Number of top variables per PC (by p-value) to
 include in the PCA plot loop. Default: 5.}
@@ -43,50 +54,55 @@ top N variables per PC. NULL shows all tested variables. Default: NULL.}
 \item{ntop_pca}{Integer or NULL. Number of most variable proteins used for
 PCA. NULL uses all proteins. Default: NULL.}
 
-\item{batch_plots}{Named list of ggplot objects for batch-check PCA plots.
-Each element is saved as \code{qc/pca_batch_{name}.png}. Supply one plot
-coloured by PlateID for a standard batch check, or a before/after pair
-when batch correction has been applied. Default: NULL (no plots saved).}
+\item{save_plots}{Logical. Save the plots. Default: TRUE.}
 
-\item{qc_steps}{Named list or NULL. Record of the filtering steps applied to
-\code{olink_data}, used to write the "FILTER CHAIN" section of
-\code{summary.txt}. Built by the user, one entry per step, in order. An
-element named "raw" holds the counts before filtering (\code{n_proteins},
-\code{n_samples}). Every other element describes one filter step and
-requires \code{n_samples} and \code{n_proteins} (counts after the step) and
-\code{threshold} (character; use \code{NA} if none); \code{step} (name)
-and \code{description} are shown in the summary. Default: NULL (no filter
-chain is written).}
+\item{plot_format}{Character. Plot file format (file extension), e.g.
+\code{"png"} or \code{"pdf"}. Default: \code{"png"}.}
+
+\item{prefix}{Character. Prefix for the output file names. Default:
+\code{"olink"}.}
+
+\item{save_rds}{Logical. Save the object as \code{data/<prefix>_filtered.rds}.
+Default: TRUE.}
 
 \item{verbose}{Logical. Print progress. Default: TRUE.}
 }
 \value{
-Invisibly returns NULL. All outputs are written to disk.
+Invisibly, a character vector of the files created.
 }
 \description{
-Writes all outputs from the Olink QC/exploration pipeline to a
-structured directory: filtered data as RDS and CSVs, QC plots, a
+Writes the outputs of the Olink QC / exploration pipeline to a
+structured directory: the filtered data (RDS and CSVs), the QC log of every
+step that was run (with the IDs removed and why), QC plots, a
 PC-metadata association heatmap, per-variable PCA plots (coloured by the two
 PCs most significantly associated with each variable), and a plain-text QC
-summary.
+summary built from the log.
+
+The record of what was filtered comes from \code{olink_data$qc_log}, which
+\code{ELEUTHIA_load_olink()} and the \code{HADES_*_olink*} functions maintain
+as they run; nothing has to be assembled by hand.
 }
 \details{
-\strong{Directory layout:}
+\strong{Directory layout} (\code{prefix = "olink"}):
 \preformatted{
 output_dir/
   data/
-    olink_filtered.rds   -- filtered olink_data object
-    sample_meta.csv      -- per-sample metadata (with outlier annotations)
-    assay_meta.csv       -- per-protein metadata (warn_fraction etc.)
+    olink_filtered.rds          -- the olink_data object (incl. $qc_log)
+    olink_sample_meta.csv       -- per-sample metadata (with outlier columns)
+    olink_assay_meta.csv        -- per-protein metadata (warn_fraction etc.)
   qc/
-    npx_distributions.png
-    sample_qc.csv        -- SampleQC pass/fail table
-    warn_proteins.png    -- only if present in qc_plots
-    summary.txt          -- key QC numbers and parameter record
+    olink_qc_log.csv            -- one row per step, with its arguments
+    olink_removed_samples.csv   -- sample, step, reason, value
+    olink_removed_proteins.csv  -- OlinkID, Assay, step, reason, value
+    olink_flagged_samples.csv   -- flagged but kept (outlier detection)
+    olink_summary.txt           -- the QC record in readable form
+    olink_<set>_npx_distributions.png, olink_<set>_sample_qc.csv,
+    olink_<set>_warn_proteins.png   -- from qc_plots
+    olink_pca_batch_<name>.png      -- from batch_plots
   association/
-    pc_metadata_heatmap.png
+    olink_pc_metadata_heatmap.png
   pca/
-    <variable>.png       -- one per selected variable
+    olink_pca_<variable>.png    -- one per selected variable
 }
 
 Each PCA plot uses the two PCs most significantly associated with that
@@ -95,6 +111,7 @@ the plot title.
 }
 \examples{
 \dontrun{
+ol_raw <- ELEUTHIA_load_olink("data.parquet", metadata_file = "layout.csv")
 ol <- HADES_filter_olink(ol_raw)
 ol <- HADES_filter_olink_proteins(ol)
 ol <- HADES_detect_outliers_olink(ol, filter = TRUE)
@@ -103,6 +120,7 @@ qc_plots <- AETHER_plot_olink_qc(ol, plot_warn_proteins = TRUE)
 assoc    <- ARTEMIS_pc_metadata_association(ol$wide, ol$sample_meta,
                                              sample_col = "SampleID")
 
-ELEUTHIA_export_olink_qc(ol, assoc, qc_plots, output_dir = "results/Olink_QC")
+ELEUTHIA_export_olink_qc("results/Olink_QC", ol, assoc = assoc,
+                         qc_plots = qc_plots)
 }
 }

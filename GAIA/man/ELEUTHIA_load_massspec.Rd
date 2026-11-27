@@ -2,132 +2,163 @@
 % Please edit documentation in R/eleuthia_massspec.R
 \name{ELEUTHIA_load_massspec}
 \alias{ELEUTHIA_load_massspec}
-\title{Load DIA Mass Spectrometry Data (DIA-NN report.pg_matrix)}
+\title{Load Mass Spectrometry Protein Quantities}
 \usage{
 ELEUTHIA_load_massspec(
-  ms_file,
+  ms_data,
+  scale,
+  id_col = 1,
+  sample_regex = NULL,
+  annotation_cols = NULL,
   sheet = 1,
-  metadata_file = NULL,
+  metadata = NULL,
   metadata_sheet = 1,
   sample_col = "SampleID",
-  n_annotation_cols = NULL,
-  source = c("dia-nn"),
+  pool_pattern = NULL,
   verbose = TRUE
 )
 }
 \arguments{
-\item{ms_file}{Character. Path to the DIA-NN \code{report.pg_matrix} file.
-Accepted formats: \code{.xlsx}, \code{.tsv}, \code{.txt}, \code{.csv}.}
+\item{ms_data}{Character path to a \code{.csv}, \code{.tsv}, \code{.txt} or
+\code{.xlsx} file, or a data.frame already read into R. One row per
+protein and one column per sample (proteins in rows, not columns).}
 
-\item{sheet}{Integer or character. Sheet to read if \code{ms_file} is an
-xlsx workbook. Default: 1.}
+\item{scale}{Character, \strong{required}: \code{"log2"} if the quantities
+are already log2-transformed, or \code{"linear"} if they are raw
+intensities (zeros and negative values become \code{NA}, then
+\code{log2()} is applied). There is no default because a wrong choice
+silently corrupts every later step (a second log transform, or linear
+values given to imputation and limma as if they were log2).}
 
-\item{metadata_file}{Character or NULL. Path to a sample metadata file
-(.csv, .tsv, or .xlsx). Joined onto \code{$sample_meta} by
-\code{sample_col}. Default: NULL.}
+\item{id_col}{Name or position of the column holding the unique protein
+identifier. Default: the first column.}
 
-\item{metadata_sheet}{Integer or character. Sheet for xlsx metadata files.
+\item{sample_regex}{Optional regular expression (Perl-compatible) that
+selects the sample columns by name. If it contains a capture group, the
+captured text becomes the sample ID; otherwise the whole column name is
+used. Every column that is not a sample column (other than the ID column)
+becomes protein annotation. If \code{NULL}, every column except the ID
+column and \code{annotation_cols} is a sample column. Examples:
+\code{"^LFQ intensity (.+)$"} (MaxQuant LFQ columns),
+\code{"^(.+)_Plate [0-9]+$"} (a sample ID followed by a plate suffix).}
+
+\item{annotation_cols}{Optional character vector of columns to keep as
+protein annotation when \code{sample_regex} is \code{NULL}. Cannot be
+combined with \code{sample_regex}.}
+
+\item{sheet}{Sheet to read when \code{ms_data} is an \code{.xlsx} file.
 Default: 1.}
 
-\item{sample_col}{Character. Column in \code{metadata_file} used as the
-join key. Parsed sample IDs (numeric strings, SEP###-# labels, etc.) are
-matched against this column. Default: \code{"SampleID"}.}
+\item{metadata}{Optional sample metadata: a path (\code{.csv}, \code{.tsv},
+\code{.txt}, \code{.xlsx}) or a data.frame. Joined onto \code{$sample_meta}
+by \code{sample_col}.}
 
-\item{n_annotation_cols}{Integer or NULL. Number of leading columns that are
-protein annotations rather than sample intensities. \code{NULL} (default)
-uses auto-detection: annotation columns are those whose names do not contain
-a file-path separator (\code{/} or \code{\\}) or a \code{.d} extension.}
+\item{metadata_sheet}{Sheet to read when \code{metadata} is an \code{.xlsx}
+file. Default: 1.}
 
-\item{source}{Character. Which acquisition tool's export this is -- NOT
-acquisition mode (DDA/DIA): the file shape is determined by which
-software produced it, not by that software's run mode (DIA-NN itself
-supports both DDA and DIA runs; two DDA-oriented tools like MaxQuant and
-Proteome Discoverer still produce mutually incompatible file shapes).
-Dispatches to an internal, tool-specific adapter. Currently only
-\code{"dia-nn"} is implemented (DIA-NN's \code{report.pg_matrix}, via
-\code{prep_MS_data.R}); a new tool gets its own internal adapter and
-one new value here, without touching the existing one. Default:
-\code{"dia-nn"}.}
+\item{sample_col}{Name of the sample ID column in \code{metadata}; it is also
+the name of the sample ID column in the returned \code{$sample_meta}.
+Default: \code{"SampleID"}.}
+
+\item{pool_pattern}{Optional regular expression. Samples whose ID matches it
+are typed \code{"POOL"} (pooled QC injections, which usually have no
+metadata). Case-insensitive. Default: \code{NULL} (no pools).}
 
 \item{verbose}{Logical. Print loading progress. Default: TRUE.}
 }
 \value{
-An S3 object of class \code{"massspec_data"} containing:
+An S3 object of class \code{"massspec_data"} with:
 \describe{
-\item{wide}{Numeric matrix: proteins (rows) x samples (cols).
-Rownames = Protein.Group. Colnames = parsed SampleID.
-Values are log2-transformed intensities; zeros and negatives become NA.}
-\item{sample_meta}{Per-sample data.frame: SampleID, SampleType, PlateID,
-plus any columns joined from \code{metadata_file}.}
-\item{protein_meta}{Per-protein data.frame with annotation columns from
-the input file (e.g. Protein.Group, Protein.Names, Genes,
-First.Protein.Description). Rownames match \code{rownames($wide)}.}
-\item{params}{List of loader parameters used (for provenance).}
+\item{wide}{Numeric matrix, proteins (rows) x samples (columns), on the
+log2 scale. Rownames are the protein IDs, colnames the sample IDs.}
+\item{sample_meta}{Per-sample data.frame: the sample ID (column named
+\code{sample_col}), \code{SampleType}, \code{source_column} (the
+original column name in \code{ms_data}, kept so that information encoded
+in the name, such as a plate or run number, can be extracted
+afterwards), plus any columns joined from \code{metadata}.}
+\item{protein_meta}{Per-protein data.frame, the ID column first, then the
+annotation columns. Rownames match \code{rownames($wide)}.}
+\item{params}{List of the arguments used and counts of rows dropped (for
+provenance).}
 }
 }
 \description{
-Reads a DIA-NN \code{report.pg_matrix} file (.xlsx or tab-delimited
-text), parses sample identifiers from the column names (which are Windows or
-POSIX file paths in DIA-NN output), log2-transforms intensities, and returns
-a structured \code{massspec_data} object.
+Reads a protein x sample quantification table and returns a
+structured \code{massspec_data} object that the HADES, POSEIDON, ARTEMIS and
+ELEUTHIA mass spectrometry functions work on. The loader knows nothing about
+any particular acquisition or search tool: it expects a table that has been
+prepared into a simple, explicit shape (see Details), and it stops with a
+message naming the problem when the table does not fit that shape.
 
-This function performs no QC filtering. To remove controls, pool samples, and
-high-missingness samples/proteins, pass the result to
-\code{HADES_filter_massspec()} and \code{HADES_filter_massspec_proteins()}.
+The loader does only structural work: reading, choosing the sample columns,
+naming samples, putting the values on the log2 scale, and joining sample
+metadata. It does not filter, normalise, impute or map identifiers. Rows and
+columns specific to one tool (for example MaxQuant's decoy and contaminant
+flags, or a minimum peptide count) are removed by the user before loading;
+because \code{ms_data} can be a data.frame, that takes a few lines of R and
+no intermediate file. Worked examples for common tools are in the tutorial.
 }
 \details{
-\strong{Expected input format:} Column names must follow the standardised
-convention produced by the project's \code{prep_MS_data.R} script:
-\code{{SampleID}_Plate {N}} (e.g. \code{"1027_Plate 1"},
-\code{"SEP001-3_Plate 7"}, \code{"pool1_Plate 12"}). Raw DIA-NN file paths
-are not supported; data must be prepared through \code{prep_MS_data.R} first.
-
-\strong{Sample ID parsing:} \code{PlateID} is extracted from the
-\code{_Plate N} suffix; \code{SampleID} is everything before it. Column
-names that do not match the \code{_Plate N} suffix pattern yield
-\code{PlateID = NA} and \code{SampleID = original column name}.
-
-\strong{Sample type classification:} identity is not guessed from ID shape
--- a column's SampleID can be any format. Instead:
+\strong{What the table must look like.}
 \itemize{
-\item \code{"POOL"} — pooled QC injections (\code{pool*}). Present on
-every plate for batch drift monitoring. No metadata entry expected.
-\item \code{"SAMPLE"} — any non-pool column whose parsed SampleID is
-found in \code{metadata_file} (by \code{sample_col}). Its biological
-distinction (group, timepoint, cohort) lives in the joined metadata
-columns, not in SampleType.
-\item \code{"OTHER"} — any non-pool column that does \emph{not} match a
-row in \code{metadata_file}. Typically wells belonging to a different
-sub-study run on the same plates/DIA-NN batch (e.g. a sample-stability
-QC arm with its own SubjectID/Group scheme tracked only in the plate
-layout, not in the main clinical metadata) rather than malformed IDs.
-These columns cannot be joined to metadata and are dropped by
-\code{HADES_filter_massspec()} by default. If \code{metadata_file} is
-\code{NULL}, there is nothing to check a match against, so every
-non-pool column is classified \code{"SAMPLE"}.
+\item Proteins in rows, samples in columns. Public matrices that have
+samples in rows must be transposed before loading.
+\item A unique protein identifier column. Rows with a blank identifier
+(for example summary rows some tools append) are dropped and counted.
+\strong{Duplicated identifiers are an error}: they usually mean the
+wrong column was chosen as the identifier (gene names, for example,
+repeat). Resolve them before loading.
+\item Sample columns that are numeric. \code{NA}, blank cells and the
+strings \code{"NaN"}, \code{"N/A"}, \code{"#N/A"} and \code{"Filtered"}
+are read as missing in the sample columns. Any other non-numeric text in
+a sample column is an error that names the column. Annotation and
+metadata text is left exactly as read (a blank cell stays blank).
+\item Unique sample IDs. Duplicates after \code{sample_regex} is applied
+are an error.
 }
 
-\strong{Log2 transformation:} Raw DIA intensities are on a linear scale.
-Intensities \eqn{\le 0} (zeros = not detected; negatives = artefact) are
-set to NA before \code{log2()} is applied. Do NOT transform again before
-passing to \code{ARTEMIS_limma_de()}.
+\strong{Sample types.} In order: an ID matching \code{pool_pattern} is
+\code{"POOL"}; otherwise, if \code{metadata} is supplied, a sample found in
+it takes the value of its \code{SampleType} column if there is one
+(missing values are an error) or \code{"SAMPLE"} if not; a sample absent from
+the metadata is \code{"OTHER"}; with no metadata every other sample is
+\code{"SAMPLE"}. \code{HADES_filter_massspec()} keeps SAMPLE and POOL by
+default, so \code{"OTHER"} samples (no metadata) are dropped there.
 
-\strong{Normalization:} Not performed at load time. Pass \code{$wide} to
-\code{POSEIDON_normalize_massspec()} after filtering.
+\strong{Batch information} (plate, run, date) is not parsed from the names.
+Supply it through \code{metadata}, or derive it from
+\code{$sample_meta$source_column} after loading.
+
+\strong{Scale check.} With \code{scale = "log2"} a warning is raised if the
+median value is above 100, and with \code{scale = "linear"} if every value is
+below 100, since either suggests the wrong scale was given. These
+thresholds are heuristics with no published reference; verify the scale
+yourself.
+
+\strong{The object.} \code{massspec_data} is a plain list of the four
+components above with class \code{c("massspec_data", "list")}; the
+downstream functions read \code{$wide}, \code{$sample_meta},
+\code{$protein_meta} and \code{$params$sample_col}.
 }
 \examples{
 \dontrun{
-# Load only
-ms_raw <- ELEUTHIA_load_massspec("report.pg_matrix.xlsx")
+# A prepared matrix (first column = protein ID, other columns = samples)
+ms <- ELEUTHIA_load_massspec("proteins.csv", scale = "log2")
 
-# Load with Olink-matched metadata, then filter
-ms_raw <- ELEUTHIA_load_massspec(
-  ms_file       = "report.pg_matrix.xlsx",
-  metadata_file = "olink_sample_meta.csv",
-  sample_col    = "SampleID"
-)
-ms <- HADES_filter_massspec(ms_raw, keep_types = "SAMPLE")
-ms <- HADES_filter_massspec_proteins(ms, max_na_fraction = 0.5)
-ms$wide <- POSEIDON_normalize_massspec(ms$wide)
+# A MaxQuant proteinGroups.txt, filtered first, LFQ columns only
+pg <- read.delim("proteinGroups.txt", check.names = FALSE)
+pg <- pg[!(pg$`Potential contaminant` \%in\% "+") & !(pg$Decoy \%in\% "+"), ]
+ms <- ELEUTHIA_load_massspec(pg, scale = "linear",
+                             id_col = "Protein IDs",
+                             sample_regex = "^LFQ intensity (.+)$",
+                             metadata = "sample_meta.csv")
+
+# Sample columns named "<SampleID>_Plate <N>", with pooled QC samples
+ms <- ELEUTHIA_load_massspec("prepped.csv", scale = "linear",
+                             sample_regex = "^(.+)_Plate [0-9]+$",
+                             pool_pattern = "^pool",
+                             metadata = "meta.csv")
+ms$sample_meta$PlateID <- sub(".*_(Plate [0-9]+)$", "\\\\1",
+                              ms$sample_meta$source_column)
 }
 }

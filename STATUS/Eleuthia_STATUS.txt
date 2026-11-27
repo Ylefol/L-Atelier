@@ -1,7 +1,7 @@
 ================================================================================
 ELEUTHIA STATUS - Import, Export & Reporting
 ================================================================================
-Last Updated: 2026-11-20
+Last Updated: 2026-11-27
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -9,29 +9,37 @@ IMPLEMENTED FUNCTIONS
 
 eleuthia_massspec.R:
 --------------------
-ELEUTHIA_load_massspec(ms_file, sheet=1, metadata_file=NULL, metadata_sheet=1,
-                        sample_col="SampleID", n_annotation_cols=NULL,
-                        source=c("dia-nn"), verbose=TRUE)
-  - source (added 2026-11-20): which acquisition TOOL produced the file --
-    not acquisition mode (DDA/DIA); file shape is determined by the
-    software, not the run mode. match.arg()-validated; dispatches to an
-    internal, tool-specific adapter. Only "dia-nn" implemented so far
-    (everything below). A new tool = a new internal adapter + a new value
-    here, without touching the existing one.
-  - Reads DIA-NN report.pg_matrix format (.xlsx, .tsv, .txt, .csv)
-  - Auto-detects annotation vs sample columns from file-path column names
-  - Parses sample ID from Windows/POSIX file paths (strips directory + well suffix)
-  - Parses PlateID from the immediate parent directory of each sample's path
-    (e.g. ".../plate_1/sample.d" -> "plate_1"); NA if no directory component.
-    Works for every sample type (incl. pools/controls), unlike a metadata join.
-  - Classifies sample types empirically, not by ID shape: pool*  -> POOL;
-    every other column is tentatively SAMPLE, then downgraded to OTHER if its
-    parsed SampleID has no match in metadata_file (no metadata_file -> stays
-    SAMPLE). Replaces an earlier numeric/"SEP..."-prefix whitelist that
-    assumed a fixed ID format.
-  - Log2-transforms intensities; zeros/negatives become NA
-  - Optionally joins metadata file onto sample_meta by sample_col
-  - Returns massspec_data S3 object: $wide (log2 matrix), $sample_meta, $protein_meta, $params
+ELEUTHIA_load_massspec(ms_data, scale, id_col=1, sample_regex=NULL,
+                        annotation_cols=NULL, sheet=1, metadata=NULL,
+                        metadata_sheet=1, sample_col="SampleID", pool_pattern=NULL,
+                        verbose=TRUE)
+  - REWRITTEN 2026-11-27 as a generic, tool-agnostic loader. The earlier DIA-NN-specific
+    loader (source= dispatch, "{SampleID}_Plate N" convention, PlateID parsing,
+    n_annotation_cols, ms_file/metadata_file) was removed: tool outputs change too often
+    to maintain adapters. Users prepare a protein x sample table (recipes for MaxQuant,
+    DIA-NN etc. live in the tutorial) and the loader is told how to read it.
+  - ms_data / metadata: a path (.csv/.tsv/.txt/.xlsx) or a data.frame
+  - scale is REQUIRED (no default): "log2" (kept as is; warns if median > 100) or "linear"
+    (zeros/negatives -> NA then log2; warns if every value < 100). Heuristic thresholds
+  - id_col: unique protein ID (name or position). Blank-ID rows dropped and counted;
+    DUPLICATED IDs are an ERROR (names them)
+  - sample columns: sample_regex selects them (capture group = sample ID, else the whole
+    column name; every other column becomes protein annotation); without it every column
+    except the ID and annotation_cols is a sample. Non-numeric sample columns, duplicate
+    sample IDs, regex + annotation_cols together are errors. NA/blank/"NaN"/"N/A"/"#N/A"/
+    "Filtered" are missing in sample columns; text columns are left as read
+  - sample_meta: sample_col, SampleType, source_column (the ORIGINAL column name, so e.g.
+    a plate can be derived afterwards), then joined metadata. Rows are in $wide column order.
+    SampleType: pool_pattern match -> POOL; else metadata SampleType column if present
+    (NA = error) or SAMPLE; absent from supplied metadata -> OTHER; no metadata -> SAMPLE
+  - NO filtering/imputation/normalisation/ID mapping; no gene-symbol column; no batch parsing
+    (supply batch through metadata, or derive it from source_column)
+  - Returns massspec_data S3 object: $wide (log2 matrix), $sample_meta, $protein_meta
+    (ID column first, rownames = IDs), $params (arguments + counts dropped; no `source`)
+  - Verified 2026-11-27 on the SEPSOMICS data: $wide, $protein_meta, SampleType counts and
+    PlateID are identical to the object from the old loader; only the new source_column and
+    a corrected sample_meta row order differ (the old merge() left sample_meta in a different
+    order from $wide's columns)
 print.massspec_data()
   - S3 print method for massspec_data objects
 
@@ -46,6 +54,8 @@ ELEUTHIA_export_massspec_to_sheet(massspec_data, output_dir, group_col,
     AFTER those, never instead of them, since they're inherently
     cross-sample) out as one plain id/value file per sample -- the shape
     ELEUTHIA_load_count_file() already reads
+  - Errors ("No samples were exported") when none of the SAMPLE rows are in $wide (2026-11-27;
+    it used to return NULL silently)
   - Closes the gap where proteomics has no format value in
     ELEUTHIA_validate_sample_sheet() for a wide matrix: the exported files
     register as ordinary format="counts" rows instead
@@ -67,19 +77,28 @@ ELEUTHIA_load_olink(npx_file, metadata_file=NULL, metadata_sheet=1,
   - Parses out AssayType!="assay" instrument control rows (structural, not QC filtering)
   - Returns ALL samples as-loaded (biological + controls, all QC statuses)
   - Returns olink_data S3 object: $data (long), $wide (features x samples matrix),
-    $sample_meta, $assay_meta (OlinkID + warn_fraction per protein), $params
+    $sample_meta, $assay_meta (OlinkID + warn_fraction per protein), $params,
+    $qc_log (first entry = the load: instrument rows, blank-ID rows, samples removed by
+    restrict_to_metadata; HADES_*_olink* steps append to it)
   - restrict_to_metadata=TRUE: removes NPX samples absent from the metadata file
   - No filtering performed — pass result to HADES_filter_olink() for QC/filtering
   - Requires arrow for .parquet; requires readxl for .xlsx metadata
-ELEUTHIA_export_olink_qc(olink_data, assoc, qc_plots, output_dir,
-                          top_n_vars=5, p_threshold=0.05,
-                          heatmap_top_n=NULL, ntop_pca=NULL, verbose=TRUE)
-  - Exports full Olink QC/exploration pipeline outputs to structured directory
-  - data/: olink_filtered.rds, sample_meta.csv, assay_meta.csv
-  - qc/: npx_distributions.png, sample_qc.csv, warn_proteins.png (if present), summary.txt
-  - association/: pc_metadata_heatmap.png (generated internally from assoc)
-  - pca/: one PNG per selected variable, using the 2 most significant PCs for that variable
-  - top_n_vars controls how many variables per PC are included in the PCA loop
+ELEUTHIA_export_olink_qc(output_dir, olink_data, assoc=NULL, qc_plots=NULL,
+                          batch_plots=NULL, top_n_vars=5, p_threshold=0.05,
+                          heatmap_top_n=NULL, ntop_pca=NULL, save_plots=TRUE,
+                          plot_format="png", prefix="olink", save_rds=TRUE, verbose=TRUE)
+  - Signature follows the other ELEUTHIA_export_*_results functions (output_dir first,
+    optional components, prefix/save_plots/plot_format/save_rds, returns invisible
+    vector of files created). The hand-built qc_steps argument was REMOVED (2026-11-27):
+    the QC record now comes from olink_data$qc_log (see HADES_get_olink_qc_log)
+  - data/: <prefix>_filtered.rds (keeps $qc_log), _sample_meta.csv, _assay_meta.csv
+  - qc/: <prefix>_qc_log.csv (one row per step), _removed_samples.csv, _removed_proteins.csv,
+    _flagged_samples.csv, _summary.txt (built from the log: load, filter chain with
+    arguments/counts/IDs, final data, AssayQC warn, SampleQC, PC association),
+    <set>_npx_distributions/_sample_qc/_warn_proteins from qc_plots, pca_batch_<name>
+  - association/ and pca/ only when assoc is supplied
+  - Objects without $qc_log still export; the summary says no log is recorded
+  - Note: plot_format="pdf" warns for the AETHER titles containing em-dash / >= characters
 
 eleuthia_activity_export.R:
 ----------------------------
@@ -95,6 +114,8 @@ eleuthia_data_import.R:
 -----------------------
 ELEUTHIA_load_counts_from_dir(count_path, ...)
   - Load count files from a directory
+  - Fixed 2026-11-27: paths are built with file.path(), so a directory without a trailing
+    slash works (it used to find no files)
 ELEUTHIA_load_multi_counts(count_paths, ...)
   - Load and combine counts from multiple paths/datasets
 

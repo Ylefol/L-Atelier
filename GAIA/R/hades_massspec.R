@@ -11,10 +11,9 @@
 #'   longitudinal, and SEP_CTR_* controls; their distinction is carried by the
 #'   \code{Group} metadata column) and \code{"POOL"} (pooled QC injections
 #'   used for batch drift monitoring). \code{"OTHER"} is excluded by default:
-#'   these are columns whose SampleID did not match any known pattern in
-#'   \code{ELEUTHIA_load_massspec()}, most commonly samples not renamed via
-#'   \code{prep_MS_data.R} or absent from the metadata file. They have no
-#'   metadata and cannot be used in any downstream analysis.
+#'   these are sample columns that were not found in the metadata file given to
+#'   \code{ELEUTHIA_load_massspec()}. They have no metadata and cannot be used
+#'   in any downstream analysis.
 #' @param max_sample_na_fraction Numeric (0–1). Samples whose log2 NA fraction
 #'   across all proteins exceeds this threshold are removed. Default:
 #'   \code{0.9} (remove only extreme outliers; DIA data normally has
@@ -28,8 +27,8 @@
 #'
 #' @examples
 #' \dontrun{
-#' ms_raw <- ELEUTHIA_load_massspec("prepped_ms_data.csv",
-#'                                   metadata_file = "meta.csv")
+#' ms_raw <- ELEUTHIA_load_massspec("prepped_ms_data.csv", scale = "linear",
+#'                                   metadata = "meta.csv")
 #' ms <- HADES_filter_massspec(ms_raw)
 #' }
 HADES_filter_massspec <- function(massspec_data,
@@ -105,10 +104,10 @@ HADES_filter_massspec <- function(massspec_data,
 #'
 #' Also removes rows with no primary protein identifier (the first column of
 #' \code{$protein_meta} is \code{NA}) before applying the missingness
-#' threshold. \code{ELEUTHIA_load_massspec()} already drops DIA-NN summary
-#' rows (e.g. "Sum intensities", "Number of valid values") at load time, so
-#' this check acts as a secondary safety net for \code{massspec_data} objects
-#' constructed outside of \code{ELEUTHIA_load_massspec()}.
+#' threshold. \code{ELEUTHIA_load_massspec()} already drops rows with a blank
+#' identifier at load time, so this check acts as a secondary safety net for
+#' \code{massspec_data} objects constructed outside of
+#' \code{ELEUTHIA_load_massspec()}.
 #'
 #' @param massspec_data A \code{massspec_data} object, usually after
 #'   \code{HADES_filter_massspec()}.

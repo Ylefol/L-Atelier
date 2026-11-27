@@ -1,7 +1,7 @@
 ================================================================================
 POSEIDON STATUS - Preprocessing & Normalization
 ================================================================================
-Last Updated: 2026-06-24
+Last Updated: 2026-11-27
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -54,8 +54,10 @@ POSEIDON_correct_batch_counts(quant_result, batch_col="batch", group_col="group"
   - Renamed from POSEIDON_correct_batch() (2026-06-19) once a second,
     massspec-specific function was added - no backwards-compatibility shim,
     callers (e.g. projects/SMUG1_lisa/process_data.R) need updating on next run
-POSEIDON_correct_batch_massspec(massspec_data, batch_col="PlateID", group_col=NULL,
+POSEIDON_correct_batch_massspec(massspec_data, batch_col, group_col=NULL,
                                  method="combat", impute_method="batchmean", verbose=TRUE)
+  - batch_col is REQUIRED since 2026-11-27 (it used to default to "PlateID", which the loader
+    no longer creates); if all samples share one batch, add a column with a single value
   - Batch correction via ComBat or limma::removeBatchEffect for massspec_data
     objects ($wide log2 matrix + $sample_meta)
   - Unlike the counts version: no log2(x+1)/back-transform (data is already

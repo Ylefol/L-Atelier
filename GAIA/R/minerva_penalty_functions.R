@@ -36,6 +36,8 @@ MINERVA_soft_threshold_lasso <- function(x, tau) {
 #'
 #' @export
 MINERVA_soft_threshold_scad <- function(x, tau, a = 3.7) {
+    if (!is.numeric(a) || length(a) != 1L || is.na(a) || a <= 2)
+        stop("a must be a single number greater than 2 (the SCAD default is 3.7)")
     names(x) <- 1:length(x)
 
     # First part: small coefficients (LASSO-like)
@@ -46,7 +48,9 @@ MINERVA_soft_threshold_scad <- function(x, tau, a = 3.7) {
 
     # Second part: medium coefficients (partial shrinkage)
     vx2 <- x[abs(x) > 2*tau & abs(x) <= a*tau]
-    u.new2 <- (2.7*vx2 - sign(vx2)*a*tau) / 1.7
+    # SCAD rule (Fan & Li 2001): ((a - 1) * x - sign(x) * a * tau) / (a - 2);
+    # equals (2.7 * x - sign(x) * 3.7 * tau) / 1.7 for the default a = 3.7
+    u.new2 <- ((a - 1) * vx2 - sign(vx2) * a * tau) / (a - 2)
 
     # Third part: large coefficients (no penalty)
     vx3 <- x[abs(x) > a*tau]

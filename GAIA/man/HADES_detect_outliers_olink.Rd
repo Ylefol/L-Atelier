@@ -42,7 +42,9 @@ An \code{olink_data} object. \code{$sample_meta} gains two columns:
 \item{outlier}{Logical. \code{TRUE} for samples exceeding the threshold.}
 }
 When \code{filter = TRUE}, flagged samples are also removed from all data
-slots.
+slots. \code{$qc_log} gains one entry: action \code{"flagged"} when
+\code{filter = FALSE} (the flagged samples stay in the data), or
+\code{"removed"} when \code{filter = TRUE}.
 }
 \description{
 Flags multivariate outliers in an \code{olink_data} object using
@@ -51,8 +53,14 @@ in \code{$sample_meta} via two new columns (\code{outlier},
 \code{outlier_distance}) and optionally removed.
 
 Mean imputation and per-protein scaling are applied internally for the outlier
-computation only — the NPX values in \code{$data} and \code{$wide} are never
+computation only - the NPX values in \code{$data} and \code{$wide} are never
 modified.
+
+The outliers are recomputed from scratch on every call. A call with
+\code{filter = TRUE} therefore removes the samples found with \emph{its own}
+arguments, not those of an earlier detect-only call; pass the same
+\code{n_pcs}, \code{threshold} and \code{method} to both if you want them to
+agree. The arguments each call actually used are recorded in \code{$qc_log}.
 }
 \examples{
 \dontrun{
@@ -60,10 +68,10 @@ ol <- HADES_filter_olink(ol_raw)
 ol <- HADES_filter_olink_proteins(ol, max_na_fraction = 0.2)
 
 # Detect and annotate only (inspect before deciding)
-ol <- HADES_detect_outliers_olink(ol)
+ol <- HADES_detect_outliers_olink(ol, n_pcs = 10, threshold = 10)
 ol$sample_meta[ol$sample_meta$outlier, c("SampleID", "outlier_distance")]
 
-# Remove detected outliers
-ol <- HADES_detect_outliers_olink(ol, filter = TRUE)
+# Remove detected outliers (same arguments, so the same samples)
+ol <- HADES_detect_outliers_olink(ol, n_pcs = 10, threshold = 10, filter = TRUE)
 }
 }

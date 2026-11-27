@@ -74,12 +74,9 @@ test_that("load_counts_from_dir can select files by pattern and reports bad dire
 })
 
 test_that("load_counts_from_dir works with a directory given without a trailing slash", {
-  # KNOWN BUG (reported, fix pending approval): the file path is built with
-  # paste0(count_path, file) instead of file.path(), so a directory without a
-  # trailing slash points at non-existent files and the function ends with the
-  # unhelpful "No data was successfully loaded".
-  # Remove this skip once the path is built with file.path().
-  skip("known bug: directory path without trailing slash finds no files")
+  # Regression test: the file path used to be built with paste0(count_path, file),
+  # so a directory without a trailing slash pointed at non-existent files and the
+  # function ended with "No data was successfully loaded".
   d <- tempfile("lcd_"); dir.create(d); on.exit(unlink(d, recursive = TRUE), add = TRUE)
   write_counts(d, small_counts(), header = FALSE)
   out <- quiet(ELEUTHIA_load_counts_from_dir(d))

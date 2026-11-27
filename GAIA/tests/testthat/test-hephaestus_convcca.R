@@ -78,26 +78,27 @@ test_that("multi_convCCA handles three datasets", {
   }
 })
 
-# ---- known issues (reported; fix pending approval) ---------------------------
+# ---- auto-convergence and several canonical pairs ----------------------------
 
-test_that("convCCA with the default nIter = NULL terminates", {
-  # KNOWN BUG: in the auto-converge loop the convergence measure is stored in
-  # `diffU` but the loop tests `diff`, which stays at 1, so the loop only ends if
-  # a value becomes NA. The documented default call never returns.
-  # Remove this skip once HEPHAESTUS_convCCA_algo() updates `diff`.
-  skip("known bug: nIter = NULL never converges (loop tests `diff`, assigns `diffU`)")
+test_that("convCCA with the default nIter = NULL terminates and agrees with a long fixed run", {
+  # The auto-converge loop stops once the weights change by less than 1e-5. The
+  # time limit turns a regression back to the old never-ending loop into a failure
+  # instead of a hung test run.
   s <- simulate_cca()
-  setTimeLimit(elapsed = 30, transient = TRUE)
+  setTimeLimit(elapsed = 60, transient = TRUE)
   on.exit(setTimeLimit(elapsed = Inf), add = TRUE)
-  res <- quiet(HEPHAESTUS_convCCA(s$X[[1]], s$X[[2]], 0.15, 0.15))
+  res   <- quiet(HEPHAESTUS_convCCA(s$X[[1]], s$X[[2]], 0.15, 0.15))
+  setTimeLimit(elapsed = Inf)
+  fixed <- quiet(HEPHAESTUS_convCCA(s$X[[1]], s$X[[2]], 0.15, 0.15, nIter = 500))
+
   expect_named(res, c("W_1", "W_2"))
+  expect_equal(as.numeric(res$W_1), as.numeric(fixed$W_1), tolerance = 1e-3)
+  expect_equal(as.numeric(res$W_2), as.numeric(fixed$W_2), tolerance = 1e-3)
 })
 
 test_that("convCCA with R = 2 returns the second canonical pair", {
-  # KNOWN BUG: `for (i in 1:R-1)` parses as (1:R)-1, so the deflation loop runs R
-  # times instead of R-1 and R = 2 returns the third pair.
-  # Remove this skip once the loop is `seq_len(R - 1)`.
-  skip("known bug: R = 2 returns the third pair (for (i in 1:R-1) precedence)")
+  # Regression test: `for (i in 1:R-1)` parses as (1:R)-1, so the deflation loop
+  # used to run R times instead of R-1 and R = 2 returned the third pair.
   s <- simulate_cca()
   X1 <- s$X[[1]]; X2 <- s$X[[2]]; tau <- 0.15
   first <- quiet(HEPHAESTUS_convCCA_algo(X1, X2, tau, tau, nIter = 100))
