@@ -610,7 +610,7 @@ ELEUTHIA_export_olink_qc <- function(output_dir,
         log_transform = FALSE,
         ntop          = ntop_pca,
         label_samples = FALSE,
-        title         = paste0("PCA — ", var,
+        title         = paste0("PCA - ", var,
                                " (PC", best_dims[1L], " vs PC", best_dims[2L], ")"),
         verbose       = FALSE
       )

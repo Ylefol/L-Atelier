@@ -572,8 +572,8 @@ PANDORA_annotate_transfer <- function(sce,
     mode_str    <- if (is.null(clusters)) "cell-level" else
       paste0("cluster-level (via '", cluster_col, "')")
     cat(sprintf(
-      "── PANDORA: label transfer annotation %s\n  Reference  : %s (%s)\n  Dims used  : %d (1:%d)\n  Mode       : %s\n  Annotated  : %s cells  |  Below min_score (NA): %s\n  Cell types : %d unique types\n  Stored as  : colData(sce)[[\"%s\"]], colData(sce)[[\"%s\"]]\n%s\n",
-      strrep("─", 19),
+      "\u2500\u2500 PANDORA: label transfer annotation %s\n  Reference  : %s (%s)\n  Dims used  : %d (1:%d)\n  Mode       : %s\n  Annotated  : %s cells  |  Below min_score (NA): %s\n  Cell types : %d unique types\n  Stored as  : colData(sce)[[\"%s\"]], colData(sce)[[\"%s\"]]\n%s\n",
+      strrep("\u2500", 19),
       ref_name, labels_col,
       length(dims), max(dims),
       mode_str,
@@ -581,7 +581,7 @@ PANDORA_annotate_transfer <- function(sce,
       format(n_na, big.mark = ","),
       n_types,
       label_col, score_col,
-      strrep("─", 56)
+      strrep("\u2500", 56)
     ))
   }
 
