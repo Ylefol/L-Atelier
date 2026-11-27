@@ -31,9 +31,11 @@ HORIZON_aggregate_counts <- function(sample_sheet,
                                      output_root    = NULL,
                                      save_rds       = TRUE,
                                      save_metadata  = TRUE) {
+  cat("[HORIZON] Aggregating per-sample count files\n")
+
   if (is.null(output_root)) {
     output_root <- sample_sheet$output_dir[1]
-    cat("output_root inferred from first sample: ", output_root)
+    cat("    output_root inferred from first sample: ", output_root, "\n", sep = "")
   }
 
   agg_dir <- file.path(output_root, "aggregated", "counts")
@@ -68,11 +70,12 @@ HORIZON_aggregate_counts <- function(sample_sheet,
 
   n_genes   <- nrow(count_matrix)
   n_samples <- ncol(count_matrix)
-  cat("Aggregated count matrix: ", n_genes, " genes x ", n_samples, " samples")
+  cat("    Aggregated count matrix: ", n_genes, " genes x ", n_samples, " samples\n",
+      sep = "")
 
   out_csv <- file.path(agg_dir, "count_matrix.csv")
   write.csv(count_matrix, out_csv)
-  cat("Count matrix written to: ", out_csv)
+  cat("    Count matrix written to: ", out_csv, "\n", sep = "")
 
   if (save_rds) {
     saveRDS(count_matrix, file.path(agg_dir, "count_matrix.rds"))
@@ -82,7 +85,8 @@ HORIZON_aggregate_counts <- function(sample_sheet,
     # Only keep rows for samples that were successfully aggregated
     meta <- sample_sheet[sample_sheet$sample_id %in% colnames(count_matrix), ]
     write.csv(meta, file.path(agg_dir, "sample_metadata.csv"), row.names = FALSE)
-    cat("Sample metadata written to: ", file.path(agg_dir, "sample_metadata.csv"))
+    cat("    Sample metadata written to: ", file.path(agg_dir, "sample_metadata.csv"),
+        "\n", sep = "")
   }
 
   invisible(count_matrix)

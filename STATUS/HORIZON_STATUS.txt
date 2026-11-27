@@ -1,7 +1,7 @@
 ================================================================================
 HORIZON STATUS - Upstream Bioinformatics Processing Package
 ================================================================================
-Last Updated: 2026-09-04
+Last Updated: 2026-11-27
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -283,6 +283,9 @@ HORIZON_aggregate_counts(sample_sheet, output_root=NULL, save_rds=TRUE,
                          save_metadata=TRUE)
   - Builds genes x samples count matrix from per-sample count files
   - Writes count_matrix.csv, count_matrix.rds, sample_metadata.csv
+  - Console output follows the [HORIZON] headline + indented sub-lines convention with
+    newlines (2026-11-27). The other HORIZON functions (aggregate_salmon, concat_lanes, ...)
+    still print cat() lines without trailing newlines (about 120 calls); not yet changed
 
 star_align.R:
 -------------
