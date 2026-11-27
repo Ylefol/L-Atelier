@@ -17,7 +17,8 @@ AETHER_plot_gost_dotplot(
   max_term_length = 50,
   color_low = "#2166ac",
   color_high = "#b2182b",
-  dot_range = c(2, 8)
+  dot_range = c(2, 8),
+  subtitle_wrap_width = 100
 )
 }
 \arguments{
@@ -52,6 +53,10 @@ includes all modules.}
 \item{color_high}{Character. Color for high values (default = "#b2182b" red).}
 
 \item{dot_range}{Numeric vector of length 2. Min and max dot sizes (default = c(2, 8)).}
+
+\item{subtitle_wrap_width}{Integer. Character width at which the subtitle
+(query/background gene counts, which can grow long with many modules) is
+wrapped onto multiple lines (default = 100).}
 }
 \value{
 A ggplot object.

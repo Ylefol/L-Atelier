@@ -28,4 +28,4 @@ URL: https://ylefol.github.io/L-Atelier/CYAN/, https://github.com/Ylefol/L-Ateli
 BugReports: https://github.com/Ylefol/L-Atelier/issues
 Encoding: UTF-8
 biocViews: Sequencing, RNASeq, VariantAnnotation, SNP
-Config/roxygen2/version: 8.0.0
+Config/roxygen2/version: 8.1.1

@@ -10,7 +10,8 @@
 # Core responsibilities:
 #   - Reference-based annotation (SingleR / celldex)
 #   - Marker-based annotation (scType, bundled ScTypeDB)
-#   - Manual label assignment (planned: PANDORA_assign_labels)
+#   - Anchor-based label transfer (Seurat FindTransferAnchors/TransferData)
+#   - Manual label assignment (PANDORA_assign_labels)
 #
 # All functions prefixed: PANDORA_
 # ==============================================================================
@@ -388,6 +389,206 @@ PANDORA_annotate_sctype <- function(sce,
 }
 
 
+#' Anchor-based label transfer via Seurat
+#'
+#' Annotates cells by projecting them into a pre-reduced reference's embedding
+#' and transferring labels using \code{Seurat::FindTransferAnchors()} /
+#' \code{Seurat::TransferData()}.  Unlike \code{\link{PANDORA_annotate_singler}}
+#' (correlation-based) and \code{\link{PANDORA_annotate_sctype}}
+#' (marker-score-based), this performs anchor-based transfer — matching the
+#' Seurat label-transfer method used alongside SingleR-style correlation and
+#' marker-score approaches in multi-method annotation designs (e.g. Mathys
+#' et al. 2024).
+#'
+#' This function validates but never prepares the reference: \code{reference}
+#' must already carry the dimensionality reduction named by
+#' \code{reference_reduction} (e.g. from your own \code{Seurat::RunPCA()} or
+#' \code{Seurat::SCTransform()} recipe) before calling this function. Baking a
+#' generic prep recipe into the toolkit risks silently applying defaults that
+#' don't suit a given reference's composition — that decision is left to you,
+#' in the calling script. The query (\code{sce}) is likewise never
+#' normalized here.
+#'
+#' @param sce A \code{SingleCellExperiment} (the query).
+#' @param reference A \code{Seurat} object (already normalized/reduced), or a
+#'   \code{SingleCellExperiment}/\code{SummarizedExperiment} that will be
+#'   converted via \code{\link{TALARIA_to_seurat}} (its \code{reducedDims}
+#'   carry over in that conversion, so the equivalent prep recipe can be run
+#'   on the SCE beforehand instead).
+#' @param reference_reduction Character. Name of the dimensionality reduction
+#'   on \code{reference} to project the query into.  Default \code{"pca"}.
+#'   Must already exist — not computed by this function.
+#' @param dims Integer vector or \code{NULL}.  Which components of
+#'   \code{reference_reduction} to use.  If \code{NULL} (default), uses every
+#'   component already present (\code{1:ncol(Embeddings(reference,
+#'   reference_reduction))}) rather than guessing a count.
+#' @param labels_col Character. Column in the reference's metadata holding
+#'   the labels to transfer.  Default \code{"label.main"}.
+#' @param cluster_col Character or \code{NULL}.  If \code{NULL} (default),
+#'   annotation is at the cell level.  If a \code{colData} column name is
+#'   provided, the per-cell transferred labels are aggregated per cluster by
+#'   majority vote (mean confidence score) and broadcast back to all cells in
+#'   that cluster — same semantics as \code{cluster_col} in
+#'   \code{\link{PANDORA_annotate_singler}}.
+#' @param assay_name Character. Normalized-data assay on \code{sce} (and, if
+#'   \code{reference} needs converting, on \code{reference}) used for anchor
+#'   finding.  Default \code{"logcounts"}.
+#' @param counts_assay Character. Raw-counts assay used only when
+#'   \code{sce}/\code{reference} need converting via
+#'   \code{\link{TALARIA_to_seurat}}.  Default \code{"counts"}.
+#' @param min_score Numeric or \code{NULL}.  If set, (cluster- or cell-level)
+#'   confidence scores below this threshold get \code{NA} in \code{label_col}
+#'   instead of a forced low-confidence label — \code{TransferData()} has no
+#'   built-in delta-score pruning like SingleR's, so thresholding is the only
+#'   option here.  Default \code{NULL} (no thresholding).
+#' @param label_col Character. \code{colData} column for the result.
+#'   Default \code{"transfer_label"}.  The per-cell confidence score is always
+#'   stored alongside it in \code{paste0(label_col, "_score")}, regardless of
+#'   whether \code{min_score} is set — so it's available for QC/diagnostic use
+#'   even on an unthresholded run.
+#' @param verbose Logical. Print a summary. Default \code{TRUE}.
+#'
+#' @return SCE with \code{colData(sce)[[label_col]]} and
+#'   \code{colData(sce)[[paste0(label_col, "_score")]]} populated.
+#'
+#' @seealso \code{\link{PANDORA_annotate_singler}},
+#'   \code{\link{PANDORA_annotate_sctype}}, \code{\link{TALARIA_to_seurat}}
+#'
+#' @export
+PANDORA_annotate_transfer <- function(sce,
+                                       reference,
+                                       reference_reduction = "pca",
+                                       dims                 = NULL,
+                                       labels_col           = "label.main",
+                                       cluster_col          = NULL,
+                                       assay_name           = "logcounts",
+                                       counts_assay         = "counts",
+                                       min_score            = NULL,
+                                       label_col            = "transfer_label",
+                                       verbose              = TRUE) {
+
+  if (!requireNamespace("Seurat", quietly = TRUE))
+    stop("Package 'Seurat' is required. ",
+         "Install via: install.packages(\"Seurat\")", call. = FALSE)
+
+  if (!assay_name %in% assayNames(sce))
+    stop("Assay '", assay_name, "' not found. Run PYRI_normalize() first.",
+         call. = FALSE)
+
+  # ── Resolve reference and query to Seurat objects (reuse TALARIA converters,
+  # rather than duplicating SCE<->Seurat logic) ────────────────────────────────
+  ref_sobj   <- .pandora_resolve_transfer_reference(reference, counts_assay,
+                                                     assay_name)
+  query_sobj <- TALARIA_to_seurat(sce, counts = counts_assay, data = assay_name)
+
+  # ── Validate the reference is already prepared -- never auto-prepared ───────
+  if (!reference_reduction %in% Seurat::Reductions(ref_sobj))
+    stop(
+      "Reduction '", reference_reduction, "' not found on reference ",
+      "(available: ",
+      paste(Seurat::Reductions(ref_sobj), collapse = ", "), "). ",
+      "PANDORA_annotate_transfer() does not prepare the reference for you -- ",
+      "run your own normalization / feature-selection / dimensionality-",
+      "reduction recipe on it first, e.g.\n",
+      "    Seurat::NormalizeData() -> Seurat::FindVariableFeatures() -> ",
+      "Seurat::ScaleData() -> Seurat::RunPCA()\n",
+      "  or\n",
+      "    Seurat::SCTransform() -> Seurat::RunPCA()\n",
+      "then pass the prepared object as reference=.",
+      call. = FALSE
+    )
+
+  if (!labels_col %in% colnames(ref_sobj[[]]))
+    stop("'", labels_col, "' not found in reference metadata. Available: ",
+         paste(colnames(ref_sobj[[]]), collapse = ", "), call. = FALSE)
+
+  # ── Resolve dims -- default to however many components the reference
+  # already has, rather than guessing a count ─────────────────────────────────
+  if (is.null(dims))
+    dims <- seq_len(ncol(Seurat::Embeddings(ref_sobj, reference_reduction)))
+
+  # ── Cluster vector (NULL = cell-level) ───────────────────────────────────────
+  clusters <- NULL
+  if (!is.null(cluster_col)) {
+    if (!cluster_col %in% names(colData(sce)))
+      stop("cluster_col '", cluster_col, "' not found in colData(sce).",
+           call. = FALSE)
+    clusters <- as.character(colData(sce)[[cluster_col]])
+  }
+
+  # ── Run anchor-based label transfer ──────────────────────────────────────────
+  anchors <- Seurat::FindTransferAnchors(
+    reference           = ref_sobj,
+    query               = query_sobj,
+    dims                = dims,
+    reference.reduction = reference_reduction
+  )
+
+  predictions <- Seurat::TransferData(
+    anchorset = anchors,
+    refdata   = ref_sobj[[labels_col, drop = TRUE]],
+    dims      = dims
+  )
+
+  predicted_id     <- stats::setNames(predictions$predicted.id, rownames(predictions))
+  prediction_score <- stats::setNames(predictions$prediction.score.max, rownames(predictions))
+  predicted_id     <- predicted_id[colnames(sce)]
+  prediction_score <- prediction_score[colnames(sce)]
+
+  # ── Cluster-level majority vote (broadcast back to cells) -- same semantics
+  # as cluster_col handling in PANDORA_annotate_singler() ──────────────────────
+  if (!is.null(clusters)) {
+    unique_clusters <- sort(unique(clusters))
+
+    cluster_label <- vapply(unique_clusters, function(cl) {
+      votes <- table(predicted_id[clusters == cl])
+      names(votes)[which.max(votes)]
+    }, character(1))
+
+    cluster_score <- vapply(unique_clusters, function(cl) {
+      mean(prediction_score[clusters == cl], na.rm = TRUE)
+    }, numeric(1))
+
+    names(cluster_label) <- names(cluster_score) <- unique_clusters
+    predicted_id     <- stats::setNames(cluster_label[clusters], colnames(sce))
+    prediction_score <- stats::setNames(cluster_score[clusters], colnames(sce))
+  }
+
+  # ── min_score thresholding -- NA below threshold; no forced low-confidence
+  # label, since TransferData() has no delta-score pruning like SingleR's ─────
+  if (!is.null(min_score))
+    predicted_id[prediction_score < min_score] <- NA
+
+  score_col <- paste0(label_col, "_score")
+  colData(sce)[[label_col]] <- predicted_id
+  colData(sce)[[score_col]] <- prediction_score
+
+  # ── Summary ──────────────────────────────────────────────────────────────────
+  if (isTRUE(verbose)) {
+    ref_name    <- if (is.character(reference)) reference else class(reference)[1]
+    n_annotated <- sum(!is.na(predicted_id))
+    n_na        <- sum(is.na(predicted_id))
+    n_types     <- length(unique(stats::na.omit(predicted_id)))
+    mode_str    <- if (is.null(clusters)) "cell-level" else
+      paste0("cluster-level (via '", cluster_col, "')")
+    cat(sprintf(
+      "── PANDORA: label transfer annotation %s\n  Reference  : %s (%s)\n  Dims used  : %d (1:%d)\n  Mode       : %s\n  Annotated  : %s cells  |  Below min_score (NA): %s\n  Cell types : %d unique types\n  Stored as  : colData(sce)[[\"%s\"]], colData(sce)[[\"%s\"]]\n%s\n",
+      strrep("─", 19),
+      ref_name, labels_col,
+      length(dims), max(dims),
+      mode_str,
+      format(n_annotated, big.mark = ","),
+      format(n_na, big.mark = ","),
+      n_types,
+      label_col, score_col,
+      strrep("─", 56)
+    ))
+  }
+
+  sce
+}
+
+
 # ==============================================================================
 # Manual label assignment
 # ==============================================================================
@@ -727,6 +928,30 @@ PANDORA_convert_orthologs <- function(genes,
 
   fn <- getExportedValue("celldex", .pandora_celldex_refs$fn[idx])
   fn()
+}
+
+
+# Resolve an annotation reference (Seurat, SingleCellExperiment, or generic
+# SummarizedExperiment) to a Seurat object for PANDORA_annotate_transfer().
+# Reuses TALARIA_to_seurat() rather than duplicating SCE<->Seurat conversion
+# logic. A Seurat object is passed through unchanged -- trusted as already
+# prepared (normalized + reduced) by the caller.
+.pandora_resolve_transfer_reference <- function(reference, counts_assay, data_assay) {
+  if (inherits(reference, "Seurat")) return(reference)
+
+  if (inherits(reference, "SummarizedExperiment") &&
+      !inherits(reference, "SingleCellExperiment"))
+    reference <- as(reference, "SingleCellExperiment")
+
+  if (!inherits(reference, "SingleCellExperiment"))
+    stop("'reference' must be a Seurat, SingleCellExperiment, or ",
+         "SummarizedExperiment object.", call. = FALSE)
+
+  if (!data_assay %in% assayNames(reference))
+    stop("Assay '", data_assay, "' not found in reference. Available: ",
+         paste(assayNames(reference), collapse = ", "), call. = FALSE)
+
+  TALARIA_to_seurat(reference, counts = counts_assay, data = data_assay)
 }
 
 

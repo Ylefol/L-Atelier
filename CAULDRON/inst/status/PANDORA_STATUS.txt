@@ -1,7 +1,7 @@
 ================================================================================
 PANDORA STATUS - Cell Type Annotation
 ================================================================================
-Last Updated: 2026-08-28
+Last Updated: 2026-11-27
 
 ================================================================================
 IMPLEMENTED FUNCTIONS
@@ -60,6 +60,33 @@ PANDORA_annotate_sctype(sce, tissue, cluster_col="cluster", db=NULL,
   - Stores result in colData(sce)[[label_col]]
   - Requires readxl (Suggests, for .xlsx DB reading)
   - Requires orthogene (Suggests, only when species != "human")
+
+PANDORA_annotate_transfer(sce, reference, reference_reduction="pca", dims=NULL,
+                           labels_col="label.main", cluster_col=NULL,
+                           assay_name="logcounts", counts_assay="counts",
+                           min_score=NULL, label_col="transfer_label", verbose=TRUE)
+  - Anchor-based annotation via Seurat::FindTransferAnchors()/TransferData()
+  - reference: a prepared Seurat object, or a SingleCellExperiment/
+    SummarizedExperiment converted via TALARIA_to_seurat() (reducedDims carry
+    over in that conversion)
+  - Validates but never auto-prepares the reference: reference_reduction
+    (default "pca") must already exist on reference, else errors naming the
+    recipe to run first (NormalizeData/FindVariableFeatures/ScaleData/RunPCA,
+    or SCTransform/RunPCA) -- deliberate, avoids silently baking in prep
+    defaults that may not suit an atypical reference's composition
+  - dims=NULL: defaults to every component already on reference_reduction
+    (1:ncol(Embeddings(...))) rather than guessing a PC count
+  - cluster_col=NULL: cell-level transfer; cluster_col="cluster": per-cell
+    labels aggregated by majority vote per cluster, mean confidence score,
+    broadcast back to cells -- same semantics as PANDORA_annotate_singler's
+    cluster_col
+  - min_score=NULL (default): no thresholding. Set to a numeric cutoff to
+    set sub-threshold labels to NA (no delta-score pruning available here,
+    unlike SingleR's prune=TRUE)
+  - Confidence score always stored in colData(sce)[[paste0(label_col,
+    "_score")]], regardless of whether min_score is set
+  - Stores labels in colData(sce)[[label_col]]
+  - Requires Seurat, SeuratObject (Imports)
 
 pandora_celltypist.R:
 ---------------------
@@ -144,6 +171,9 @@ PLANNED / TODO
 DEPENDENCIES / NOTES
 ================================================================================
 - SingleR (Imports): reference-based annotation
+- Seurat, SeuratObject (Imports): anchor-based label transfer
+  (PANDORA_annotate_transfer); SCE<->Seurat conversion reused from
+  TALARIA_to_seurat()/TALARIA_from_seurat() (talaria_io.R)
 - basilisk (Imports): isolated Python environment management for CellTypist
   Install: BiocManager::install("basilisk")
   First use creates a conda env (~2-3 min); all subsequent calls instant

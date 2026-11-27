@@ -29,6 +29,9 @@
 #' @param color_low Character. Color for low values (default = "#2166ac" blue).
 #' @param color_high Character. Color for high values (default = "#b2182b" red).
 #' @param dot_range Numeric vector of length 2. Min and max dot sizes (default = c(2, 8)).
+#' @param subtitle_wrap_width Integer. Character width at which the subtitle
+#'   (query/background gene counts, which can grow long with many modules) is
+#'   wrapped onto multiple lines (default = 100).
 #'
 #' @return A ggplot object.
 #'
@@ -83,7 +86,8 @@ AETHER_plot_gost_dotplot <- function(gost_result,
                                       max_term_length = 50,
                                       color_low = "#2166ac",
                                       color_high = "#b2182b",
-                                      dot_range = c(2, 8)) {
+                                      dot_range = c(2, 8),
+                                      subtitle_wrap_width = 100) {
 
   # ---------------------------------------------------------------------------
   # Extract data
@@ -338,6 +342,10 @@ AETHER_plot_gost_dotplot <- function(gost_result,
   if (!is.na(bg_size)) {
     subtitle <- paste0(subtitle, " | Background: ", format(bg_size, big.mark = ","), " genes")
   }
+  # Multi-module query_info_str can make the subtitle far wider than the
+  # title/plot -- wrap it onto multiple lines the same way term names are
+  # wrapped above, instead of letting it run outside the plotting bounds.
+  subtitle <- paste(strwrap(subtitle, width = subtitle_wrap_width), collapse = "\n")
 
   p <- ggplot(df, aes(x = module_label, y = term_short)) +
     geom_point(aes(size = size_var, color = color_var)) +

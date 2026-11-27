@@ -45,23 +45,31 @@ export(HORIZON_start_log)
 export(HORIZON_stop_log)
 export(HORIZON_validate_parse_sheet)
 export(HORIZON_validate_sample_sheet)
-importFrom(GenomicRanges,GRanges)
-importFrom(GenomicRanges,binnedAverage)
-importFrom(GenomicRanges,coverage)
-importFrom(IRanges,IRanges)
-importFrom(IRanges,end)
-importFrom(IRanges,slice)
-importFrom(IRanges,start)
-importFrom(IRanges,viewMaxs)
-importFrom(IRanges,viewSums)
-importFrom(IRanges,width)
+importFrom(GenomicRanges,
+  GRanges,
+  binnedAverage,
+  coverage
+)
+importFrom(IRanges,
+  IRanges,
+  end,
+  slice,
+  start,
+  viewMaxs,
+  viewSums,
+  width
+)
 importFrom(scales,percent)
-importFrom(stats,quantile)
-importFrom(stats,setNames)
-importFrom(utils,capture.output)
-importFrom(utils,head)
-importFrom(utils,read.csv)
-importFrom(utils,read.table)
-importFrom(utils,sessionInfo)
-importFrom(utils,write.csv)
-importFrom(utils,write.table)
+importFrom(stats,
+  quantile,
+  setNames
+)
+importFrom(utils,
+  capture.output,
+  head,
+  read.csv,
+  read.table,
+  sessionInfo,
+  write.csv,
+  write.table
+)
