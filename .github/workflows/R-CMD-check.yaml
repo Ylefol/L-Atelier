@@ -56,7 +56,8 @@ jobs:
         with:
           working-directory: ${{ matrix.package }}
           # GAIA's tests use limma, sva and mice (Suggests); without them 10-14 tests skip silently.
-          extra-packages: any::rcmdcheck, any::testthat${{ matrix.package == 'GAIA' && ', any::limma, any::sva, any::mice' || '' }}
+          # HORIZON's TEcount aggregation test needs rtracklayer (Suggests).
+          extra-packages: any::rcmdcheck, any::testthat${{ matrix.package == 'GAIA' && ', any::limma, any::sva, any::mice' || '' }}${{ matrix.package == 'HORIZON' && ', any::rtracklayer' || '' }}
           dependencies: '"hard"'
           needs: check
 
